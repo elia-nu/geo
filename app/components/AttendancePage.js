@@ -16,6 +16,14 @@ export default function AttendancePage({ user, onLogout }) {
   const webcamRef = useRef(null);
   const [userLocation, setUserLocation] = useState(null);
   const [geofences, setGeofences] = useState({});
+
+  // Helper function to calculate distance between two coordinates
+  const calculateDistance = (lat1, lng1, lat2, lng2) => {
+    return Math.sqrt(
+      Math.pow((lat1 - lat2) * 111000, 2) +
+        Math.pow((lng1 - lng2) * 111000 * Math.cos((lat2 * Math.PI) / 180), 2)
+    );
+  };
   // Add state for new geofence form
   const [newGeofence, setNewGeofence] = useState({
     name: "",
@@ -228,6 +236,40 @@ export default function AttendancePage({ user, onLogout }) {
           {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
         </span>
       </div>
+
+      {/* Geofence Status Indicator */}
+      {geofence && userLocation && (
+        <div className="mb-4 text-center">
+          {(() => {
+            const distance = calculateDistance(
+              userLocation.lat,
+              userLocation.lng,
+              geofence.lat,
+              geofence.lng
+            );
+            const isInside = distance <= geofence.radius;
+            return (
+              <div
+                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                  isInside
+                    ? "bg-green-50 text-green-700 border border-green-200"
+                    : "bg-red-50 text-red-700 border border-red-200"
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full mr-2 ${
+                    isInside ? "bg-green-400" : "bg-red-400"
+                  }`}
+                ></span>
+                {isInside ? "Inside Geofence" : "Outside Geofence"}
+                <span className="ml-1 text-xs opacity-75">
+                  ({Math.round(distance)}m / {geofence.radius}m)
+                </span>
+              </div>
+            );
+          })()}
+        </div>
+      )}
       {/* Header */}
       <header className="w-full max-w-2xl mx-auto text-center mb-8">
         <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-2">
@@ -287,7 +329,18 @@ export default function AttendancePage({ user, onLogout }) {
           {/* Mark Attendance Button */}
           <button
             onClick={handleAttendance}
-            disabled={!isCameraActive || isProcessing}
+            disabled={
+              !isCameraActive ||
+              isProcessing ||
+              (geofence &&
+                userLocation &&
+                calculateDistance(
+                  userLocation.lat,
+                  userLocation.lng,
+                  geofence.lat,
+                  geofence.lng
+                ) > geofence.radius)
+            }
             className="w-full max-w-xs py-2 rounded-lg bg-green-600 text-white font-medium shadow hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center"
           >
             {isProcessing ? (
@@ -351,9 +404,13 @@ export default function AttendancePage({ user, onLogout }) {
                     new Date().toDateString()
                 )
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                .map((record) => (
+                .map((record, index) => (
                   <li
-                    key={record.id}
+                    key={
+                      record._id ||
+                      record.id ||
+                      `${record.name}-${record.timestamp}-${index}`
+                    }
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white/80 rounded-lg px-4 py-2 shadow-sm"
                   >
                     <div className="flex flex-col">
@@ -364,6 +421,21 @@ export default function AttendancePage({ user, onLogout }) {
                         <span className="text-xs text-gray-500 font-mono">
                           {record.lat.toFixed(6)}, {record.lng.toFixed(6)}
                         </span>
+                      )}
+                      {record.geofenceValidated && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              record.distanceFromCenter <= record.geofenceRadius
+                                ? "bg-green-400"
+                                : "bg-red-400"
+                            }`}
+                          ></span>
+                          <span className="text-xs text-gray-500">
+                            {record.distanceFromCenter}m /{" "}
+                            {record.geofenceRadius}m
+                          </span>
+                        </div>
                       )}
                     </div>
                     <span className="text-xs text-gray-500 ml-2">
