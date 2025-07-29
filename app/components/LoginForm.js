@@ -60,7 +60,7 @@ export default function LoginForm({ onLogin }) {
               placeholder="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-10 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition placeholder-gray-400 bg-white"
+              className="w-full px-10 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition placeholder-gray-400 bg-white text-gray-700"
               autoFocus
               autoComplete="username"
             />
@@ -86,7 +86,7 @@ export default function LoginForm({ onLogin }) {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition placeholder-gray-400 bg-white pr-12"
+              className="w-full px-4 py-3 rounded-lg border text-gray-700 border-gray-300 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition placeholder-gray-400 bg-white pr-12"
               autoComplete="current-password"
             />
             <button
