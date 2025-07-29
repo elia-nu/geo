@@ -1,6 +1,6 @@
 "use client";
+import ClientRoot from "./components/ClientRoot";
 
-// Placeholder for login redirect
 export default function Home() {
-  return <div>Redirecting to login...</div>;
+  return <ClientRoot />;
 }

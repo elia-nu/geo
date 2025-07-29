@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import LoginForm from "./LoginForm";
 import AttendancePage from "./AttendancePage";
+import Navbar from "./Navbarw";
 
 export default function ClientRoot() {
   const [user, setUser] = useState(null);
@@ -13,5 +14,16 @@ export default function ClientRoot() {
     setUser(username);
   };
 
-  return !user ? <LoginForm onLogin={handleLogin} /> : <AttendancePage />;
+  const handleLogout = () => {
+    localStorage.removeItem("attendanceUser");
+    setUser(null);
+  };
+
+  if (!user) return <LoginForm onLogin={handleLogin} />;
+  return (
+    <>
+      <Navbar user={user} onLogout={handleLogout} />
+      <AttendancePage user={user} onLogout={handleLogout} />
+    </>
+  );
 }

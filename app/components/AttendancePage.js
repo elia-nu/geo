@@ -5,9 +5,8 @@ import { FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import { format } from "date-fns";
 import FaceDetectionBox from "./FaceDetectionBox";
 import GeofenceMap from "./GeofenceMap";
-import geofences from "../../data/geofences.json";
 
-export default function AttendancePage() {
+export default function AttendancePage({ user, onLogout }) {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -16,12 +15,15 @@ export default function AttendancePage() {
   const [isFaceDetected, setIsFaceDetected] = useState(false);
   const webcamRef = useRef(null);
   const [userLocation, setUserLocation] = useState(null);
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("attendanceUser");
-    if (storedUser) setUser(storedUser);
-  }, []);
+  const [geofences, setGeofences] = useState({});
+  // Add state for new geofence form
+  const [newGeofence, setNewGeofence] = useState({
+    name: "",
+    lat: "",
+    lng: "",
+    radius: "",
+  });
+  const [addGeoMsg, setAddGeoMsg] = useState("");
 
   useEffect(() => {
     let intervalId;
@@ -45,6 +47,25 @@ export default function AttendancePage() {
   useEffect(() => {
     if (user) loadAttendanceRecords();
   }, [user]);
+
+  useEffect(() => {
+    // Fetch geofences from API
+    const fetchGeofences = async () => {
+      try {
+        const response = await fetch("/api/geofences");
+        const data = await response.json();
+        // Convert array to object keyed by name for compatibility
+        const geofenceObj = {};
+        data.forEach((g) => {
+          geofenceObj[g.name] = g;
+        });
+        setGeofences(geofenceObj);
+      } catch (error) {
+        console.error("Error loading geofences:", error);
+      }
+    };
+    fetchGeofences();
+  }, []);
 
   const loadAttendanceRecords = async () => {
     try {
@@ -196,26 +217,10 @@ export default function AttendancePage() {
     );
   }
 
-  // Logout handler
-  const handleLogout = () => {
-    localStorage.removeItem("attendanceUser");
-    window.location.reload();
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 flex flex-col items-center px-2 py-6">
       {/* User info and logout */}
-      <div className="w-full max-w-4xl flex justify-end items-center mb-2">
-        <span className="text-sm text-gray-700 mr-4">
-          Logged in as <span className="font-semibold">{user}</span>
-        </span>
-        <button
-          onClick={handleLogout}
-          className="px-3 py-1 rounded bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition"
-        >
-          Logout
-        </button>
-      </div>
+
       {/* Show user location coordinates */}
       <div className="mb-2 text-center text-sm text-gray-700">
         <span className="font-semibold">Your Location:</span>{" "}
