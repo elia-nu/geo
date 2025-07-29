@@ -117,7 +117,15 @@ export async function POST(request) {
     };
 
     attendance.push(newEntry);
-    saveAttendance(attendance);
+    try {
+      saveAttendance(attendance);
+    } catch (saveError) {
+      console.error(
+        "Failed to save attendance.json, but attendance is marked:",
+        saveError
+      );
+      // Optionally, you could add a flag in the response to indicate this
+    }
 
     return NextResponse.json({
       success: true,
