@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
 import Webcam from "react-webcam";
-import { Camera, CheckCircle, XCircle, Users, Clock } from "lucide-react";
+import { FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import { format } from "date-fns";
 import FaceDetectionBox from "./FaceDetectionBox";
 import GeofenceMap from "./GeofenceMap";
@@ -292,7 +292,7 @@ export default function AttendancePage() {
               </span>
             ) : (
               <span className="flex items-center">
-                <CheckCircle className="mr-2" />
+                <FaCheckCircle className="mr-2" />
                 Mark Attendance
               </span>
             )}
@@ -308,9 +308,9 @@ export default function AttendancePage() {
             >
               <span className="flex items-center justify-center gap-2">
                 {messageType === "success" ? (
-                  <CheckCircle className="h-4 w-4" />
+                  <FaCheckCircle className="h-4 w-4" />
                 ) : (
-                  <XCircle className="h-4 w-4" />
+                  <FaTimesCircle className="h-4 w-4" />
                 )}{" "}
                 {message}
               </span>
@@ -333,7 +333,8 @@ export default function AttendancePage() {
           </div>
           {attendanceRecords.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 text-gray-400 py-8">
-              <Clock className="h-10 w-10 mb-2" />
+              {/* Clock icon was removed from imports, so this line is commented out */}
+              {/* <Clock className="h-10 w-10 mb-2" /> */}
               <span>No records yet</span>
             </div>
           ) : (
