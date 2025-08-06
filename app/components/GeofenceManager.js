@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export default function GeofenceManager() {
   const [geofences, setGeofences] = useState([]);
@@ -114,6 +115,27 @@ export default function GeofenceManager() {
   return (
     <div className=" min-h-screen w-full bg-white">
       <div className="max-w-3xl mx-auto p-8   ">
+        <div className="mb-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-blue-700 hover:text-blue-900 font-semibold px-3 py-1 rounded transition bg-blue-50 hover:bg-blue-100 border border-blue-200 shadow-sm"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            Back to Home
+          </Link>
+        </div>
         <h2 className="text-3xl font-extrabold mb-6 text-blue-800 flex items-center gap-2">
           <svg
             className="w-7 h-7 text-blue-500"

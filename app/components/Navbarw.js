@@ -7,7 +7,7 @@ export default function Navbar({ user, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Helper to check admin
-  const isAdmin = user === "elias" || user === "mekdi";
+  const isAdmin = user === "elias" || user === "mekdi" || user === "abdi";
 
   return (
     <nav className="w-full flex items-center justify-between px-4 md:px-8 py-4 bg-white backdrop-blur-md shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] border-b border-gray-200 text-black z-50 relative">

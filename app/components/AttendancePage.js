@@ -16,6 +16,7 @@ export default function AttendancePage({ user, onLogout }) {
   const webcamRef = useRef(null);
   const [userLocation, setUserLocation] = useState(null);
   const [geofences, setGeofences] = useState({});
+  const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
 
   // Helper function to calculate distance between two coordinates
   const calculateDistance = (lat1, lng1, lat2, lng2) => {
@@ -37,13 +38,19 @@ export default function AttendancePage({ user, onLogout }) {
     let intervalId;
     function fetchLocation() {
       if (navigator.geolocation) {
+        const options = {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0, // Force fresh location, don't use cached data
+        };
         navigator.geolocation.getCurrentPosition(
           (pos) =>
             setUserLocation({
               lat: pos.coords.latitude,
               lng: pos.coords.longitude,
             }),
-          () => setUserLocation(null)
+          () => setUserLocation(null),
+          options
         );
       }
     }
@@ -108,9 +115,15 @@ export default function AttendancePage({ user, onLogout }) {
           if (!navigator.geolocation) {
             reject(new Error("Geolocation is not supported by your browser"));
           } else {
+            const options = {
+              enableHighAccuracy: true,
+              timeout: 15000, // Longer timeout for attendance marking
+              maximumAge: 0, // Force fresh location, don't use cached data
+            };
             navigator.geolocation.getCurrentPosition(
               (pos) => resolve(pos.coords),
-              (err) => reject(err)
+              (err) => reject(err),
+              options
             );
           }
         });
@@ -198,6 +211,34 @@ export default function AttendancePage({ user, onLogout }) {
     setMessage("");
   };
 
+  // Manual location refresh function
+  const refreshLocation = () => {
+    if (navigator.geolocation) {
+      setIsRefreshingLocation(true);
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0, // Force fresh location, don't use cached data
+      };
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          });
+          setIsRefreshingLocation(false);
+          showMessage("Location refreshed successfully!", "success");
+        },
+        (err) => {
+          setUserLocation(null);
+          setIsRefreshingLocation(false);
+          showMessage("Failed to refresh location: " + err.message, "error");
+        },
+        options
+      );
+    }
+  };
+
   // Get geofence for logged-in user
   const geofence = user ? geofences[user] : null;
 
@@ -235,6 +276,14 @@ export default function AttendancePage({ user, onLogout }) {
         <span className="font-mono">
           {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
         </span>
+        <button
+          onClick={refreshLocation}
+          disabled={isRefreshingLocation}
+          className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Refresh location data"
+        >
+          {isRefreshingLocation ? "⏳ Refreshing..." : "🔄 Refresh"}
+        </button>
       </div>
 
       {/* Geofence Status Indicator */}
