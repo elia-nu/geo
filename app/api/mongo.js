@@ -1,7 +1,6 @@
-const { MongoClient } = require("mongodb");
+import { MongoClient } from "mongodb";
 
-const uri =
-  "mongodb+srv://eliasnuru456:mICRRn0nG4WQpg4S@cluster0.y2mdtvi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const uri = "mongodb://localhost:27017/geo";
 const options = {};
 
 let client;
@@ -13,9 +12,39 @@ if (!global._mongoClientPromise) {
 }
 clientPromise = global._mongoClientPromise;
 
-async function getDb() {
+export async function getDb() {
   const client = await clientPromise;
   return client.db(); // default DB, can specify name if needed
 }
 
-module.exports = { getDb };
+export const employeeSchema = {
+  personalDetails: {
+    name: String,
+    dateOfBirth: Date,
+    address: String,
+    contactNumber: String,
+    email: String,
+  },
+  employmentHistory: [
+    {
+      company: String,
+      position: String,
+      startDate: Date,
+      endDate: Date,
+    },
+  ],
+  certifications: [
+    {
+      title: String,
+      institution: String,
+      dateObtained: Date,
+      expiryDate: Date,
+    },
+  ],
+  skills: [String],
+  healthRecords: {
+    bloodType: String,
+    allergies: [String],
+    medicalConditions: [String],
+  },
+};

@@ -1,6 +1,5 @@
-"use client";
-import ClientRoot from "./components/ClientRoot";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <ClientRoot />;
+  redirect("/hrm");
 }
