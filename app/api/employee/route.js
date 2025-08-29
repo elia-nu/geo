@@ -47,10 +47,17 @@ export async function GET() {
   try {
     const db = await getDb();
     const employees = await db.collection("employees").find().toArray();
-    return NextResponse.json(employees);
+    return NextResponse.json({
+      success: true,
+      employees: employees,
+    });
   } catch (error) {
+    console.error("Error fetching employees:", error);
     return NextResponse.json(
-      { error: "Failed to fetch employees" },
+      {
+        success: false,
+        error: "Failed to fetch employees",
+      },
       { status: 500 }
     );
   }

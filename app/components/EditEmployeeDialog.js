@@ -255,7 +255,14 @@ export default function EditEmployeeDialog({
                     Work Location
                   </label>
                   <select
-                    value={selectedEmployee.workLocation || ""}
+                    value={
+                      typeof selectedEmployee.workLocation === "object" &&
+                      selectedEmployee.workLocation?.name
+                        ? selectedEmployee.workLocation.name
+                        : typeof selectedEmployee.workLocation === "string"
+                        ? selectedEmployee.workLocation
+                        : ""
+                    }
                     onChange={(e) =>
                       setSelectedEmployee({
                         ...selectedEmployee,

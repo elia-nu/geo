@@ -62,6 +62,13 @@ export default function EmployeeDatabase() {
     return emp.skills || [];
   };
 
+  // Helper to normalize workLocation to a displayable string
+  const getWorkLocationDisplay = (value) => {
+    if (typeof value === "object" && value?.name) return String(value.name);
+    if (typeof value === "string") return value;
+    return "";
+  };
+
   // Filter employees based on search and filters
   useEffect(() => {
     let filtered = employees;
@@ -81,7 +88,7 @@ export default function EmployeeDatabase() {
           (emp.designation || "")
             .toLowerCase()
             .includes(searchTerm.toLowerCase()) ||
-          (emp.workLocation || "")
+          getWorkLocationDisplay(emp.workLocation)
             .toLowerCase()
             .includes(searchTerm.toLowerCase()) ||
           getEmployeeSkills(emp).some((skill) =>
@@ -107,7 +114,9 @@ export default function EmployeeDatabase() {
     }
 
     if (locationFilter) {
-      filtered = filtered.filter((emp) => emp.workLocation === locationFilter);
+      filtered = filtered.filter(
+        (emp) => getWorkLocationDisplay(emp.workLocation) === locationFilter
+      );
     }
 
     setFilteredEmployees(filtered);
@@ -129,10 +138,22 @@ export default function EmployeeDatabase() {
         throw new Error(`Failed to fetch employees: ${response.statusText}`);
       }
       const data = await response.json();
-      setEmployees(data);
+
+      // Check if the API response has the correct structure
+      if (data.success && Array.isArray(data.employees)) {
+        setEmployees(data.employees);
+      } else if (Array.isArray(data)) {
+        // Fallback for old API format
+        setEmployees(data);
+      } else {
+        console.error("Invalid API response format:", data);
+        setEmployees([]);
+        setError("Invalid data format received from server");
+      }
     } catch (error) {
       console.error("Error fetching employees:", error);
       setError("Failed to load employees. Please try again.");
+      setEmployees([]);
     } finally {
       setLoading(false);
     }
@@ -163,11 +184,13 @@ export default function EmployeeDatabase() {
     }
 
     // Check for duplicate email
-    const existingEmployee = employees.find(
-      (emp) => getEmployeeEmail(emp) === email && emp._id !== employee._id
-    );
-    if (existingEmployee) {
-      errors.email = "Email already exists";
+    if (Array.isArray(employees)) {
+      const existingEmployee = employees.find(
+        (emp) => getEmployeeEmail(emp) === email && emp._id !== employee._id
+      );
+      if (existingEmployee) {
+        errors.email = "Email already exists";
+      }
     }
 
     return errors;
@@ -332,20 +355,32 @@ export default function EmployeeDatabase() {
   };
 
   const getUniqueDepartments = () => {
-    return [...new Set(employees.map((emp) => emp.department))];
+    if (!Array.isArray(employees)) return [];
+    return [...new Set(employees.map((emp) => emp.department).filter(Boolean))];
   };
 
   const getUniqueSkills = () => {
+    if (!Array.isArray(employees)) return [];
     const allSkills = employees.flatMap((emp) => getEmployeeSkills(emp));
     return [...new Set(allSkills)];
   };
 
   const getUniqueDesignations = () => {
-    return [...new Set(employees.map((emp) => emp.designation))];
+    if (!Array.isArray(employees)) return [];
+    return [
+      ...new Set(employees.map((emp) => emp.designation).filter(Boolean)),
+    ];
   };
 
   const getUniqueLocations = () => {
-    return [...new Set(employees.map((emp) => emp.workLocation))];
+    if (!Array.isArray(employees)) return [];
+    return [
+      ...new Set(
+        employees
+          .map((emp) => getWorkLocationDisplay(emp.workLocation))
+          .filter(Boolean)
+      ),
+    ];
   };
 
   return (
@@ -516,7 +551,8 @@ export default function EmployeeDatabase() {
         {/* Results Summary */}
         <div className="border-t border-gray-200 pt-4">
           <p className="text-sm text-gray-600">
-            Showing {filteredEmployees.length} of {employees.length} employees
+            Showing {filteredEmployees.length} of{" "}
+            {Array.isArray(employees) ? employees.length : 0} employees
             {searchTerm ||
             departmentFilter ||
             skillFilter ||
@@ -567,7 +603,8 @@ export default function EmployeeDatabase() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {loading && employees.length === 0 ? (
+              {loading &&
+              (!Array.isArray(employees) || employees.length === 0) ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center">
@@ -616,7 +653,12 @@ export default function EmployeeDatabase() {
                       {employee.designation}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {employee.workLocation}
+                      {typeof employee.workLocation === "object" &&
+                      employee.workLocation?.name
+                        ? employee.workLocation.name
+                        : typeof employee.workLocation === "string"
+                        ? employee.workLocation
+                        : "Not specified"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-wrap gap-1">
@@ -1226,7 +1268,12 @@ export default function EmployeeDatabase() {
                         Work Location
                       </label>
                       <p className="text-gray-900">
-                        {selectedEmployee.workLocation || "Not specified"}
+                        {typeof selectedEmployee.workLocation === "object" &&
+                        selectedEmployee.workLocation?.name
+                          ? selectedEmployee.workLocation.name
+                          : typeof selectedEmployee.workLocation === "string"
+                          ? selectedEmployee.workLocation
+                          : "Not specified"}
                       </p>
                     </div>
                     <div>

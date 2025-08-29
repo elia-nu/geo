@@ -1,5 +1,6 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Users,
   FileText,
@@ -15,15 +16,47 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  Shield,
 } from "lucide-react";
 
 const Sidebar = ({
   activeSection,
-  onSectionChange,
+  onSectionChange = () => {},
   isCollapsed,
   onToggleCollapse,
 }) => {
+  const router = useRouter();
   const [expandedMenus, setExpandedMenus] = useState({});
+
+  // Auto-expand attendance menu when attendance-reports is active
+  useEffect(() => {
+    if (
+      activeSection === "attendance-reports" ||
+      activeSection === "admin-attendance" ||
+      activeSection === "employee-setup" ||
+      activeSection === "employee-login" ||
+      activeSection === "attendance-daily" ||
+      activeSection === "attendance-documents" ||
+      activeSection === "attendance-legacy"
+    ) {
+      setExpandedMenus((prev) => ({
+        ...prev,
+        attendance: true,
+      }));
+    }
+
+    // Auto-expand leave management menu when leave sections are active
+    if (
+      activeSection === "leave-approval" ||
+      activeSection === "leave-balances" ||
+      activeSection === "leave-reports"
+    ) {
+      setExpandedMenus((prev) => ({
+        ...prev,
+        "leave-management": true,
+      }));
+    }
+  }, [activeSection]);
 
   const menuItems = [
     {
@@ -51,6 +84,11 @@ const Sidebar = ({
           id: "employee-search",
           label: "Search Employees",
           path: "/hrm/employees/search",
+        },
+        {
+          id: "employee-location",
+          label: "Employee Location",
+          path: "/employee-location",
         },
       ],
     },
@@ -105,16 +143,17 @@ const Sidebar = ({
           path: "/hrm/organization/departments",
         },
         {
-          id: "locations",
-          label: "Work Locations",
-          path: "/hrm/organization/locations",
-        },
-        {
           id: "hierarchy",
           label: "Org Hierarchy",
           path: "/hrm/organization/hierarchy",
         },
       ],
+    },
+    {
+      id: "work-locations",
+      label: "Work Locations",
+      icon: MapPin,
+      path: "/work-locations",
     },
     {
       id: "notifications",
@@ -127,6 +166,70 @@ const Sidebar = ({
       label: "Calendar",
       icon: Calendar,
       path: "/hrm/calendar",
+    },
+    {
+      id: "attendance",
+      label: "Attendance",
+      icon: Calendar,
+      submenu: [
+        {
+          id: "employee-setup",
+          label: "Employee Setup",
+          path: "/employee-setup",
+        },
+        {
+          id: "employee-login",
+          label: "Employee Login",
+          path: "/employee-login",
+        },
+        {
+          id: "attendance-daily",
+          label: "Daily Attendance",
+          path: "/attendance-daily",
+        },
+        {
+          id: "attendance-documents",
+          label: "Submit Documents",
+          path: "/attendance-documents",
+        },
+        {
+          id: "attendance-legacy",
+          label: "Legacy System",
+          path: "/",
+        },
+        {
+          id: "admin-attendance",
+          label: "Admin Management",
+          path: "/admin-attendance",
+        },
+        {
+          id: "attendance-reports",
+          label: "Attendance Reports",
+          path: "/attendance-reports",
+        },
+      ],
+    },
+    {
+      id: "leave-management",
+      label: "Leave Management",
+      icon: Calendar,
+      submenu: [
+        {
+          id: "leave-approval",
+          label: "Leave Approval",
+          path: "/hrm/leave/approval",
+        },
+        {
+          id: "leave-balances",
+          label: "Leave Balances",
+          path: "/hrm/leave/balances",
+        },
+        {
+          id: "leave-reports",
+          label: "Leave Reports",
+          path: "/hrm/leave/reports",
+        },
+      ],
     },
     {
       id: "settings",
@@ -148,12 +251,28 @@ const Sidebar = ({
     if (item.submenu) {
       toggleSubmenu(item.id);
     } else {
-      onSectionChange(item.id);
+      if (item.path && !item.path.startsWith("/hrm")) {
+        router.push(item.path);
+      } else {
+        if (typeof onSectionChange === "function") {
+          onSectionChange(item.id);
+        } else {
+          console.warn("onSectionChange is not a function:", onSectionChange);
+        }
+      }
     }
   };
 
   const handleSubmenuClick = (parentId, submenuItem) => {
-    onSectionChange(submenuItem.id);
+    if (submenuItem.path && !submenuItem.path.startsWith("/hrm")) {
+      router.push(submenuItem.path);
+    } else {
+      if (typeof onSectionChange === "function") {
+        onSectionChange(submenuItem.id);
+      } else {
+        console.warn("onSectionChange is not a function:", onSectionChange);
+      }
+    }
   };
 
   return (

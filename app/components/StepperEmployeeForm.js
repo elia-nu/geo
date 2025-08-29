@@ -613,7 +613,14 @@ export default function StepperEmployeeForm({
                 </label>
                 <input
                   type="text"
-                  value={personalDetails.workLocation}
+                  value={
+                    typeof personalDetails.workLocation === "object" &&
+                    personalDetails.workLocation?.name
+                      ? personalDetails.workLocation.name
+                      : typeof personalDetails.workLocation === "string"
+                      ? personalDetails.workLocation
+                      : ""
+                  }
                   onChange={(e) =>
                     setPersonalDetails({
                       ...personalDetails,

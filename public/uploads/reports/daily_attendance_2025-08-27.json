@@ -1,0 +1,58 @@
+{
+  "type": "daily",
+  "period": {
+    "startDate": "2025-08-27",
+    "endDate": "2025-08-27"
+  },
+  "summary": {
+    "totalRecords": 1,
+    "uniqueEmployees": 1,
+    "totalCheckIns": 1,
+    "totalCheckOuts": 0,
+    "totalWorkingHours": 0,
+    "totalFaceVerified": 1,
+    "totalLocationVerified": 1,
+    "averageWorkingHours": 0
+  },
+  "dailyStats": [
+    {
+      "date": "2025-08-27",
+      "checkIns": 1,
+      "checkOuts": 0,
+      "workingHours": 0,
+      "faceVerified": 1,
+      "locationVerified": 1,
+      "uniqueEmployees": 1
+    }
+  ],
+  "records": [
+    {
+      "_id": "68aeca65acf64b48ab01c354",
+      "employeeId": "68ada2ab57e7f15bd0897143",
+      "employeeName": "Unknown Employee",
+      "employeeEmail": "",
+      "department": "",
+      "date": "2025-08-27",
+      "checkInTime": "2025-08-27T09:05:41.272Z",
+      "workingHours": 0,
+      "workLocationName": "Unknown Location",
+      "checkInLocation": {
+        "latitude": 9.005662439446349,
+        "longitude": 38.768062183277976
+      },
+      "faceVerified": true,
+      "checkInPhoto": null,
+      "checkOutPhoto": null,
+      "checkInNotes": "",
+      "adminApproval": {
+        "status": "approved",
+        "adminId": "admin",
+        "adminNotes": "m",
+        "rejectionReason": "",
+        "reviewedAt": "2025-08-27T11:49:38.275Z",
+        "reviewedBy": "admin"
+      },
+      "approvalStatus": "approved"
+    }
+  ]
+}

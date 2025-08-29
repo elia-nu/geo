@@ -32,7 +32,7 @@ const Dashboard = ({ onSectionChange }) => {
     try {
       // Fetch employee stats
       const employeesResponse = await fetch("/api/employee");
-      const employees = await employeesResponse.json();
+      const employeesData = await employeesResponse.json();
 
       // Fetch document stats
       const documentsResponse = await fetch("/api/documents/stats");
@@ -42,20 +42,38 @@ const Dashboard = ({ onSectionChange }) => {
       const departments = {};
       const locations = {};
 
-      employees.forEach((emp) => {
-        if (emp.department) {
-          departments[emp.department] = (departments[emp.department] || 0) + 1;
-        }
-        if (emp.workLocation) {
-          locations[emp.workLocation] = (locations[emp.workLocation] || 0) + 1;
-        }
-      });
+      // Check if employees data is valid and has the employees array
+      if (
+        employeesData.success &&
+        employeesData.employees &&
+        Array.isArray(employeesData.employees)
+      ) {
+        employeesData.employees.forEach((emp) => {
+          if (emp.department) {
+            departments[emp.department] =
+              (departments[emp.department] || 0) + 1;
+          }
+          if (emp.workLocation) {
+            // Handle workLocation as either object or string
+            const locationKey =
+              typeof emp.workLocation === "object" && emp.workLocation?.name
+                ? emp.workLocation.name
+                : typeof emp.workLocation === "string"
+                ? emp.workLocation
+                : "Unknown Location";
+
+            locations[locationKey] = (locations[locationKey] || 0) + 1;
+          }
+        });
+      }
 
       setStats({
-        totalEmployees: employees.length,
-        totalDocuments: documentStats.total,
-        expiringDocuments: documentStats.expiring,
-        expiredDocuments: documentStats.expired,
+        totalEmployees: employeesData.success
+          ? employeesData.employees?.length || 0
+          : 0,
+        totalDocuments: documentStats.total || 0,
+        expiringDocuments: documentStats.expiring || 0,
+        expiredDocuments: documentStats.expired || 0,
         departments,
         locations,
       });

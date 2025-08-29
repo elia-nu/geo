@@ -3,6 +3,40 @@ import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../audit/route";
 
+// Get a specific employee by ID
+export async function GET(request, { params }) {
+  try {
+    const db = await getDb();
+
+    console.log("Fetching employee with ID:", params.id);
+
+    // Find the employee
+    const employee = await db.collection("employees").findOne({
+      _id: new ObjectId(params.id),
+    });
+
+    if (!employee) {
+      return NextResponse.json(
+        { success: false, error: "Employee not found" },
+        { status: 404 }
+      );
+    }
+
+    console.log("Found employee:", employee);
+
+    return NextResponse.json({
+      success: true,
+      employee: employee,
+    });
+  } catch (error) {
+    console.error("Error fetching employee:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch employee" },
+      { status: 500 }
+    );
+  }
+}
+
 // Update an employee
 export async function PUT(request, { params }) {
   try {

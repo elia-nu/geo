@@ -52,10 +52,22 @@ export default function DocumentManager() {
         throw new Error(`Failed to fetch employees: ${response.statusText}`);
       }
       const data = await response.json();
-      setEmployees(data);
+
+      // Check if the API response has the correct structure
+      if (data.success && Array.isArray(data.employees)) {
+        setEmployees(data.employees);
+      } else if (Array.isArray(data)) {
+        // Fallback for old API format
+        setEmployees(data);
+      } else {
+        console.error("Invalid API response format:", data);
+        setEmployees([]);
+        setError("Invalid data format received from server");
+      }
     } catch (error) {
       console.error("Error fetching employees:", error);
       setError("Failed to load employees. Please try again.");
+      setEmployees([]);
     }
   };
 

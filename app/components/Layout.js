@@ -3,11 +3,23 @@ import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import { Bell, Search, User, Settings } from "lucide-react";
 
-const Layout = ({ children, activeSection, onSectionChange }) => {
+const Layout = ({
+  children,
+  activeSection = "dashboard",
+  onSectionChange = () => {},
+  user = null,
+  onLogout = null,
+}) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  // Helper function to safely format section name
+  const formatSectionName = (section) => {
+    if (!section) return "Dashboard";
+    return section.replace("-", " ");
   };
 
   return (
@@ -15,7 +27,10 @@ const Layout = ({ children, activeSection, onSectionChange }) => {
       {/* Sidebar */}
       <Sidebar
         activeSection={activeSection}
-        onSectionChange={onSectionChange}
+        onSectionChange={(section) => {
+          console.log("Layout onSectionChange called with:", section);
+          onSectionChange(section);
+        }}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
       />
@@ -37,14 +52,14 @@ const Layout = ({ children, activeSection, onSectionChange }) => {
                   ? "Document Management"
                   : activeSection === "dashboard"
                   ? "Dashboard"
-                  : activeSection.replace("-", " ")}
+                  : formatSectionName(activeSection)}
               </h2>
               <div className="hidden md:block">
                 <nav className="flex space-x-1">
                   <span className="text-sm text-gray-500">HRM System</span>
                   <span className="text-sm text-gray-400">/</span>
                   <span className="text-sm font-medium text-gray-900 capitalize">
-                    {activeSection.replace("-", " ")}
+                    {formatSectionName(activeSection)}
                   </span>
                 </nav>
               </div>
@@ -79,10 +94,20 @@ const Layout = ({ children, activeSection, onSectionChange }) => {
                 </div>
                 <div className="hidden md:block">
                   <p className="text-sm font-medium text-gray-900">
-                    Admin User
+                    {user ? user.name : "Admin User"}
                   </p>
-                  <p className="text-xs text-gray-500">Administrator</p>
+                  <p className="text-xs text-gray-500">
+                    {user ? user.role : "Administrator"}
+                  </p>
                 </div>
+                {onLogout && (
+                  <button
+                    onClick={onLogout}
+                    className="ml-2 px-3 py-1 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                  >
+                    Logout
+                  </button>
+                )}
               </div>
             </div>
           </div>
