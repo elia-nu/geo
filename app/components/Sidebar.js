@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronRight,
   Shield,
+  FolderOpen,
 } from "lucide-react";
 
 const Sidebar = ({
@@ -42,6 +43,14 @@ const Sidebar = ({
       setExpandedMenus((prev) => ({
         ...prev,
         attendance: true,
+      }));
+    }
+
+    // Auto-expand project tracking menu when project-tracking is active
+    if (activeSection === "project-tracking") {
+      setExpandedMenus((prev) => ({
+        ...prev,
+        "project-tracking": true,
       }));
     }
 
@@ -154,6 +163,12 @@ const Sidebar = ({
       label: "Work Locations",
       icon: MapPin,
       path: "/work-locations",
+    },
+    {
+      id: "project-tracking",
+      label: "Project Management",
+      icon: FolderOpen,
+      path: "/project-tracking",
     },
     {
       id: "notifications",
