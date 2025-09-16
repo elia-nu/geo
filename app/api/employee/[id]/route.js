@@ -25,9 +25,15 @@ export async function GET(request, { params }) {
 
     console.log("Found employee:", employee);
 
+    // Serialize ObjectId to string for JSON response
+    const serializedEmployee = {
+      ...employee,
+      _id: employee._id.toString(),
+    };
+
     return NextResponse.json({
       success: true,
-      employee: employee,
+      employee: serializedEmployee,
     });
   } catch (error) {
     console.error("Error fetching employee:", error);

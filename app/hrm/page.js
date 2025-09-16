@@ -9,6 +9,7 @@ import NotificationManager from "../components/NotificationManager";
 import AttendanceReporting from "../components/AttendanceReporting";
 import ManagerLeaveApproval from "../components/ManagerLeaveApproval";
 import LeaveBalance from "../components/LeaveBalance";
+import LeaveCalendar from "../components/LeaveCalendar";
 
 export default function HRMDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -172,8 +173,7 @@ export default function HRMDashboard() {
       case "calendar":
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Calendar</h2>
-            <p className="text-gray-600">Calendar view coming soon...</p>
+            <LeaveCalendar />
           </div>
         );
       case "settings":
