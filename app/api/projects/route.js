@@ -1,42 +1,21 @@
-import { getDb } from "../mongo.js";
-import { ObjectId } from "mongodb";
+import { NextResponse } from "next/server";
+import { getDb } from "../mongo";
 
 export async function GET(request) {
   try {
     const db = await getDb();
     const { searchParams } = new URL(request.url);
 
-    const userId = searchParams.get("userId");
-    const status = searchParams.get("status");
-    const category = searchParams.get("category");
-    const priority = searchParams.get("priority");
-    const search = searchParams.get("search");
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 10;
-    const sortBy = searchParams.get("sortBy") || "createdAt";
-    const sortOrder = searchParams.get("sortOrder") || "desc";
+    const status = searchParams.get("status");
+    const category = searchParams.get("category");
+    const search = searchParams.get("search");
 
-    // Build filter
-    let filter = {};
-
-    if (userId) {
-      filter = {
-        $or: [{ projectManager: userId }, { teamMembers: { $in: [userId] } }],
-      };
-    }
-
-    if (status) {
-      filter.status = status;
-    }
-
-    if (category) {
-      filter.category = category;
-    }
-
-    if (priority) {
-      filter.priority = priority;
-    }
-
+    // Build filter object
+    const filter = {};
+    if (status) filter.status = status;
+    if (category) filter.category = category;
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: "i" } },
@@ -45,71 +24,32 @@ export async function GET(request) {
       ];
     }
 
-    // Calculate pagination
     const skip = (page - 1) * limit;
 
-    // Build sort object
-    const sort = {};
-    sort[sortBy] = sortOrder === "asc" ? 1 : -1;
-
-    // Get projects with pagination
-    const [projects, totalCount] = await Promise.all([
+    const [projects, total] = await Promise.all([
       db
         .collection("projects")
         .find(filter)
-        .sort(sort)
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .toArray(),
       db.collection("projects").countDocuments(filter),
     ]);
 
-    // Get employee details for enrichment
-    const employeeIds = new Set();
-    projects.forEach((project) => {
-      if (project.projectManager) employeeIds.add(project.projectManager);
-      if (project.teamMembers) {
-        project.teamMembers.forEach((member) => employeeIds.add(member));
-      }
-    });
-
-    const employees = await db
-      .collection("employees")
-      .find({
-        _id: { $in: Array.from(employeeIds).map((id) => new ObjectId(id)) },
-      })
-      .toArray();
-
-    const employeeMap = {};
-    employees.forEach((emp) => {
-      employeeMap[emp._id.toString()] = emp.personalDetails?.name || "Unknown";
-    });
-
-    // Enrich projects with employee names
-    const enrichedProjects = projects.map((project) => ({
-      ...project,
-      projectManagerName: employeeMap[project.projectManager] || "Unknown",
-      teamMemberNames:
-        project.teamMembers?.map(
-          (memberId) => employeeMap[memberId] || "Unknown"
-        ) || [],
-    }));
-
-    const totalPages = Math.ceil(totalCount / limit);
-
-    return Response.json({
+    return NextResponse.json({
       success: true,
-      projects: enrichedProjects,
+      data: projects,
       pagination: {
-        currentPage: page,
-        totalPages,
-        totalCount,
+        page,
         limit,
+        total,
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
     console.error("Error fetching projects:", error);
-    return Response.json(
+    return NextResponse.json(
       { success: false, error: "Failed to fetch projects" },
       { status: 500 }
     );
@@ -119,37 +59,63 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const db = await getDb();
-    const body = await request.json();
+    const data = await request.json();
 
-    // Validate required fields
-    if (!body.name || !body.description || !body.projectManager) {
-      return Response.json(
-        { success: false, error: "Missing required fields" },
+    if (!data.name || !data.description || !data.startDate || !data.endDate) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing required fields: name, description, startDate, endDate",
+        },
         { status: 400 }
       );
     }
 
-    // Create project
+    const existingProject = await db.collection("projects").findOne({
+      name: data.name,
+    });
+
+    if (existingProject) {
+      return NextResponse.json(
+        { success: false, error: "Project with this name already exists" },
+        { status: 409 }
+      );
+    }
+
     const project = {
-      ...body,
+      name: data.name,
+      description: data.description,
+      client: data.client || "",
+      category: data.category || "General",
+      priority: data.priority || "Medium",
+      status: "Planning", // Initial status
+      startDate: new Date(data.startDate),
+      endDate: new Date(data.endDate),
+      budget: data.budget || 0,
+      progress: 0,
+      teamMembers: data.teamMembers || [],
+      milestones: [],
+      tasks: [],
+      documents: [],
       createdAt: new Date(),
       updatedAt: new Date(),
-      createdBy: body.createdBy || body.projectManager,
-      lastModifiedBy: body.projectManager,
-      progress: body.progress || 0,
-      actualCost: body.actualCost || 0,
-      status: body.status || "planning",
+      createdBy: data.createdBy || "system",
+      tags: data.tags || [],
     };
 
     const result = await db.collection("projects").insertOne(project);
 
-    return Response.json({
-      success: true,
-      project: { _id: result.insertedId, ...project },
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Project created successfully",
+        data: { ...project, _id: result.insertedId },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error creating project:", error);
-    return Response.json(
+    return NextResponse.json(
       { success: false, error: "Failed to create project" },
       { status: 500 }
     );

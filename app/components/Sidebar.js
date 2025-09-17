@@ -45,15 +45,6 @@ const Sidebar = ({
         attendance: true,
       }));
     }
-
-    // Auto-expand project tracking menu when project-tracking is active
-    if (activeSection === "project-tracking") {
-      setExpandedMenus((prev) => ({
-        ...prev,
-        "project-tracking": true,
-      }));
-    }
-
     // Auto-expand leave management menu when leave sections are active
     if (
       activeSection === "leave-approval" ||
@@ -165,10 +156,16 @@ const Sidebar = ({
       path: "/work-locations",
     },
     {
-      id: "project-tracking",
+      id: "project-management",
       label: "Project Management",
       icon: FolderOpen,
-      path: "/project-tracking",
+      path: "/project-management",
+    },
+    {
+      id: "project-dashboard",
+      label: "Project Dashboard",
+      icon: BarChart3,
+      path: "/project-dashboard",
     },
     {
       id: "notifications",

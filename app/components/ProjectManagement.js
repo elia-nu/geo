@@ -5,7 +5,13 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
-import { Select } from "./ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "./ui/select";
 import {
   Dialog,
   DialogContent,
@@ -74,7 +80,13 @@ export default function ProjectManagement() {
       if (priorityFilter) params.append("priority", priorityFilter);
 
       const response = await fetch(`/api/projects?${params}`);
-      const result = await response.json();
+      const result = await (async () => {
+        try {
+          return await response.clone().json();
+        } catch {
+          return { success: false, error: await response.text() };
+        }
+      })();
 
       if (result.success) {
         setProjects(result.data);
@@ -191,29 +203,44 @@ export default function ProjectManagement() {
           </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <option value="">All Status</option>
-            <option value="planning">Planning</option>
-            <option value="active">Active</option>
-            <option value="on-hold">On Hold</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
+            <SelectTrigger>
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="planning">Planning</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="on-hold">On Hold</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
           </Select>
 
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <option value="">All Categories</option>
-            <option value="development">Development</option>
-            <option value="marketing">Marketing</option>
-            <option value="research">Research</option>
-            <option value="infrastructure">Infrastructure</option>
-            <option value="other">Other</option>
+            <SelectTrigger>
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Categories</SelectItem>
+              <SelectItem value="development">Development</SelectItem>
+              <SelectItem value="marketing">Marketing</SelectItem>
+              <SelectItem value="research">Research</SelectItem>
+              <SelectItem value="infrastructure">Infrastructure</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
           </Select>
 
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <option value="">All Priorities</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
+            <SelectTrigger>
+              <SelectValue placeholder="All Priorities" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Priorities</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+            </SelectContent>
           </Select>
 
           <Select
@@ -224,14 +251,23 @@ export default function ProjectManagement() {
               setSortOrder(order);
             }}
           >
-            <option value="createdAt-desc">Newest First</option>
-            <option value="createdAt-asc">Oldest First</option>
-            <option value="name-asc">Name A-Z</option>
-            <option value="name-desc">Name Z-A</option>
-            <option value="endDate-asc">End Date (Earliest)</option>
-            <option value="endDate-desc">End Date (Latest)</option>
-            <option value="progress-desc">Progress (High to Low)</option>
-            <option value="progress-asc">Progress (Low to High)</option>
+            <SelectTrigger>
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="createdAt-desc">Newest First</SelectItem>
+              <SelectItem value="createdAt-asc">Oldest First</SelectItem>
+              <SelectItem value="name-asc">Name A-Z</SelectItem>
+              <SelectItem value="name-desc">Name Z-A</SelectItem>
+              <SelectItem value="endDate-asc">End Date (Earliest)</SelectItem>
+              <SelectItem value="endDate-desc">End Date (Latest)</SelectItem>
+              <SelectItem value="progress-desc">
+                Progress (High to Low)
+              </SelectItem>
+              <SelectItem value="progress-asc">
+                Progress (Low to High)
+              </SelectItem>
+            </SelectContent>
           </Select>
         </div>
       </Card>
@@ -473,8 +509,13 @@ function ProjectForm({ project, onSuccess, onCancel }) {
         },
         body: JSON.stringify(formData),
       });
-
-      const result = await response.json();
+      const result = await (async () => {
+        try {
+          return await response.clone().json();
+        } catch {
+          return { success: false, error: await response.text() };
+        }
+      })();
 
       if (result.success) {
         onSuccess();
@@ -513,12 +554,17 @@ function ProjectForm({ project, onSuccess, onCancel }) {
               setFormData({ ...formData, category: value })
             }
           >
-            <option value="">Select Category</option>
-            <option value="development">Development</option>
-            <option value="marketing">Marketing</option>
-            <option value="research">Research</option>
-            <option value="infrastructure">Infrastructure</option>
-            <option value="other">Other</option>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Select Category</SelectItem>
+              <SelectItem value="development">Development</SelectItem>
+              <SelectItem value="marketing">Marketing</SelectItem>
+              <SelectItem value="research">Research</SelectItem>
+              <SelectItem value="infrastructure">Infrastructure</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
           </Select>
         </div>
 
@@ -532,11 +578,16 @@ function ProjectForm({ project, onSuccess, onCancel }) {
               setFormData({ ...formData, status: value })
             }
           >
-            <option value="planning">Planning</option>
-            <option value="active">Active</option>
-            <option value="on-hold">On Hold</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="planning">Planning</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="on-hold">On Hold</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
           </Select>
         </div>
 
@@ -550,10 +601,15 @@ function ProjectForm({ project, onSuccess, onCancel }) {
               setFormData({ ...formData, priority: value })
             }
           >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+            </SelectContent>
           </Select>
         </div>
 
@@ -783,4 +839,3 @@ function ProjectDetails({ project }) {
     </div>
   );
 }
-

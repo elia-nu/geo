@@ -10,23 +10,31 @@ import { ChevronDown } from "lucide-react";
 const SelectContext = createContext();
 
 const Select = ({ children, onValueChange, value, ...props }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedValue, setSelectedValue] = useState(value);
+
+  useEffect(() => {
+    setSelectedValue(value);
+  }, [value]);
+
+  const contextValue = {
+    onValueChange,
+    value: selectedValue,
+    isOpen,
+    setIsOpen,
+  };
+
   return (
-    <SelectContext.Provider value={{ onValueChange, value }}>
-      {React.cloneElement(children, { ...props })}
+    <SelectContext.Provider value={contextValue}>
+      <div className="relative">{children}</div>
     </SelectContext.Provider>
   );
 };
 
 const SelectTrigger = React.forwardRef(
   ({ className = "", children, ...props }, ref) => {
-    const { onValueChange, value } = useContext(SelectContext);
-    const [isOpen, setIsOpen] = useState(false);
-    const [selectedValue, setSelectedValue] = useState(value);
+    const { isOpen, setIsOpen, value } = useContext(SelectContext);
     const triggerRef = useRef(null);
-
-    useEffect(() => {
-      setSelectedValue(value);
-    }, [value]);
 
     const handleClick = () => {
       setIsOpen(!isOpen);
@@ -39,26 +47,26 @@ const SelectTrigger = React.forwardRef(
         }
       };
 
-      document.addEventListener("mousedown", handleClickOutside);
+      if (isOpen) {
+        document.addEventListener("mousedown", handleClickOutside);
+      }
+
       return () => {
         document.removeEventListener("mousedown", handleClickOutside);
       };
-    }, []);
+    }, [isOpen, setIsOpen]);
 
     return (
-      <div className="relative" ref={triggerRef}>
-        <button
-          ref={ref}
-          type="button"
-          className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-          onClick={handleClick}
-          {...props}
-        >
-          {selectedValue || children}
-          <ChevronDown className="h-4 w-4 opacity-50" />
-        </button>
-        {isOpen && <SelectContent setIsOpen={setIsOpen} />}
-      </div>
+      <button
+        ref={ref}
+        type="button"
+        className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+        onClick={handleClick}
+        {...props}
+      >
+        {value || children}
+        <ChevronDown className="h-4 w-4 opacity-50" />
+      </button>
     );
   }
 );
@@ -66,8 +74,10 @@ const SelectTrigger = React.forwardRef(
 SelectTrigger.displayName = "SelectTrigger";
 
 const SelectContent = React.forwardRef(
-  ({ className = "", children, setIsOpen, ...props }, ref) => {
-    const { onValueChange } = useContext(SelectContext);
+  ({ className = "", children, ...props }, ref) => {
+    const { isOpen, setIsOpen } = useContext(SelectContext);
+
+    if (!isOpen) return null;
 
     return (
       <div
@@ -78,7 +88,6 @@ const SelectContent = React.forwardRef(
         {React.Children.map(children, (child) => {
           if (React.isValidElement(child) && child.type === SelectItem) {
             return React.cloneElement(child, {
-              onValueChange,
               setIsOpen,
             });
           }
@@ -92,10 +101,9 @@ const SelectContent = React.forwardRef(
 SelectContent.displayName = "SelectContent";
 
 const SelectItem = React.forwardRef(
-  (
-    { className = "", children, value, onValueChange, setIsOpen, ...props },
-    ref
-  ) => {
+  ({ className = "", children, value, setIsOpen, ...props }, ref) => {
+    const { onValueChange } = useContext(SelectContext);
+
     const handleClick = () => {
       onValueChange(value);
       setIsOpen(false);
@@ -104,7 +112,7 @@ const SelectItem = React.forwardRef(
     return (
       <div
         ref={ref}
-        className={`relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 ${className}`}
+        className={`relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-accent hover:text-accent-foreground ${className}`}
         onClick={handleClick}
         {...props}
       >

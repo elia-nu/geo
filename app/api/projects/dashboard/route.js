@@ -1,316 +1,165 @@
+import { NextResponse } from "next/server";
 import { getDb } from "../../mongo.js";
-import { ObjectId } from "mongodb";
 
 export async function GET(request) {
   try {
     const db = await getDb();
-    const { searchParams } = new URL(request.url);
 
-    const userId = searchParams.get("userId");
-    const timeframe = searchParams.get("timeframe") || "30"; // days
-
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - parseInt(timeframe));
-
-    // Build project filter based on user role
-    let projectFilter = {};
-    if (userId) {
-      // Get user's projects (as manager or team member)
-      projectFilter = {
-        $or: [{ projectManager: userId }, { teamMembers: { $in: [userId] } }],
-      };
-    }
-
-    // Get project statistics
+    // Get overview statistics
     const [
       totalProjects,
       activeProjects,
       completedProjects,
-      overdueProjects,
-      projectsByStatus,
-      projectsByPriority,
-      projectsByCategory,
-      recentProjects,
-      upcomingMilestones,
-      overdueMilestones,
-      recentAlerts,
-      projectProgress,
+      totalBudget,
+      totalTeamMembers,
     ] = await Promise.all([
-      // Total projects
-      db.collection("projects").countDocuments(projectFilter),
-
-      // Active projects
+      db.collection("projects").countDocuments(),
+      db.collection("projects").countDocuments({ status: "In Progress" }),
+      db.collection("projects").countDocuments({ status: "Completed" }),
       db
         .collection("projects")
-        .countDocuments({ ...projectFilter, status: "active" }),
-
-      // Completed projects
-      db
-        .collection("projects")
-        .countDocuments({ ...projectFilter, status: "completed" }),
-
-      // Overdue projects
-      db.collection("projects").countDocuments({
-        ...projectFilter,
-        endDate: { $lt: new Date() },
-        status: { $in: ["planning", "active"] },
-      }),
-
-      // Projects by status
+        .aggregate([{ $group: { _id: null, total: { $sum: "$budget" } } }])
+        .toArray(),
       db
         .collection("projects")
         .aggregate([
-          { $match: projectFilter },
-          { $group: { _id: "$status", count: { $sum: 1 } } },
-        ])
-        .toArray(),
-
-      // Projects by priority
-      db
-        .collection("projects")
-        .aggregate([
-          { $match: projectFilter },
-          { $group: { _id: "$priority", count: { $sum: 1 } } },
-        ])
-        .toArray(),
-
-      // Projects by category
-      db
-        .collection("projects")
-        .aggregate([
-          { $match: projectFilter },
-          { $group: { _id: "$category", count: { $sum: 1 } } },
-        ])
-        .toArray(),
-
-      // Recent projects
-      db
-        .collection("projects")
-        .find(projectFilter)
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .toArray(),
-
-      // Upcoming milestones (next 7 days)
-      db
-        .collection("milestones")
-        .aggregate([
-          {
-            $lookup: {
-              from: "projects",
-              localField: "projectId",
-              foreignField: "_id",
-              as: "project",
-            },
-          },
-          { $unwind: "$project" },
-          {
-            $match: {
-              ...(userId
-                ? {
-                    $or: [
-                      { "project.projectManager": userId },
-                      { "project.teamMembers": { $in: [userId] } },
-                    ],
-                  }
-                : {}),
-              dueDate: {
-                $gte: new Date(),
-                $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-              },
-              status: { $in: ["pending", "in-progress"] },
-            },
-          },
-          { $sort: { dueDate: 1 } },
-          { $limit: 10 },
-        ])
-        .toArray(),
-
-      // Overdue milestones
-      db
-        .collection("milestones")
-        .aggregate([
-          {
-            $lookup: {
-              from: "projects",
-              localField: "projectId",
-              foreignField: "_id",
-              as: "project",
-            },
-          },
-          { $unwind: "$project" },
-          {
-            $match: {
-              ...(userId
-                ? {
-                    $or: [
-                      { "project.projectManager": userId },
-                      { "project.teamMembers": { $in: [userId] } },
-                    ],
-                  }
-                : {}),
-              dueDate: { $lt: new Date() },
-              status: { $in: ["pending", "in-progress"] },
-            },
-          },
-          { $sort: { dueDate: 1 } },
-          { $limit: 10 },
-        ])
-        .toArray(),
-
-      // Recent alerts
-      db
-        .collection("project_alerts")
-        .aggregate([
-          {
-            $lookup: {
-              from: "projects",
-              localField: "projectId",
-              foreignField: "_id",
-              as: "project",
-            },
-          },
-          { $unwind: "$project" },
-          {
-            $match: {
-              ...(userId
-                ? {
-                    $or: [
-                      { "project.projectManager": userId },
-                      { "project.teamMembers": { $in: [userId] } },
-                      { recipients: { $in: [userId] } },
-                    ],
-                  }
-                : {}),
-              triggeredAt: { $gte: startDate, $lte: endDate },
-              isResolved: false,
-            },
-          },
-          { $sort: { triggeredAt: -1 } },
-          { $limit: 10 },
-        ])
-        .toArray(),
-
-      // Project progress distribution
-      db
-        .collection("projects")
-        .aggregate([
-          { $match: projectFilter },
-          {
-            $group: {
-              _id: {
-                $switch: {
-                  branches: [
-                    { case: { $lt: ["$progress", 25] }, then: "0-25%" },
-                    { case: { $lt: ["$progress", 50] }, then: "25-50%" },
-                    { case: { $lt: ["$progress", 75] }, then: "50-75%" },
-                    { case: { $lt: ["$progress", 100] }, then: "75-100%" },
-                  ],
-                  default: "100%",
-                },
-              },
-              count: { $sum: 1 },
-            },
-          },
+          { $unwind: "$teamMembers" },
+          { $group: { _id: "$teamMembers" } },
+          { $count: "uniqueMembers" },
         ])
         .toArray(),
     ]);
 
-    // Get employee details for enrichment
-    const employeeIds = new Set();
-    recentProjects.forEach((project) => {
-      if (project.projectManager) employeeIds.add(project.projectManager);
-      if (project.teamMembers) {
-        project.teamMembers.forEach((member) => employeeIds.add(member));
-      }
+    // Get projects created this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const projectsThisMonth = await db.collection("projects").countDocuments({
+      createdAt: { $gte: startOfMonth },
     });
 
-    upcomingMilestones.forEach((milestone) => {
-      if (milestone.assignedTo) employeeIds.add(milestone.assignedTo);
-    });
+    // Calculate completion rate
+    const completionRate =
+      totalProjects > 0
+        ? Math.round((completedProjects / totalProjects) * 100)
+        : 0;
 
-    overdueMilestones.forEach((milestone) => {
-      if (milestone.assignedTo) employeeIds.add(milestone.assignedTo);
-    });
+    // Get status distribution
+    const statusDistribution = await db
+      .collection("projects")
+      .aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ])
+      .toArray();
 
-    const employees = await db
-      .collection("employees")
+    // Get recent projects
+    const recentProjects = await db
+      .collection("projects")
+      .find({})
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .project({ name: 1, category: 1, status: 1, createdAt: 1 })
+      .toArray();
+
+    // Get category distribution
+    const categoryDistribution = await db
+      .collection("projects")
+      .aggregate([
+        { $group: { _id: "$category", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ])
+      .toArray();
+
+    // Get project alerts (overdue, at risk, etc.)
+    const now = new Date();
+    const alerts = [];
+
+    // Check for overdue projects
+    const overdueProjects = await db
+      .collection("projects")
       .find({
-        _id: { $in: Array.from(employeeIds).map((id) => new ObjectId(id)) },
+        endDate: { $lt: now },
+        status: { $nin: ["Completed", "Cancelled"] },
       })
       .toArray();
 
-    const employeeMap = {};
-    employees.forEach((emp) => {
-      employeeMap[emp._id.toString()] = emp.personalDetails?.name || "Unknown";
+    overdueProjects.forEach((project) => {
+      alerts.push({
+        type: "overdue",
+        title: "Project Overdue",
+        message: `${project.name} is past its end date`,
+        projectName: project.name,
+        severity: "high",
+      });
     });
 
-    // Enrich data with employee names
-    const enrichedRecentProjects = recentProjects.map((project) => ({
-      ...project,
-      projectManagerName: employeeMap[project.projectManager] || "Unknown",
-    }));
+    // Check for projects at risk (ending within 7 days)
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const atRiskProjects = await db
+      .collection("projects")
+      .find({
+        endDate: { $lte: sevenDaysFromNow, $gte: now },
+        status: { $nin: ["Completed", "Cancelled"] },
+      })
+      .toArray();
 
-    const enrichedUpcomingMilestones = upcomingMilestones.map((milestone) => ({
-      ...milestone,
-      assignedToName: employeeMap[milestone.assignedTo] || "Unknown",
-      projectName: milestone.project.name,
-    }));
+    atRiskProjects.forEach((project) => {
+      alerts.push({
+        type: "at_risk",
+        title: "Project At Risk",
+        message: `${project.name} is ending soon`,
+        projectName: project.name,
+        severity: "medium",
+      });
+    });
 
-    const enrichedOverdueMilestones = overdueMilestones.map((milestone) => ({
-      ...milestone,
-      assignedToName: employeeMap[milestone.assignedTo] || "Unknown",
-      projectName: milestone.project.name,
-    }));
+    // Check for stalled projects (no updates in 30 days)
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const stalledProjects = await db
+      .collection("projects")
+      .find({
+        updatedAt: { $lt: thirtyDaysAgo },
+        status: { $nin: ["Completed", "Cancelled"] },
+      })
+      .toArray();
 
-    const enrichedRecentAlerts = recentAlerts.map((alert) => ({
-      ...alert,
-      projectName: alert.project.name,
-    }));
+    stalledProjects.forEach((project) => {
+      alerts.push({
+        type: "stalled",
+        title: "Project Stalled",
+        message: `${project.name} hasn't been updated recently`,
+        projectName: project.name,
+        severity: "medium",
+      });
+    });
 
-    return Response.json({
+    return NextResponse.json({
       success: true,
-      data: {
-        statistics: {
-          totalProjects,
-          activeProjects,
-          completedProjects,
-          overdueProjects,
-          completionRate:
-            totalProjects > 0
-              ? Math.round((completedProjects / totalProjects) * 100)
-              : 0,
-        },
-        charts: {
-          projectsByStatus: projectsByStatus.map((item) => ({
-            name: item._id,
-            value: item.count,
-          })),
-          projectsByPriority: projectsByPriority.map((item) => ({
-            name: item._id,
-            value: item.count,
-          })),
-          projectsByCategory: projectsByCategory.map((item) => ({
-            name: item._id,
-            value: item.count,
-          })),
-          projectProgress: projectProgress.map((item) => ({
-            name: item._id,
-            value: item.count,
-          })),
-        },
-        recent: {
-          projects: enrichedRecentProjects,
-          upcomingMilestones: enrichedUpcomingMilestones,
-          overdueMilestones: enrichedOverdueMilestones,
-          alerts: enrichedRecentAlerts,
-        },
+      overview: {
+        totalProjects,
+        activeProjects,
+        completedProjects,
+        totalBudget: totalBudget[0]?.total || 0,
+        totalTeamMembers: totalTeamMembers[0]?.uniqueMembers || 0,
+        projectsThisMonth,
+        completionRate,
       },
+      statusDistribution: statusDistribution.map((item) => ({
+        status: item._id,
+        count: item.count,
+      })),
+      recentProjects,
+      categoryDistribution: categoryDistribution.map((item) => ({
+        category: item._id,
+        count: item.count,
+      })),
+      alerts,
     });
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
-    return Response.json(
+    return NextResponse.json(
       { success: false, error: "Failed to fetch dashboard data" },
       { status: 500 }
     );
