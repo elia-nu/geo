@@ -156,16 +156,26 @@ const Sidebar = ({
       path: "/work-locations",
     },
     {
-      id: "project-management",
-      label: "Project Management",
+      id: "projects",
+      label: "Projects",
       icon: FolderOpen,
-      path: "/project-management",
-    },
-    {
-      id: "project-dashboard",
-      label: "Project Dashboard",
-      icon: BarChart3,
-      path: "/project-dashboard",
+      submenu: [
+        {
+          id: "project-management",
+          label: "Project Management",
+          path: "/project-management",
+        },
+        {
+          id: "project-dashboard",
+          label: "Project Dashboard",
+          path: "/project-dashboard",
+        },
+        {
+          id: "project-analytics",
+          label: "Project Analytics",
+          path: "/project-analytics",
+        },
+      ],
     },
     {
       id: "notifications",
