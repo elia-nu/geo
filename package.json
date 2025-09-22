@@ -9,11 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fullcalendar/core": "^6.1.19",
     "axios": "^1.6.0",
     "bcryptjs": "^3.0.2",
     "date-fns": "^2.30.0",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
+    "kenat": "^3.1.0",
+    "kenat-ui": "^1.0.0",
     "lucide-react": "^0.263.1",
     "mongodb": "^6.18.0",
     "multer": "^1.4.5-lts.1",
@@ -30,6 +33,9 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4"
+    "@types/node": "24.5.2",
+    "@types/react": "19.1.13",
+    "tailwindcss": "^4",
+    "typescript": "5.9.2"
   }
 }
