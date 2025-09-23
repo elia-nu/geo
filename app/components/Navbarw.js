@@ -10,7 +10,7 @@ export default function Navbar({ user, onLogout }) {
   const isAdmin = user === "elias" || user === "mekdi" || user === "abdi";
 
   return (
-    <nav className="w-full flex items-center justify-between px-4 md:px-8 py-4 bg-white backdrop-blur-md shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] border-b border-gray-200 text-black z-50 relative">
+    <nav className="w-full flex items-center justify-between px-4 md:px-8 py-4 bg-white backdrop-blur-md shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] border-b border-gray-200 text-black z-50 relative max-w-screen-xl mx-auto">
       {/* Left: Logo/Title */}
       <div className="flex items-center space-x-2">
         <span className="text-lg md:text-xl text-gray-500 bg-white/60 backdrop-blur-sm rounded-lg px-2 md:px-3 py-1 shadow-sm glassmorphism">

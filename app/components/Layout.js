@@ -23,7 +23,7 @@ const Layout = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex justify-center">
       {/* Sidebar */}
       <Sidebar
         activeSection={activeSection}
@@ -37,7 +37,7 @@ const Layout = ({
 
       {/* Main Content */}
       <div
-        className={`transition-all duration-300 ${
+        className={`transition-all duration-300 max-w-screen-xl w-full ${
           isSidebarCollapsed ? "ml-16" : "ml-64"
         }`}
       >

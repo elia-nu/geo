@@ -17,6 +17,11 @@ import {
   ChevronDown,
   ChevronRight,
   Shield,
+  Briefcase,
+  Milestone,
+  AlertTriangle,
+  UserPlus,
+  LineChart,
 } from "lucide-react";
 
 const Sidebar = ({
@@ -28,7 +33,7 @@ const Sidebar = ({
   const router = useRouter();
   const [expandedMenus, setExpandedMenus] = useState({});
 
-  // Auto-expand attendance menu when attendance-reports is active
+  // Auto-expand menus when related sections are active
   useEffect(() => {
     if (
       activeSection === "attendance-reports" ||
@@ -54,6 +59,20 @@ const Sidebar = ({
       setExpandedMenus((prev) => ({
         ...prev,
         "leave-management": true,
+      }));
+    }
+    
+    // Auto-expand project management menu when project sections are active
+    if (
+      activeSection === "projects-list" ||
+      activeSection === "project-milestones" ||
+      activeSection === "project-team" ||
+      activeSection === "project-alerts" ||
+      activeSection === "project-reports"
+    ) {
+      setExpandedMenus((prev) => ({
+        ...prev,
+        "project-management": true,
       }));
     }
   }, [activeSection]);
@@ -156,6 +175,12 @@ const Sidebar = ({
       path: "/work-locations",
     },
     {
+      id: "projects",
+      label: "Projects",
+      icon: Briefcase,
+      path: "/projects",
+    },
+    {
       id: "notifications",
       label: "Notifications",
       icon: Bell,
@@ -232,6 +257,38 @@ const Sidebar = ({
       ],
     },
     {
+      id: "project-management",
+      label: "Project Management",
+      icon: Briefcase,
+      submenu: [
+        {
+          id: "projects-list",
+          label: "Projects",
+          path: "/projects",
+        },
+        {
+          id: "project-milestones",
+          label: "Milestones",
+          path: "/projects/milestones",
+        },
+        {
+          id: "project-team",
+          label: "Team Assignment",
+          path: "/projects/team",
+        },
+        {
+          id: "project-alerts",
+          label: "Project Alerts",
+          path: "/project-alerts",
+        },
+        {
+          id: "project-reports",
+          label: "Project Reports",
+          path: "/projects/reports",
+        },
+      ],
+    },
+    {
       id: "settings",
       label: "Settings",
       icon: Settings,
@@ -279,7 +336,7 @@ const Sidebar = ({
     <>
       {/* Sidebar */}
       <div
-        className={`fixed left-0 top-0 h-full bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 ${
+        className={`absolute left-0 top-0 h-full bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 ${
           isCollapsed ? "w-16" : "w-64"
         }`}
       >
@@ -389,7 +446,7 @@ const Sidebar = ({
       {/* Mobile overlay */}
       {!isCollapsed && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="absolute inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={onToggleCollapse}
         />
       )}
