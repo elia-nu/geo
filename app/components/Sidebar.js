@@ -61,7 +61,7 @@ const Sidebar = ({
         "leave-management": true,
       }));
     }
-    
+
     // Auto-expand project management menu when project sections are active
     if (
       activeSection === "projects-list" ||
@@ -266,16 +266,7 @@ const Sidebar = ({
           label: "Projects",
           path: "/projects",
         },
-        {
-          id: "project-milestones",
-          label: "Milestones",
-          path: "/projects/milestones",
-        },
-        {
-          id: "project-team",
-          label: "Team Assignment",
-          path: "/projects/team",
-        },
+
         {
           id: "project-alerts",
           label: "Project Alerts",
@@ -336,8 +327,12 @@ const Sidebar = ({
     <>
       {/* Sidebar */}
       <div
+        role="navigation"
+        aria-label="Primary"
         className={`absolute left-0 top-0 h-full bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 ${
-          isCollapsed ? "w-16" : "w-64"
+          isCollapsed ? "w-0 sm:w-16" : "w-64"
+        } ${
+          !isCollapsed ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
         }`}
       >
         {/* Header */}
@@ -354,6 +349,9 @@ const Sidebar = ({
             </div>
           )}
           <button
+            type="button"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-pressed={!isCollapsed}
             onClick={onToggleCollapse}
             className="p-2 rounded-lg hover:bg-slate-700 transition-colors"
           >
@@ -366,24 +364,38 @@ const Sidebar = ({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
+        <nav
+          className="flex-1 px-2 py-4 space-y-2 overflow-y-auto"
+          aria-label="Main menu"
+        >
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive =
               activeSection === item.id ||
               (item.submenu &&
                 item.submenu.some((sub) => sub.id === activeSection));
-            const isExpanded = expandedMenus[item.id];
+            const isExpanded = !!expandedMenus[item.id];
 
             return (
               <div key={item.id}>
                 <button
+                  type="button"
                   onClick={() => handleMenuClick(item)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleMenuClick(item);
+                    }
+                  }}
+                  aria-current={isActive ? "page" : undefined}
+                  aria-expanded={item.submenu ? isExpanded : undefined}
+                  aria-haspopup={item.submenu ? "true" : undefined}
                   className={`w-full flex items-center px-3 py-2.5 rounded-lg text-left transition-all duration-200 group ${
                     isActive
                       ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                       : "hover:bg-slate-700 text-slate-300 hover:text-white"
                   }`}
+                  title={isCollapsed ? item.label : undefined}
                 >
                   <Icon
                     className={`w-5 h-5 ${isCollapsed ? "mx-auto" : "mr-3"}`}
@@ -406,11 +418,22 @@ const Sidebar = ({
 
                 {/* Submenu */}
                 {item.submenu && !isCollapsed && isExpanded && (
-                  <div className="ml-4 mt-2 space-y-1 border-l-2 border-slate-700 pl-4">
+                  <div
+                    className="ml-4 mt-2 space-y-1 border-l-2 border-slate-700 pl-4"
+                    role="group"
+                    aria-label={`${item.label} submenu`}
+                  >
                     {item.submenu.map((submenuItem) => (
                       <button
                         key={submenuItem.id}
+                        type="button"
                         onClick={() => handleSubmenuClick(item.id, submenuItem)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleSubmenuClick(item.id, submenuItem);
+                          }
+                        }}
                         className={`w-full flex items-center px-3 py-2 rounded-md text-left text-sm transition-colors ${
                           activeSection === submenuItem.id
                             ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400"
@@ -446,9 +469,29 @@ const Sidebar = ({
       {/* Mobile overlay */}
       {!isCollapsed && (
         <div
-          className="absolute inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 sm:hidden"
           onClick={onToggleCollapse}
+          role="button"
+          aria-label="Close sidebar overlay"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onToggleCollapse();
+            }
+          }}
         />
+      )}
+
+      {/* Mobile menu button - only visible when sidebar is collapsed on mobile */}
+      {isCollapsed && (
+        <button
+          className="fixed top-3 left-3 z-50 p-2 rounded-md bg-slate-800 text-white sm:hidden"
+          onClick={onToggleCollapse}
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
       )}
     </>
   );
