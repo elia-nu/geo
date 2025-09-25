@@ -24,6 +24,7 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
+
 } from "@mui/icons-material";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
@@ -48,6 +49,7 @@ const ProjectDetailPage = ({ params }) => {
     approvalDate: "",
   });
   const [budgetLoading, setBudgetLoading] = useState(false);
+
 
   // Fetch project data on component mount
   useEffect(() => {
@@ -134,6 +136,7 @@ const ProjectDetailPage = ({ params }) => {
     }
   };
 
+
   // Budget editing functions
   const handleEditBudget = () => {
     setBudgetForm({
@@ -207,6 +210,7 @@ const ProjectDetailPage = ({ params }) => {
       [field]: value,
     }));
   };
+
 
   if (loading) {
     return (
@@ -335,6 +339,7 @@ const ProjectDetailPage = ({ params }) => {
                 <AttachMoneyIcon className="text-lg" />
                 Budget Details
               </Link>
+
             </div>
           </div>
 
@@ -430,6 +435,7 @@ const ProjectDetailPage = ({ params }) => {
                 </div>
               </div>
             )}
+
           </div>
           <div className="bg-white rounded-md shadow-sm p-4 border border-gray-100">
             <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mb-4">

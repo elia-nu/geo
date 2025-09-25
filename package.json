@@ -17,6 +17,7 @@
     "@mui/material": "^7.3.2",
     "@mui/x-date-pickers": "^8.11.3",
 
+
     "@fullcalendar/core": "^6.1.19",
 
     "axios": "^1.6.0",

@@ -23,6 +23,7 @@ import {
   UserPlus,
   LineChart,
   DollarSign,
+
 } from "lucide-react";
 
 const Sidebar = ({
@@ -73,7 +74,7 @@ const Sidebar = ({
       activeSection === "project-reports" ||
       activeSection === "project-budget" ||
       activeSection === "project-finances"
-    ) {
+
       setExpandedMenus((prev) => ({
         ...prev,
         "project-management": true,
@@ -273,11 +274,13 @@ const Sidebar = ({
           label: "Projects",
           path: "/projects",
         },
+
         {
           id: "project-budget",
           label: "Budget & Finance",
           icon: DollarSign,
         },
+
         {
           id: "project-alerts",
           label: "Project Alerts",
@@ -297,6 +300,7 @@ const Sidebar = ({
       path: "/budget-management",
     },
     {
+
       id: "settings",
       label: "Settings",
       icon: Settings,
@@ -378,6 +382,7 @@ const Sidebar = ({
     <>
       {/* Sidebar */}
       <div
+
         role="navigation"
         aria-label="Primary"
         className={`absolute left-0 top-0 h-full bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 ${
@@ -475,6 +480,7 @@ const Sidebar = ({
                     role="group"
                     aria-label={`${item.label} submenu`}
                   >
+
                     {item.submenu.map((submenuItem) => {
                       const SubmenuIcon = submenuItem.icon;
                       return (
@@ -503,6 +509,28 @@ const Sidebar = ({
                         </button>
                       );
                     })}
+                    {/*
+                    {item.submenu.map((submenuItem) => (
+                      <button
+                        key={submenuItem.id}
+                        type="button"
+                        onClick={() => handleSubmenuClick(item.id, submenuItem)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleSubmenuClick(item.id, submenuItem);
+                          }
+                        }}
+                        className={`w-full flex items-center px-3 py-2 rounded-md text-left text-sm transition-colors ${
+                          activeSection === submenuItem.id
+                            ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400"
+                            : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                        }`}
+                      >
+                        {submenuItem.label}
+                      </button>
+                    ))}
+*/}
                   </div>
                 )}
               </div>

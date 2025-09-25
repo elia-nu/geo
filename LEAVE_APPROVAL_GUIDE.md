@@ -14,6 +14,8 @@ This guide explains how managers can approve or deny leave requests in the HRM s
 2. In the left sidebar, expand **"Leave Management"**
 3. Click on **"Leave Approval"**
 
+
+
 ### Alternative: Direct URL
 
 **Direct Access**: `http://localhost:3000/hrm` → Select "Leave Approval" from sidebar
