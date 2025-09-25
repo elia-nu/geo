@@ -8,16 +8,16 @@ export async function POST(request) {
   try {
     const db = await getDb();
     const data = await request.json();
-    
-    const { 
-      name, 
-      description, 
-      category, 
-      startDate, 
-      endDate, 
-      status = "active", 
+
+    const {
+      name,
+      description,
+      category,
+      startDate,
+      endDate,
+      status = "active",
       assignedEmployees = [],
-      milestones = [] 
+      milestones = [],
     } = data;
 
     // Validation
@@ -29,8 +29,8 @@ export async function POST(request) {
     }
 
     // Convert employee IDs to ObjectIds
-    const employeeObjectIds = assignedEmployees.map(id => 
-      typeof id === 'string' ? new ObjectId(id) : id
+    const employeeObjectIds = assignedEmployees.map((id) =>
+      typeof id === "string" ? new ObjectId(id) : id
     );
 
     // Create project object
@@ -43,12 +43,25 @@ export async function POST(request) {
       status,
       progress: 0,
       assignedEmployees: employeeObjectIds,
-      milestones: milestones.map(milestone => ({
+      milestones: milestones.map((milestone) => ({
         ...milestone,
         _id: new ObjectId(),
         status: milestone.status || "pending",
-        createdAt: new Date()
+        createdAt: new Date(),
       })),
+      // Initialize financial structure
+      budget: null, // Budget will be created separately
+      budgetAllocations: [],
+      expenses: [],
+      income: [],
+      financialStatus: {
+        totalBudget: 0,
+        totalExpenses: 0,
+        totalIncome: 0,
+        budgetUtilization: 0,
+        profitLoss: 0,
+        lastUpdated: new Date(),
+      },
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -67,16 +80,18 @@ export async function POST(request) {
         category,
         startDate,
         endDate,
-        assignedEmployees: assignedEmployees.length
+        assignedEmployees: assignedEmployees.length,
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Project created successfully",
-      project: { ...project, _id: result.insertedId }
-    }, { status: 201 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Project created successfully",
+        project: { ...project, _id: result.insertedId },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error creating project:", error);
     return NextResponse.json(
@@ -95,18 +110,18 @@ export async function GET(request) {
     const employeeId = searchParams.get("employeeId");
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 50;
-    
+
     const db = await getDb();
-    
+
     // Build query
     let query = {};
-    
+
     if (category) query.category = category;
     if (status) query.status = status;
     if (employeeId) query.assignedEmployees = new ObjectId(employeeId);
-    
+
     const skip = (page - 1) * limit;
-    
+
     // Fetch projects with lookup for employee details
     const pipeline = [
       { $match: query },
@@ -115,8 +130,8 @@ export async function GET(request) {
           from: "employees",
           localField: "assignedEmployees",
           foreignField: "_id",
-          as: "assignedEmployeeDetails"
-        }
+          as: "assignedEmployeeDetails",
+        },
       },
       {
         $addFields: {
@@ -126,26 +141,44 @@ export async function GET(request) {
               as: "employee",
               in: {
                 _id: "$$employee._id",
-                name: { $ifNull: ["$$employee.personalDetails.name", "$$employee.name", "Unknown"] },
-                email: { $ifNull: ["$$employee.personalDetails.email", "$$employee.email", ""] },
-                department: { $ifNull: ["$$employee.department", "$$employee.personalDetails.department", ""] }
-              }
-            }
-          }
-        }
+                name: {
+                  $ifNull: [
+                    "$$employee.personalDetails.name",
+                    "$$employee.name",
+                    "Unknown",
+                  ],
+                },
+                email: {
+                  $ifNull: [
+                    "$$employee.personalDetails.email",
+                    "$$employee.email",
+                    "",
+                  ],
+                },
+                department: {
+                  $ifNull: [
+                    "$$employee.department",
+                    "$$employee.personalDetails.department",
+                    "",
+                  ],
+                },
+              },
+            },
+          },
+        },
       },
       { $sort: { updatedAt: -1 } },
       { $skip: skip },
-      { $limit: limit }
+      { $limit: limit },
     ];
-    
+
     const [projects, totalCount] = await Promise.all([
       db.collection("projects").aggregate(pipeline).toArray(),
-      db.collection("projects").countDocuments(query)
+      db.collection("projects").countDocuments(query),
     ]);
-    
+
     const totalPages = Math.ceil(totalCount / limit);
-    
+
     return NextResponse.json({
       success: true,
       projects,
@@ -155,10 +188,9 @@ export async function GET(request) {
         totalCount,
         totalPages,
         hasNext: page < totalPages,
-        hasPrev: page > 1
-      }
+        hasPrev: page > 1,
+      },
     });
-    
   } catch (error) {
     console.error("Error fetching projects:", error);
     return NextResponse.json(

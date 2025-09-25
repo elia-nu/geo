@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   UserPlus,
   LineChart,
+  DollarSign,
 } from "lucide-react";
 
 const Sidebar = ({
@@ -68,7 +69,9 @@ const Sidebar = ({
       activeSection === "project-milestones" ||
       activeSection === "project-team" ||
       activeSection === "project-alerts" ||
-      activeSection === "project-reports"
+      activeSection === "project-reports" ||
+      activeSection === "project-budget" ||
+      activeSection === "project-finances"
     ) {
       setExpandedMenus((prev) => ({
         ...prev,
@@ -266,7 +269,11 @@ const Sidebar = ({
           label: "Projects",
           path: "/projects",
         },
-
+        {
+          id: "project-budget",
+          label: "Budget & Finance",
+          icon: DollarSign,
+        },
         {
           id: "project-alerts",
           label: "Project Alerts",
@@ -278,6 +285,12 @@ const Sidebar = ({
           path: "/projects/reports",
         },
       ],
+    },
+    {
+      id: "budget-management",
+      label: "Budget Management",
+      icon: DollarSign,
+      path: "/budget-management",
     },
     {
       id: "settings",
@@ -312,6 +325,12 @@ const Sidebar = ({
   };
 
   const handleSubmenuClick = (parentId, submenuItem) => {
+    // Special handling for project budget - redirect to projects page with budget context
+    if (submenuItem.id === "project-budget") {
+      router.push("/projects?tab=budget"); // Go to projects page with budget tab context
+      return;
+    }
+
     if (submenuItem.path && !submenuItem.path.startsWith("/hrm")) {
       router.push(submenuItem.path);
     } else {
@@ -423,26 +442,34 @@ const Sidebar = ({
                     role="group"
                     aria-label={`${item.label} submenu`}
                   >
-                    {item.submenu.map((submenuItem) => (
-                      <button
-                        key={submenuItem.id}
-                        type="button"
-                        onClick={() => handleSubmenuClick(item.id, submenuItem)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            handleSubmenuClick(item.id, submenuItem);
+                    {item.submenu.map((submenuItem) => {
+                      const SubmenuIcon = submenuItem.icon;
+                      return (
+                        <button
+                          key={submenuItem.id}
+                          type="button"
+                          onClick={() =>
+                            handleSubmenuClick(item.id, submenuItem)
                           }
-                        }}
-                        className={`w-full flex items-center px-3 py-2 rounded-md text-left text-sm transition-colors ${
-                          activeSection === submenuItem.id
-                            ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400"
-                            : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                        }`}
-                      >
-                        {submenuItem.label}
-                      </button>
-                    ))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleSubmenuClick(item.id, submenuItem);
+                            }
+                          }}
+                          className={`w-full flex items-center px-3 py-2 rounded-md text-left text-sm transition-colors ${
+                            activeSection === submenuItem.id
+                              ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400"
+                              : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                          }`}
+                        >
+                          {SubmenuIcon && (
+                            <SubmenuIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                          )}
+                          <span className="flex-1">{submenuItem.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
