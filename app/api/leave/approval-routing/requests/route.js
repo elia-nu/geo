@@ -110,7 +110,7 @@ export async function GET(request) {
     ];
     const employees = await db
       .collection("employees")
-      .find({ _id: { $in: employeeIds } })
+      .find({ _id: { $in: employeeIds.map((id) => new ObjectId(id)) } })
       .toArray();
 
     const employeeMap = {};
@@ -168,6 +168,7 @@ export async function GET(request) {
         // Add employee details to request
         const enhancedRequest = {
           ...request,
+          _id: request._id.toString(), // Ensure _id is a string
           employeeName:
             employee.personalDetails?.name || employee.name || "Unknown",
           employeeEmail:

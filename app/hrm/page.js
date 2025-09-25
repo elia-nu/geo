@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Layout from "../components/Layout";
 import Dashboard from "../components/Dashboard";
 import EmployeeDatabase from "../components/EmployeeDatabase";
@@ -9,6 +9,8 @@ import NotificationManager from "../components/NotificationManager";
 import AttendanceReporting from "../components/AttendanceReporting";
 import ManagerLeaveApproval from "../components/ManagerLeaveApproval";
 import LeaveBalance from "../components/LeaveBalance";
+import EthiopianCalendar from "../components/EthiopianCalendar";
+import IntegratedPayrollSystem from "../components/IntegratedPayrollSystem";
 
 export default function HRMDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -18,9 +20,19 @@ export default function HRMDashboard() {
   const [user, setUser] = useState(null);
   const router = useRouter();
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     checkAuthentication();
   }, []);
+
+  // Sync active section from route query (?section=...)
+  useEffect(() => {
+    const section = searchParams?.get("section");
+    if (section) {
+      setActiveSection(section);
+    }
+  }, [searchParams]);
 
   const checkAuthentication = () => {
     try {
@@ -67,6 +79,11 @@ export default function HRMDashboard() {
     console.log("HRM handleSectionChange called with:", section);
     setActiveSection(section);
   };
+
+  // Debug active section transitions
+  useEffect(() => {
+    console.log("HRM activeSection now:", activeSection);
+  }, [activeSection]);
 
   if (loading) {
     return (
@@ -170,10 +187,11 @@ export default function HRMDashboard() {
       case "notifications":
         return <NotificationManager />;
       case "calendar":
+        console.log("RenderContent: rendering EthiopianCalendar");
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Calendar</h2>
-            <p className="text-gray-600">Calendar view coming soon...</p>
+            <div className="mb-4 text-gray-700">Ethiopian Calendar View</div>
+            <EthiopianCalendar />
           </div>
         );
       case "settings":
@@ -188,6 +206,24 @@ export default function HRMDashboard() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4">Attendance Reports</h2>
             <AttendanceReporting />
+          </div>
+        );
+      case "payroll-integration":
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-2xl font-bold mb-4">
+              Integrated Payroll System
+            </h2>
+            <IntegratedPayrollSystem />
+          </div>
+        );
+      case "payroll-calculator":
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-2xl font-bold mb-4">
+              Integrated Payroll System
+            </h2>
+            <IntegratedPayrollSystem />
           </div>
         );
       case "admin-attendance":
@@ -310,6 +346,9 @@ export default function HRMDashboard() {
         </div>
 
         {/* Main Content */}
+        <div className="mb-4 text-sm text-gray-500">
+          Current section: {activeSection}
+        </div>
         {renderContent()}
       </div>
     </Layout>
