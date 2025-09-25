@@ -7,7 +7,7 @@ import { createAuditLog } from "../../../audit/route";
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
 
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
@@ -71,7 +71,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
 
     // Validate ObjectId

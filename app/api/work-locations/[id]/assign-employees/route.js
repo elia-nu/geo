@@ -7,7 +7,7 @@ import { createAuditLog } from "../../../audit/route";
 export async function POST(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
     
     const { employeeIds } = data;
@@ -103,7 +103,7 @@ export async function POST(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
     
     const { employeeIds } = data;

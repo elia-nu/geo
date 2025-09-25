@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Task API Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .section {
+        margin: 20px 0;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      button {
+        background: #007cba;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background: #005a8b;
+      }
+      textarea {
+        width: 100%;
+        height: 200px;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .result {
+        background: #f5f5f5;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 3px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .error {
+        background: #ffebee;
+        border: 1px solid #f44336;
+        color: #d32f2f;
+      }
+      .success {
+        background: #e8f5e8;
+        border: 1px solid #4caf50;
+        color: #2e7d32;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Task Management API Test</h1>
+
+    <div class="section">
+      <h2>1. Create Test Task</h2>
+      <button onclick="createTestTask()">Create Task</button>
+      <div id="createResult" class="result"></div>
+    </div>
+
+    <div class="section">
+      <h2>2. Update Task</h2>
+      <label
+        >Task ID:
+        <input
+          type="text"
+          id="taskId"
+          placeholder="Enter task ID from step 1" /></label
+      ><br /><br />
+      <textarea id="updateData" placeholder="Update data JSON">
+{
+  "title": "Updated Test Task",
+  "description": "This task has been updated via API test",
+  "priority": "high",
+  "status": "in_progress",
+  "progress": 50,
+  "estimatedHours": 8,
+  "assignedTo": [],
+  "assignedTeams": [],
+  "tags": ["test", "updated"],
+  "dependencies": [],
+  "subtasks": [],
+  "updatedBy": "test-user"
+}
+        </textarea
+      ><br />
+      <button onclick="updateTask()">Update Task</button>
+      <div id="updateResult" class="result"></div>
+    </div>
+
+    <div class="section">
+      <h2>3. Get Task Details</h2>
+      <button onclick="getTask()">Get Task</button>
+      <div id="getResult" class="result"></div>
+    </div>
+
+    <div class="section">
+      <h2>4. Clean Up</h2>
+      <button onclick="deleteTask()">Delete Test Task</button>
+      <div id="deleteResult" class="result"></div>
+    </div>
+
+    <script>
+      let currentTaskId = null;
+
+      async function createTestTask() {
+        const resultDiv = document.getElementById("createResult");
+        resultDiv.textContent = "Creating task...";
+        resultDiv.className = "result";
+
+        try {
+          const testTask = {
+            title: "API Test Task",
+            description: "This is a test task created via API",
+            projectId: "507f1f77bcf86cd799439011", // dummy project ID
+            assignedTo: [],
+            assignedTeams: [],
+            priority: "medium",
+            status: "pending",
+            startDate: new Date().toISOString(),
+            dueDate: new Date(
+              Date.now() + 7 * 24 * 60 * 60 * 1000
+            ).toISOString(),
+            estimatedHours: 5,
+            tags: ["test"],
+            dependencies: [],
+            subtasks: [],
+            category: "general",
+            createdBy: "test-user",
+          };
+
+          const response = await fetch("/api/tasks", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(testTask),
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            currentTaskId = data.task._id;
+            document.getElementById("taskId").value = currentTaskId;
+            resultDiv.textContent = `✅ Task created successfully!\nTask ID: ${currentTaskId}\n\n${JSON.stringify(
+              data,
+              null,
+              2
+            )}`;
+            resultDiv.className = "result success";
+          } else {
+            resultDiv.textContent = `❌ Failed to create task:\n${JSON.stringify(
+              data,
+              null,
+              2
+            )}`;
+            resultDiv.className = "result error";
+          }
+        } catch (error) {
+          resultDiv.textContent = `❌ Error creating task:\n${error.message}`;
+          resultDiv.className = "result error";
+        }
+      }
+
+      async function updateTask() {
+        const resultDiv = document.getElementById("updateResult");
+        const taskId = document.getElementById("taskId").value;
+        const updateDataText = document.getElementById("updateData").value;
+
+        if (!taskId) {
+          resultDiv.textContent = "❌ Please enter a task ID";
+          resultDiv.className = "result error";
+          return;
+        }
+
+        resultDiv.textContent = "Updating task...";
+        resultDiv.className = "result";
+
+        try {
+          const updateData = JSON.parse(updateDataText);
+
+          const response = await fetch(`/api/tasks/${taskId}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(updateData),
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            resultDiv.textContent = `✅ Task updated successfully!\n\n${JSON.stringify(
+              data,
+              null,
+              2
+            )}`;
+            resultDiv.className = "result success";
+          } else {
+            resultDiv.textContent = `❌ Failed to update task:\nStatus: ${
+              response.status
+            }\nResponse: ${JSON.stringify(data, null, 2)}`;
+            resultDiv.className = "result error";
+          }
+        } catch (error) {
+          resultDiv.textContent = `❌ Error updating task:\n${error.message}`;
+          resultDiv.className = "result error";
+        }
+      }
+
+      async function getTask() {
+        const resultDiv = document.getElementById("getResult");
+        const taskId = document.getElementById("taskId").value;
+
+        if (!taskId) {
+          resultDiv.textContent = "❌ Please enter a task ID";
+          resultDiv.className = "result error";
+          return;
+        }
+
+        resultDiv.textContent = "Fetching task...";
+        resultDiv.className = "result";
+
+        try {
+          const response = await fetch(`/api/tasks/${taskId}`);
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            resultDiv.textContent = `✅ Task retrieved successfully!\n\n${JSON.stringify(
+              data.task,
+              null,
+              2
+            )}`;
+            resultDiv.className = "result success";
+          } else {
+            resultDiv.textContent = `❌ Failed to get task:\n${JSON.stringify(
+              data,
+              null,
+              2
+            )}`;
+            resultDiv.className = "result error";
+          }
+        } catch (error) {
+          resultDiv.textContent = `❌ Error getting task:\n${error.message}`;
+          resultDiv.className = "result error";
+        }
+      }
+
+      async function deleteTask() {
+        const resultDiv = document.getElementById("deleteResult");
+        const taskId = document.getElementById("taskId").value;
+
+        if (!taskId) {
+          resultDiv.textContent = "❌ Please enter a task ID";
+          resultDiv.className = "result error";
+          return;
+        }
+
+        resultDiv.textContent = "Deleting task...";
+        resultDiv.className = "result";
+
+        try {
+          const response = await fetch(`/api/tasks/${taskId}`, {
+            method: "DELETE",
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            resultDiv.textContent = `✅ Task deleted successfully!\n\n${JSON.stringify(
+              data,
+              null,
+              2
+            )}`;
+            resultDiv.className = "result success";
+            currentTaskId = null;
+            document.getElementById("taskId").value = "";
+          } else {
+            resultDiv.textContent = `❌ Failed to delete task:\n${JSON.stringify(
+              data,
+              null,
+              2
+            )}`;
+            resultDiv.className = "result error";
+          }
+        } catch (error) {
+          resultDiv.textContent = `❌ Error deleting task:\n${error.message}`;
+          resultDiv.className = "result error";
+        }
+      }
+    </script>
+  </body>
+</html>
+

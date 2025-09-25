@@ -335,6 +335,13 @@ const ProjectDetailPage = ({ params }) => {
                 <AttachMoneyIcon className="text-lg" />
                 Budget Details
               </Link>
+              <Link
+                href={`/task-management?projectId=${projectId}`}
+                className="flex items-center gap-2 px-3 py-2 bg-white bg-opacity-20 text-blue-900 font-medium rounded-md hover:bg-opacity-30 transition-all text-xs"
+              >
+                <AssignmentIcon className="text-lg" />
+                Tasks
+              </Link>
             </div>
           </div>
 
@@ -354,7 +361,7 @@ const ProjectDetailPage = ({ params }) => {
               Total Tasks
             </p>
             <h3 className="text-2xl sm:text-3xl font-bold text-blue-800 mb-3 truncate">
-              {project.tasks?.length || 5}
+              {project.taskIds?.length || 0}
             </h3>
             <div className="flex items-center justify-between">
               <span className="text-green-600 text-xs font-semibold flex items-center">

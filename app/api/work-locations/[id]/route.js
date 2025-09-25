@@ -7,7 +7,7 @@ import { createAuditLog } from "../../audit/route";
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
 
     const workLocation = await db.collection("work_locations")
       .aggregate([
@@ -52,7 +52,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
     
     const { name, address, latitude, longitude, radius, description, status } = data;
@@ -111,7 +111,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
 
     // Check if any employees are assigned to this location
     const workLocation = await db.collection("work_locations").findOne(

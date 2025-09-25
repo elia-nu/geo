@@ -7,7 +7,7 @@ import { createAuditLog } from "../../../../audit/route";
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id, milestoneId } = params;
+    const { id, milestoneId } = await params;
 
     // Validate ObjectIds
     if (!ObjectId.isValid(id) || !ObjectId.isValid(milestoneId)) {
@@ -58,7 +58,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const db = await getDb();
-    const { id, milestoneId } = params;
+    const { id, milestoneId } = await params;
     const data = await request.json();
 
     // Validate ObjectIds
@@ -158,7 +158,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const db = await getDb();
-    const { id, milestoneId } = params;
+    const { id, milestoneId } = await params;
 
     // Validate ObjectIds
     if (!ObjectId.isValid(id) || !ObjectId.isValid(milestoneId)) {
