@@ -1,5 +1,6 @@
 # Attendance-Leave Integration Guide
 
+
 ## Overview
 
 The Attendance-Leave Integration system ensures that approved leave requests are properly excluded from absence counts and payroll deductions. This integration provides accurate attendance tracking and fair payroll processing by distinguishing between actual absences and approved leave days.
