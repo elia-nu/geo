@@ -84,9 +84,7 @@ export default function EmployeeSidebar({
 
   return (
     <div
-      className={`bg-white shadow-lg transition-all duration-300 ${
-        isCollapsed ? "w-16" : "w-64"
-      } min-h-screen`}
+      className={`absolute left-0 top-0 h-full bg-white border-r border-gray-200 shadow-md transition-all duration-300 z-40 ${isCollapsed ? "w-16" : "w-64"}`}
     >
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
