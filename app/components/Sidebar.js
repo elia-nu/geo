@@ -23,7 +23,6 @@ import {
   UserPlus,
   LineChart,
   DollarSign,
-
 } from "lucide-react";
 
 const Sidebar = ({
@@ -74,7 +73,7 @@ const Sidebar = ({
       activeSection === "project-reports" ||
       activeSection === "project-budget" ||
       activeSection === "project-finances"
-
+    ) {
       setExpandedMenus((prev) => ({
         ...prev,
         "project-management": true,
@@ -300,7 +299,6 @@ const Sidebar = ({
       path: "/budget-management",
     },
     {
-
       id: "settings",
       label: "Settings",
       icon: Settings,
@@ -359,7 +357,6 @@ const Sidebar = ({
   };
 
   const handleSubmenuClick = (parentId, submenuItem) => {
-
     // Special handling for project budget - redirect to projects page with budget context
     if (submenuItem.id === "project-budget") {
       router.push("/projects?tab=budget"); // Go to projects page with budget tab context
@@ -375,14 +372,12 @@ const Sidebar = ({
         console.warn("onSectionChange is not a function:", onSectionChange);
       }
     }
-
   };
 
   return (
     <>
       {/* Sidebar */}
       <div
-
         role="navigation"
         aria-label="Primary"
         className={`absolute left-0 top-0 h-full bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 ${
@@ -390,7 +385,6 @@ const Sidebar = ({
         } ${
           !isCollapsed ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
         }`}
-
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-700">
@@ -480,7 +474,6 @@ const Sidebar = ({
                     role="group"
                     aria-label={`${item.label} submenu`}
                   >
-
                     {item.submenu.map((submenuItem) => {
                       const SubmenuIcon = submenuItem.icon;
                       return (

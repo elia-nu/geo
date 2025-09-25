@@ -2,6 +2,7 @@
   "name": "geo",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -9,17 +10,13 @@
     "lint": "next lint"
   },
   "dependencies": {
-
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@heroicons/react": "^2.2.0",
     "@mui/icons-material": "^7.3.2",
     "@mui/material": "^7.3.2",
     "@mui/x-date-pickers": "^8.11.3",
-
-
     "@fullcalendar/core": "^6.1.19",
-
     "axios": "^1.6.0",
     "bcryptjs": "^3.0.2",
     "date-fns": "^4.1.0",
@@ -27,7 +24,7 @@
     "jsonwebtoken": "^9.0.2",
     "kenat": "^3.1.0",
     "kenat-ui": "^1.0.0",
-    "lucide-react": "^0.263.1",
+    "lucide-react": "^0.544.0",
     "mongodb": "^6.18.0",
     "multer": "^1.4.5-lts.1",
     "next": "15.4.4",
