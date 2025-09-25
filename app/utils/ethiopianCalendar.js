@@ -126,3 +126,35 @@ export function isHoliday(date) {
     return false;
   }
 }
+
+/**
+ * Get the next working day after the given date
+ * @param {Date} date - Starting date
+ * @returns {Date} Next working day
+ */
+export function getNextWorkingDay(date) {
+  const nextDay = new Date(date);
+  nextDay.setDate(nextDay.getDate() + 1);
+
+  while (!isWorkingDay(nextDay)) {
+    nextDay.setDate(nextDay.getDate() + 1);
+  }
+
+  return nextDay;
+}
+
+/**
+ * Get the previous working day before the given date
+ * @param {Date} date - Starting date
+ * @returns {Date} Previous working day
+ */
+export function getPreviousWorkingDay(date) {
+  const prevDay = new Date(date);
+  prevDay.setDate(prevDay.getDate() - 1);
+
+  while (!isWorkingDay(prevDay)) {
+    prevDay.setDate(prevDay.getDate() - 1);
+  }
+
+  return prevDay;
+}

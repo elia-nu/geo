@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
-import { createAuditLog } from "../../audit/route";
+import { createAuditLog } from "../../../utils/audit.js";
 
 // Check and fix existing employees without user roles or passwords
 export async function POST(request) {

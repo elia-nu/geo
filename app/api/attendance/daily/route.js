@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../audit/route";
-import { GPSValidation } from "../gps-validation/route";
+import { createAuditLog } from "../../../utils/audit.js";
+import { GPSValidation } from "../../../utils/gpsValidation.js";
 
 // Calculate distance between two coordinates using Haversine formula
 function calculateDistance(lat1, lon1, lat2, lon2) {

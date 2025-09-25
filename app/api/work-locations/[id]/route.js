@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../audit/route";
+import { createAuditLog } from "../../../utils/audit.js";
 
 // Get a specific work location with assigned employees
 export async function GET(request, { params }) {
@@ -9,23 +9,25 @@ export async function GET(request, { params }) {
     const db = await getDb();
     const { id } = params;
 
-    const workLocation = await db.collection("work_locations")
+    const workLocation = await db
+      .collection("work_locations")
       .aggregate([
         {
-          $match: { _id: new ObjectId(id) }
+          $match: { _id: new ObjectId(id) },
         },
         {
           $lookup: {
             from: "employees",
             localField: "assignedEmployees",
             foreignField: "_id",
-            as: "assignedEmployees"
-          }
+            as: "assignedEmployees",
+          },
         },
         {
-          $sort: { createdAt: -1 }
-        }
-      ]).toArray();
+          $sort: { createdAt: -1 },
+        },
+      ])
+      .toArray();
 
     if (workLocation.length === 0) {
       return NextResponse.json(
@@ -36,9 +38,8 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({
       success: true,
-      location: workLocation[0]
+      location: workLocation[0],
     });
-
   } catch (error) {
     console.error("Error fetching work location:", error);
     return NextResponse.json(
@@ -54,11 +55,12 @@ export async function PUT(request, { params }) {
     const db = await getDb();
     const { id } = params;
     const data = await request.json();
-    
-    const { name, address, latitude, longitude, radius, description, status } = data;
+
+    const { name, address, latitude, longitude, radius, description, status } =
+      data;
 
     const updateData = {
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     if (name) updateData.name = name;
@@ -69,10 +71,9 @@ export async function PUT(request, { params }) {
     if (description !== undefined) updateData.description = description;
     if (status) updateData.status = status;
 
-    const result = await db.collection("work_locations").updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updateData }
-    );
+    const result = await db
+      .collection("work_locations")
+      .updateOne({ _id: new ObjectId(id) }, { $set: updateData });
 
     if (result.matchedCount === 0) {
       return NextResponse.json(
@@ -89,15 +90,16 @@ export async function PUT(request, { params }) {
       userId: "admin",
       userEmail: "admin@company.com",
       metadata: {
-        updatedFields: Object.keys(updateData).filter(key => key !== 'updatedAt')
+        updatedFields: Object.keys(updateData).filter(
+          (key) => key !== "updatedAt"
+        ),
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Work location updated successfully"
+      message: "Work location updated successfully",
     });
-
   } catch (error) {
     console.error("Error updating work location:", error);
     return NextResponse.json(
@@ -114,9 +116,9 @@ export async function DELETE(request, { params }) {
     const { id } = params;
 
     // Check if any employees are assigned to this location
-    const workLocation = await db.collection("work_locations").findOne(
-      { _id: new ObjectId(id) }
-    );
+    const workLocation = await db
+      .collection("work_locations")
+      .findOne({ _id: new ObjectId(id) });
 
     if (!workLocation) {
       return NextResponse.json(
@@ -125,16 +127,22 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    if (workLocation.assignedEmployees && workLocation.assignedEmployees.length > 0) {
+    if (
+      workLocation.assignedEmployees &&
+      workLocation.assignedEmployees.length > 0
+    ) {
       return NextResponse.json(
-        { error: "Cannot delete location with assigned employees. Please reassign employees first." },
+        {
+          error:
+            "Cannot delete location with assigned employees. Please reassign employees first.",
+        },
         { status: 400 }
       );
     }
 
-    const result = await db.collection("work_locations").deleteOne(
-      { _id: new ObjectId(id) }
-    );
+    const result = await db
+      .collection("work_locations")
+      .deleteOne({ _id: new ObjectId(id) });
 
     if (result.deletedCount === 0) {
       return NextResponse.json(
@@ -151,15 +159,14 @@ export async function DELETE(request, { params }) {
       userId: "admin",
       userEmail: "admin@company.com",
       metadata: {
-        locationName: workLocation.name
+        locationName: workLocation.name,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Work location deleted successfully"
+      message: "Work location deleted successfully",
     });
-
   } catch (error) {
     console.error("Error deleting work location:", error);
     return NextResponse.json(

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
-import { createAuditLog } from "../../../audit/route";
+import { createAuditLog } from "../../../../utils/audit.js";
 import PDFDocument from "pdfkit";
 import fs from "fs/promises";
 import path from "path";

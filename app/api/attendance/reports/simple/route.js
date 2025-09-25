@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
-import { createAuditLog } from "../../../audit/route";
+import { createAuditLog } from "../../../../utils/audit.js";
 
 export async function POST(request) {
   try {

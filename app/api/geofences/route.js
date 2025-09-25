@@ -1,4 +1,4 @@
-const { getDb } = require("../mongo.js");
+import { getDb } from "../mongo";
 
 export async function GET(req) {
   const db = await getDb();
