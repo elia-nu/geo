@@ -27,7 +27,7 @@
     "jsonwebtoken": "^9.0.2",
     "kenat": "^3.1.0",
     "kenat-ui": "^1.0.0",
-    "lucide-react": "^0.263.1",
+    "lucide-react": "^0.544.0",
     "mongodb": "^6.18.0",
     "multer": "^1.4.5-lts.1",
     "next": "15.4.4",
