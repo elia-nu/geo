@@ -21,6 +21,10 @@ import {
   AccessTime as AccessTimeIcon,
   BarChart as BarChartIcon,
   History as HistoryIcon,
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
+
 } from "@mui/icons-material";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
@@ -34,6 +38,18 @@ const ProjectDetailPage = ({ params }) => {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Budget editing states
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [budgetForm, setBudgetForm] = useState({
+    totalAmount: "",
+    currency: "USD",
+    description: "",
+    approvedBy: "",
+    approvalDate: "",
+  });
+  const [budgetLoading, setBudgetLoading] = useState(false);
+
 
   // Fetch project data on component mount
   useEffect(() => {
@@ -119,6 +135,82 @@ const ProjectDetailPage = ({ params }) => {
         return <InfoIcon />;
     }
   };
+
+
+  // Budget editing functions
+  const handleEditBudget = () => {
+    setBudgetForm({
+      totalAmount: project.budget?.toString() || "",
+      currency: "USD",
+      description: project.description || "",
+      approvedBy: "",
+      approvalDate: new Date().toISOString().split("T")[0],
+    });
+    setIsEditingBudget(true);
+  };
+
+  const handleCancelBudgetEdit = () => {
+    setIsEditingBudget(false);
+    setBudgetForm({
+      totalAmount: "",
+      currency: "USD",
+      description: "",
+      approvedBy: "",
+      approvalDate: "",
+    });
+  };
+
+  const handleSaveBudget = async () => {
+    try {
+      setBudgetLoading(true);
+
+      const budgetData = {
+        totalAmount: parseFloat(budgetForm.totalAmount) || 0,
+        currency: budgetForm.currency,
+        description: budgetForm.description,
+        approvedBy: budgetForm.approvedBy,
+        approvalDate: budgetForm.approvalDate,
+        budgetAllocations: [],
+      };
+
+      const response = await fetch(`/api/projects/${projectId}/budget`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(budgetData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Update project state with new budget
+        setProject((prev) => ({
+          ...prev,
+          budget: budgetData.totalAmount,
+        }));
+        setIsEditingBudget(false);
+        // Optionally show success message
+        console.log("Budget updated successfully");
+      } else {
+        console.error("Failed to update budget:", result.error);
+        // Optionally show error message
+      }
+    } catch (error) {
+      console.error("Error updating budget:", error);
+      // Optionally show error message
+    } finally {
+      setBudgetLoading(false);
+    }
+  };
+
+  const handleBudgetFormChange = (field, value) => {
+    setBudgetForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
 
   if (loading) {
     return (
@@ -240,6 +332,14 @@ const ProjectDetailPage = ({ params }) => {
                 <TimelineIcon className="text-lg" />
                 Milestones
               </Link>
+              <Link
+                href={`/project-budget/${projectId}`}
+                className="flex items-center gap-2 px-3 py-2 bg-white bg-opacity-20 text-blue-900 font-medium rounded-md hover:bg-opacity-30 transition-all text-xs"
+              >
+                <AttachMoneyIcon className="text-lg" />
+                Budget Details
+              </Link>
+
             </div>
           </div>
 
@@ -275,18 +375,67 @@ const ProjectDetailPage = ({ params }) => {
               <AttachMoneyIcon className="text-green-600 text-2xl" />
             </div>
             <p className="text-gray-600 text-sm font-medium mb-1">Budget</p>
-            <h3 className="text-2xl sm:text-3xl font-bold text-blue-800 mb-3 truncate">
-              ${project.budget?.toLocaleString() || "500,000"}
-            </h3>
-            <div className="flex items-center justify-between">
-              <span className="text-green-600 text-xs font-semibold flex items-center">
-                <CheckCircleIcon className="text-sm mr-1" />
-                Approved
-              </span>
-              <span className="px-2 py-1 bg-green-100 text-green-900 text-xs font-semibold rounded shadow-sm">
-                Details
-              </span>
-            </div>
+
+            {!isEditingBudget ? (
+              <>
+                <h3 className="text-2xl sm:text-3xl font-bold text-blue-800 mb-3 truncate">
+                  ${project.budget?.toLocaleString() || "0"}
+                </h3>
+                <div className="flex items-center justify-between">
+                  <span className="text-green-600 text-xs font-semibold flex items-center">
+                    <CheckCircleIcon className="text-sm mr-1" />
+                    {project.budget ? "Set" : "Not Set"}
+                  </span>
+                  <button
+                    onClick={handleEditBudget}
+                    className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-900 text-xs font-semibold rounded shadow-sm hover:bg-blue-200 transition-colors"
+                  >
+                    <EditIcon className="text-sm" />
+                    {project.budget ? "Edit" : "Add"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <input
+                  type="number"
+                  placeholder="Budget Amount"
+                  value={budgetForm.totalAmount}
+                  onChange={(e) =>
+                    handleBudgetFormChange("totalAmount", e.target.value)
+                  }
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Approved By"
+                  value={budgetForm.approvedBy}
+                  onChange={(e) =>
+                    handleBudgetFormChange("approvedBy", e.target.value)
+                  }
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <div className="flex gap-1">
+                  <button
+                    onClick={handleSaveBudget}
+                    disabled={budgetLoading || !budgetForm.totalAmount}
+                    className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <SaveIcon className="text-sm" />
+                    {budgetLoading ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    onClick={handleCancelBudgetEdit}
+                    disabled={budgetLoading}
+                    className="flex items-center gap-1 px-2 py-1 bg-gray-500 text-white text-xs font-semibold rounded hover:bg-gray-600 transition-colors disabled:opacity-50"
+                  >
+                    <CancelIcon className="text-sm" />
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
           </div>
           <div className="bg-white rounded-md shadow-sm p-4 border border-gray-100">
             <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mb-4">

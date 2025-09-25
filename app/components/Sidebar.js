@@ -22,6 +22,8 @@ import {
   AlertTriangle,
   UserPlus,
   LineChart,
+  DollarSign,
+
 } from "lucide-react";
 
 const Sidebar = ({
@@ -69,8 +71,10 @@ const Sidebar = ({
       activeSection === "project-milestones" ||
       activeSection === "project-team" ||
       activeSection === "project-alerts" ||
-      activeSection === "project-reports"
-    ) {
+      activeSection === "project-reports" ||
+      activeSection === "project-budget" ||
+      activeSection === "project-finances"
+
       setExpandedMenus((prev) => ({
         ...prev,
         "project-management": true,
@@ -272,6 +276,12 @@ const Sidebar = ({
         },
 
         {
+          id: "project-budget",
+          label: "Budget & Finance",
+          icon: DollarSign,
+        },
+
+        {
           id: "project-alerts",
           label: "Project Alerts",
           path: "/project-alerts",
@@ -284,6 +294,13 @@ const Sidebar = ({
       ],
     },
     {
+      id: "budget-management",
+      label: "Budget Management",
+      icon: DollarSign,
+      path: "/budget-management",
+    },
+    {
+
       id: "settings",
       label: "Settings",
       icon: Settings,
@@ -342,11 +359,23 @@ const Sidebar = ({
   };
 
   const handleSubmenuClick = (parentId, submenuItem) => {
-    const target =
-      submenuItem.path && submenuItem.path !== ""
-        ? submenuItem.path
-        : idToPath(submenuItem.id) || `/hrm?section=${submenuItem.id}`;
-    router.push(target);
+
+    // Special handling for project budget - redirect to projects page with budget context
+    if (submenuItem.id === "project-budget") {
+      router.push("/projects?tab=budget"); // Go to projects page with budget tab context
+      return;
+    }
+
+    if (submenuItem.path && !submenuItem.path.startsWith("/hrm")) {
+      router.push(submenuItem.path);
+    } else {
+      if (typeof onSectionChange === "function") {
+        onSectionChange(submenuItem.id);
+      } else {
+        console.warn("onSectionChange is not a function:", onSectionChange);
+      }
+    }
+
   };
 
   return (
@@ -451,6 +480,36 @@ const Sidebar = ({
                     role="group"
                     aria-label={`${item.label} submenu`}
                   >
+
+                    {item.submenu.map((submenuItem) => {
+                      const SubmenuIcon = submenuItem.icon;
+                      return (
+                        <button
+                          key={submenuItem.id}
+                          type="button"
+                          onClick={() =>
+                            handleSubmenuClick(item.id, submenuItem)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleSubmenuClick(item.id, submenuItem);
+                            }
+                          }}
+                          className={`w-full flex items-center px-3 py-2 rounded-md text-left text-sm transition-colors ${
+                            activeSection === submenuItem.id
+                              ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400"
+                              : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                          }`}
+                        >
+                          {SubmenuIcon && (
+                            <SubmenuIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                          )}
+                          <span className="flex-1">{submenuItem.label}</span>
+                        </button>
+                      );
+                    })}
+                    {/*
                     {item.submenu.map((submenuItem) => (
                       <button
                         key={submenuItem.id}
@@ -471,6 +530,7 @@ const Sidebar = ({
                         {submenuItem.label}
                       </button>
                     ))}
+*/}
                   </div>
                 )}
               </div>
