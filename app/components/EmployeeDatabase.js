@@ -27,6 +27,7 @@ export default function EmployeeDatabase() {
       dateOfBirth: "",
       address: "",
       contactNumber: "",
+      emergencyContactNumber: "",
       email: "",
     },
     employmentHistory: [],
@@ -852,6 +853,28 @@ export default function EmployeeDatabase() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Emergency Contact Number
+                      </label>
+                      <input
+                        type="text"
+                        value={
+                          newEmployee.personalDetails.emergencyContactNumber
+                        }
+                        onChange={(e) =>
+                          setNewEmployee({
+                            ...newEmployee,
+                            personalDetails: {
+                              ...newEmployee.personalDetails,
+                              emergencyContactNumber: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder="Contact in case of emergency"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Date of Birth
                       </label>
                       <input
@@ -1019,6 +1042,99 @@ export default function EmployeeDatabase() {
                       <p className="text-sm text-gray-500 mt-1">
                         Separate skills with commas
                       </p>
+                    </div>
+
+                    {/* Certifications input */}
+                    <div className="bg-white rounded-lg border p-4 space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Certificate Title
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g., AWS Solutions Architect"
+                            id="cert-title-input"
+                            className="w-full px-3 py-2 border border-gray-300 rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Issuing Institution
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g., Amazon Web Services"
+                            id="cert-issuer-input"
+                            className="w-full px-3 py-2 border border-gray-300 rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Date Obtained
+                          </label>
+                          <input
+                            type="date"
+                            id="cert-date-input"
+                            className="w-full px-3 py-2 border border-gray-300 rounded"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const titleEl =
+                              document.getElementById("cert-title-input");
+                            const issuerEl =
+                              document.getElementById("cert-issuer-input");
+                            const dateEl =
+                              document.getElementById("cert-date-input");
+                            const title = titleEl ? titleEl.value.trim() : "";
+                            const issuingInstitution = issuerEl
+                              ? issuerEl.value.trim()
+                              : "";
+                            const dateObtained = dateEl ? dateEl.value : "";
+                            if (!title && !issuingInstitution && !dateObtained)
+                              return;
+                            setNewEmployee((prev) => ({
+                              ...prev,
+                              certifications: [
+                                ...prev.certifications,
+                                {
+                                  title,
+                                  issuer: issuingInstitution,
+                                  issueDate: dateObtained,
+                                },
+                              ],
+                            }));
+                            if (titleEl) titleEl.value = "";
+                            if (issuerEl) issuerEl.value = "";
+                            if (dateEl) dateEl.value = "";
+                          }}
+                          className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
+                        >
+                          Add Certification
+                        </button>
+                      </div>
+                      {newEmployee.certifications.length > 0 && (
+                        <div className="text-sm text-gray-700">
+                          <div className="font-medium mb-2">
+                            Added Certifications
+                          </div>
+                          <ul className="list-disc pl-5 space-y-1">
+                            {newEmployee.certifications.map((c, idx) => (
+                              <li key={`new-cert-${idx}`}>
+                                {c.title || "(Untitled)"} —{" "}
+                                {c.issuer ||
+                                  c.issuingInstitution ||
+                                  "Institution"}{" "}
+                                ({c.issueDate || c.dateObtained || "Date"})
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -13,8 +13,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
 import ClientOnly from "./ClientOnly";
 
 const STEPS = [
@@ -126,7 +126,14 @@ export default function EditStepperEmployeeForm({
       setEmploymentHistory(employee.employmentHistory || []);
 
       // Certifications
-      setCertifications(employee.certifications || []);
+      // Normalize certification fields to { title, issuer, issueDate, ... }
+      setCertifications(
+        (employee.certifications || []).map((c) => ({
+          ...c,
+          issuer: c.issuer || c.institution || c.issuingInstitution || "",
+          issueDate: c.issueDate || c.dateObtained || c.date || "",
+        }))
+      );
 
       // Skills
       setSkills(
@@ -238,10 +245,10 @@ export default function EditStepperEmployeeForm({
           if (!cert.title?.trim()) {
             errors[`cert_${index}_title`] = "Certification title is required";
           }
-          if (!cert.institution?.trim()) {
+          if (!cert.issuer?.trim()) {
             errors[`cert_${index}_institution`] = "Institution is required";
           }
-          if (!cert.dateObtained?.trim()) {
+          if (!cert.issueDate?.trim()) {
             errors[`cert_${index}_dateObtained`] = "Date obtained is required";
           }
         });
@@ -299,7 +306,16 @@ export default function EditStepperEmployeeForm({
       const employeeData = {
         personalDetails,
         employmentHistory: employmentHistory.filter((job) => job.company),
-        certifications: certifications.filter((cert) => cert.title),
+        certifications: certifications
+          .filter((cert) => cert.title)
+          .map((c) => ({
+            title: c.title,
+            issuer: c.issuer || "",
+            issueDate: c.issueDate || "",
+            expiryDate: c.expiryDate || "",
+            credentialId: c.credentialId || "",
+            description: c.description || "",
+          })),
         skills: skills.filter((skill) => skill.skillName),
         healthRecords,
       };
@@ -395,8 +411,8 @@ export default function EditStepperEmployeeForm({
       {
         id: Date.now(),
         title: "",
-        institution: "",
-        dateObtained: "",
+        issuer: "",
+        issueDate: "",
         expiryDate: "",
         credentialId: "",
         description: "",
@@ -1076,12 +1092,12 @@ export default function EditStepperEmployeeForm({
                       </label>
                       <input
                         type="text"
-                        value={cert.institution || ""}
+                        value={cert.issuer || ""}
                         onChange={(e) => {
                           const updated = [...certifications];
                           updated[index] = {
                             ...updated[index],
-                            institution: e.target.value,
+                            issuer: e.target.value,
                           };
                           setCertifications(updated);
                         }}
@@ -1105,12 +1121,12 @@ export default function EditStepperEmployeeForm({
                       </label>
                       <input
                         type="date"
-                        value={cert.dateObtained || ""}
+                        value={cert.issueDate || ""}
                         onChange={(e) => {
                           const updated = [...certifications];
                           updated[index] = {
                             ...updated[index],
-                            dateObtained: e.target.value,
+                            issueDate: e.target.value,
                           };
                           setCertifications(updated);
                         }}

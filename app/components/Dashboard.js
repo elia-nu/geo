@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import {
   Users,
   FileText,
@@ -105,7 +105,7 @@ const Dashboard = ({ onSectionChange }) => {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card
           className="hover:shadow-lg transition-shadow cursor-pointer"
           onClick={() => onSectionChange("employee-database")}
@@ -174,6 +174,25 @@ const Dashboard = ({ onSectionChange }) => {
               {stats.expiredDocuments}
             </div>
             <p className="text-xs text-gray-500">Require attention</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="hover:shadow-lg transition-shadow cursor-pointer"
+          onClick={() => onSectionChange("payroll-integration")}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Payroll Integration
+            </CardTitle>
+            <Activity className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">Live</div>
+            <p className="text-xs text-gray-500 flex items-center mt-1">
+              <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
+              Attendance & Leave
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -262,7 +281,7 @@ const Dashboard = ({ onSectionChange }) => {
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Button
               onClick={() => onSectionChange("employee-add")}
               className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
@@ -295,6 +314,19 @@ const Dashboard = ({ onSectionChange }) => {
               <div className="text-left">
                 <div className="font-medium">Search Employees</div>
                 <div className="text-sm opacity-90">Find employees</div>
+              </div>
+            </Button>
+
+            <Button
+              onClick={() => onSectionChange("payroll-integration")}
+              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+            >
+              <TrendingUp className="h-5 w-5" />
+              <div className="text-left">
+                <div className="font-medium">Integrated Payroll</div>
+                <div className="text-sm opacity-90">
+                  Calculator, Attendance & Reports
+                </div>
               </div>
             </Button>
           </div>

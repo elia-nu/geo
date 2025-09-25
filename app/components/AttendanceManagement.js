@@ -61,7 +61,7 @@ export default function AttendanceManagement() {
     }
   };
 
-  // Fetch attendance records
+  // Fetch attendance records with leave integration
   const fetchAttendanceRecords = async () => {
     setLoading(true);
     try {
@@ -74,15 +74,24 @@ export default function AttendanceManagement() {
       if (dateRange.startDate && dateRange.endDate) {
         params.append("startDate", dateRange.startDate);
         params.append("endDate", dateRange.endDate);
+      } else {
+        // Default to current month if no date range specified
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        params.append("startDate", startOfMonth.toISOString().split("T")[0]);
+        params.append("endDate", endOfMonth.toISOString().split("T")[0]);
       }
 
+      // Use payroll integration API to get attendance with leave data
+      params.append("includeLeaveData", "true");
       const response = await fetch(
-        `/api/attendance/daily?${params.toString()}`
+        `/api/attendance/payroll-integration?${params.toString()}`
       );
       const result = await response.json();
 
       if (result.success) {
-        setAttendanceRecords(result.data || []);
+        setAttendanceRecords(result.data.records || []);
       }
     } catch (error) {
       console.error("Error fetching attendance records:", error);
@@ -95,13 +104,9 @@ export default function AttendanceManagement() {
   const filteredRecords = attendanceRecords.filter((record) => {
     const matchesSearch =
       !searchTerm ||
-      record.employee?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.employee?.email
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      record.employee?.department
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase());
+      record.employeeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.employeeEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.department?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
       statusFilter === "all" ||
@@ -109,7 +114,8 @@ export default function AttendanceManagement() {
       (statusFilter === "incomplete" &&
         record.checkInTime &&
         !record.checkOutTime) ||
-      (statusFilter === "absent" && !record.checkInTime);
+      (statusFilter === "absent" && record.payrollStatus === "absent") ||
+      (statusFilter === "leave" && record.payrollStatus === "on_leave");
 
     return matchesSearch && matchesStatus;
   });
@@ -132,6 +138,16 @@ export default function AttendanceManagement() {
 
   // Get status info
   const getStatusInfo = (record) => {
+    // Check if employee is on approved leave for this date
+    if (record.leaveInfo) {
+      return {
+        text: `On Leave (${record.leaveInfo.leaveType})`,
+        color: "text-purple-600",
+        bgColor: "bg-purple-100",
+        icon: Calendar,
+      };
+    }
+
     if (!record.checkInTime) {
       return {
         text: "Absent",
@@ -158,6 +174,16 @@ export default function AttendanceManagement() {
 
   // Calculate working hours
   const calculateWorkingHours = (record) => {
+    // If employee is on leave, show 0 hours
+    if (record.leaveInfo) return "0:00";
+
+    // Use workingHours from payroll integration if available
+    if (record.workingHours !== undefined) {
+      const hours = Math.floor(record.workingHours);
+      const minutes = Math.floor((record.workingHours - hours) * 60);
+      return `${hours}:${minutes.toString().padStart(2, "0")}`;
+    }
+
     if (!record.checkInTime) return "0:00";
 
     const checkIn = new Date(record.checkInTime);
@@ -326,6 +352,7 @@ export default function AttendanceManagement() {
                 { value: "complete", label: "Complete" },
                 { value: "incomplete", label: "Working" },
                 { value: "absent", label: "Absent" },
+                { value: "leave", label: "On Leave" },
               ].map((status) => (
                 <button
                   key={status.value}
@@ -421,10 +448,10 @@ export default function AttendanceManagement() {
                         <div className="flex items-center">
                           <div>
                             <div className="text-sm font-medium text-gray-900">
-                              {record.employee?.name || "Unknown"}
+                              {record.employeeName || "Unknown"}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {record.employee?.department || "No Department"}
+                              {record.department || "No Department"}
                             </div>
                           </div>
                         </div>

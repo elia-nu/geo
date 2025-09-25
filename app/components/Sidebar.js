@@ -43,7 +43,8 @@ const Sidebar = ({
       activeSection === "employee-login" ||
       activeSection === "attendance-daily" ||
       activeSection === "attendance-documents" ||
-      activeSection === "attendance-legacy"
+      activeSection === "attendance-legacy" ||
+      activeSection === "payroll-integration"
     ) {
       setExpandedMenus((prev) => ({
         ...prev,
@@ -105,7 +106,7 @@ const Sidebar = ({
         {
           id: "employee-search",
           label: "Search Employees",
-          path: "/hrm/employees/search",
+          // use section switcher
         },
         {
           id: "employee-location",
@@ -119,16 +120,14 @@ const Sidebar = ({
       label: "Document Management",
       icon: FileText,
       submenu: [
-        { id: "document-list", label: "All Documents", path: "/hrm/documents" },
+        { id: "document-list", label: "All Documents" },
         {
           id: "document-upload",
           label: "Upload Document",
-          path: "/hrm/documents/upload",
         },
         {
           id: "document-expiry",
           label: "Expiry Alerts",
-          path: "/hrm/documents/expiry",
         },
       ],
     },
@@ -235,6 +234,11 @@ const Sidebar = ({
           label: "Attendance Reports",
           path: "/attendance-reports",
         },
+        {
+          id: "payroll",
+          label: "Integrated Payroll",
+          path: "/payroll",
+        },
       ],
     },
     {
@@ -308,23 +312,50 @@ const Sidebar = ({
     }));
   };
 
+  const idToPath = (id) => {
+    switch (id) {
+      case "dashboard":
+        return "/hrm";
+      case "employees":
+      case "employee-database":
+        return "/hrm/employees";
+      case "documents":
+      case "document-list":
+        return "/hrm/documents";
+      case "notifications":
+        return "/hrm/notifications";
+      case "calendar":
+        return "/hrm/calendar";
+      case "attendance-reports":
+        return "/hrm/attendance-reports";
+      case "payroll":
+      case "payroll-integration":
+        return "/hrm/payroll";
+      case "departments":
+        return "/hrm/organization/departments";
+      case "hierarchy":
+        return "/hrm/organization/hierarchy";
+      case "settings":
+        return "/hrm/settings";
+      default:
+        return null;
+    }
+  };
+
   const handleMenuClick = (item) => {
     if (item.submenu) {
       toggleSubmenu(item.id);
     } else {
-      if (item.path && !item.path.startsWith("/hrm")) {
-        router.push(item.path);
-      } else {
-        if (typeof onSectionChange === "function") {
-          onSectionChange(item.id);
-        } else {
-          console.warn("onSectionChange is not a function:", onSectionChange);
-        }
-      }
+      const target =
+        item.path && item.path !== ""
+          ? item.path
+          : idToPath(item.id) || `/hrm?section=${item.id}`;
+      router.push(target);
     }
   };
 
   const handleSubmenuClick = (parentId, submenuItem) => {
+
     // Special handling for project budget - redirect to projects page with budget context
     if (submenuItem.id === "project-budget") {
       router.push("/projects?tab=budget"); // Go to projects page with budget tab context
@@ -340,6 +371,7 @@ const Sidebar = ({
         console.warn("onSectionChange is not a function:", onSectionChange);
       }
     }
+
   };
 
   return (
@@ -353,6 +385,7 @@ const Sidebar = ({
         } ${
           !isCollapsed ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
         }`}
+
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-700">
