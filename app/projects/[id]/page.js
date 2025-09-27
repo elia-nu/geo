@@ -24,6 +24,7 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
+
 } from "@mui/icons-material";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
@@ -76,6 +77,7 @@ const ProjectDetailPage = ({ params }) => {
     approvalDate: "",
   });
   const [budgetLoading, setBudgetLoading] = useState(false);
+
 
   // Fetch project data on component mount
   useEffect(() => {
@@ -162,6 +164,7 @@ const ProjectDetailPage = ({ params }) => {
     }
   };
 
+
   // Budget editing functions
   const handleEditBudget = () => {
     setBudgetForm({
@@ -235,6 +238,7 @@ const ProjectDetailPage = ({ params }) => {
       [field]: value,
     }));
   };
+
 
   if (loading) {
     return (
@@ -363,6 +367,7 @@ const ProjectDetailPage = ({ params }) => {
                 <AttachMoneyIcon className="text-lg" />
                 Budget Details
               </Link>
+
               <Link
                 href={`/task-management?projectId=${projectId}`}
                 className="flex items-center gap-2 px-3 py-2 bg-white bg-opacity-20 text-blue-900 font-medium rounded-md hover:bg-opacity-30 transition-all text-xs"
@@ -370,6 +375,7 @@ const ProjectDetailPage = ({ params }) => {
                 <AssignmentIcon className="text-lg" />
                 Tasks
               </Link>
+
             </div>
           </div>
 
@@ -465,6 +471,7 @@ const ProjectDetailPage = ({ params }) => {
                 </div>
               </div>
             )}
+
           </div>
           <div className="bg-white rounded-md shadow-sm p-4 border border-gray-100">
             <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mb-4">

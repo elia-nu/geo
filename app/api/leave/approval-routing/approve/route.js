@@ -1,32 +1,60 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../../audit/route";
+import { createAuditLog } from "../../../../utils/audit.js";
 
-// Approve or reject leave request
+// Approve or reject leave requests
 export async function POST(request) {
   try {
     const db = await getDb();
     const data = await request.json();
-
     const {
+      requestId,
       leaveRequestId,
-      action, // "approve" or "reject"
-      managerId,
-      managerName = "System Manager",
-      notes = "",
+      action,
+      comments,
+      notes,
+      approverId,
+      managerName,
     } = data;
 
-    if (!leaveRequestId || !action) {
+    // Handle both field names for backward compatibility
+    const actualRequestId = requestId || leaveRequestId;
+    const actualComments = comments || notes;
+
+    console.log("Approval request data:", {
+      requestId,
+      leaveRequestId,
+      actualRequestId,
+      action,
+      comments,
+      notes,
+      actualComments,
+      approverId,
+      managerName,
+    });
+
+    if (!actualRequestId || !action) {
+      console.log("Missing required fields:", { actualRequestId, action });
       return NextResponse.json(
-        { error: "Leave request ID and action are required" },
+        { error: "Request ID and action are required" },
         { status: 400 }
       );
     }
 
     if (!["approve", "reject"].includes(action)) {
+      console.log("Invalid action:", action);
       return NextResponse.json(
         { error: "Action must be 'approve' or 'reject'" },
+        { status: 400 }
+      );
+    }
+
+    // Validate ObjectId format
+    if (!ObjectId.isValid(actualRequestId)) {
+      console.log("Invalid ObjectId format:", actualRequestId);
+      return NextResponse.json(
+        { error: "Invalid request ID format" },
         { status: 400 }
       );
     }
@@ -34,134 +62,86 @@ export async function POST(request) {
     // Get the leave request
     const leaveRequest = await db
       .collection("attendance_documents")
-      .findOne({ _id: new ObjectId(leaveRequestId) });
+      .findOne({ _id: new ObjectId(actualRequestId) });
 
     if (!leaveRequest) {
+      console.log("Leave request not found:", actualRequestId);
       return NextResponse.json(
         { error: "Leave request not found" },
         { status: 404 }
       );
     }
 
-    if (leaveRequest.type !== "leave") {
+    // Check if request is already processed
+    if (leaveRequest.status !== "pending") {
+      console.log(
+        `Request ${actualRequestId} is already ${leaveRequest.status}`
+      );
       return NextResponse.json(
-        { error: "This is not a leave request" },
+        { error: "Leave request has already been processed" },
         { status: 400 }
       );
     }
 
-    // Get employee details
-    const employee = await db
-      .collection("employees")
-      .findOne({ _id: leaveRequest.employeeId });
-
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Employee not found" },
-        { status: 404 }
-      );
-    }
-
-    // Get manager details if managerId is provided
-    let manager = null;
-    if (managerId) {
-      manager = await db
-        .collection("employees")
-        .findOne({ _id: new ObjectId(managerId) });
-
-      if (!manager) {
-        return NextResponse.json(
-          { error: "Manager not found" },
-          { status: 404 }
-        );
-      }
-
-      // Check if manager has permission to approve this request
-      const hasPermission = await checkManagerPermission(
-        db,
-        leaveRequest,
-        manager
-      );
-      if (!hasPermission) {
-        return NextResponse.json(
-          { error: "You don't have permission to approve this leave request" },
-          { status: 403 }
-        );
-      }
-    } else {
-      // For testing purposes, allow approval without manager validation
-      console.log("No manager ID provided - allowing approval for testing");
-    }
-
-    // Prepare approval data
-    const approvalData = {
-      approverId: managerId ? new ObjectId(managerId) : null,
-      approverName:
-        managerName ||
-        (manager
-          ? manager.personalDetails?.name || manager.name
-          : "System Manager"),
-      action: action,
-      notes: notes,
-      approvedAt: new Date(),
-    };
-
-    // Update leave request
+    // Update the leave request status
+    const newStatus = action === "approve" ? "approved" : "rejected";
     const updateData = {
-      status: action === "approve" ? "approved" : "rejected",
-      updatedAt: new Date(),
+      status: newStatus,
+      processedAt: new Date(),
+      processedBy: approverId || managerName || "system",
+      comments: actualComments || "",
     };
 
-    // Add approval history
-    if (!leaveRequest.approvalHistory) {
-      updateData.approvalHistory = [approvalData];
-    } else {
-      updateData.approvalHistory = [
-        ...leaveRequest.approvalHistory,
-        approvalData,
-      ];
-    }
-
-    // If approved, update leave balance
-    if (action === "approve") {
-      await updateLeaveBalance(db, leaveRequest);
-    }
-
-    // Update the leave request
     await db
       .collection("attendance_documents")
-      .updateOne({ _id: new ObjectId(leaveRequestId) }, { $set: updateData });
+      .updateOne({ _id: new ObjectId(actualRequestId) }, { $set: updateData });
+
+    // If approved, update the employee's leave balance
+    if (action === "approve") {
+      await updateLeaveBalanceOnApproval(db, leaveRequest);
+    }
+
+    // Get employee details for audit log
+    const employee = await db
+      .collection("employees")
+      .findOne({ _id: new ObjectId(leaveRequest.employeeId) });
 
     // Create audit log
+    const auditMetadata = {
+      employeeId: leaveRequest.employeeId,
+      employeeName:
+        employee?.personalDetails?.name || employee?.name || "Unknown",
+      leaveType: leaveRequest.leaveType,
+      startDate: leaveRequest.startDate,
+      endDate: leaveRequest.endDate,
+      action,
+      comments: actualComments,
+      previousStatus: "pending",
+      newStatus,
+    };
+
+    // If approved, add balance update information to audit log
+    if (action === "approve") {
+      const days = calculateLeaveDays(
+        leaveRequest.startDate,
+        leaveRequest.endDate
+      );
+      auditMetadata.daysApproved = days;
+      auditMetadata.balanceUpdated = true;
+    }
+
     await createAuditLog({
-      action:
-        action === "approve" ? "APPROVE_LEAVE_REQUEST" : "REJECT_LEAVE_REQUEST",
-      entityType: "attendance_document",
-      entityId: leaveRequestId,
-      userId: managerId || "system",
-      userEmail: manager
-        ? manager.personalDetails?.email || manager.email || ""
-        : "system@company.com",
-      metadata: {
-        employeeName: employee.personalDetails?.name || employee.name,
-        employeeId: leaveRequest.employeeId,
-        leaveType: leaveRequest.leaveType,
-        startDate: leaveRequest.startDate,
-        endDate: leaveRequest.endDate,
-        managerName:
-          managerName ||
-          (manager
-            ? manager.personalDetails?.name || manager.name
-            : "System Manager"),
-        notes: notes,
-        previousStatus: leaveRequest.status,
-      },
+      action: `LEAVE_REQUEST_${action.toUpperCase()}`,
+      entityType: "leave_request",
+      entityId: actualRequestId,
+      userId: approverId || "system",
+      metadata: auditMetadata,
     });
 
-    // Get updated leave request
+    // Get updated request
     const updatedRequest = await db
       .collection("attendance_documents")
-      .findOne({ _id: new ObjectId(leaveRequestId) });
+      .findOne({ _id: new ObjectId(actualRequestId) });
 
     return NextResponse.json({
       success: true,
@@ -169,223 +149,97 @@ export async function POST(request) {
       data: updatedRequest,
     });
   } catch (error) {
-    console.error("Error processing leave approval:", error);
+    console.error("Error processing leave request:", error);
     return NextResponse.json(
-      { error: "Failed to process leave approval", message: error.message },
+      { error: "Failed to process leave request", message: error.message },
       { status: 500 }
     );
   }
 }
 
-// Helper function to check if manager has permission to approve
-async function checkManagerPermission(db, leaveRequest, manager) {
-  const managerId = manager._id.toString();
-  const managerDepartment =
-    manager.department || manager.personalDetails?.department;
-  const managerDesignation =
-    manager.designation || manager.personalDetails?.designation;
-
-  // Get employee details
-  const employee = await db
-    .collection("employees")
-    .findOne({ _id: leaveRequest.employeeId });
-
-  if (!employee) return false;
-
-  const employeeDepartment =
-    employee.department || employee.personalDetails?.department;
-
-  // Check if manager is the employee's direct supervisor
-  if (
-    managerDepartment === employeeDepartment &&
-    managerDesignation &&
-    ["Supervisor", "Team Lead", "Manager"].includes(managerDesignation)
-  ) {
-    return true;
-  }
-
-  // Check if manager is a department manager for the employee's department
-  if (
-    managerDepartment === employeeDepartment &&
-    managerDesignation &&
-    ["Department Manager", "Manager", "Director"].includes(managerDesignation)
-  ) {
-    return true;
-  }
-
-  // Check if manager is HR manager
-  if (
-    managerDepartment === "HR" &&
-    managerDesignation &&
-    ["HR Manager", "HR Director", "Manager"].includes(managerDesignation)
-  ) {
-    return true;
-  }
-
-  // Check if manager is senior management
-  if (
-    managerDesignation &&
-    ["Director", "VP", "CEO", "CTO", "CFO"].includes(managerDesignation)
-  ) {
-    return true;
-  }
-
-  // Check custom approval routing
-  const customRouting = await db
-    .collection("approval_routing")
-    .findOne({ employeeId: leaveRequest.employeeId });
-
-  if (customRouting?.routingConfig?.levels) {
-    for (const level of customRouting.routingConfig.levels) {
-      if (level.approvers && level.approvers.includes(managerId)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-// Helper function to update leave balance when request is approved
-async function updateLeaveBalance(db, leaveRequest) {
+// Helper function to update leave balance when a request is approved
+async function updateLeaveBalanceOnApproval(db, leaveRequest) {
   try {
-    // Get current leave balance
-    let leaveBalance = await db
-      .collection("leave_balances")
-      .findOne({ employeeId: leaveRequest.employeeId });
+    console.log(
+      "Updating leave balance for approved request:",
+      leaveRequest._id
+    );
 
-    if (!leaveBalance) {
-      // Create initial leave balance if it doesn't exist
-      const employee = await db
-        .collection("employees")
-        .findOne({ _id: leaveRequest.employeeId });
-
-      if (employee) {
-        leaveBalance = await createInitialLeaveBalance(db, employee);
-      } else {
-        return; // Employee not found, skip balance update
-      }
-    }
-
-    // Calculate leave days
-    const leaveDays = calculateLeaveDays(
+    // Calculate the number of days for this leave request
+    const days = calculateLeaveDays(
       leaveRequest.startDate,
       leaveRequest.endDate
     );
-    const leaveType = leaveRequest.leaveType;
-
-    // Update the specific leave type balance
-    if (leaveBalance.balances && leaveBalance.balances[leaveType]) {
-      const currentBalance = leaveBalance.balances[leaveType];
-      const newUsed = currentBalance.used + leaveDays;
-      const newAvailable = Math.max(0, currentBalance.available - leaveDays);
-
-      // Update leave balance
-      await db.collection("leave_balances").updateOne(
-        { employeeId: leaveRequest.employeeId },
-        {
-          $set: {
-            [`balances.${leaveType}.used`]: newUsed,
-            [`balances.${leaveType}.available`]: newAvailable,
-            updatedAt: new Date(),
-          },
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Error updating leave balance:", error);
-    // Don't fail the approval if balance update fails
-  }
-}
-
-// Helper function to create initial leave balance
-async function createInitialLeaveBalance(db, employee) {
-  const employmentDate = new Date(
-    employee.employmentHistory?.[0]?.startDate || employee.createdAt
-  );
-  const currentDate = new Date();
-
-  // Calculate years of service
-  const yearsOfService =
-    (currentDate - employmentDate) / (1000 * 60 * 60 * 24 * 365);
-
-  // Default leave entitlements
-  const leaveEntitlements = {
-    annual: {
-      daysPerYear: 20,
-      maxCarryForward: 5,
-      description: "Annual Leave",
-    },
-    sick: { daysPerYear: 10, maxCarryForward: 0, description: "Sick Leave" },
-    personal: {
-      daysPerYear: 5,
-      maxCarryForward: 0,
-      description: "Personal Leave",
-    },
-    maternity: {
-      daysPerYear: 90,
-      maxCarryForward: 0,
-      description: "Maternity Leave",
-    },
-    paternity: {
-      daysPerYear: 14,
-      maxCarryForward: 0,
-      description: "Paternity Leave",
-    },
-    bereavement: {
-      daysPerYear: 3,
-      maxCarryForward: 0,
-      description: "Bereavement Leave",
-    },
-  };
-
-  // Calculate initial balances
-  const balances = {};
-  Object.keys(leaveEntitlements).forEach((leaveType) => {
-    const entitlement = leaveEntitlements[leaveType];
-    const totalEarned = Math.floor(yearsOfService * entitlement.daysPerYear);
-    const carriedForward = Math.min(
-      entitlement.maxCarryForward,
-      Math.max(0, totalEarned - entitlement.daysPerYear)
+    console.log(
+      `Calculated ${days} days for leave type: ${leaveRequest.leaveType}`
     );
 
-    balances[leaveType] = {
-      totalEarned,
-      carriedForward,
-      available: totalEarned + carriedForward,
-      used: 0,
-      pending: 0,
-      description: entitlement.description,
-    };
-  });
+    // Get the employee's current leave balance
+    const leaveBalance = await db
+      .collection("leave_balances")
+      .findOne({ employeeId: new ObjectId(leaveRequest.employeeId) });
 
-  const leaveBalance = {
-    employeeId: employee._id,
-    employeeName: employee.personalDetails?.name || employee.name,
-    employmentDate,
-    yearsOfService: Math.floor(yearsOfService * 100) / 100,
-    balances,
-    adjustments: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+    if (!leaveBalance) {
+      console.log(
+        "No leave balance found for employee:",
+        leaveRequest.employeeId
+      );
+      return;
+    }
 
-  await db.collection("leave_balances").insertOne(leaveBalance);
-  return leaveBalance;
+    // Check if the leave type exists in the balance
+    if (!leaveBalance.balances[leaveRequest.leaveType]) {
+      console.log(`Leave type ${leaveRequest.leaveType} not found in balance`);
+      return;
+    }
+
+    const currentBalance = leaveBalance.balances[leaveRequest.leaveType];
+
+    // Check if there are enough available days
+    if (currentBalance.available < days) {
+      console.log(
+        `Insufficient leave balance. Available: ${currentBalance.available}, Requested: ${days}`
+      );
+      // Note: We could throw an error here, but since the request is already approved,
+      // we'll just log the issue and continue
+    }
+
+    // Update the used days
+    const newUsed = currentBalance.used + days;
+    const newAvailable = Math.max(0, currentBalance.available - days);
+
+    console.log(
+      `Updating balance - Used: ${currentBalance.used} -> ${newUsed}, Available: ${currentBalance.available} -> ${newAvailable}`
+    );
+
+    // Update the leave balance in the database
+    await db.collection("leave_balances").updateOne(
+      { _id: leaveBalance._id },
+      {
+        $set: {
+          [`balances.${leaveRequest.leaveType}.used`]: newUsed,
+          [`balances.${leaveRequest.leaveType}.available`]: newAvailable,
+          [`balances.${leaveRequest.leaveType}.lastCalculated`]: new Date(),
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    console.log("Successfully updated leave balance");
+  } catch (error) {
+    console.error("Error updating leave balance on approval:", error);
+    // Don't throw the error to avoid breaking the approval process
+  }
 }
 
-// Helper function to calculate number of working days
+// Helper function to calculate leave days
 function calculateLeaveDays(startDate, endDate) {
+  if (!startDate || !endDate) return 1; // Default to 1 day if dates are missing
+
   const start = new Date(startDate);
   const end = new Date(endDate);
-  let days = 0;
+  const timeDiff = end.getTime() - start.getTime();
+  const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // +1 to include both start and end dates
 
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    // Exclude weekends (Saturday = 6, Sunday = 0)
-    if (d.getDay() !== 0 && d.getDay() !== 6) {
-      days++;
-    }
-  }
-
-  return days;
+  return Math.max(1, daysDiff); // Minimum 1 day
 }

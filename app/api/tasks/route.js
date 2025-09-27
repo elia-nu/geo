@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../mongo";
 import { ObjectId } from "mongodb";
+
 import { createAuditLog } from "../audit/route";
+
 
 // Create a new task
 export async function POST(request) {
@@ -10,6 +12,7 @@ export async function POST(request) {
     const data = await request.json();
 
     const {
+
       title,
       description,
       projectId,
@@ -33,14 +36,17 @@ export async function POST(request) {
     if (!title || !projectId) {
       return NextResponse.json(
         { error: "Title and project ID are required" },
+
         { status: 400 }
       );
     }
+
 
     // Validate ObjectIds
     if (!ObjectId.isValid(projectId)) {
       return NextResponse.json(
         { error: "Invalid project ID" },
+
         { status: 400 }
       );
     }
@@ -148,11 +154,13 @@ export async function POST(request) {
       approvedBy: null,
       approvedAt: null,
 
+
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     const result = await db.collection("tasks").insertOne(task);
+
 
     // Update project with task reference
     await db.collection("projects").updateOne(
@@ -163,11 +171,13 @@ export async function POST(request) {
       }
     );
 
+
     // Create audit log
     await createAuditLog({
       action: "CREATE_TASK",
       entityType: "task",
       entityId: result.insertedId.toString(),
+
       userId: createdBy || "admin",
       userEmail: "admin@company.com",
       metadata: {
@@ -176,13 +186,16 @@ export async function POST(request) {
         assignedCount: assignedToObjectIds.length,
         priority,
         dueDate,
+
       },
     });
 
     return NextResponse.json({
       success: true,
       message: "Task created successfully",
+
       task: { _id: result.insertedId, ...task },
+
     });
   } catch (error) {
     console.error("Error creating task:", error);
@@ -192,6 +205,7 @@ export async function POST(request) {
     );
   }
 }
+
 
 // Get all tasks with filtering and pagination
 export async function GET(request) {

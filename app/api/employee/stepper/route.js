@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../audit/route";
+import { createAuditLog } from "../../../utils/audit.js";
+import bcrypt from "bcryptjs";
 
 export async function POST(request) {
   try {
@@ -41,9 +42,22 @@ export async function POST(request) {
     }
 
     try {
+      // Generate a default password if not provided
+      let password = data.personalDetails?.password;
+      if (!password) {
+        // Generate a random password
+        const randomPassword = Math.random().toString(36).slice(-8) + "123!";
+        password = randomPassword;
+      }
+
+      // Hash the password
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
       // 1. Insert Personal Details (main employee record)
       const employeeData = {
         ...data.personalDetails,
+        password: hashedPassword,
         createdAt: new Date(),
         updatedAt: new Date(),
         status: "active",
@@ -112,6 +126,26 @@ export async function POST(request) {
           .insertOne(healthRecord, useTransactions ? { session } : {});
       }
 
+      // 6. Automatically assign EMPLOYEE role
+      const userRole = {
+        userId: employeeId.toString(),
+        email: data.personalDetails?.email,
+        role: "EMPLOYEE",
+        permissions: [
+          "employee.read.own",
+          "employee.update.own",
+          "document.read.own",
+          "document.create.own",
+        ],
+        assignedBy: "system",
+        assignedAt: new Date(),
+        isActive: true,
+      };
+
+      await db
+        .collection("user_roles")
+        .insertOne(userRole, useTransactions ? { session } : {});
+
       // Commit transaction if using transactions
       if (useTransactions && session) {
         await session.commitTransaction();
@@ -129,13 +163,15 @@ export async function POST(request) {
           department: data.personalDetails?.department,
           method: "stepper_form",
           transactionUsed: useTransactions,
+          roleAssigned: "EMPLOYEE",
+          passwordSet: true,
         },
       });
 
       return NextResponse.json(
         {
           success: true,
-          message: "Employee created successfully",
+          message: "Employee created successfully with login credentials",
           employeeId: employeeId.toString(),
           data: {
             employee: employeeData,
@@ -145,6 +181,12 @@ export async function POST(request) {
             hasHealthRecords: !!(
               data.healthRecords && Object.keys(data.healthRecords).length > 0
             ),
+            role: "EMPLOYEE",
+            loginEnabled: true,
+            // Only return the plain password in development
+            ...(process.env.NODE_ENV === "development" && {
+              generatedPassword: password,
+            }),
           },
         },
         { status: 201 }

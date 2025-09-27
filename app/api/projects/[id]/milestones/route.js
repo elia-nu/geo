@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../../audit/route";
+import { createAuditLog } from "../../../../utils/audit.js";
 
 // Get all milestones for a project
 export async function GET(request, { params }) {
@@ -19,23 +19,19 @@ export async function GET(request, { params }) {
 
     // Find the project
     const project = await db.collection("projects").findOne({
-      _id: new ObjectId(id)
+      _id: new ObjectId(id),
     });
 
     if (!project) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     // Return the milestones
     return NextResponse.json({
       success: true,
       milestones: project.milestones || [],
-      projectName: project.name
+      projectName: project.name,
     });
-
   } catch (error) {
     console.error("Error fetching project milestones:", error);
     return NextResponse.json(
@@ -78,30 +74,26 @@ export async function POST(request, { params }) {
       dueDate: new Date(dueDate),
       status,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     // Find the project and update it
     const result = await db.collection("projects").updateOne(
       { _id: new ObjectId(id) },
-      { 
+      {
         $push: { milestones: newMilestone },
-        $set: { updatedAt: new Date() }
+        $set: { updatedAt: new Date() },
       }
     );
 
     if (result.matchedCount === 0) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     // Get project name for audit log
-    const project = await db.collection("projects").findOne(
-      { _id: new ObjectId(id) },
-      { projection: { name: 1 } }
-    );
+    const project = await db
+      .collection("projects")
+      .findOne({ _id: new ObjectId(id) }, { projection: { name: 1 } });
 
     // Create audit log
     await createAuditLog({
@@ -113,16 +105,15 @@ export async function POST(request, { params }) {
       metadata: {
         projectName: project?.name || "Unknown Project",
         milestoneTitle: title,
-        milestoneDueDate: dueDate
+        milestoneDueDate: dueDate,
       },
     });
 
     return NextResponse.json({
       success: true,
       message: "Milestone added successfully",
-      milestone: newMilestone
+      milestone: newMilestone,
     });
-
   } catch (error) {
     console.error("Error adding project milestone:", error);
     return NextResponse.json(
@@ -158,44 +149,42 @@ export async function PUT(request, { params }) {
     }
 
     // Process milestones to ensure they have proper ObjectIds
-    const processedMilestones = milestones.map(milestone => {
+    const processedMilestones = milestones.map((milestone) => {
       // If milestone has an ID, preserve it, otherwise create a new one
-      const milestoneId = milestone._id 
-        ? (typeof milestone._id === 'string' ? new ObjectId(milestone._id) : milestone._id)
+      const milestoneId = milestone._id
+        ? typeof milestone._id === "string"
+          ? new ObjectId(milestone._id)
+          : milestone._id
         : new ObjectId();
-      
+
       return {
         ...milestone,
         _id: milestoneId,
         updatedAt: new Date(),
         // If it's a new milestone (no _id in original), set createdAt
-        ...(milestone._id ? {} : { createdAt: new Date() })
+        ...(milestone._id ? {} : { createdAt: new Date() }),
       };
     });
 
     // Update the project with the new milestones array
     const result = await db.collection("projects").updateOne(
       { _id: new ObjectId(id) },
-      { 
-        $set: { 
+      {
+        $set: {
           milestones: processedMilestones,
-          updatedAt: new Date() 
-        }
+          updatedAt: new Date(),
+        },
       }
     );
 
     if (result.matchedCount === 0) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     // Get project name for audit log
-    const project = await db.collection("projects").findOne(
-      { _id: new ObjectId(id) },
-      { projection: { name: 1 } }
-    );
+    const project = await db
+      .collection("projects")
+      .findOne({ _id: new ObjectId(id) }, { projection: { name: 1 } });
 
     // Create audit log
     await createAuditLog({
@@ -206,16 +195,15 @@ export async function PUT(request, { params }) {
       userEmail: "admin@company.com", // Replace with actual user email
       metadata: {
         projectName: project?.name || "Unknown Project",
-        milestonesCount: processedMilestones.length
+        milestonesCount: processedMilestones.length,
       },
     });
 
     return NextResponse.json({
       success: true,
       message: "Project milestones updated successfully",
-      milestones: processedMilestones
+      milestones: processedMilestones,
     });
-
   } catch (error) {
     console.error("Error updating project milestones:", error);
     return NextResponse.json(

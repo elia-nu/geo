@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../../audit/route";
+import { createAuditLog } from "../../../../utils/audit.js";
 
 // Assign employees to a project
 export async function POST(request, { params }) {

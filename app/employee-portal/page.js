@@ -57,6 +57,8 @@ export default function EmployeePortal() {
       }
 
       // Set initial employee data
+      console.log("Setting employee data:", employee);
+      console.log("Employee _id:", employee._id, "Type:", typeof employee._id);
       setEmployeeData(employee);
 
       // If employee already has workLocations from localStorage, use them initially

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../audit/route";
+import { createAuditLog } from "../../../utils/audit.js";
 
 // GET all employees with aggregated data from normalized tables
 export async function GET(request) {

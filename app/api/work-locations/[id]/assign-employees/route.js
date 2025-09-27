@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../../audit/route";
+import { createAuditLog } from "../../../../utils/audit.js";
 
 // Assign employees to a work location
 export async function POST(request, { params }) {
@@ -9,7 +9,7 @@ export async function POST(request, { params }) {
     const db = await getDb();
     const { id } = await params;
     const data = await request.json();
-    
+
     const { employeeIds } = data;
 
     if (!employeeIds || !Array.isArray(employeeIds)) {
@@ -20,9 +20,9 @@ export async function POST(request, { params }) {
     }
 
     // Validate that the work location exists
-    const workLocation = await db.collection("work_locations").findOne(
-      { _id: new ObjectId(id) }
-    );
+    const workLocation = await db
+      .collection("work_locations")
+      .findOne({ _id: new ObjectId(id) });
 
     if (!workLocation) {
       return NextResponse.json(
@@ -32,10 +32,13 @@ export async function POST(request, { params }) {
     }
 
     // Validate that all employees exist
-    const employeeObjectIds = employeeIds.map(id => new ObjectId(id));
-    const employees = await db.collection("employees").find({
-      _id: { $in: employeeObjectIds }
-    }).toArray();
+    const employeeObjectIds = employeeIds.map((id) => new ObjectId(id));
+    const employees = await db
+      .collection("employees")
+      .find({
+        _id: { $in: employeeObjectIds },
+      })
+      .toArray();
 
     if (employees.length !== employeeIds.length) {
       return NextResponse.json(
@@ -47,9 +50,9 @@ export async function POST(request, { params }) {
     // Add employees to the work location
     const result = await db.collection("work_locations").updateOne(
       { _id: new ObjectId(id) },
-      { 
+      {
         $addToSet: { assignedEmployees: { $each: employeeObjectIds } },
-        $set: { updatedAt: new Date() }
+        $set: { updatedAt: new Date() },
       }
     );
 
@@ -64,9 +67,9 @@ export async function POST(request, { params }) {
     for (const employeeId of employeeObjectIds) {
       await db.collection("employees").updateOne(
         { _id: employeeId },
-        { 
+        {
           $addToSet: { workLocations: new ObjectId(id) },
-          $set: { updatedAt: new Date() }
+          $set: { updatedAt: new Date() },
         }
       );
     }
@@ -81,15 +84,14 @@ export async function POST(request, { params }) {
       metadata: {
         locationName: workLocation.name,
         assignedEmployeeIds: employeeIds,
-        employeeCount: employeeIds.length
+        employeeCount: employeeIds.length,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: `${employeeIds.length} employee(s) assigned to work location successfully`
+      message: `${employeeIds.length} employee(s) assigned to work location successfully`,
     });
-
   } catch (error) {
     console.error("Error assigning employees to work location:", error);
     return NextResponse.json(
@@ -105,7 +107,7 @@ export async function DELETE(request, { params }) {
     const db = await getDb();
     const { id } = await params;
     const data = await request.json();
-    
+
     const { employeeIds } = data;
 
     if (!employeeIds || !Array.isArray(employeeIds)) {
@@ -116,9 +118,9 @@ export async function DELETE(request, { params }) {
     }
 
     // Validate that the work location exists
-    const workLocation = await db.collection("work_locations").findOne(
-      { _id: new ObjectId(id) }
-    );
+    const workLocation = await db
+      .collection("work_locations")
+      .findOne({ _id: new ObjectId(id) });
 
     if (!workLocation) {
       return NextResponse.json(
@@ -127,14 +129,14 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const employeeObjectIds = employeeIds.map(id => new ObjectId(id));
+    const employeeObjectIds = employeeIds.map((id) => new ObjectId(id));
 
     // Remove employees from the work location
     const result = await db.collection("work_locations").updateOne(
       { _id: new ObjectId(id) },
-      { 
+      {
         $pull: { assignedEmployees: { $in: employeeObjectIds } },
-        $set: { updatedAt: new Date() }
+        $set: { updatedAt: new Date() },
       }
     );
 
@@ -149,9 +151,9 @@ export async function DELETE(request, { params }) {
     for (const employeeId of employeeObjectIds) {
       await db.collection("employees").updateOne(
         { _id: employeeId },
-        { 
+        {
           $pull: { workLocations: new ObjectId(id) },
-          $set: { updatedAt: new Date() }
+          $set: { updatedAt: new Date() },
         }
       );
     }
@@ -166,15 +168,14 @@ export async function DELETE(request, { params }) {
       metadata: {
         locationName: workLocation.name,
         removedEmployeeIds: employeeIds,
-        employeeCount: employeeIds.length
+        employeeCount: employeeIds.length,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: `${employeeIds.length} employee(s) removed from work location successfully`
+      message: `${employeeIds.length} employee(s) removed from work location successfully`,
     });
-
   } catch (error) {
     console.error("Error removing employees from work location:", error);
     return NextResponse.json(

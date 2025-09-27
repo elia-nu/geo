@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../../audit/route";
+import { createAuditLog } from "../../../../utils/audit.js";
+import bcrypt from "bcryptjs";
 
 // Update employee with enhanced data structure (no transactions)
 export async function PUT(request, { params }) {
@@ -148,26 +149,104 @@ export async function PUT(request, { params }) {
       }
     }
 
+    // 6. Check and create user role/password if missing
+    const employeeEmail =
+      data.personalDetails?.email ||
+      currentEmployee.personalDetails?.email ||
+      currentEmployee.email;
+    const employeeName =
+      data.personalDetails?.name ||
+      currentEmployee.personalDetails?.name ||
+      currentEmployee.name;
+
+    let roleCreated = false;
+    let passwordCreated = false;
+
+    // Check if employee has a user role
+    const existingRole = await db.collection("user_roles").findOne({
+      userId: id,
+      isActive: true,
+    });
+
+    // Create role if missing
+    if (!existingRole) {
+      const userRole = {
+        userId: id,
+        email: employeeEmail,
+        role: "EMPLOYEE",
+        permissions: [
+          "employee.read.own",
+          "employee.update.own",
+          "document.read.own",
+          "document.create.own",
+        ],
+        assignedBy: "system",
+        assignedAt: new Date(),
+        isActive: true,
+      };
+
+      await db.collection("user_roles").insertOne(userRole);
+      roleCreated = true;
+      console.log(`✅ Created role for employee: ${employeeName} (${id})`);
+    }
+
+    // Check if employee has a password
+    const hasPassword =
+      data.personalDetails?.password ||
+      currentEmployee.password ||
+      currentEmployee.personalDetails?.password;
+
+    // Create password if missing
+    if (!hasPassword) {
+      // Generate a random password
+      const randomPassword = Math.random().toString(36).slice(-8) + "123!";
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(randomPassword, saltRounds);
+
+      // Update employee with password
+      await db.collection("employees").updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            "personalDetails.password": hashedPassword,
+            password: hashedPassword, // Also set at root level for compatibility
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      passwordCreated = true;
+      console.log(`✅ Created password for employee: ${employeeName} (${id})`);
+    }
+
     // Create audit log
     try {
+      const auditMetadata = {
+        employeeName: data.personalDetails?.name,
+        department: data.personalDetails?.department,
+        changes: {
+          personalDetails: data.personalDetails !== undefined,
+          employmentHistory: data.employmentHistory !== undefined,
+          certifications: data.certifications !== undefined,
+          skills: data.skills !== undefined,
+          healthRecords: data.healthRecords !== undefined,
+        },
+        transactionUsed: false,
+      };
+
+      if (roleCreated || passwordCreated) {
+        auditMetadata.roleCreated = roleCreated;
+        auditMetadata.passwordCreated = passwordCreated;
+        auditMetadata.userAccountSetup = true;
+      }
+
       await createAuditLog({
         action: "UPDATE_ENHANCED_SIMPLE",
         entityType: "employee",
         entityId: id,
         userId: "system",
         userEmail: "system@company.com",
-        metadata: {
-          employeeName: data.personalDetails?.name,
-          department: data.personalDetails?.department,
-          changes: {
-            personalDetails: data.personalDetails !== undefined,
-            employmentHistory: data.employmentHistory !== undefined,
-            certifications: data.certifications !== undefined,
-            skills: data.skills !== undefined,
-            healthRecords: data.healthRecords !== undefined,
-          },
-          transactionUsed: false,
-        },
+        metadata: auditMetadata,
       });
     } catch (auditError) {
       console.error(
@@ -182,6 +261,14 @@ export async function PUT(request, { params }) {
         success: true,
         message: "Employee updated successfully",
         employeeId: id,
+        data: {
+          roleCreated,
+          passwordCreated,
+          loginEnabled: true,
+          // Only return the plain password in development
+          ...(process.env.NODE_ENV === "development" &&
+            passwordCreated && { generatedPassword: randomPassword }),
+        },
       },
       { status: 200 }
     );

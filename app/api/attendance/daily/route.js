@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../audit/route";
+import { createAuditLog } from "../../../utils/audit.js";
+import { GPSValidation } from "../../../utils/gpsValidation.js";
 
 // Calculate distance between two coordinates using Haversine formula
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -113,6 +114,7 @@ export async function POST(request) {
       faceVerified = false,
       photo,
       photoUrl,
+      accuracy,
     } = data;
 
     console.log("Processing attendance action:", {
@@ -248,6 +250,37 @@ export async function POST(request) {
       );
     }
 
+    // GPS Spoofing Prevention Validation
+    const gpsValidation = GPSValidation.validateGPSIntegrity(
+      latitude,
+      longitude,
+      accuracy,
+      new Date()
+    );
+
+    console.log("📍 GPS Validation:", {
+      isValid: gpsValidation.isValid,
+      riskScore: gpsValidation.riskScore,
+      issues: gpsValidation.issues,
+    });
+
+    // Block attendance if GPS validation fails
+    if (!gpsValidation.isValid) {
+      return NextResponse.json(
+        {
+          error: "GPS validation failed. Please verify your location.",
+          gpsError: true,
+          gpsValidation: {
+            isValid: gpsValidation.isValid,
+            riskScore: gpsValidation.riskScore,
+            issues: gpsValidation.issues,
+            recommendations: gpsValidation.recommendations,
+          },
+        },
+        { status: 403 }
+      );
+    }
+
     const today = getTodayDate();
     const currentTime = new Date();
 
@@ -274,6 +307,7 @@ export async function POST(request) {
         checkInPhoto: photoUrl || null,
         faceVerified,
         geofenceValidation,
+        gpsValidation,
         status: "checked-in",
         workingHours: 0,
         createdAt: currentTime,
@@ -341,6 +375,7 @@ export async function POST(request) {
         checkOutPhoto: photoUrl || null,
         faceVerified,
         geofenceValidation,
+        gpsValidation,
         status: "checked-out",
         workingHours: Math.round(workingHours * 100) / 100, // Round to 2 decimal places
         updatedAt: currentTime,

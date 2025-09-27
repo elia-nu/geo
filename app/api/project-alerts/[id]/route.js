@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../audit/route";
+import { createAuditLog } from "../../../utils/audit.js";
 
 // Get a specific project alert
 export async function GET(request, { params }) {
@@ -11,10 +11,7 @@ export async function GET(request, { params }) {
 
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: "Invalid alert ID" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid alert ID" }, { status: 400 });
     }
 
     // Fetch alert with project details
@@ -25,13 +22,13 @@ export async function GET(request, { params }) {
           from: "projects",
           localField: "projectId",
           foreignField: "_id",
-          as: "project"
-        }
+          as: "project",
+        },
       },
       {
         $addFields: {
-          project: { $arrayElemAt: ["$project", 0] }
-        }
+          project: { $arrayElemAt: ["$project", 0] },
+        },
       },
       {
         $project: {
@@ -46,25 +43,24 @@ export async function GET(request, { params }) {
           relatedEntityId: 1,
           relatedEntityType: 1,
           projectName: "$project.name",
-          projectCategory: "$project.category"
-        }
-      }
+          projectCategory: "$project.category",
+        },
+      },
     ];
 
-    const alert = await db.collection("project_alerts").aggregate(pipeline).next();
+    const alert = await db
+      .collection("project_alerts")
+      .aggregate(pipeline)
+      .next();
 
     if (!alert) {
-      return NextResponse.json(
-        { error: "Alert not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Alert not found" }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
-      alert
+      alert,
     });
-
   } catch (error) {
     console.error("Error fetching project alert:", error);
     return NextResponse.json(
@@ -83,30 +79,20 @@ export async function PUT(request, { params }) {
 
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: "Invalid alert ID" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid alert ID" }, { status: 400 });
     }
 
     // Check if alert exists
     const existingAlert = await db.collection("project_alerts").findOne({
-      _id: new ObjectId(id)
+      _id: new ObjectId(id),
     });
 
     if (!existingAlert) {
-      return NextResponse.json(
-        { error: "Alert not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Alert not found" }, { status: 404 });
     }
 
     // Prepare update data
-    const {
-      message,
-      status,
-      priority
-    } = data;
+    const { message, status, priority } = data;
 
     const updateData = {};
 
@@ -119,10 +105,9 @@ export async function PUT(request, { params }) {
     updateData.updatedAt = new Date();
 
     // Update the alert
-    const result = await db.collection("project_alerts").updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updateData }
-    );
+    const result = await db
+      .collection("project_alerts")
+      .updateOne({ _id: new ObjectId(id) }, { $set: updateData });
 
     // Create audit log
     await createAuditLog({
@@ -134,16 +119,17 @@ export async function PUT(request, { params }) {
       metadata: {
         alertType: existingAlert.alertType,
         projectId: existingAlert.projectId.toString(),
-        updatedFields: Object.keys(updateData).filter(key => key !== 'updatedAt')
+        updatedFields: Object.keys(updateData).filter(
+          (key) => key !== "updatedAt"
+        ),
       },
     });
 
     return NextResponse.json({
       success: true,
       message: "Alert updated successfully",
-      result
+      result,
     });
-
   } catch (error) {
     console.error("Error updating project alert:", error);
     return NextResponse.json(
@@ -161,27 +147,21 @@ export async function DELETE(request, { params }) {
 
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: "Invalid alert ID" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid alert ID" }, { status: 400 });
     }
 
     // Check if alert exists
     const existingAlert = await db.collection("project_alerts").findOne({
-      _id: new ObjectId(id)
+      _id: new ObjectId(id),
     });
 
     if (!existingAlert) {
-      return NextResponse.json(
-        { error: "Alert not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Alert not found" }, { status: 404 });
     }
 
     // Delete the alert
     const result = await db.collection("project_alerts").deleteOne({
-      _id: new ObjectId(id)
+      _id: new ObjectId(id),
     });
 
     // Create audit log
@@ -194,16 +174,15 @@ export async function DELETE(request, { params }) {
       metadata: {
         alertType: existingAlert.alertType,
         projectId: existingAlert.projectId.toString(),
-        message: existingAlert.message
+        message: existingAlert.message,
       },
     });
 
     return NextResponse.json({
       success: true,
       message: "Alert deleted successfully",
-      result
+      result,
     });
-
   } catch (error) {
     console.error("Error deleting project alert:", error);
     return NextResponse.json(

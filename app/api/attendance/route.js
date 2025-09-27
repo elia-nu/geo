@@ -1,4 +1,4 @@
-const { getDb } = require("../mongo.js");
+import { getDb } from "../mongo";
 
 // Calculate distance between two coordinates using Haversine formula
 function calculateDistance(lat1, lon1, lat2, lon2) {

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+
 import { getDb } from "../../mongo";
+
 import { ObjectId } from "mongodb";
 
 // Generate project reports
@@ -14,6 +16,7 @@ export async function GET(request) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
+
     // Base pipeline for all reports
     let pipeline = [];
 
@@ -27,6 +30,7 @@ export async function GET(request) {
       pipeline.push({
         $match: {
           $or: [
+
             {
               startDate: { $gte: new Date(startDate), $lte: new Date(endDate) },
             },
@@ -35,6 +39,7 @@ export async function GET(request) {
         },
       });
     }
+
 
     // Generate different types of reports
     switch (reportType) {
@@ -51,11 +56,13 @@ export async function GET(request) {
               startDate: 1,
               endDate: 1,
               milestoneCount: { $size: { $ifNull: ["$milestones", []] } },
-              employeeCount: { $size: { $ifNull: ["$assignedEmployees", []] } },
-            },
-          },
+
+              employeeCount: { $size: { $ifNull: ["$assignedEmployees", []] } }
+            }
+          }
         ];
         break;
+        
 
       case "detailed":
         // Detailed report with milestones and employees
@@ -66,8 +73,10 @@ export async function GET(request) {
               from: "employees",
               localField: "assignedEmployees",
               foreignField: "_id",
+
               as: "employeeDetails",
             },
+
           },
           {
             $project: {
@@ -85,22 +94,18 @@ export async function GET(request) {
                   as: "employee",
                   in: {
                     _id: "$$employee._id",
-                    name: {
-                      $concat: [
-                        "$$employee.firstName",
-                        " ",
-                        "$$employee.lastName",
-                      ],
-                    },
+
+                    name: { $concat: ["$$employee.firstName", " ", "$$employee.lastName"] },
                     email: "$$employee.email",
-                    role: "$$employee.role",
-                  },
-                },
-              },
-            },
-          },
+                    role: "$$employee.role"
+                  }
+                }
+              }
+            }
+          }
         ];
         break;
+        
 
       case "progress":
         // Progress report focusing on timeline and completion
@@ -116,14 +121,17 @@ export async function GET(request) {
               duration: {
                 $divide: [
                   { $subtract: ["$endDate", "$startDate"] },
+
                   1000 * 60 * 60 * 24, // Convert to days
                 ],
               },
               daysRemaining: {
                 $divide: [
                   { $subtract: ["$endDate", new Date()] },
-                  1000 * 60 * 60 * 24, // Convert to days
-                ],
+
+                  1000 * 60 * 60 * 24 // Convert to days
+                ]
+
               },
               milestones: {
                 $map: {
@@ -138,6 +146,7 @@ export async function GET(request) {
                 },
               },
             },
+
           },
           {
             $addFields: {
@@ -147,6 +156,7 @@ export async function GET(request) {
                   $filter: {
                     input: "$milestones",
                     as: "m",
+
                     cond: { $eq: ["$$m.status", "completed"] },
                   },
                 },
@@ -157,6 +167,7 @@ export async function GET(request) {
         ];
         break;
 
+
       case "alerts":
         // Alert report showing potential issues
         pipeline = [
@@ -166,6 +177,7 @@ export async function GET(request) {
               from: "project_alerts",
               localField: "_id",
               foreignField: "projectId",
+
               as: "alerts",
             },
           },
@@ -183,6 +195,7 @@ export async function GET(request) {
                   "high",
                   { $cond: [{ $lt: ["$progress", 75] }, "medium", "low"] },
                 ],
+
               },
               delayedMilestones: {
                 $size: {
@@ -192,6 +205,7 @@ export async function GET(request) {
                     cond: {
                       $and: [
                         { $lt: ["$$m.dueDate", new Date()] },
+
                         { $ne: ["$$m.status", "completed"] },
                       ],
                     },
@@ -203,12 +217,14 @@ export async function GET(request) {
         ];
         break;
 
+
       default:
         return NextResponse.json(
           { error: "Invalid report type" },
           { status: 400 }
         );
     }
+
 
     // Execute the pipeline
     const reports = await db
@@ -221,6 +237,7 @@ export async function GET(request) {
       reportType,
       reports,
     });
+
   } catch (error) {
     console.error("Error generating project reports:", error);
     return NextResponse.json(
@@ -228,4 +245,6 @@ export async function GET(request) {
       { status: 500 }
     );
   }
+
 }
+

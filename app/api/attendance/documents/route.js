@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../audit/route";
+import { createAuditLog } from "../../../utils/audit.js";
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../audit/route";
+import { createAuditLog } from "../../../utils/audit.js";
 
 // Approve or reject attendance records
 export async function PUT(request) {
@@ -167,7 +167,13 @@ export async function GET(request) {
             from: "employees",
             let: { employeeId: "$employeeId" },
             pipeline: [
-              { $match: { $expr: { $eq: ["$_id", "$$employeeId"] } } },
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$_id", { $toObjectId: "$$employeeId" }],
+                  },
+                },
+              },
             ],
             as: "employee",
           },
@@ -177,7 +183,13 @@ export async function GET(request) {
             from: "work_locations",
             let: { workLocationId: "$workLocationId" },
             pipeline: [
-              { $match: { $expr: { $eq: ["$_id", "$$workLocationId"] } } },
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$_id", { $toObjectId: "$$workLocationId" }],
+                  },
+                },
+              },
             ],
             as: "workLocation",
           },
@@ -202,10 +214,7 @@ export async function GET(request) {
     // Process records to include employee names and clean data
     const processedRecords = attendanceRecords.map((record) => ({
       ...record,
-      employeeName:
-        record.employee?.personalDetails?.name ||
-        record.employee?.name ||
-        "Unknown Employee",
+      employeeName: record.employeeName || "Unknown Employee",
       employeeEmail:
         record.employee?.personalDetails?.email || record.employee?.email || "",
       department:
