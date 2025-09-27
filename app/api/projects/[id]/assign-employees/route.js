@@ -7,7 +7,7 @@ import { createAuditLog } from "../../../../utils/audit.js";
 export async function POST(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
 
     const { employeeIds } = data;
@@ -97,7 +97,7 @@ export async function POST(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get("employeeId");
 
@@ -170,7 +170,7 @@ export async function DELETE(request, { params }) {
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
 
     // Validate that the project exists
     const project = await db

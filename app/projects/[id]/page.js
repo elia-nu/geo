@@ -32,6 +32,34 @@ import { format, parseISO } from "date-fns";
 const ProjectDetailPage = ({ params }) => {
   const { id: projectId } = params;
 
+  // Utility functions to handle budget and expense data
+  const getBudgetAmount = (budget) => {
+    if (typeof budget === "object" && budget?.totalAmount) {
+      return budget.totalAmount;
+    }
+    if (typeof budget === "number") {
+      return budget;
+    }
+    return 0;
+  };
+
+  const getTotalExpenses = (expenses) => {
+    if (Array.isArray(expenses)) {
+      return expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+    }
+    if (typeof expenses === "number") {
+      return expenses;
+    }
+    return 0;
+  };
+
+  const hasBudget = (budget) => {
+    return (
+      (typeof budget === "object" && budget?.totalAmount) ||
+      (typeof budget === "number" && budget > 0)
+    );
+  };
+
   const [project, setProject] = useState(null);
   const [assignedEmployees, setAssignedEmployees] = useState([]);
   const [milestones, setMilestones] = useState([]);
@@ -140,7 +168,7 @@ const ProjectDetailPage = ({ params }) => {
   // Budget editing functions
   const handleEditBudget = () => {
     setBudgetForm({
-      totalAmount: project.budget?.toString() || "",
+      totalAmount: getBudgetAmount(project.budget).toString(),
       currency: "USD",
       description: project.description || "",
       approvedBy: "",
@@ -260,7 +288,7 @@ const ProjectDetailPage = ({ params }) => {
   }
 
   return (
-    <Layout>
+    <Layout activeSection="projects">
       <div className="p-6 bg-white min-h-screen">
         {/* Breadcrumbs */}
         <nav className="mb-4">
@@ -340,6 +368,14 @@ const ProjectDetailPage = ({ params }) => {
                 Budget Details
               </Link>
 
+              <Link
+                href={`/task-management?projectId=${projectId}`}
+                className="flex items-center gap-2 px-3 py-2 bg-white bg-opacity-20 text-blue-900 font-medium rounded-md hover:bg-opacity-30 transition-all text-xs"
+              >
+                <AssignmentIcon className="text-lg" />
+                Tasks
+              </Link>
+
             </div>
           </div>
 
@@ -359,7 +395,7 @@ const ProjectDetailPage = ({ params }) => {
               Total Tasks
             </p>
             <h3 className="text-2xl sm:text-3xl font-bold text-blue-800 mb-3 truncate">
-              {project.tasks?.length || 5}
+              {project.taskIds?.length || 0}
             </h3>
             <div className="flex items-center justify-between">
               <span className="text-green-600 text-xs font-semibold flex items-center">
@@ -379,19 +415,19 @@ const ProjectDetailPage = ({ params }) => {
             {!isEditingBudget ? (
               <>
                 <h3 className="text-2xl sm:text-3xl font-bold text-blue-800 mb-3 truncate">
-                  ${project.budget?.toLocaleString() || "0"}
+                  ${getBudgetAmount(project.budget).toLocaleString()}
                 </h3>
                 <div className="flex items-center justify-between">
                   <span className="text-green-600 text-xs font-semibold flex items-center">
                     <CheckCircleIcon className="text-sm mr-1" />
-                    {project.budget ? "Set" : "Not Set"}
+                    {hasBudget(project.budget) ? "Set" : "Not Set"}
                   </span>
                   <button
                     onClick={handleEditBudget}
                     className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-900 text-xs font-semibold rounded shadow-sm hover:bg-blue-200 transition-colors"
                   >
                     <EditIcon className="text-sm" />
-                    {project.budget ? "Edit" : "Add"}
+                    {hasBudget(project.budget) ? "Edit" : "Add"}
                   </button>
                 </div>
               </>
@@ -445,7 +481,7 @@ const ProjectDetailPage = ({ params }) => {
               Total Expenses
             </p>
             <h3 className="text-2xl sm:text-3xl font-bold text-blue-800 mb-3 truncate">
-              ${project.expenses?.toLocaleString() || "150,000"}
+              ${getTotalExpenses(project.expenses).toLocaleString()}
             </h3>
             <div className="flex items-center justify-between">
               <span className="text-red-600 text-xs font-semibold flex items-center">

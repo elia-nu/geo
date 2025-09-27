@@ -6,7 +6,7 @@ import { ObjectId } from "mongodb";
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const reportType = searchParams.get("type") || "summary";
     const startDate = searchParams.get("startDate");

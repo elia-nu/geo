@@ -52,7 +52,7 @@ const Layout = ({
 
       {/* Main Content */}
       <div
-        className={`transition-all duration-300 max-w-screen-xl w-full ${
+        className={`transition-all duration-300 w-full ${
           isSidebarCollapsed ? "ml-0 sm:ml-16" : "ml-0 sm:ml-64"
         }`}
       >
@@ -148,7 +148,7 @@ const Layout = ({
 
         {/* Page Content */}
         <main className="p-3 sm:p-6">
-          <div className="max-w-7xl mx-auto">{children}</div>
+          <div className="max-w-7xl mx-auto w-full">{children}</div>
         </main>
 
         {/* Footer */}

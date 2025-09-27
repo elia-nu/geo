@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 // Update employee with enhanced data structure
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
     const db = await getDb();
 
@@ -345,7 +345,7 @@ export async function PUT(request, { params }) {
 // Get employee with all enhanced data
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const db = await getDb();
 
     if (!ObjectId.isValid(id)) {

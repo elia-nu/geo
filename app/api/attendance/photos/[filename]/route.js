@@ -5,7 +5,7 @@ import { join } from "path";
 // Serve attendance photo from file system
 export async function GET(request, { params }) {
   try {
-    const { filename } = params;
+    const { filename } = await params;
 
     if (!filename) {
       return NextResponse.json(

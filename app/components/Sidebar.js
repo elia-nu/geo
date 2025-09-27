@@ -66,6 +66,7 @@ const Sidebar = ({
 
     // Auto-expand project management menu when project sections are active
     if (
+      activeSection === "projects" ||
       activeSection === "projects-list" ||
       activeSection === "project-milestones" ||
       activeSection === "project-team" ||
@@ -278,6 +279,7 @@ const Sidebar = ({
           id: "project-budget",
           label: "Budget & Finance",
           icon: DollarSign,
+          path: "/budget-management",
         },
 
         {
@@ -348,11 +350,13 @@ const Sidebar = ({
     if (item.submenu) {
       toggleSubmenu(item.id);
     } else {
+
       const target =
         item.path && item.path !== ""
           ? item.path
           : idToPath(item.id) || `/hrm?section=${item.id}`;
       router.push(target);
+
     }
   };
 
@@ -363,7 +367,7 @@ const Sidebar = ({
       return;
     }
 
-    if (submenuItem.path && !submenuItem.path.startsWith("/hrm")) {
+    if (submenuItem.path) {
       router.push(submenuItem.path);
     } else {
       if (typeof onSectionChange === "function") {
@@ -380,7 +384,7 @@ const Sidebar = ({
       <div
         role="navigation"
         aria-label="Primary"
-        className={`absolute left-0 top-0 h-full bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 ${
+        className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 flex flex-col ${
           isCollapsed ? "w-0 sm:w-16" : "w-64"
         } ${
           !isCollapsed ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
@@ -416,15 +420,27 @@ const Sidebar = ({
 
         {/* Navigation */}
         <nav
-          className="flex-1 px-2 py-4 space-y-2 overflow-y-auto"
+          className="flex-1 px-2 py-4 space-y-2 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800"
           aria-label="Main menu"
+          style={{
+            maxHeight: "calc(100vh - 140px)",
+            scrollbarWidth: "thin",
+            scrollbarColor: "#475569 #1e293b",
+          }}
         >
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive =
               activeSection === item.id ||
               (item.submenu &&
-                item.submenu.some((sub) => sub.id === activeSection));
+                item.submenu.some((sub) => sub.id === activeSection)) ||
+              // Special case for project management - highlight when on any project-related page
+              (item.id === "project-management" &&
+                (activeSection === "projects" ||
+                  activeSection === "project-budget" ||
+                  activeSection === "project-alerts" ||
+                  activeSection === "project-reports" ||
+                  activeSection === "project-finances"));
             const isExpanded = !!expandedMenus[item.id];
 
             return (
@@ -490,7 +506,10 @@ const Sidebar = ({
                             }
                           }}
                           className={`w-full flex items-center px-3 py-2 rounded-md text-left text-sm transition-colors ${
-                            activeSection === submenuItem.id
+                            activeSection === submenuItem.id ||
+                            // Special case: highlight "Projects" submenu when activeSection is "projects"
+                            (submenuItem.id === "projects-list" &&
+                              activeSection === "projects")
                               ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400"
                               : "text-slate-400 hover:text-white hover:bg-slate-700/50"
                           }`}
@@ -533,7 +552,7 @@ const Sidebar = ({
 
         {/* Footer */}
         {!isCollapsed && (
-          <div className="p-4 border-t border-slate-700">
+          <div className="p-4 border-t border-slate-700 mt-auto">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
                 <span className="text-xs font-bold text-white">AD</span>

@@ -7,7 +7,7 @@ import { createAuditLog } from "../../../../../utils/audit.js";
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id, incomeId } = params;
+    const { id, incomeId } = await params;
 
     // Validate ObjectIds
     if (!ObjectId.isValid(id) || !ObjectId.isValid(incomeId)) {
@@ -54,7 +54,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const db = await getDb();
-    const { id, incomeId } = params;
+    const { id, incomeId } = await params;
     const data = await request.json();
 
     // Validate ObjectIds
@@ -184,7 +184,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const db = await getDb();
-    const { id, incomeId } = params;
+    const { id, incomeId } = await params;
 
     // Validate ObjectIds
     if (!ObjectId.isValid(id) || !ObjectId.isValid(incomeId)) {
