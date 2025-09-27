@@ -19,6 +19,8 @@ import {
   BuildingOfficeIcon,
   TagIcon,
 } from "@heroicons/react/24/outline";
+import FinancialDashboard from "./FinancialDashboard";
+import EntityManagement from "./EntityManagement";
 
 const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -93,10 +95,17 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     tags: [],
   });
 
+  // Entity data states
+  const [departments, setDepartments] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [milestones, setMilestones] = useState([]);
+
   // Fetch all financial data
   useEffect(() => {
     if (projectId) {
       fetchFinancialData();
+      fetchEntityData();
     }
   }, [projectId]);
 
@@ -128,6 +137,41 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       setError("Failed to fetch financial data: " + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEntityData = async () => {
+    try {
+      const [departmentsRes, tasksRes, activitiesRes, milestonesRes] =
+        await Promise.all([
+          fetch(`/api/departments?projectId=${projectId}`),
+          fetch(`/api/tasks?projectId=${projectId}`),
+          fetch(`/api/activities?projectId=${projectId}`),
+          fetch(`/api/projects/${projectId}/milestones`),
+        ]);
+
+      const [departmentsData, tasksData, activitiesData, milestonesData] =
+        await Promise.all([
+          departmentsRes.json(),
+          tasksRes.json(),
+          activitiesRes.json(),
+          milestonesRes.json(),
+        ]);
+
+      if (departmentsData.success) {
+        setDepartments(departmentsData.departments || []);
+      }
+      if (tasksData.success) {
+        setTasks(tasksData.tasks || []);
+      }
+      if (activitiesData.success) {
+        setActivities(activitiesData.activities || []);
+      }
+      if (milestonesData.success) {
+        setMilestones(milestonesData.milestones || []);
+      }
+    } catch (err) {
+      console.error("Error fetching entity data:", err);
     }
   };
 
@@ -378,6 +422,16 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           {[
             { id: "overview", name: "Overview", icon: ChartBarIcon },
             {
+              id: "dashboard",
+              name: "Financial Dashboard",
+              icon: ChartBarIcon,
+            },
+            {
+              id: "entities",
+              name: "Entity Management",
+              icon: BuildingOfficeIcon,
+            },
+            {
               id: "budget",
               name: "Budget & Allocations",
               icon: CurrencyDollarIcon,
@@ -418,6 +472,14 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             getStatusColor={getStatusColor}
             formatDate={formatDate}
           />
+        )}
+
+        {activeTab === "dashboard" && (
+          <FinancialDashboard projectId={projectId} projectName={projectName} />
+        )}
+
+        {activeTab === "entities" && (
+          <EntityManagement projectId={projectId} projectName={projectName} />
         )}
 
         {activeTab === "budget" && (
@@ -2016,6 +2078,11 @@ const BudgetModal = ({
                     setAllocationForm((prev) => ({
                       ...prev,
                       allocationType: e.target.value,
+                      // Reset entity IDs when type changes
+                      departmentId: "",
+                      taskId: "",
+                      activityId: "",
+                      milestoneId: "",
                     }))
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2027,6 +2094,131 @@ const BudgetModal = ({
                   <option value="milestone">Milestone</option>
                 </select>
               </div>
+
+              {/* Dynamic Entity Selection */}
+              {allocationForm.allocationType === "department" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Department *
+                  </label>
+                  <select
+                    value={allocationForm.departmentId}
+                    onChange={(e) =>
+                      setAllocationForm((prev) => ({
+                        ...prev,
+                        departmentId: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((dept) => (
+                      <option key={dept._id} value={dept._id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
+                  {departments.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      No departments found. Create departments first.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {allocationForm.allocationType === "task" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task *
+                  </label>
+                  <select
+                    value={allocationForm.taskId}
+                    onChange={(e) =>
+                      setAllocationForm((prev) => ({
+                        ...prev,
+                        taskId: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select Task</option>
+                    {tasks.map((task) => (
+                      <option key={task._id} value={task._id}>
+                        {task.name}
+                      </option>
+                    ))}
+                  </select>
+                  {tasks.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      No tasks found. Create tasks first.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {allocationForm.allocationType === "activity" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Activity *
+                  </label>
+                  <select
+                    value={allocationForm.activityId}
+                    onChange={(e) =>
+                      setAllocationForm((prev) => ({
+                        ...prev,
+                        activityId: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select Activity</option>
+                    {activities.map((activity) => (
+                      <option key={activity._id} value={activity._id}>
+                        {activity.name}
+                      </option>
+                    ))}
+                  </select>
+                  {activities.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      No activities found. Create activities first.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {allocationForm.allocationType === "milestone" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Milestone *
+                  </label>
+                  <select
+                    value={allocationForm.milestoneId}
+                    onChange={(e) =>
+                      setAllocationForm((prev) => ({
+                        ...prev,
+                        milestoneId: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select Milestone</option>
+                    {milestones.map((milestone) => (
+                      <option key={milestone._id} value={milestone._id}>
+                        {milestone.name}
+                      </option>
+                    ))}
+                  </select>
+                  {milestones.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      No milestones found. Create milestones first.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
