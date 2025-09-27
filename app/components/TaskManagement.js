@@ -22,6 +22,11 @@ import {
   MoreVert as MoreVertIcon,
   Timeline as TimelineIcon,
 } from "@mui/icons-material";
+import TaskCommunicationPanel from "./TaskCommunicationPanel";
+import TaskAssignmentManager from "./TaskAssignmentManager";
+import TaskMonitoringDashboard from "./TaskMonitoringDashboard";
+import SubtaskManager from "./SubtaskManager";
+import TaskDependencyManager from "./TaskDependencyManager";
 
 const TaskManagement = ({ projectId, milestoneId = null }) => {
   const [tasks, setTasks] = useState([]);
@@ -30,6 +35,13 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
   const [selectedProjectId, setSelectedProjectId] = useState(projectId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Current user context (in a real app, this would come from auth context)
+  const [currentUser] = useState({
+    id: "admin", // This should come from authentication
+    name: "Admin User",
+    email: "admin@company.com",
+  });
 
   // Filter and search states
   const [searchTerm, setSearchTerm] = useState("");
@@ -44,6 +56,12 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
   const [showTaskDetail, setShowTaskDetail] = useState(false);
   const [showProgressDialog, setShowProgressDialog] = useState(false);
   const [progressUpdate, setProgressUpdate] = useState(0);
+
+  // New dialog states
+  const [showAssignmentManager, setShowAssignmentManager] = useState(false);
+  const [showMonitoringDashboard, setShowMonitoringDashboard] = useState(false);
+  const [showSubtaskManager, setShowSubtaskManager] = useState(false);
+  const [showDependencyManager, setShowDependencyManager] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -314,6 +332,23 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       category: task.category || "general",
     });
     setShowEditDialog(true);
+  };
+
+  const refreshSelectedTask = async () => {
+    if (!selectedTask) return;
+
+    try {
+      const response = await fetch(`/api/tasks/${selectedTask._id}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setSelectedTask(data.task);
+        // Also refresh the tasks list to update the counts
+        await fetchTasks();
+      }
+    } catch (err) {
+      console.error("Error refreshing task:", err);
+    }
   };
 
   const getPriorityColor = (priority) => {
@@ -641,6 +676,72 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                   </div>
                 )}
               </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      setSelectedTask(task);
+                      setShowAssignmentManager(true);
+                    }}
+                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Manage Assignment"
+                  >
+                    <PersonIcon fontSize="small" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedTask(task);
+                      setShowSubtaskManager(true);
+                    }}
+                    className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                    title="Manage Subtasks"
+                  >
+                    <AssignmentIcon fontSize="small" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedTask(task);
+                      setShowDependencyManager(true);
+                    }}
+                    className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="Manage Dependencies"
+                  >
+                    <TimelineIcon fontSize="small" />
+                  </button>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => openTaskDetail(task)}
+                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="View Details"
+                  >
+                    <VisibilityIcon fontSize="small" />
+                  </button>
+                  <button
+                    onClick={() => openEditDialog(task)}
+                    className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                    title="Edit Task"
+                  >
+                    <EditIcon fontSize="small" />
+                  </button>
+                  <button
+                    onClick={() => openProgressDialog(task)}
+                    className="p-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                    title="Update Progress"
+                  >
+                    <TimelineIcon fontSize="small" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTask(task._id)}
+                    className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete Task"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         ))}
@@ -661,12 +762,21 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
               ? "Try adjusting your filters"
               : "Get started by creating your first task"}
           </p>
-          <button
-            onClick={() => setShowCreateDialog(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Create Task
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowMonitoringDashboard(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <TimelineIcon fontSize="small" />
+              Monitoring Dashboard
+            </button>
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Create Task
+            </button>
+          </div>
         </div>
       )}
 
@@ -954,9 +1064,9 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Column */}
-              <div className="space-y-6">
+              <div className="lg:col-span-2 space-y-6">
                 {/* Description */}
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -965,6 +1075,16 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                   <p className="text-gray-600 whitespace-pre-wrap">
                     {selectedTask.description || "No description provided."}
                   </p>
+                </div>
+
+                {/* Communication Panel */}
+                <div>
+                  <TaskCommunicationPanel
+                    taskId={selectedTask._id}
+                    currentUser={currentUser}
+                    task={selectedTask}
+                    onUpdate={refreshSelectedTask}
+                  />
                 </div>
 
                 {/* Assigned Employees */}
@@ -1337,6 +1457,69 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Task Assignment Manager */}
+      {showAssignmentManager && (
+        <TaskAssignmentManager
+          task={selectedTask}
+          isOpen={showAssignmentManager}
+          onClose={() => {
+            setShowAssignmentManager(false);
+            setSelectedTask(null);
+          }}
+          onUpdate={async () => {
+            await fetchTasks();
+            await refreshSelectedTask();
+          }}
+          employees={employees}
+          teams={[]} // TODO: Add teams data
+        />
+      )}
+
+      {/* Task Monitoring Dashboard */}
+      {showMonitoringDashboard && (
+        <TaskMonitoringDashboard
+          projectId={selectedProjectId}
+          tasks={tasks}
+          employees={employees}
+          teams={[]} // TODO: Add teams data
+          onRefresh={fetchTasks}
+        />
+      )}
+
+      {/* Subtask Manager */}
+      {showSubtaskManager && (
+        <SubtaskManager
+          task={selectedTask}
+          isOpen={showSubtaskManager}
+          onClose={() => {
+            setShowSubtaskManager(false);
+            setSelectedTask(null);
+          }}
+          onUpdate={async () => {
+            await fetchTasks();
+            await refreshSelectedTask();
+          }}
+          employees={employees}
+        />
+      )}
+
+      {/* Task Dependency Manager */}
+      {showDependencyManager && (
+        <TaskDependencyManager
+          task={selectedTask}
+          isOpen={showDependencyManager}
+          onClose={() => {
+            setShowDependencyManager(false);
+            setSelectedTask(null);
+          }}
+          onUpdate={async () => {
+            await fetchTasks();
+            await refreshSelectedTask();
+          }}
+          allTasks={tasks}
+        />
       )}
     </div>
   );

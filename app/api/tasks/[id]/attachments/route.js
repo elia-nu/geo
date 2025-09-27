@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
-import { createAuditLog } from "../../../audit/route";
 import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { join } from "path";
+import { existsSync } from "fs";
 
 // Get all attachments for a task
 export async function GET(request, { params }) {
@@ -11,12 +11,10 @@ export async function GET(request, { params }) {
     const db = await getDb();
     const { id } = await params;
 
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
     }
 
-    // Fetch task attachments
     const task = await db
       .collection("tasks")
       .findOne(
@@ -35,21 +33,30 @@ export async function GET(request, { params }) {
   } catch (error) {
     console.error("Error fetching task attachments:", error);
     return NextResponse.json(
-      { error: "Failed to fetch task attachments" },
+      { error: "Failed to fetch attachments" },
       { status: 500 }
     );
   }
 }
 
-// Upload attachments to a task
+// Upload a new attachment to a task
 export async function POST(request, { params }) {
   try {
     const db = await getDb();
     const { id } = await params;
+    const formData = await request.formData();
 
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
+    }
+
+    const file = formData.get("file");
+    const userId = formData.get("userId");
+    const userName = formData.get("userName");
+    const description = formData.get("description") || "";
+
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     // Check if task exists
@@ -61,167 +68,118 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    const formData = await request.formData();
-    const files = formData.getAll("files");
-    const uploadedBy = formData.get("uploadedBy");
-
-    if (!files || files.length === 0) {
-      return NextResponse.json({ error: "No files provided" }, { status: 400 });
-    }
-
-    if (!uploadedBy || !ObjectId.isValid(uploadedBy)) {
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
       return NextResponse.json(
-        { error: "Valid uploadedBy user ID is required" },
+        { error: "File size must be less than 10MB" },
         { status: 400 }
       );
     }
 
-    const uploadedAttachments = [];
-    const uploadDir = path.join(process.cwd(), "uploads", "task-attachments");
+    // Validate file type
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+      "application/zip",
+      "application/x-rar-compressed",
+    ];
 
-    // Ensure upload directory exists
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (error) {
-      console.log("Upload directory already exists or created");
-    }
-
-    // Process each file
-    for (const file of files) {
-      if (file.size === 0) continue;
-
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-
-      // Generate unique filename
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
-      const fileExtension = path.extname(file.name);
-      const filename = `${id}_${timestamp}_${randomString}${fileExtension}`;
-      const filePath = path.join(uploadDir, filename);
-
-      // Write file to disk
-      await writeFile(filePath, buffer);
-
-      // Create attachment object
-      const attachment = {
-        _id: new ObjectId(),
-        filename,
-        originalName: file.name,
-        mimetype: file.type,
-        size: file.size,
-        uploadedBy: new ObjectId(uploadedBy),
-        uploadedAt: new Date(),
-        filePath: `uploads/task-attachments/${filename}`,
-      };
-
-      uploadedAttachments.push(attachment);
-    }
-
-    // Add attachments to task
-    const result = await db.collection("tasks").updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $push: {
-          attachments: { $each: uploadedAttachments },
-          activityLog: {
-            action: "attachments_added",
-            userId: new ObjectId(uploadedBy),
-            timestamp: new Date(),
-            details: `${
-              uploadedAttachments.length
-            } file(s) uploaded: ${uploadedAttachments
-              .map((a) => a.originalName)
-              .join(", ")}`,
-          },
-        },
-        $set: { updatedAt: new Date() },
-      }
-    );
-
-    // Create audit log
-    await createAuditLog({
-      action: "UPLOAD_TASK_ATTACHMENTS",
-      entityType: "task",
-      entityId: id,
-      userId: uploadedBy,
-      userEmail: "user@company.com",
-      metadata: {
-        taskTitle: task.title,
-        filesCount: uploadedAttachments.length,
-        totalSize: uploadedAttachments.reduce((sum, att) => sum + att.size, 0),
-        filenames: uploadedAttachments.map((att) => att.originalName),
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: `${uploadedAttachments.length} file(s) uploaded successfully`,
-      attachments: uploadedAttachments.map((att) => ({
-        _id: att._id,
-        filename: att.filename,
-        originalName: att.originalName,
-        mimetype: att.mimetype,
-        size: att.size,
-        uploadedAt: att.uploadedAt,
-      })),
-    });
-  } catch (error) {
-    console.error("Error uploading task attachments:", error);
-    return NextResponse.json(
-      { error: "Failed to upload attachments" },
-      { status: 500 }
-    );
-  }
-}
-
-// Delete an attachment from a task
-export async function DELETE(request, { params }) {
-  try {
-    const db = await getDb();
-    const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const attachmentId = searchParams.get("attachmentId");
-
-    // Validate ObjectIds
-    if (!ObjectId.isValid(id) || !ObjectId.isValid(attachmentId)) {
+    if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: "Invalid task ID or attachment ID" },
+        { error: "File type not allowed" },
         { status: 400 }
       );
     }
 
-    // Remove attachment from task
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = join(
+      process.cwd(),
+      "public",
+      "uploads",
+      "task-attachments"
+    );
+    if (!existsSync(uploadsDir)) {
+      await mkdir(uploadsDir, { recursive: true });
+    }
+
+    // Generate unique filename
+    const fileExtension = file.name.split(".").pop();
+    const fileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2)}.${fileExtension}`;
+    const filePath = join(uploadsDir, fileName);
+
+    // Save file
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    await writeFile(filePath, buffer);
+
+    // Create attachment record
+    const attachment = {
+      _id: new ObjectId(),
+      originalName: file.name,
+      fileName: fileName,
+      filePath: `/uploads/task-attachments/${fileName}`,
+      fileSize: file.size,
+      fileType: file.type,
+      description: description.trim(),
+      uploadedBy:
+        userId && ObjectId.isValid(userId) ? new ObjectId(userId) : null,
+      uploadedByName: userName || "Unknown",
+      uploadedAt: new Date(),
+      downloadCount: 0,
+      isDeleted: false,
+    };
+
+    // First, ensure attachments array exists
+    await db
+      .collection("tasks")
+      .updateOne(
+        { _id: new ObjectId(id), attachments: { $exists: false } },
+        { $set: { attachments: [] } }
+      );
+
+    // Add attachment to task
     const result = await db.collection("tasks").updateOne(
       { _id: new ObjectId(id) },
       {
-        $pull: { attachments: { _id: new ObjectId(attachmentId) } },
+        $set: { updatedAt: new Date() },
         $push: {
+          attachments: attachment,
           activityLog: {
-            action: "attachment_removed",
-            userId: null, // TODO: Get from auth context
+            action: "attachment_added",
+            userId: attachment.uploadedBy,
             timestamp: new Date(),
-            details: "Attachment removed",
+            details: `File uploaded: ${file.name}`,
           },
         },
-        $set: { updatedAt: new Date() },
       }
     );
 
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    if (result.modifiedCount === 0) {
+      return NextResponse.json(
+        { error: "Failed to add attachment" },
+        { status: 500 }
+      );
     }
-
-    // TODO: Delete physical file from disk
 
     return NextResponse.json({
       success: true,
-      message: "Attachment deleted successfully",
+      message: "File uploaded successfully",
+      attachment: attachment,
     });
   } catch (error) {
-    console.error("Error deleting task attachment:", error);
+    console.error("Error uploading attachment:", error);
     return NextResponse.json(
-      { error: "Failed to delete attachment" },
+      { error: "Failed to upload file" },
       { status: 500 }
     );
   }
