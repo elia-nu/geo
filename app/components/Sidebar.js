@@ -263,7 +263,7 @@ const Sidebar = ({
         },
       ],
     },
-    {
+    /*{
       id: "project-management",
       label: "Project Management",
       icon: Briefcase,
@@ -291,7 +291,7 @@ const Sidebar = ({
           path: "/projects/reports",
         },
       ],
-    },
+    },*/
     {
       id: "budget-management",
       label: "Budget Management",
