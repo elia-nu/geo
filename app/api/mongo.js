@@ -1,7 +1,7 @@
 import { MongoClient } from "mongodb";
 
 const uri =
-  "mongodb+srv://uercur_db_user:Umie0ELR8T5ejKpD@cluster0.vjsrjzh.mongodb.net/";
+  "mongodb+srv://uercur_db_user:Umie0ELR8T5ejKpD@cluster0.vjsrjzh.mongodb.net/geo";
 const options = {};
 
 let client;
