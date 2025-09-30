@@ -6,11 +6,16 @@ export default function DocumentManager() {
   const [documents, setDocuments] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [viewingDocument, setViewingDocument] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [formErrors, setFormErrors] = useState({});
+  const [docxRenderError, setDocxRenderError] = useState("");
+  const [isRenderingDocx, setIsRenderingDocx] = useState(false);
   const [newDocument, setNewDocument] = useState({
     employeeId: "",
     documentType: "",
@@ -232,6 +237,104 @@ export default function DocumentManager() {
       return new Date(doc.expiryDate) < new Date();
     });
   };
+
+  const getReadableSize = (bytes) => {
+    if (bytes === undefined || bytes === null) return "";
+    const units = ["B", "KB", "MB", "GB"];
+    let size = bytes;
+    let idx = 0;
+    while (size >= 1024 && idx < units.length - 1) {
+      size /= 1024;
+      idx++;
+    }
+    return `${size.toFixed(1)} ${units[idx]}`;
+  };
+
+  const openViewDialog = async (doc) => {
+    try {
+      setError("");
+      setDocxRenderError("");
+      setViewingDocument(doc);
+      setIsViewDialogOpen(true);
+
+      // PDFs and images can be inlined directly from our API
+      if (
+        doc.mimeType === "application/pdf" ||
+        doc.mimeType?.startsWith("image/")
+      ) {
+        setPreviewUrl(`/api/documents/${doc._id}/download?inline=1`);
+        return;
+      }
+
+      // DOCX: render locally using docx-preview
+      if (
+        doc.mimeType ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ) {
+        setPreviewUrl("__DOCX_RENDER__");
+        return;
+      }
+
+      // Legacy .doc: cannot preview reliably in-browser; show metadata and allow download
+      if (doc.mimeType === "application/msword") {
+        setPreviewUrl("");
+        return;
+      }
+
+      // Fallback to inline
+      setPreviewUrl(`/api/documents/${doc._id}/download?inline=1`);
+    } catch (e) {
+      console.error("Preview error:", e);
+      setPreviewUrl("");
+    }
+  };
+
+  const closeViewDialog = () => {
+    if (previewUrl && previewUrl.startsWith("blob:"))
+      URL.revokeObjectURL(previewUrl);
+    setPreviewUrl("");
+    setViewingDocument(null);
+    setIsViewDialogOpen(false);
+  };
+
+  // Render DOCX preview dynamically using docx-preview
+  useEffect(() => {
+    const renderDocx = async () => {
+      if (
+        !isViewDialogOpen ||
+        previewUrl !== "__DOCX_RENDER__" ||
+        !viewingDocument
+      )
+        return;
+      try {
+        setIsRenderingDocx(true);
+        setDocxRenderError("");
+        const res = await fetch(
+          `/api/documents/${viewingDocument._id}/download`
+        );
+        if (!res.ok) throw new Error("Failed to fetch DOCX for preview");
+        const blob = await res.blob();
+        const container = document.getElementById("docx-preview-container");
+        if (!container) return;
+        container.innerHTML = "";
+        const mod = await import("docx-preview");
+        const renderAsync = mod.renderAsync || mod.default?.renderAsync;
+        if (!renderAsync) throw new Error("docx-preview renderAsync not found");
+        await renderAsync(blob, container, undefined, {
+          className: "docx",
+          inWrapper: true,
+        });
+      } catch (err) {
+        console.error("DOCX render error:", err);
+        setDocxRenderError(
+          "Unable to render DOCX preview. Please download to view."
+        );
+      } finally {
+        setIsRenderingDocx(false);
+      }
+    };
+    renderDocx();
+  }, [isViewDialogOpen, previewUrl, viewingDocument]);
 
   const getEmployeeName = (employeeId) => {
     const employee = employees.find((emp) => emp._id === employeeId);
@@ -459,16 +562,26 @@ export default function DocumentManager() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() =>
-                        handleDeleteDocument(document._id, document.title)
-                      }
-                      disabled={loading}
-                      className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Delete Document"
-                    >
-                      Delete
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => openViewDialog(document)}
+                        disabled={loading}
+                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="View Document"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleDeleteDocument(document._id, document.title)
+                        }
+                        disabled={loading}
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Delete Document"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -607,6 +720,120 @@ export default function DocumentManager() {
               >
                 Upload Document
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Document Dialog */}
+      {isViewDialogOpen && viewingDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[95vh] overflow-y-auto">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {viewingDocument.title}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {getEmployeeName(viewingDocument.employeeId)} •{" "}
+                  {viewingDocument.documentType}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/api/documents/${viewingDocument._id}/download`}
+                  className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700"
+                >
+                  Download
+                </a>
+                <button
+                  onClick={closeViewDialog}
+                  className="bg-gray-500 text-white px-3 py-2 rounded hover:bg-gray-600"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              {previewUrl &&
+                previewUrl !== "__DOCX_RENDER__" &&
+                (viewingDocument.mimeType?.startsWith("image/") ? (
+                  <img
+                    src={previewUrl}
+                    alt={viewingDocument.title}
+                    className="max-h-[60vh] w-full object-contain border rounded"
+                  />
+                ) : (
+                  <iframe
+                    src={previewUrl}
+                    title="Document Preview"
+                    className="w-full h-[70vh] border rounded bg-white"
+                  />
+                ))}
+              {previewUrl === "__DOCX_RENDER__" && (
+                <div className="w-full border rounded bg-white">
+                  {isRenderingDocx ? (
+                    <div className="p-6 text-gray-600 text-sm">
+                      Rendering document...
+                    </div>
+                  ) : (
+                    <div
+                      id="docx-preview-container"
+                      className="p-4 overflow-auto max-h-[70vh]"
+                    />
+                  )}
+                  {docxRenderError && (
+                    <div className="p-4 text-red-600 text-sm">
+                      {docxRenderError}
+                    </div>
+                  )}
+                </div>
+              )}
+              {!previewUrl && (
+                <div className="p-6 bg-gray-50 border rounded text-gray-600 text-sm">
+                  Loading preview or preview not available.
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="bg-gray-50 rounded p-3">
+                <div className="text-gray-500">Original File</div>
+                <div className="text-gray-900">
+                  {viewingDocument.originalName}
+                </div>
+              </div>
+              <div className="bg-gray-50 rounded p-3">
+                <div className="text-gray-500">Size</div>
+                <div className="text-gray-900">
+                  {getReadableSize(viewingDocument.fileSize)}
+                </div>
+              </div>
+              <div className="bg-gray-50 rounded p-3">
+                <div className="text-gray-500">MIME Type</div>
+                <div className="text-gray-900">{viewingDocument.mimeType}</div>
+              </div>
+              <div className="bg-gray-50 rounded p-3">
+                <div className="text-gray-500">Upload Date</div>
+                <div className="text-gray-900">
+                  {new Date(viewingDocument.uploadDate).toLocaleString()}
+                </div>
+              </div>
+              <div className="bg-gray-50 rounded p-3">
+                <div className="text-gray-500">Expiry Date</div>
+                <div className="text-gray-900">
+                  {viewingDocument.expiryDate
+                    ? new Date(viewingDocument.expiryDate).toLocaleDateString()
+                    : "No Expiry"}
+                </div>
+              </div>
+              <div className="bg-gray-50 rounded p-3">
+                <div className="text-gray-500">Status</div>
+                <div className="text-gray-900">
+                  {getDocumentStatus(viewingDocument.expiryDate)}
+                </div>
+              </div>
             </div>
           </div>
         </div>

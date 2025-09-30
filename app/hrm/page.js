@@ -11,6 +11,16 @@ import ManagerLeaveApproval from "../components/ManagerLeaveApproval";
 import LeaveBalance from "../components/LeaveBalance";
 import EthiopianCalendar from "../components/EthiopianCalendar";
 import IntegratedPayrollSystem from "../components/IntegratedPayrollSystem";
+import EmployeeLocationManagement from "../components/EmployeeLocationManagement";
+import WorkLocationsManagement from "../components/WorkLocationsManagement";
+import ProjectsManagement from "../components/ProjectsManagement";
+import BudgetManagement from "../components/BudgetManagement";
+import DepartmentsManagement from "../components/DepartmentsManagement";
+import EmployeeStatistics from "../components/EmployeeStatistics";
+import DepartmentAnalytics from "../components/DepartmentAnalytics";
+import DocumentReports from "../components/DocumentReports";
+import AdminAttendanceManagement from "../components/AdminAttendanceManagement";
+import DesignationsManagement from "../components/DesignationsManagement";
 
 export default function HRMDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -107,6 +117,8 @@ export default function HRMDashboard() {
       case "employee-database":
       case "employees":
         return <EmployeeDatabase />;
+      case "employee-location":
+        return <EmployeeLocationManagement />;
       case "employee-add":
         return (
           <div className="bg-white rounded-lg shadow p-6">
@@ -139,37 +151,15 @@ export default function HRMDashboard() {
           </div>
         );
       case "employee-stats":
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Employee Statistics</h2>
-            <p className="text-gray-600">
-              Employee analytics and reports coming soon...
-            </p>
-          </div>
-        );
+        return <EmployeeStatistics />;
       case "department-stats":
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Department Analytics</h2>
-            <p className="text-gray-600">Department analytics coming soon...</p>
-          </div>
-        );
+        return <DepartmentAnalytics />;
       case "document-stats":
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Document Reports</h2>
-            <p className="text-gray-600">Document reports coming soon...</p>
-          </div>
-        );
+        return <DocumentReports />;
       case "departments":
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Departments</h2>
-            <p className="text-gray-600">
-              Department management coming soon...
-            </p>
-          </div>
-        );
+        return <DepartmentsManagement />;
+      case "designations":
+        return <DesignationsManagement />;
       case "locations":
         return (
           <div className="bg-white rounded-lg shadow p-6">
@@ -201,6 +191,12 @@ export default function HRMDashboard() {
             <p className="text-gray-600">System settings coming soon...</p>
           </div>
         );
+      case "work-locations":
+        return <WorkLocationsManagement />;
+      case "projects":
+        return <ProjectsManagement />;
+      case "budget-management":
+        return <BudgetManagement />;
       case "attendance-reports":
         return (
           <div className="bg-white rounded-lg shadow p-6">
@@ -208,15 +204,8 @@ export default function HRMDashboard() {
             <AttendanceReporting />
           </div>
         );
+      case "payroll":
       case "payroll-integration":
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">
-              Integrated Payroll System
-            </h2>
-            <IntegratedPayrollSystem />
-          </div>
-        );
       case "payroll-calculator":
         return (
           <div className="bg-white rounded-lg shadow p-6">
@@ -227,22 +216,13 @@ export default function HRMDashboard() {
           </div>
         );
       case "admin-attendance":
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">
-              Admin Attendance Management
-            </h2>
-            <p className="text-gray-600">
-              Admin attendance management interface coming soon...
-            </p>
-          </div>
-        );
+        return <AdminAttendanceManagement />;
       case "employee-setup":
         return (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4">Employee Setup</h2>
             <p className="text-gray-600">
-              Employee setup interface coming soon...
+              Employee setup - component coming soon...
             </p>
           </div>
         );
@@ -251,7 +231,7 @@ export default function HRMDashboard() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4">Employee Login</h2>
             <p className="text-gray-600">
-              Employee login interface coming soon...
+              Employee login - component coming soon...
             </p>
           </div>
         );
@@ -260,7 +240,7 @@ export default function HRMDashboard() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4">Daily Attendance</h2>
             <p className="text-gray-600">
-              Daily attendance interface coming soon...
+              Daily attendance - component coming soon...
             </p>
           </div>
         );
@@ -269,7 +249,7 @@ export default function HRMDashboard() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4">Submit Documents</h2>
             <p className="text-gray-600">
-              Document submission interface coming soon...
+              Attendance documents - component coming soon...
             </p>
           </div>
         );
@@ -278,7 +258,7 @@ export default function HRMDashboard() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4">Legacy System</h2>
             <p className="text-gray-600">
-              Legacy attendance system interface coming soon...
+              Legacy system - component coming soon...
             </p>
           </div>
         );
@@ -322,33 +302,7 @@ export default function HRMDashboard() {
       onLogout={handleLogout}
     >
       <div className="p-6">
-        {/* Admin Header */}
-        <div className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-4 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">HRM Dashboard</h1>
-              <p className="text-blue-100">
-                Welcome, {user?.name} | Role: {user?.role}
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="bg-green-500 px-3 py-1 rounded-full text-sm font-medium">
-                Admin Access
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Main Content */}
-        <div className="mb-4 text-sm text-gray-500">
-          Current section: {activeSection}
-        </div>
         {renderContent()}
       </div>
     </Layout>

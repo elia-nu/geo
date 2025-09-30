@@ -84,7 +84,9 @@ export default function EmployeeSidebar({
 
   return (
     <div
-      className={`absolute left-0 top-0 h-full bg-white border-r border-gray-200 shadow-md transition-all duration-300 z-40 ${isCollapsed ? "w-16" : "w-64"}`}
+      className={`fixed inset-y-0 left-0 bg-white border-r border-gray-200 shadow-md transition-all duration-300 z-40 overflow-y-auto ${
+        isCollapsed ? "w-16" : "w-64"
+      }`}
     >
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
@@ -123,7 +125,7 @@ export default function EmployeeSidebar({
       </div>
 
       {/* Navigation Menu */}
-      <nav className="p-4 space-y-2">
+      <nav className="p-4 space-y-2 pb-24">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeSection === item.id;

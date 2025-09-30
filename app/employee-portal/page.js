@@ -200,6 +200,11 @@ export default function EmployeePortal() {
 
   const handleSectionChange = (section) => {
     setActiveSection(section);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("section", section);
+      window.history.replaceState({}, "", url.toString());
+    } catch {}
   };
 
   const renderActiveSection = () => {
@@ -208,10 +213,27 @@ export default function EmployeePortal() {
     switch (activeSection) {
       case "dashboard":
         return (
-          <EmployeeDashboard
-            employeeId={employeeData._id}
-            employeeName={employeeData.name}
-          />
+          <div className="space-y-6">
+            <EmployeeDashboard
+              employeeId={employeeData._id}
+              employeeName={employeeData.name}
+            />
+            {/* Extra quick stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-xl shadow p-4">
+                <p className="text-sm text-gray-500">This Week - Present</p>
+                <p className="text-3xl font-bold text-gray-900">0 days</p>
+              </div>
+              <div className="bg-white rounded-xl shadow p-4">
+                <p className="text-sm text-gray-500">This Week - Absent</p>
+                <p className="text-3xl font-bold text-gray-900">7 days</p>
+              </div>
+              <div className="bg-white rounded-xl shadow p-4">
+                <p className="text-sm text-gray-500">Avg Hours</p>
+                <p className="text-3xl font-bold text-gray-900">0h</p>
+              </div>
+            </div>
+          </div>
         );
       case "attendance":
         return (
@@ -399,9 +421,9 @@ export default function EmployeePortal() {
         employeeName={employeeData.name}
       />
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">{renderActiveSection()}</div>
+      {/* Main Content - offset for fixed sidebar on md+ screens */}
+      <div className="flex-1 overflow-auto md:ml-64 lg:ml-72">
+        <div className="p-4 sm:p-6 lg:p-8">{renderActiveSection()}</div>
       </div>
     </div>
   );
@@ -416,6 +438,7 @@ function EnhancedDailyAttendance({
 }) {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [showMap, setShowMap] = useState(false);
+  const [showLocationsModal, setShowLocationsModal] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [todayRecord, setTodayRecord] = useState(null);
@@ -545,7 +568,7 @@ function EnhancedDailyAttendance({
           </div>
 
           {/* Real-time Clock and Date */}
-          <div className="text-right">
+          <div className="text-right space-y-2">
             <div className="text-3xl font-bold">
               {currentTime.toLocaleTimeString([], {
                 hour: "2-digit",
@@ -559,6 +582,26 @@ function EnhancedDailyAttendance({
                 month: "long",
                 day: "numeric",
               })}
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                onClick={() => setShowMap((v) => !v)}
+                disabled={workLocations.length === 0}
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                  workLocations.length === 0
+                    ? "bg-white/10 text-white/50 cursor-not-allowed"
+                    : "bg-white/20 hover:bg-white/30 text-white"
+                }`}
+              >
+                <Navigation className="w-4 h-4" />
+                {showMap ? "Hide Map" : "Show Interactive Map"}
+              </button>
+              <button
+                onClick={() => setShowLocationsModal(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-medium"
+              >
+                <MapPin className="w-4 h-4" /> Work Locations
+              </button>
             </div>
           </div>
         </div>
@@ -575,7 +618,7 @@ function EnhancedDailyAttendance({
 
             {/* Location Available Badge */}
             {workLocations.length > 0 && (
-              <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm flex items-center space-x-1">
+              <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm flex items-center space-x-1 text-black">
                 <Navigation className="w-4 h-4" />
                 <span>Location Available</span>
               </span>
@@ -592,211 +635,46 @@ function EnhancedDailyAttendance({
         </div>
       </div>
 
-      {/* Work Locations Information */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold flex items-center space-x-2">
-            <MapPin className="w-6 h-6 text-green-600" />
-            <span>Your Work Locations ({workLocations.length})</span>
-          </h2>
-          <button
-            onClick={() => setShowMap(!showMap)}
-            disabled={workLocations.length === 0}
-            className={`px-4 py-2 rounded-lg flex items-center space-x-2 font-medium transition-colors ${
-              workLocations.length === 0
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-          >
-            <Navigation className="w-4 h-4" />
-            <span>{showMap ? "Hide Map" : "Show Interactive Map"}</span>
-          </button>
-        </div>
-
-        {/* Interactive Map Section */}
-        {showMap && workLocations.length > 0 && (
-          <div className="mb-6">
-            <div className="bg-blue-50 rounded-lg p-4 mb-4">
-              <h3 className="text-lg font-semibold mb-3 flex items-center space-x-2">
-                <Navigation className="w-5 h-5 text-blue-600" />
-                <span>Live Location Map</span>
-              </h3>
-              <div className="text-sm text-gray-700 mb-4 space-y-1">
-                <p>
-                  •{" "}
-                  <span className="text-blue-600 font-medium">
-                    Blue pulsing dot
-                  </span>{" "}
-                  = Your current location
-                </p>
-                <p>
-                  •{" "}
-                  <span className="text-green-600 font-medium">
-                    Green circles
-                  </span>{" "}
-                  = Work locations where you're within range
-                </p>
-                <p>
-                  •{" "}
-                  <span className="text-red-600 font-medium">Red circles</span>{" "}
-                  = Work locations where you're outside range
-                </p>
-                <p>
-                  • Switch between <strong>Satellite</strong> and{" "}
-                  <strong>Street</strong> views using the layer control
-                </p>
-              </div>
-
-              {/* Map Container */}
-              <div className="relative h-96 bg-gray-200 rounded-lg overflow-hidden">
-                {currentLocation ? (
-                  <LocationMap
-                    currentLocation={currentLocation}
-                    workLocations={workLocations}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      {locationLoading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                          <p className="text-gray-600">
-                            Getting your location...
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <Navigation className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-gray-600 mb-2">
-                            Location access required
-                          </p>
-                          <button
-                            onClick={getCurrentLocation}
-                            className="text-blue-600 hover:text-blue-800 underline font-medium"
-                          >
-                            Enable Location Access
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+      {/* Inline Interactive Map (outside modal) */}
+      {showMap && workLocations.length > 0 && (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="bg-blue-50 rounded-lg p-4 mb-4 text-sm text-gray-700">
+            Use the layer control to switch between Satellite and Street views.
           </div>
-        )}
-
-        {/* Work Locations List */}
-        {workLocations.length === 0 ? (
-          <div className="text-center py-12">
-            <MapPin className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No Work Locations Assigned
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Please contact your administrator to assign work locations for
-              attendance tracking.
-            </p>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="w-5 h-5 text-yellow-600" />
-                <span className="text-yellow-800 font-medium">
-                  Action Required
-                </span>
-              </div>
-              <p className="text-yellow-700 mt-1 text-sm">
-                You cannot check in/out without assigned work locations.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {workLocations.map((location, index) => (
-              <div
-                key={location._id}
-                className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {location.name}
-                  </h3>
-                  <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                    Location {index + 1}
-                  </span>
-                </div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600 mb-1 font-medium">📍 Address</p>
-                    <p className="text-gray-900">
-                      {location.address || "Not specified"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 mb-1 font-medium">
-                      🌍 Coordinates
-                    </p>
-                    <p className="text-gray-900 font-mono text-xs">
-                      {location.latitude && location.longitude
-                        ? `${
-                            typeof location.latitude === "number"
-                              ? location.latitude.toFixed(6)
-                              : String(location.latitude || "N/A")
-                          }, ${
-                            typeof location.longitude === "number"
-                              ? location.longitude.toFixed(6)
-                              : String(location.longitude || "N/A")
-                          }`
-                        : "Not specified"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 mb-1 font-medium">
-                      📏 Check-in Radius
-                    </p>
-                    <p className="text-gray-900">
-                      {location.radius
-                        ? `${
-                            typeof location.radius === "number"
-                              ? location.radius
-                              : String(location.radius || "N/A")
-                          } meters`
-                        : "Not specified"}
-                    </p>
-                  </div>
-                  {location.description && (
-                    <div className="md:col-span-2 lg:col-span-3">
-                      <p className="text-gray-600 mb-1 font-medium">
-                        📝 Description
+          <div className="relative h-96 bg-gray-200 rounded-lg overflow-hidden">
+            {currentLocation ? (
+              <LocationMap
+                currentLocation={currentLocation}
+                workLocations={workLocations}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  {locationLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                      <p className="text-gray-600">Getting your location...</p>
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-gray-600 mb-2">
+                        Location access required
                       </p>
-                      <p className="text-gray-900">{location.description}</p>
-                    </div>
+                      <button
+                        onClick={getCurrentLocation}
+                        className="text-blue-600 hover:text-blue-800 underline font-medium"
+                      >
+                        Enable Location Access
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
-            ))}
+            )}
           </div>
-        )}
-
-        {/* Information Note */}
-        {workLocations.length > 0 && (
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-              <div>
-                <p className="text-sm text-blue-800 font-medium mb-1">
-                  Attendance Guidelines
-                </p>
-                <p className="text-sm text-blue-700">
-                  You can check in/out when you are within any of your
-                  designated work location radii. The system will automatically
-                  detect your location and verify your proximity to assigned
-                  locations.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Daily Attendance Component */}
       {workLocations.length > 0 && (
@@ -807,6 +685,173 @@ function EnhancedDailyAttendance({
           hideHeader={true}
           onAttendanceUpdate={fetchTodayAttendance}
         />
+      )}
+
+      {/* Work Locations Modal */}
+      {showLocationsModal && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowLocationsModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-green-600" /> Work Locations (
+                {workLocations.length})
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowMap(!showMap)}
+                  disabled={workLocations.length === 0}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                    workLocations.length === 0
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
+                >
+                  {showMap ? "Hide Map" : "Show Map"}
+                </button>
+                <button
+                  onClick={() => setShowLocationsModal(false)}
+                  className="px-3 py-2 border rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-6">
+              {showMap && workLocations.length > 0 && (
+                <div>
+                  <div className="bg-blue-50 rounded-lg p-4 mb-4 text-sm text-gray-700">
+                    Use the layer control to switch between Satellite and Street
+                    views.
+                  </div>
+                  <div className="relative h-96 bg-gray-200 rounded-lg overflow-hidden">
+                    {currentLocation ? (
+                      <LocationMap
+                        currentLocation={currentLocation}
+                        workLocations={workLocations}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          {locationLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                              <p className="text-gray-600">
+                                Getting your location...
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <Navigation className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                              <p className="text-gray-600 mb-2">
+                                Location access required
+                              </p>
+                              <button
+                                onClick={getCurrentLocation}
+                                className="text-blue-600 hover:text-blue-800 underline font-medium"
+                              >
+                                Enable Location Access
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Locations list */}
+              {workLocations.length === 0 ? (
+                <div className="text-center py-12">
+                  <MapPin className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    No Work Locations Assigned
+                  </h3>
+                  <p className="text-gray-600">
+                    Please contact your administrator to assign work locations
+                    for attendance tracking.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {workLocations.map((location, index) => (
+                    <div
+                      key={location._id}
+                      className="border border-gray-200 rounded-lg p-4"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-lg font-semibold text-gray-900">
+                          {location.name}
+                        </h4>
+                        <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          Location {index + 1}
+                        </span>
+                      </div>
+                      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-600 mb-1 font-medium">
+                            📍 Address
+                          </p>
+                          <p className="text-gray-900">
+                            {location.address || "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600 mb-1 font-medium">
+                            🌍 Coordinates
+                          </p>
+                          <p className="text-gray-900 font-mono text-xs">
+                            {location.latitude && location.longitude
+                              ? `${
+                                  typeof location.latitude === "number"
+                                    ? location.latitude.toFixed(6)
+                                    : String(location.latitude || "N/A")
+                                }, ${
+                                  typeof location.longitude === "number"
+                                    ? location.longitude.toFixed(6)
+                                    : String(location.longitude || "N/A")
+                                }`
+                              : "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600 mb-1 font-medium">
+                            📏 Check-in Radius
+                          </p>
+                          <p className="text-gray-900">
+                            {location.radius
+                              ? `${
+                                  typeof location.radius === "number"
+                                    ? location.radius
+                                    : String(location.radius || "N/A")
+                                } meters`
+                              : "Not specified"}
+                          </p>
+                        </div>
+                        {location.description && (
+                          <div className="md:col-span-2 lg:col-span-3">
+                            <p className="text-gray-600 mb-1 font-medium">
+                              📝 Description
+                            </p>
+                            <p className="text-gray-900">
+                              {location.description}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

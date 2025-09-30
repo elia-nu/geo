@@ -60,6 +60,9 @@ export default function EditStepperEmployeeForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [workLocations, setWorkLocations] = useState([]);
+  const [designations, setDesignations] = useState([]);
 
   // Helper functions to safely get data from either structure
   const getEmployeeName = (emp) =>
@@ -99,74 +102,159 @@ export default function EditStepperEmployeeForm({
   });
 
   const [formErrors, setFormErrors] = useState({});
+  const [fetchingData, setFetchingData] = useState(false);
+  const [enhancedEmployee, setEnhancedEmployee] = useState(null);
 
-  // Populate form when employee changes
+  const canNavigateToStep = (targetStep) => {
+    if (targetStep <= currentStep) return true;
+    if (targetStep === currentStep + 1) {
+      const errors = validateStep(currentStep);
+      setFormErrors(errors);
+      return Object.keys(errors).length === 0;
+    }
+    return false;
+  };
+
+  // Fetch complete employee data including related records
   useEffect(() => {
-    if (employee && isOpen) {
+    const fetchEnhancedEmployeeData = async () => {
+      if (!employee?._id || !isOpen) {
+        setEnhancedEmployee(null);
+        return;
+      }
+
+      setFetchingData(true);
+      try {
+        const response = await fetch(
+          `/api/employee/${employee._id}/enhanced-simple`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch employee data");
+        }
+
+        const data = await response.json();
+        console.log("Fetched enhanced employee data:", data);
+        setEnhancedEmployee(data);
+      } catch (error) {
+        console.error("Error fetching enhanced employee data:", error);
+        setError("Failed to load employee data");
+      } finally {
+        setFetchingData(false);
+      }
+    };
+
+    fetchEnhancedEmployeeData();
+  }, [employee?._id, isOpen]);
+
+  // Fetch departments and work locations when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchLists = async () => {
+      try {
+        const [deptRes, locRes, desRes] = await Promise.all([
+          fetch("/api/departments"),
+          fetch("/api/work-locations"),
+          fetch("/api/designations"),
+        ]);
+        if (deptRes.ok) {
+          const deptData = await deptRes.json();
+          const list = Array.isArray(deptData?.departments)
+            ? deptData.departments
+            : Array.isArray(deptData)
+            ? deptData
+            : [];
+          setDepartments(list);
+        }
+        if (locRes.ok) {
+          const locData = await locRes.json();
+          const list = Array.isArray(locData?.locations)
+            ? locData.locations
+            : Array.isArray(locData)
+            ? locData
+            : [];
+          setWorkLocations(list);
+        }
+        if (desRes?.ok) {
+          const desData = await desRes.json();
+          const list = Array.isArray(desData?.designations)
+            ? desData.designations
+            : Array.isArray(desData)
+            ? desData
+            : [];
+          setDesignations(list);
+        }
+      } catch (e) {
+        // ignore; selects will be empty
+      }
+    };
+    fetchLists();
+  }, [isOpen]);
+
+  // Populate form when enhanced employee data is available
+  useEffect(() => {
+    if (enhancedEmployee && isOpen) {
+      const emp = enhancedEmployee.employee;
+
       // Personal Details
       setPersonalDetails({
-        name: getEmployeeName(employee),
-        email: getEmployeeEmail(employee),
-        employeeId: getEmployeeData(employee, "employeeId"),
-        dateOfBirth: getEmployeeData(employee, "dateOfBirth"),
-        contactNumber: getEmployeeData(employee, "contactNumber"),
-        department: employee.department || "",
-        designation: employee.designation || "",
-        workLocation: employee.workLocation || "",
-        joiningDate: getEmployeeData(employee, "joiningDate"),
-        emergencyContactName: getEmployeeData(employee, "emergencyContactName"),
-        emergencyContactNumber: getEmployeeData(
-          employee,
-          "emergencyContactNumber"
-        ),
-        address: getEmployeeData(employee, "address"),
+        name: getEmployeeName(emp),
+        email: getEmployeeEmail(emp),
+        employeeId: getEmployeeData(emp, "employeeId"),
+        dateOfBirth: getEmployeeData(emp, "dateOfBirth"),
+        contactNumber: getEmployeeData(emp, "contactNumber"),
+        department: emp.department || "",
+        designation: emp.designation || "",
+        workLocation: emp.workLocation || "",
+        joiningDate: getEmployeeData(emp, "joiningDate"),
+        emergencyContactName: getEmployeeData(emp, "emergencyContactName"),
+        emergencyContactNumber: getEmployeeData(emp, "emergencyContactNumber"),
+        address: getEmployeeData(emp, "address"),
       });
 
-      // Employment History
-      setEmploymentHistory(employee.employmentHistory || []);
+      // Employment History - from separate collection
+      setEmploymentHistory(enhancedEmployee.employmentHistory || []);
 
-      // Certifications
+      // Certifications - from separate collection
       // Normalize certification fields to { title, issuer, issueDate, ... }
       setCertifications(
-        (employee.certifications || []).map((c) => ({
+        (enhancedEmployee.certifications || []).map((c) => ({
           ...c,
           issuer: c.issuer || c.institution || c.issuingInstitution || "",
           issueDate: c.issueDate || c.dateObtained || c.date || "",
         }))
       );
 
-      // Skills
+      // Skills - from separate collection
       setSkills(
-        employee.skills?.map((skill, index) => ({
-          id: index,
+        (enhancedEmployee.skills || []).map((skill, index) => ({
+          id: skill.id || index,
           skillName: typeof skill === "string" ? skill : skill.skillName || "",
           proficiencyLevel:
             typeof skill === "string"
               ? "Intermediate"
               : skill.proficiencyLevel || "Intermediate",
-          experienceYears:
-            typeof skill === "string" ? "" : skill.experienceYears || "",
+          yearsOfExperience:
+            typeof skill === "string" ? "" : skill.yearsOfExperience || "",
           category:
             typeof skill === "string"
               ? "Technical"
               : skill.category || "Technical",
-        })) || []
+        }))
       );
 
-      // Health Records
+      // Health Records - from separate collection
+      const healthData = enhancedEmployee.healthRecords || {};
       setHealthRecords({
-        bloodType: employee.healthRecords?.bloodType || "",
-        allergies: employee.healthRecords?.allergies || [],
-        medicalConditions: employee.healthRecords?.medicalConditions || [],
-        medications: employee.healthRecords?.medications || [],
-        emergencyMedicalContact:
-          employee.healthRecords?.emergencyMedicalContact || "",
-        insuranceProvider: employee.healthRecords?.insuranceProvider || "",
-        insurancePolicyNumber:
-          employee.healthRecords?.insurancePolicyNumber || "",
+        bloodType: healthData.bloodType || "",
+        allergies: healthData.allergies || [],
+        medicalConditions: healthData.medicalConditions || [],
+        medications: healthData.medications || [],
+        emergencyMedicalContact: healthData.emergencyMedicalContact || "",
+        insuranceProvider: healthData.insuranceProvider || "",
+        insurancePolicyNumber: healthData.insurancePolicyNumber || "",
       });
     }
-  }, [employee, isOpen]);
+  }, [enhancedEmployee, isOpen]);
 
   // Add keyboard navigation
   useEffect(() => {
@@ -606,13 +694,11 @@ export default function EditStepperEmployeeForm({
                   }`}
                 >
                   <option value="">Select Department</option>
-                  <option value="IT">Information Technology</option>
-                  <option value="HR">Human Resources</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Operations">Operations</option>
-                  <option value="Legal">Legal</option>
+                  {departments.map((dept) => (
+                    <option key={dept._id || dept.name} value={dept.name}>
+                      {dept.name}
+                    </option>
+                  ))}
                 </select>
                 {formErrors.department && (
                   <p className="text-red-500 text-sm mt-1">
@@ -625,8 +711,7 @@ export default function EditStepperEmployeeForm({
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Designation <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={personalDetails.designation}
                   onChange={(e) =>
                     setPersonalDetails({
@@ -639,8 +724,14 @@ export default function EditStepperEmployeeForm({
                       ? "border-red-300 focus:ring-red-500"
                       : "border-gray-300 focus:ring-blue-500"
                   }`}
-                  placeholder="Enter designation"
-                />
+                >
+                  <option value="">Select Designation</option>
+                  {designations.map((des) => (
+                    <option key={`edit-des-${des}`} value={des}>
+                      {des}
+                    </option>
+                  ))}
+                </select>
                 {formErrors.designation && (
                   <p className="text-red-500 text-sm mt-1">
                     {formErrors.designation}
@@ -648,30 +739,7 @@ export default function EditStepperEmployeeForm({
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Work Location
-                </label>
-                <input
-                  type="text"
-                  value={
-                    typeof personalDetails.workLocation === "object" &&
-                    personalDetails.workLocation?.name
-                      ? personalDetails.workLocation.name
-                      : typeof personalDetails.workLocation === "string"
-                      ? personalDetails.workLocation
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      workLocation: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
-                  placeholder="Enter work location"
-                />
-              </div>
+              {/* Work Location removed - configured later in settings */}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -792,7 +860,7 @@ export default function EditStepperEmployeeForm({
                 </p>
                 <Button
                   onClick={addEmploymentEntry}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add First Experience
@@ -1018,7 +1086,7 @@ export default function EditStepperEmployeeForm({
                 </p>
                 <Button
                   onClick={addCertification}
-                  className="bg-yellow-600 hover:bg-yellow-700"
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add First Certification
@@ -1242,7 +1310,7 @@ export default function EditStepperEmployeeForm({
                 <p className="text-gray-500 mb-4">No skills added yet</p>
                 <Button
                   onClick={addSkill}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add First Skill
@@ -1505,7 +1573,7 @@ export default function EditStepperEmployeeForm({
                           input.value = "";
                         }
                       }}
-                      className="bg-red-600 hover:bg-red-700"
+                      className="bg-red-600 hover:bg-red-700 text-white"
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
@@ -1556,7 +1624,7 @@ export default function EditStepperEmployeeForm({
                           input.value = "";
                         }
                       }}
-                      className="bg-yellow-600 hover:bg-yellow-700"
+                      className="bg-yellow-600 hover:bg-yellow-700 text-white"
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
@@ -1609,7 +1677,7 @@ export default function EditStepperEmployeeForm({
                           input.value = "";
                         }
                       }}
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
@@ -1662,12 +1730,14 @@ export default function EditStepperEmployeeForm({
       >
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden border border-gray-100">
           {/* Enhanced Header */}
-          <div className="relative bg-gradient-to-r from-green-600 via-green-700 to-teal-700 px-8 py-6 text-white">
-            <div className="absolute inset-0 bg-black bg-opacity-10"></div>
+          <div className="relative bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 px-8 py-6 text-white">
+            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.4),transparent_50%)]" />
             <div className="relative flex items-center justify-between">
               <div>
-                <h2 className="text-3xl font-bold mb-2">Edit Employee</h2>
-                <p className="text-green-100 text-sm">
+                <h2 className="text-3xl font-bold mb-2 drop-shadow-sm">
+                  Edit Employee
+                </h2>
+                <p className="text-white text-opacity-90 text-sm">
                   Step {currentStep} of {STEPS.length} -{" "}
                   {STEPS[currentStep - 1]?.title}
                 </p>
@@ -1677,7 +1747,7 @@ export default function EditStepperEmployeeForm({
                   onClose();
                   resetForm();
                 }}
-                className="text-white hover:text-green-200 transition-colors p-2 hover:bg-white hover:bg-opacity-20 rounded-full"
+                className="text-white hover:text-white transition-colors p-2 hover:bg-white hover:bg-opacity-20 rounded-full backdrop-blur-sm"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -1686,10 +1756,10 @@ export default function EditStepperEmployeeForm({
             {/* Enhanced Step Indicator */}
             <div className="relative mt-8">
               {/* Progress Bar Background */}
-              <div className="absolute top-5 left-0 right-0 h-1 bg-green-400 bg-opacity-30 rounded-full"></div>
+              <div className="absolute top-5 left-0 right-0 h-1.5 bg-white bg-opacity-25 rounded-full"></div>
               {/* Progress Bar Fill */}
               <div
-                className="absolute top-5 left-0 h-1 bg-white bg-opacity-80 rounded-full transition-all duration-500 ease-out"
+                className="absolute top-5 left-0 h-1.5 bg-gradient-to-r from-yellow-300 to-amber-400 rounded-full transition-all duration-500 ease-out shadow-lg"
                 style={{
                   width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%`,
                 }}
@@ -1703,12 +1773,17 @@ export default function EditStepperEmployeeForm({
                   >
                     {/* Step Circle */}
                     <div
-                      className={`relative flex items-center justify-center w-12 h-12 rounded-full border-3 transition-all duration-300 transform ${
+                      onClick={() => {
+                        if (canNavigateToStep(step.id)) setCurrentStep(step.id);
+                      }}
+                      role="button"
+                      title={step.title}
+                      className={`relative flex items-center justify-center w-12 h-12 rounded-full border-3 transition-all duration-300 transform cursor-pointer ${
                         currentStep > step.id
-                          ? "bg-teal-500 border-teal-400 text-white scale-110 shadow-lg"
+                          ? "bg-amber-400 border-amber-300 text-white scale-110 shadow-xl shadow-amber-500/50"
                           : currentStep === step.id
-                          ? "bg-white border-white text-green-700 scale-110 shadow-lg animate-pulse"
-                          : "bg-green-500 border-green-400 text-white hover:scale-105"
+                          ? "bg-white border-white text-teal-700 scale-110 shadow-xl shadow-white/50 animate-pulse"
+                          : "bg-teal-400 bg-opacity-40 border-teal-300 text-white hover:scale-105 hover:bg-opacity-60"
                       }`}
                     >
                       {currentStep > step.id ? (
@@ -1732,8 +1807,8 @@ export default function EditStepperEmployeeForm({
                       <p
                         className={`text-sm font-semibold transition-colors ${
                           currentStep >= step.id
-                            ? "text-white"
-                            : "text-green-200"
+                            ? "text-white drop-shadow"
+                            : "text-white text-opacity-60"
                         }`}
                       >
                         {step.title}
@@ -1741,17 +1816,25 @@ export default function EditStepperEmployeeForm({
                       <p
                         className={`text-xs mt-1 ${
                           currentStep >= step.id
-                            ? "text-green-100"
-                            : "text-green-300"
+                            ? "text-white text-opacity-90"
+                            : "text-white text-opacity-50"
                         }`}
                       >
                         {step.description}
                       </p>
                     </div>
 
-                    {/* Connection Line */}
-                    {index < STEPS.length - 1 && (
-                      <div className="absolute top-6 left-12 w-full h-px bg-green-300 bg-opacity-50 hidden lg:block"></div>
+                    {/* Connection Line - Removed for cleaner look */}
+                    {index < STEPS.length - 1 && false && (
+                      <div className="absolute top-6 left-12 w-full h-0.5 bg-green-200/60 hidden lg:block">
+                        <div
+                          className={`h-0.5 transition-all duration-500 ${
+                            currentStep > step.id
+                              ? "bg-white w-full"
+                              : "bg-transparent w-0"
+                          }`}
+                        ></div>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -1787,25 +1870,36 @@ export default function EditStepperEmployeeForm({
           )}
 
           {/* Enhanced Content Area */}
-          <div className="px-8 py-6 overflow-y-auto max-h-[calc(95vh-320px)] bg-gray-50">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 min-h-[400px]">
-              <div className="animate-in fade-in slide-in-from-right duration-300">
-                {renderStepContent()}
-              </div>
+          <div className="px-8 py-6 overflow-y-auto max-h-[calc(95vh-320px)] bg-gradient-to-b from-slate-50 to-white">
+            <div className="bg-white rounded-xl shadow-md border border-slate-200 p-8 min-h-[400px]">
+              {fetchingData ? (
+                <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+                  <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-gray-600 font-medium">
+                    Loading employee data...
+                  </p>
+                </div>
+              ) : (
+                <div className="animate-in fade-in slide-in-from-right duration-300">
+                  {renderStepContent()}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Enhanced Footer */}
-          <div className="px-8 py-6 bg-gray-50 border-t border-gray-200">
+          <div className="px-8 py-6 bg-gradient-to-t from-slate-50 to-white border-t border-slate-200">
             <div className="flex justify-between items-center">
               <Button
                 onClick={handlePrevious}
                 disabled={currentStep === 1 || loading}
                 variant="outline"
-                className="flex items-center gap-2 px-6 py-3 text-gray-700 border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                className="flex items-center gap-2 px-6 py-3 text-gray-800 border-gray-300 hover:bg-gray-100 disabled:text-gray-600 disabled:bg-white disabled:opacity-90 disabled:cursor-not-allowed transition-all duration-200"
               >
                 <ChevronLeft className="w-4 h-4" />
-                Previous
+                <span className="text-gray-800 disabled:text-gray-600">
+                  Previous
+                </span>
               </Button>
 
               <div className="flex items-center gap-4">
@@ -1835,16 +1929,16 @@ export default function EditStepperEmployeeForm({
                   <Button
                     onClick={handleNext}
                     disabled={loading}
-                    className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                   >
-                    Next
+                    <span className="text-white">Next</span>
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 ) : (
                   <Button
                     onClick={handleSubmit}
                     disabled={loading}
-                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:bg-gray-300 disabled:text-gray-700 disabled:opacity-100"
                   >
                     {loading ? (
                       <>
@@ -1854,7 +1948,7 @@ export default function EditStepperEmployeeForm({
                     ) : (
                       <>
                         <Check className="w-5 h-5" />
-                        Update Employee
+                        <span className="text-white">Update Employee</span>
                       </>
                     )}
                   </Button>

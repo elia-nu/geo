@@ -23,9 +23,11 @@ const Dashboard = ({ onSectionChange }) => {
     departments: {},
     locations: {},
   });
+  const [lastUpdated, setLastUpdated] = useState("");
 
   useEffect(() => {
     fetchStats();
+    setLastUpdated(new Date().toLocaleTimeString());
   }, []);
 
   const fetchStats = async () => {
@@ -97,17 +99,38 @@ const Dashboard = ({ onSectionChange }) => {
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white">
-        <h1 className="text-3xl font-bold mb-2">Welcome to HRM Dashboard</h1>
-        <p className="text-blue-100">
-          Manage your human resources efficiently with our comprehensive system
-        </p>
+      <div className="relative overflow-hidden rounded-2xl p-8 text-white shadow-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.5),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.3),transparent_50%)]" />
+        <div className="relative z-10">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">
+            Welcome to HRM Dashboard
+          </h1>
+          <p className="text-blue-100/90 max-w-2xl">
+            Manage your human resources efficiently with our comprehensive
+            system
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button
+              onClick={() => onSectionChange("employee-add")}
+              className="bg-white/90 text-slate-900 hover:bg-white shadow-lg shadow-black/10"
+            >
+              Quick Add Employee
+            </Button>
+            <Button
+              onClick={() => onSectionChange("payroll-integration")}
+              variant="secondary"
+              className="bg-white/10 backdrop-blur border border-white/20 hover:bg-white/20"
+            >
+              Open Payroll
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card
-          className="hover:shadow-lg transition-shadow cursor-pointer"
+          className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border border-blue-100/60"
           onClick={() => onSectionChange("employee-database")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -117,7 +140,7 @@ const Dashboard = ({ onSectionChange }) => {
             <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-3xl font-extrabold text-blue-600">
               {stats.totalEmployees}
             </div>
             <p className="text-xs text-gray-500 flex items-center mt-1">
@@ -128,7 +151,7 @@ const Dashboard = ({ onSectionChange }) => {
         </Card>
 
         <Card
-          className="hover:shadow-lg transition-shadow cursor-pointer"
+          className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border border-green-100/60"
           onClick={() => onSectionChange("document-list")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -138,7 +161,7 @@ const Dashboard = ({ onSectionChange }) => {
             <FileText className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-3xl font-extrabold text-green-600">
               {stats.totalDocuments}
             </div>
             <p className="text-xs text-gray-500 flex items-center mt-1">
@@ -149,7 +172,7 @@ const Dashboard = ({ onSectionChange }) => {
         </Card>
 
         <Card
-          className="hover:shadow-lg transition-shadow cursor-pointer"
+          className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border border-orange-100/60"
           onClick={() => onSectionChange("document-expiry")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -157,20 +180,20 @@ const Dashboard = ({ onSectionChange }) => {
             <Clock className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-3xl font-extrabold text-orange-600">
               {stats.expiringDocuments}
             </div>
             <p className="text-xs text-gray-500">Next 30 days</p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all border border-red-100/60">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Expired</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-3xl font-extrabold text-red-600">
               {stats.expiredDocuments}
             </div>
             <p className="text-xs text-gray-500">Require attention</p>
@@ -178,7 +201,7 @@ const Dashboard = ({ onSectionChange }) => {
         </Card>
 
         <Card
-          className="hover:shadow-lg transition-shadow cursor-pointer"
+          className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border border-orange-100/60"
           onClick={() => onSectionChange("payroll-integration")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -188,7 +211,7 @@ const Dashboard = ({ onSectionChange }) => {
             <Activity className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">Live</div>
+            <div className="text-3xl font-extrabold text-orange-600">Live</div>
             <p className="text-xs text-gray-500 flex items-center mt-1">
               <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
               Attendance & Leave
@@ -199,7 +222,7 @@ const Dashboard = ({ onSectionChange }) => {
 
       {/* Department and Location Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="bg-white text-slate-800 hover:shadow-xl transition-all border border-blue-100/60">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building className="h-5 w-5 text-blue-600" />
@@ -212,7 +235,7 @@ const Dashboard = ({ onSectionChange }) => {
                 <div key={dept} className="flex justify-between items-center">
                   <span className="text-sm font-medium">{dept}</span>
                   <div className="flex items-center gap-2">
-                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                    <div className="w-28 bg-gray-200/70 rounded-full h-2 overflow-hidden">
                       <div
                         className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
                         style={{
@@ -235,7 +258,7 @@ const Dashboard = ({ onSectionChange }) => {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="bg-white text-slate-800 hover:shadow-xl transition-all border border-green-100/60">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-green-600" />
@@ -251,7 +274,7 @@ const Dashboard = ({ onSectionChange }) => {
                 >
                   <span className="text-sm font-medium">{location}</span>
                   <div className="flex items-center gap-2">
-                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                    <div className="w-28 bg-gray-200/70 rounded-full h-2 overflow-hidden">
                       <div
                         className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-500"
                         style={{
@@ -276,7 +299,7 @@ const Dashboard = ({ onSectionChange }) => {
       </div>
 
       {/* Quick Actions */}
-      <Card>
+      <Card className="bg-white text-slate-800 border border-slate-200/70 hover:shadow-xl transition-shadow">
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
@@ -284,7 +307,7 @@ const Dashboard = ({ onSectionChange }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Button
               onClick={() => onSectionChange("employee-add")}
-              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-md"
             >
               <Users className="h-5 w-5" />
               <div className="text-left">
@@ -297,7 +320,7 @@ const Dashboard = ({ onSectionChange }) => {
 
             <Button
               onClick={() => onSectionChange("document-upload")}
-              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 shadow-md"
             >
               <FileText className="h-5 w-5" />
               <div className="text-left">
@@ -308,7 +331,7 @@ const Dashboard = ({ onSectionChange }) => {
 
             <Button
               onClick={() => onSectionChange("employee-search")}
-              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-md"
             >
               <Users className="h-5 w-5" />
               <div className="text-left">
@@ -319,7 +342,7 @@ const Dashboard = ({ onSectionChange }) => {
 
             <Button
               onClick={() => onSectionChange("payroll-integration")}
-              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-md"
             >
               <TrendingUp className="h-5 w-5" />
               <div className="text-left">
@@ -334,7 +357,7 @@ const Dashboard = ({ onSectionChange }) => {
       </Card>
 
       {/* System Status */}
-      <Card>
+      <Card className="bg-white text-slate-800 border border-slate-200/70 hover:shadow-xl transition-shadow">
         <CardHeader>
           <CardTitle>System Status</CardTitle>
         </CardHeader>
@@ -372,7 +395,7 @@ const Dashboard = ({ onSectionChange }) => {
                   Last Updated
                 </p>
                 <p className="text-lg font-semibold text-gray-700">
-                  {new Date().toLocaleTimeString()}
+                  {lastUpdated || "—"}
                 </p>
               </div>
               <Clock className="h-5 w-5 text-gray-400" />

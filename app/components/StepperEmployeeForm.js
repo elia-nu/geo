@@ -85,8 +85,8 @@ export default function StepperEmployeeForm({
   const [certifications, setCertifications] = useState([
     {
       title: "",
-      institution: "",
-      dateObtained: "",
+      issuer: "",
+      issueDate: "",
       expiryDate: "",
       credentialId: "",
       description: "",
@@ -113,6 +113,16 @@ export default function StepperEmployeeForm({
   });
 
   const [formErrors, setFormErrors] = useState({});
+
+  const canNavigateToStep = (targetStep) => {
+    if (targetStep <= currentStep) return true;
+    if (targetStep === currentStep + 1) {
+      const errors = validateStep(currentStep);
+      setFormErrors(errors);
+      return Object.keys(errors).length === 0;
+    }
+    return false;
+  };
 
   // Add keyboard navigation
   useEffect(() => {
@@ -186,14 +196,13 @@ export default function StepperEmployeeForm({
 
       case 3:
         certifications.forEach((cert, index) => {
-          if (cert.title || cert.institution || cert.dateObtained) {
+          if (cert.title || cert.issuer || cert.issueDate) {
             if (!cert.title)
               errors[`cert_${index}_title`] = "Certification title is required";
-            if (!cert.institution)
-              errors[`cert_${index}_institution`] = "Institution is required";
-            if (!cert.dateObtained)
-              errors[`cert_${index}_dateObtained`] =
-                "Date obtained is required";
+            if (!cert.issuer)
+              errors[`cert_${index}_issuer`] = "Institution is required";
+            if (!cert.issueDate)
+              errors[`cert_${index}_issueDate`] = "Date obtained is required";
           }
         });
         break;
@@ -250,7 +259,7 @@ export default function StepperEmployeeForm({
           (job) => job.company || job.position || job.startDate
         ),
         certifications: certifications.filter(
-          (cert) => cert.title || cert.institution || cert.dateObtained
+          (cert) => cert.title || cert.issuer || cert.issueDate
         ),
         skills: skills.filter((skill) => skill.skillName),
         healthRecords,
@@ -314,8 +323,8 @@ export default function StepperEmployeeForm({
     setCertifications([
       {
         title: "",
-        institution: "",
-        dateObtained: "",
+        issuer: "",
+        issueDate: "",
         expiryDate: "",
         credentialId: "",
         description: "",
@@ -368,8 +377,8 @@ export default function StepperEmployeeForm({
       ...certifications,
       {
         title: "",
-        institution: "",
-        dateObtained: "",
+        issuer: "",
+        issueDate: "",
         expiryDate: "",
         credentialId: "",
         description: "",
@@ -449,7 +458,7 @@ export default function StepperEmployeeForm({
                     className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200 bg-white text-gray-900 placeholder-gray-500 ${
                       formErrors.name
                         ? "border-red-300 focus:ring-red-500 bg-red-50"
-                        : "border-gray-300 focus:ring-blue-500 hover:border-gray-400"
+                        : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
                     }`}
                     placeholder="Enter full name"
                   />
@@ -483,7 +492,7 @@ export default function StepperEmployeeForm({
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
                     formErrors.email
                       ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                      : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
                   }`}
                   placeholder="Enter email address"
                 />
@@ -507,7 +516,7 @@ export default function StepperEmployeeForm({
                       employeeId: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                   placeholder="Enter employee ID"
                 />
               </div>
@@ -525,7 +534,7 @@ export default function StepperEmployeeForm({
                       dateOfBirth: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                 />
               </div>
 
@@ -542,7 +551,7 @@ export default function StepperEmployeeForm({
                       contactNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                   placeholder="Enter contact number"
                 />
               </div>
@@ -562,7 +571,7 @@ export default function StepperEmployeeForm({
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
                     formErrors.department
                       ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                      : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
                   }`}
                 >
                   <option value="">Select Department</option>
@@ -627,7 +636,7 @@ export default function StepperEmployeeForm({
                       workLocation: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                   placeholder="Enter work location"
                 />
               </div>
@@ -671,7 +680,7 @@ export default function StepperEmployeeForm({
                       emergencyContactName: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                   placeholder="Enter emergency contact name"
                 />
               </div>
@@ -689,7 +698,7 @@ export default function StepperEmployeeForm({
                       emergencyContactNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                   placeholder="Enter emergency contact number"
                 />
               </div>
@@ -736,7 +745,7 @@ export default function StepperEmployeeForm({
               </div>
               <Button
                 onClick={addEmploymentEntry}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-xl transition-all duration-200 hover:scale-105"
               >
                 <Plus className="w-4 h-4" />
                 Add Experience
@@ -750,8 +759,8 @@ export default function StepperEmployeeForm({
               >
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Briefcase className="w-5 h-5 text-blue-600" />
+                    <div className="w-10 h-10 bg-gradient-to-br from-teal-100 to-cyan-100 rounded-full flex items-center justify-center shadow-sm">
+                      <Briefcase className="w-5 h-5 text-teal-600" />
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">
@@ -864,7 +873,7 @@ export default function StepperEmployeeForm({
                         updated[index].endDate = e.target.value;
                         setEmploymentHistory(updated);
                       }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                     />
                   </div>
                 </div>
@@ -881,7 +890,7 @@ export default function StepperEmployeeForm({
                       setEmploymentHistory(updated);
                     }}
                     rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                     placeholder="Describe key responsibilities and achievements"
                   />
                 </div>
@@ -898,7 +907,7 @@ export default function StepperEmployeeForm({
                       updated[index].reasonForLeaving = e.target.value;
                       setEmploymentHistory(updated);
                     }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                     placeholder="Reason for leaving (optional)"
                   />
                 </div>
@@ -973,14 +982,14 @@ export default function StepperEmployeeForm({
                     </label>
                     <input
                       type="text"
-                      value={cert.institution}
+                      value={cert.issuer}
                       onChange={(e) => {
                         const updated = [...certifications];
-                        updated[index].institution = e.target.value;
+                        updated[index].issuer = e.target.value;
                         setCertifications(updated);
                       }}
                       className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
-                        formErrors[`cert_${index}_institution`]
+                        formErrors[`cert_${index}_issuer`]
                           ? "border-red-300 focus:ring-red-500"
                           : "border-gray-300 focus:ring-blue-500"
                       }`}
@@ -999,14 +1008,14 @@ export default function StepperEmployeeForm({
                     </label>
                     <input
                       type="date"
-                      value={cert.dateObtained}
+                      value={cert.issueDate}
                       onChange={(e) => {
                         const updated = [...certifications];
-                        updated[index].dateObtained = e.target.value;
+                        updated[index].issueDate = e.target.value;
                         setCertifications(updated);
                       }}
                       className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
-                        formErrors[`cert_${index}_dateObtained`]
+                        formErrors[`cert_${index}_issueDate`]
                           ? "border-red-300 focus:ring-red-500"
                           : "border-gray-300 focus:ring-blue-500"
                       }`}
@@ -1030,7 +1039,7 @@ export default function StepperEmployeeForm({
                         updated[index].expiryDate = e.target.value;
                         setCertifications(updated);
                       }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                     />
                   </div>
 
@@ -1046,7 +1055,7 @@ export default function StepperEmployeeForm({
                         updated[index].credentialId = e.target.value;
                         setCertifications(updated);
                       }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                       placeholder="Enter credential ID (optional)"
                     />
                   </div>
@@ -1064,7 +1073,7 @@ export default function StepperEmployeeForm({
                       setCertifications(updated);
                     }}
                     rows={2}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                     placeholder="Brief description of the certification"
                   />
                 </div>
@@ -1144,7 +1153,7 @@ export default function StepperEmployeeForm({
                         updated[index].proficiencyLevel = e.target.value;
                         setSkills(updated);
                       }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                     >
                       <option value="Beginner">Beginner</option>
                       <option value="Intermediate">Intermediate</option>
@@ -1167,7 +1176,7 @@ export default function StepperEmployeeForm({
                         updated[index].yearsOfExperience = e.target.value;
                         setSkills(updated);
                       }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                       placeholder="Years of experience"
                     />
                   </div>
@@ -1183,7 +1192,7 @@ export default function StepperEmployeeForm({
                         updated[index].category = e.target.value;
                         setSkills(updated);
                       }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                     >
                       <option value="">Select Category</option>
                       <option value="Technical">Technical</option>
@@ -1219,7 +1228,7 @@ export default function StepperEmployeeForm({
                       bloodType: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                 >
                   <option value="">Select Blood Type</option>
                   <option value="A+">A+</option>
@@ -1246,7 +1255,7 @@ export default function StepperEmployeeForm({
                       emergencyMedicalContact: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                   placeholder="Emergency medical contact"
                 />
               </div>
@@ -1264,7 +1273,7 @@ export default function StepperEmployeeForm({
                       insuranceProvider: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                   placeholder="Insurance provider name"
                 />
               </div>
@@ -1282,7 +1291,7 @@ export default function StepperEmployeeForm({
                       insurancePolicyNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
                   placeholder="Policy number"
                 />
               </div>
@@ -1456,12 +1465,14 @@ export default function StepperEmployeeForm({
       >
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden border border-gray-100">
           {/* Enhanced Header */}
-          <div className="relative bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-8 py-6 text-white">
-            <div className="absolute inset-0 bg-black bg-opacity-10"></div>
+          <div className="relative bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 px-8 py-6 text-white">
+            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.4),transparent_50%)]" />
             <div className="relative flex items-center justify-between">
               <div>
-                <h2 className="text-3xl font-bold mb-2">Add New Employee</h2>
-                <p className="text-blue-100 text-sm">
+                <h2 className="text-3xl font-bold mb-2 drop-shadow-sm">
+                  Add New Employee
+                </h2>
+                <p className="text-white text-opacity-90 text-sm">
                   Step {currentStep} of {STEPS.length} -{" "}
                   {STEPS[currentStep - 1]?.title}
                 </p>
@@ -1471,7 +1482,7 @@ export default function StepperEmployeeForm({
                   onClose();
                   resetForm();
                 }}
-                className="text-white hover:text-blue-200 transition-colors p-2 hover:bg-white hover:bg-opacity-20 rounded-full"
+                className="text-white hover:text-white transition-colors p-2 hover:bg-white hover:bg-opacity-20 rounded-full backdrop-blur-sm"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -1480,10 +1491,10 @@ export default function StepperEmployeeForm({
             {/* Enhanced Step Indicator */}
             <div className="relative mt-8">
               {/* Progress Bar Background */}
-              <div className="absolute top-5 left-0 right-0 h-1 bg-blue-400 bg-opacity-30 rounded-full"></div>
+              <div className="absolute top-5 left-0 right-0 h-1.5 bg-white bg-opacity-25 rounded-full"></div>
               {/* Progress Bar Fill */}
               <div
-                className="absolute top-5 left-0 h-1 bg-white bg-opacity-80 rounded-full transition-all duration-500 ease-out"
+                className="absolute top-5 left-0 h-1.5 bg-gradient-to-r from-yellow-300 to-amber-400 rounded-full transition-all duration-500 ease-out shadow-lg"
                 style={{
                   width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%`,
                 }}
@@ -1497,12 +1508,17 @@ export default function StepperEmployeeForm({
                   >
                     {/* Step Circle */}
                     <div
-                      className={`relative flex items-center justify-center w-12 h-12 rounded-full border-3 transition-all duration-300 transform ${
+                      onClick={() => {
+                        if (canNavigateToStep(step.id)) setCurrentStep(step.id);
+                      }}
+                      role="button"
+                      title={step.title}
+                      className={`relative flex items-center justify-center w-12 h-12 rounded-full border-3 transition-all duration-300 transform cursor-pointer ${
                         currentStep > step.id
-                          ? "bg-green-500 border-green-400 text-white scale-110 shadow-lg"
+                          ? "bg-amber-400 border-amber-300 text-white scale-110 shadow-xl shadow-amber-500/50"
                           : currentStep === step.id
-                          ? "bg-white border-white text-blue-700 scale-110 shadow-lg animate-pulse"
-                          : "bg-blue-500 border-blue-400 text-white hover:scale-105"
+                          ? "bg-white border-white text-teal-700 scale-110 shadow-xl shadow-white/50 animate-pulse"
+                          : "bg-teal-400 bg-opacity-40 border-teal-300 text-white hover:scale-105 hover:bg-opacity-60"
                       }`}
                     >
                       {currentStep > step.id ? (
@@ -1526,8 +1542,8 @@ export default function StepperEmployeeForm({
                       <p
                         className={`text-sm font-semibold transition-colors ${
                           currentStep >= step.id
-                            ? "text-white"
-                            : "text-blue-200"
+                            ? "text-white drop-shadow"
+                            : "text-white text-opacity-60"
                         }`}
                       >
                         {step.title}
@@ -1535,18 +1551,13 @@ export default function StepperEmployeeForm({
                       <p
                         className={`text-xs mt-1 ${
                           currentStep >= step.id
-                            ? "text-blue-100"
-                            : "text-blue-300"
+                            ? "text-white text-opacity-90"
+                            : "text-white text-opacity-50"
                         }`}
                       >
                         {step.description}
                       </p>
                     </div>
-
-                    {/* Connection Line */}
-                    {index < STEPS.length - 1 && (
-                      <div className="absolute top-6 left-12 w-full h-px bg-blue-300 bg-opacity-50 hidden lg:block"></div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -1581,8 +1592,8 @@ export default function StepperEmployeeForm({
           )}
 
           {/* Enhanced Content Area */}
-          <div className="px-8 py-6 overflow-y-auto max-h-[calc(95vh-320px)] bg-gray-50">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 min-h-[400px]">
+          <div className="px-8 py-6 overflow-y-auto max-h-[calc(95vh-320px)] bg-gradient-to-b from-slate-50 to-white">
+            <div className="bg-white rounded-xl shadow-md border border-slate-200 p-8 min-h-[400px]">
               <div className="animate-in fade-in slide-in-from-right duration-300">
                 {renderStepContent()}
               </div>
@@ -1590,7 +1601,7 @@ export default function StepperEmployeeForm({
           </div>
 
           {/* Enhanced Footer */}
-          <div className="px-8 py-6 bg-gray-50 border-t border-gray-200">
+          <div className="px-8 py-6 bg-gradient-to-t from-slate-50 to-white border-t border-slate-200">
             <div className="flex justify-between items-center">
               <Button
                 onClick={handlePrevious}
@@ -1629,7 +1640,7 @@ export default function StepperEmployeeForm({
                   <Button
                     onClick={handleNext}
                     disabled={loading}
-                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                   >
                     Next
                     <ChevronRight className="w-4 h-4" />
@@ -1638,7 +1649,7 @@ export default function StepperEmployeeForm({
                   <Button
                     onClick={handleSubmit}
                     disabled={loading}
-                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                   >
                     {loading ? (
                       <>

@@ -7,6 +7,7 @@ export async function GET(request) {
     const reportType = searchParams.get("type") || "overview";
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const save = searchParams.get("save");
 
     const db = await getDb();
     let report = {};
@@ -30,6 +31,84 @@ export async function GET(request) {
       case "certifications":
         report = await generateCertificationReport(db);
         break;
+      case "all": {
+        const [
+          overview,
+          departments,
+          documents,
+          skills,
+          locations,
+          certifications,
+        ] = await Promise.all([
+          generateOverviewReport(db),
+          generateDepartmentReport(db),
+          generateDocumentReport(db, startDate, endDate),
+          generateSkillsReport(db),
+          generateLocationReport(db),
+          generateCertificationReport(db),
+        ]);
+
+        report = {
+          overview,
+          departments,
+          documents,
+          skills,
+          locations,
+          certifications,
+          generatedAt: new Date().toISOString(),
+        };
+
+        if (save) {
+          try {
+            const { writeFile, mkdir } = await import("fs/promises");
+            const path = await import("path");
+            const reportsDir = path.join(
+              process.cwd(),
+              "public",
+              "uploads",
+              "reports"
+            );
+            await mkdir(reportsDir, { recursive: true });
+            const ts = new Date().toISOString().replace(/[:.]/g, "-");
+            await Promise.all([
+              writeFile(
+                path.join(reportsDir, `overview-${ts}.json`),
+                JSON.stringify(overview, null, 2),
+                "utf-8"
+              ),
+              writeFile(
+                path.join(reportsDir, `departments-${ts}.json`),
+                JSON.stringify(departments, null, 2),
+                "utf-8"
+              ),
+              writeFile(
+                path.join(reportsDir, `documents-${ts}.json`),
+                JSON.stringify(documents, null, 2),
+                "utf-8"
+              ),
+              writeFile(
+                path.join(reportsDir, `skills-${ts}.json`),
+                JSON.stringify(skills, null, 2),
+                "utf-8"
+              ),
+              writeFile(
+                path.join(reportsDir, `locations-${ts}.json`),
+                JSON.stringify(locations, null, 2),
+                "utf-8"
+              ),
+              writeFile(
+                path.join(reportsDir, `certifications-${ts}.json`),
+                JSON.stringify(certifications, null, 2),
+                "utf-8"
+              ),
+            ]);
+          } catch (fileErr) {
+            console.error("Failed to save reports:", fileErr);
+          }
+        }
+
+        break;
+      }
       default:
         return NextResponse.json(
           { error: "Invalid report type" },

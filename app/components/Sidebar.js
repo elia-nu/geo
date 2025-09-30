@@ -90,29 +90,36 @@ const Sidebar = ({
       path: "/hrm",
     },
     {
+      id: "organization",
+      label: "Organization",
+      icon: Building,
+      submenu: [
+        {
+          id: "departments",
+          label: "Departments",
+          path: "/hrm?section=departments",
+        },
+        {
+          id: "designations",
+          label: "Designations",
+          path: "/hrm?section=designations",
+        },
+      ],
+    },
+    {
       id: "employees",
       label: "Employee Management",
       icon: Users,
       submenu: [
         {
-          id: "employee-database",
+          id: "employees",
           label: "Employees",
-          path: "/hrm/employees",
-        },
-        {
-          id: "employee-add",
-          label: "Add Employee",
-          path: "/hrm/employees/add",
-        },
-        {
-          id: "employee-search",
-          label: "Search Employees",
-          // use section switcher
+          path: "/hrm?section=employees",
         },
         {
           id: "employee-location",
           label: "Employee Location",
-          path: "/employee-location",
+          path: "/hrm?section=employee-location",
         },
       ],
     },
@@ -121,79 +128,47 @@ const Sidebar = ({
       label: "Document Management",
       icon: FileText,
       submenu: [
-        { id: "document-list", label: "All Documents" },
+        {
+          id: "document-list",
+          label: "All Documents",
+          path: "/hrm?section=documents",
+        },
         {
           id: "document-upload",
           label: "Upload Document",
+          path: "/hrm?section=document-upload",
         },
         {
           id: "document-expiry",
           label: "Expiry Alerts",
+          path: "/hrm?section=document-expiry",
         },
       ],
     },
-    {
-      id: "analytics",
-      label: "Analytics & Reports",
-      icon: BarChart3,
-      submenu: [
-        {
-          id: "employee-stats",
-          label: "Employee Statistics",
-          path: "/hrm/analytics/employees",
-        },
-        {
-          id: "department-stats",
-          label: "Department Analytics",
-          path: "/hrm/analytics/departments",
-        },
-        {
-          id: "document-stats",
-          label: "Document Reports",
-          path: "/hrm/analytics/documents",
-        },
-      ],
-    },
-    {
-      id: "organization",
-      label: "Organization",
-      icon: Building,
-      submenu: [
-        {
-          id: "departments",
-          label: "Departments",
-          path: "/hrm/organization/departments",
-        },
-        {
-          id: "hierarchy",
-          label: "Org Hierarchy",
-          path: "/hrm/organization/hierarchy",
-        },
-      ],
-    },
+
     {
       id: "work-locations",
       label: "Work Locations",
       icon: MapPin,
-      path: "/work-locations",
+      path: "/hrm?section=work-locations",
     },
     {
       id: "projects",
       label: "Projects",
       icon: Briefcase,
-      path: "/projects",
+      path: "/hrm?section=projects",
     },
-    {
-      id: "notifications",
-      label: "Notifications",
-      icon: Bell,
-      path: "/hrm/notifications",
-    },
+    // {
+    //   id: "notifications",
+    //   label: "Notifications",
+    //   icon: Bell,
+    //   path: "/hrm?section=notifications",
+    // },
     {
       id: "calendar",
       label: "Calendar",
       icon: Calendar,
-      path: "/hrm/calendar",
+      path: "/hrm?section=calendar",
     },
     {
       id: "attendance",
@@ -201,44 +176,19 @@ const Sidebar = ({
       icon: Calendar,
       submenu: [
         {
-          id: "employee-setup",
-          label: "Employee Setup",
-          path: "/employee-setup",
-        },
-        {
-          id: "employee-login",
-          label: "Employee Login",
-          path: "/employee-login",
-        },
-        {
-          id: "attendance-daily",
-          label: "Daily Attendance",
-          path: "/attendance-daily",
-        },
-        {
-          id: "attendance-documents",
-          label: "Submit Documents",
-          path: "/attendance-documents",
-        },
-        {
-          id: "attendance-legacy",
-          label: "Legacy System",
-          path: "/",
-        },
-        {
           id: "admin-attendance",
           label: "Admin Management",
-          path: "/admin-attendance",
+          path: "/hrm?section=admin-attendance",
         },
         {
           id: "attendance-reports",
           label: "Attendance Reports",
-          path: "/attendance-reports",
+          path: "/hrm?section=attendance-reports",
         },
         {
           id: "payroll",
           label: "Integrated Payroll",
-          path: "/payroll",
+          path: "/hrm?section=payroll",
         },
       ],
     },
@@ -250,17 +200,17 @@ const Sidebar = ({
         {
           id: "leave-approval",
           label: "Leave Approval",
-          path: "/hrm/leave/approval",
+          path: "/hrm?section=leave-approval",
         },
         {
           id: "leave-balances",
           label: "Leave Balances",
-          path: "/hrm/leave/balances",
+          path: "/hrm?section=leave-balances",
         },
         {
           id: "leave-reports",
           label: "Leave Reports",
-          path: "/hrm/leave/reports",
+          path: "/hrm?section=leave-reports",
         },
       ],
     },
@@ -272,25 +222,25 @@ const Sidebar = ({
         {
           id: "projects-list",
           label: "Projects",
-          path: "/projects",
+          path: "/hrm?section=projects",
         },
 
         {
           id: "project-budget",
           label: "Budget & Finance",
           icon: DollarSign,
-          path: "/budget-management",
+          path: "/hrm?section=budget-management",
         },
 
         {
           id: "project-alerts",
           label: "Project Alerts",
-          path: "/project-alerts",
+          path: "/hrm?section=project-alerts",
         },
         {
           id: "project-reports",
           label: "Project Reports",
-          path: "/projects/reports",
+          path: "/hrm?section=project-reports",
         },
       ],
     },*/
@@ -298,13 +248,35 @@ const Sidebar = ({
       id: "budget-management",
       label: "Budget Management",
       icon: DollarSign,
-      path: "/budget-management",
+      path: "/hrm?section=budget-management",
+    },
+    {
+      id: "analytics",
+      label: "Analytics & Reports",
+      icon: BarChart3,
+      submenu: [
+        {
+          id: "employee-stats",
+          label: "Employee Statistics",
+          path: "/hrm?section=employee-stats",
+        },
+        {
+          id: "department-stats",
+          label: "Department Analytics",
+          path: "/hrm?section=department-stats",
+        },
+        {
+          id: "document-stats",
+          label: "Document Reports",
+          path: "/hrm?section=document-stats",
+        },
+      ],
     },
     {
       id: "settings",
       label: "Settings",
       icon: Settings,
-      path: "/hrm/settings",
+      path: "/hrm?section=settings",
     },
   ];
 
@@ -316,66 +288,18 @@ const Sidebar = ({
     }));
   };
 
-  const idToPath = (id) => {
-    switch (id) {
-      case "dashboard":
-        return "/hrm";
-      case "employees":
-      case "employee-database":
-        return "/hrm/employees";
-      case "documents":
-      case "document-list":
-        return "/hrm/documents";
-      case "notifications":
-        return "/hrm/notifications";
-      case "calendar":
-        return "/hrm/calendar";
-      case "attendance-reports":
-        return "/hrm/attendance-reports";
-      case "payroll":
-      case "payroll-integration":
-        return "/hrm/payroll";
-      case "departments":
-        return "/hrm/organization/departments";
-      case "hierarchy":
-        return "/hrm/organization/hierarchy";
-      case "settings":
-        return "/hrm/settings";
-      default:
-        return null;
-    }
-  };
-
   const handleMenuClick = (item) => {
     if (item.submenu) {
       toggleSubmenu(item.id);
     } else {
-
-      const target =
-        item.path && item.path !== ""
-          ? item.path
-          : idToPath(item.id) || `/hrm?section=${item.id}`;
-      router.push(target);
-
+      const path = item.path || `/hrm?section=${item.id}`;
+      router.push(path);
     }
   };
 
   const handleSubmenuClick = (parentId, submenuItem) => {
-    // Special handling for project budget - redirect to projects page with budget context
-    if (submenuItem.id === "project-budget") {
-      router.push("/projects?tab=budget"); // Go to projects page with budget tab context
-      return;
-    }
-
-    if (submenuItem.path) {
-      router.push(submenuItem.path);
-    } else {
-      if (typeof onSectionChange === "function") {
-        onSectionChange(submenuItem.id);
-      } else {
-        console.warn("onSectionChange is not a function:", onSectionChange);
-      }
-    }
+    const path = submenuItem.path || `/hrm?section=${submenuItem.id}`;
+    router.push(path);
   };
 
   return (

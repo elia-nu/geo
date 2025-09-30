@@ -254,9 +254,23 @@ export async function DELETE(request, { params }) {
       );
     }
 
+    // Delete from main employees collection
     const result = await db
       .collection("employees")
       .deleteOne({ _id: new ObjectId(params.id) });
+
+    // Delete all related data from other collections
+    console.log(`Deleting related data for employee ${params.id}...`);
+
+    await Promise.all([
+      db.collection("employment_history").deleteMany({ employeeId: params.id }),
+      db.collection("certifications").deleteMany({ employeeId: params.id }),
+      db.collection("employee_skills").deleteMany({ employeeId: params.id }),
+      db.collection("health_records").deleteMany({ employeeId: params.id }),
+      db.collection("user_roles").deleteMany({ userId: params.id }),
+    ]);
+
+    console.log(`✅ Successfully deleted employee and all related data`);
 
     // Create audit log
     await createAuditLog({
@@ -266,17 +280,28 @@ export async function DELETE(request, { params }) {
       userId: "system", // Replace with actual user ID when auth is implemented
       userEmail: "system@company.com", // Replace with actual user email
       metadata: {
-        employeeName: employee.personalDetails?.name,
+        employeeName: employee.personalDetails?.name || employee.name,
         department: employee.department,
         deletedData: employee, // Store the deleted data for recovery purposes
+        relatedDataDeleted: {
+          employmentHistory: true,
+          certifications: true,
+          skills: true,
+          healthRecords: true,
+          userRoles: true,
+        },
       },
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      success: true,
+      message: "Employee and all related data deleted successfully",
+      deletedCount: result.deletedCount,
+    });
   } catch (error) {
     console.error("Error deleting employee:", error);
     return NextResponse.json(
-      { error: "Failed to delete employee" },
+      { error: "Failed to delete employee", message: error.message },
       { status: 500 }
     );
   }

@@ -213,29 +213,6 @@ export default function ProtectedHRMDashboard() {
       onLogout={handleLogout}
     >
       <div className="p-6">
-        {/* Admin Header */}
-        <div className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-4 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">HRM Dashboard</h1>
-              <p className="text-blue-100">
-                Welcome, {user?.name} | Role: {user?.role}
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="bg-green-500 px-3 py-1 rounded-full text-sm font-medium">
-                Admin Access
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Main Content */}
         {renderContent()}
       </div>

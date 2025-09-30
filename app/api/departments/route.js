@@ -16,34 +16,81 @@ export async function GET(request) {
       query.projectId = new ObjectId(projectId);
     }
 
-    let pipeline = [{ $match: query }];
-
-    if (includeEmployees) {
-      pipeline.push({
+    // Always compute employeeCount. Match by departmentId OR by department name string
+    const pipeline = [
+      { $match: query },
+      {
         $lookup: {
           from: "employees",
-          localField: "_id",
-          foreignField: "departmentId",
-          as: "employees",
+          let: { deptId: "$_id", deptName: "$name" },
           pipeline: [
             {
-              $project: {
-                _id: 1,
-                name: { $ifNull: ["$personalDetails.name", "$name"] },
-                email: { $ifNull: ["$personalDetails.email", "$email"] },
-                role: { $ifNull: ["$personalDetails.role", "$role"] },
-                status: 1,
+              $match: {
+                $expr: {
+                  $or: [
+                    {
+                      $and: [
+                        { $ne: ["$departmentId", null] },
+                        { $eq: ["$departmentId", "$$deptId"] },
+                      ],
+                    },
+                    {
+                      $and: [
+                        {
+                          $ne: [
+                            {
+                              $ifNull: [
+                                "$personalDetails.department",
+                                "$department",
+                              ],
+                            },
+                            null,
+                          ],
+                        },
+                        {
+                          $eq: [
+                            {
+                              $ifNull: [
+                                "$personalDetails.department",
+                                "$department",
+                              ],
+                            },
+                            "$$deptName",
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
               },
             },
+            // Keep payload small when not requesting full employees
+            {
+              $project: includeEmployees
+                ? {
+                    _id: 1,
+                    name: { $ifNull: ["$personalDetails.name", "$name"] },
+                    email: { $ifNull: ["$personalDetails.email", "$email"] },
+                    status: 1,
+                  }
+                : { _id: 1 },
+            },
           ],
+          as: "employees",
         },
-      });
-    }
+      },
+      { $addFields: { employeeCount: { $size: "$employees" } } },
+    ];
 
-    const departments = await db
+    let departments = await db
       .collection("departments")
       .aggregate(pipeline)
       .toArray();
+
+    // If employees were not requested, remove the array to reduce payload
+    if (!includeEmployees) {
+      departments = departments.map((d) => ({ ...d, employees: undefined }));
+    }
 
     return NextResponse.json({
       success: true,

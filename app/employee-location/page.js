@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Layout from "../components/Layout";
+import EmployeeSetupModal from "../components/EmployeeSetupModal";
 import {
   Users,
   MapPin,
@@ -15,6 +16,7 @@ import {
   RefreshCw,
   UserCheck,
   UserX,
+  Settings,
 } from "lucide-react";
 
 export default function EmployeeLocationPage() {
@@ -48,6 +50,8 @@ export default function EmployeeLocationPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -659,12 +663,14 @@ export default function EmployeeLocationPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <button
-                              onClick={() =>
-                                (window.location.href = `/employee-setup?employee=${employee._id}`)
-                              }
-                              className="text-blue-600 hover:text-blue-800 font-medium"
+                              onClick={() => {
+                                setSelectedEmployee(employee);
+                                setIsSetupModalOpen(true);
+                              }}
+                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all hover:scale-110 transform"
+                              title="Setup Employee (Password & Locations)"
                             >
-                              Manage Locations
+                              <Settings className="w-5 h-5" />
                             </button>
                           </td>
                         </tr>
@@ -677,6 +683,28 @@ export default function EmployeeLocationPage() {
           </div>
         </div>
       </div>
+
+      {/* Employee Setup Modal - Default to Location Tab */}
+      {isSetupModalOpen && selectedEmployee && (
+        <EmployeeSetupModal
+          employee={selectedEmployee}
+          onClose={() => {
+            setIsSetupModalOpen(false);
+            setSelectedEmployee(null);
+          }}
+          onSuccess={(msg) => {
+            showMessage(msg, "success");
+            setIsSetupModalOpen(false);
+            setSelectedEmployee(null);
+            // Refresh data to show updated locations
+            fetchData();
+          }}
+          onError={(msg) => {
+            showMessage(msg, "error");
+          }}
+          defaultTab="location"
+        />
+      )}
     </Layout>
   );
 }

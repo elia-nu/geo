@@ -38,9 +38,13 @@ export async function GET(request, { params }) {
         "Content-Type",
         document.mimeType || "application/octet-stream"
       );
+      // Allow inline preview when requested
+      const { searchParams } = new URL(request.url);
+      const inline = searchParams.get("inline");
+      const dispositionType = inline ? "inline" : "attachment";
       response.headers.set(
         "Content-Disposition",
-        `attachment; filename="${document.originalName}"`
+        `${dispositionType}; filename="${document.originalName}"`
       );
       response.headers.set("Content-Length", document.fileSize.toString());
 
