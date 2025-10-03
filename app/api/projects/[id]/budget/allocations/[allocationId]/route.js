@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { connectToDatabase } from "../../../../../mongo";
+import { getDb } from "../../../../../mongo";
 import { ObjectId } from "mongodb";
 
 // PUT - Update a specific budget allocation
@@ -8,7 +8,7 @@ export async function PUT(request, { params }) {
     const { id: projectId, allocationId } = await params;
     const updateData = await request.json();
 
-    const { db } = await connectToDatabase();
+    const db = await getDb();
 
     // Validate project exists
     const project = await db.collection("projects").findOne({
@@ -61,10 +61,12 @@ export async function PUT(request, { params }) {
       );
 
       if (allocation) {
-        const remainingAmount = allocation.budgetedAmount - (allocation.spentAmount || 0);
-        const utilization = allocation.budgetedAmount > 0 
-          ? ((allocation.spentAmount || 0) / allocation.budgetedAmount) * 100 
-          : 0;
+        const remainingAmount =
+          allocation.budgetedAmount - (allocation.spentAmount || 0);
+        const utilization =
+          allocation.budgetedAmount > 0
+            ? ((allocation.spentAmount || 0) / allocation.budgetedAmount) * 100
+            : 0;
 
         await db.collection("projects").updateOne(
           {
@@ -99,7 +101,7 @@ export async function DELETE(request, { params }) {
   try {
     const { id: projectId, allocationId } = await params;
 
-    const { db } = await connectToDatabase();
+    const db = await getDb();
 
     // Validate project exists
     const project = await db.collection("projects").findOne({
@@ -127,9 +129,10 @@ export async function DELETE(request, { params }) {
 
     if (allocation.spentAmount > 0) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "Cannot delete allocation with existing expenses. Please remove expenses first." 
+        {
+          success: false,
+          error:
+            "Cannot delete allocation with existing expenses. Please remove expenses first.",
         },
         { status: 400 }
       );
