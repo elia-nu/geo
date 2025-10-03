@@ -272,12 +272,12 @@ const Sidebar = ({
         },
       ],
     },
-    {
+    /*{
       id: "settings",
       label: "Settings",
       icon: Settings,
       path: "/hrm?section=settings",
-    },
+    },*/
   ];
 
   const toggleSubmenu = (menuId) => {
