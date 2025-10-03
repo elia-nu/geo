@@ -279,9 +279,7 @@ export default function BudgetManagement() {
             </div>
             <div className="ml-4">
               <p className="text-sm text-gray-600">Total Budget</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(totalBudget)}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{totalBudget}</p>
             </div>
           </div>
         </div>

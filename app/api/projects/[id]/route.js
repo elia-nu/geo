@@ -40,7 +40,48 @@ export async function GET(request, { params }) {
                   $ifNull: [
                     "$$employee.personalDetails.name",
                     "$$employee.name",
-                    "Unknown",
+                    "$$employee.personalDetails.fullName",
+                    "$$employee.fullName",
+                    {
+                      $cond: {
+                        if: {
+                          $and: [
+                            { $ne: ["$$employee.personalDetails.firstName", null] },
+                            { $ne: ["$$employee.personalDetails.lastName", null] }
+                          ]
+                        },
+                        then: {
+                          $concat: [
+                            "$$employee.personalDetails.firstName",
+                            " ",
+                            "$$employee.personalDetails.lastName"
+                          ]
+                        },
+                        else: {
+                          $cond: {
+                            if: {
+                              $and: [
+                                { $ne: ["$$employee.firstName", null] },
+                                { $ne: ["$$employee.lastName", null] }
+                              ]
+                            },
+                            then: {
+                              $concat: [
+                                "$$employee.firstName",
+                                " ",
+                                "$$employee.lastName"
+                              ]
+                            },
+                            else: {
+                              $concat: [
+                                "Employee ",
+                                { $substr: [{ $toString: "$$employee._id" }, -6, -1] }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
                   ],
                 },
                 email: {

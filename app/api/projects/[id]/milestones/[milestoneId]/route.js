@@ -93,7 +93,7 @@ export async function PUT(request, { params }) {
     }
 
     // Prepare update data
-    const { title, description, dueDate, status, completedDate } = data;
+    const { title, description, dueDate, status, progress, completedDate } = data;
     const updateData = {};
 
     // Only update fields that are provided
@@ -105,6 +105,17 @@ export async function PUT(request, { params }) {
       updateData[`milestones.${milestoneIndex}.dueDate`] = new Date(dueDate);
     if (status !== undefined)
       updateData[`milestones.${milestoneIndex}.status`] = status;
+    if (progress !== undefined) {
+      // Validate progress is a number between 0 and 100
+      const progressValue = Number(progress);
+      if (isNaN(progressValue) || progressValue < 0 || progressValue > 100) {
+        return NextResponse.json(
+          { error: "Progress must be a number between 0 and 100" },
+          { status: 400 }
+        );
+      }
+      updateData[`milestones.${milestoneIndex}.progress`] = progressValue;
+    }
     if (completedDate !== undefined)
       updateData[`milestones.${milestoneIndex}.completedDate`] = new Date(
         completedDate

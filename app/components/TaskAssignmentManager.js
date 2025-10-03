@@ -11,6 +11,7 @@ import {
   Remove as RemoveIcon,
   Warning as WarningIcon,
   Info as InfoIcon,
+  Schedule as ScheduleIcon,
 } from "@mui/icons-material";
 
 const TaskAssignmentManager = ({

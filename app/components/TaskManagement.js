@@ -384,9 +384,11 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
   };
 
   const filteredTasks = tasks.filter((task) => {
+    const safeTitle = (task?.title || "").toLowerCase();
+    const safeDescription = (task?.description || "").toLowerCase();
+    const term = (searchTerm || "").toLowerCase();
     const matchesSearch =
-      task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchTerm.toLowerCase());
+      safeTitle.includes(term) || safeDescription.includes(term);
     return matchesSearch;
   });
 
@@ -403,10 +405,10 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-1">
             Task Management
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm">
             Assign and monitor tasks with clear ownership and priorities
           </p>
           {!projectId && (
@@ -417,7 +419,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
               <select
                 value={selectedProjectId || ""}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-64"
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 min-w-64"
               >
                 <option value="">Choose a project...</option>
                 {projects.map((project) => (
@@ -432,10 +434,10 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         <button
           onClick={() => setShowCreateDialog(true)}
           disabled={!projectId && !selectedProjectId}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             !projectId && !selectedProjectId
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : "bg-blue-600 text-white hover:bg-blue-700"
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-gray-900 text-white hover:bg-gray-800"
           }`}
         >
           <AddIcon />
@@ -444,8 +446,8 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       </div>
 
       {/* Filters and Search */}
-      <div className="bg-gray-50 p-4 rounded-lg mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
             <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input
@@ -453,13 +455,13 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
               placeholder="Search tasks..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
           >
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
@@ -472,7 +474,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
           >
             <option value="all">All Priority</option>
             <option value="critical">Critical</option>
@@ -483,7 +485,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
           <select
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
           >
             <option value="all">All Assignees</option>
             {employees.map((emp) => (
@@ -497,7 +499,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
           {error}
         </div>
       )}
@@ -552,14 +554,14 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
               <div className="flex items-center gap-2 mb-2">
                 <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                  className={`px-2 py-1 rounded-md text-xs font-medium ${getPriorityColor(
                     task.priority
                   )}`}
                 >
                   {task.priority}
                 </span>
                 <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                  className={`px-2 py-1 rounded-md text-xs font-medium ${getStatusColor(
                     task.status
                   )}`}
                 >
@@ -595,7 +597,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                     )}
                   </div>
                 ) : (
-                  <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
                     Unassigned
                   </span>
                 )}
@@ -625,7 +627,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                   title="Click to update progress"
                 >
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-gray-900 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${task.progress || 0}%` }}
                   ></div>
                 </div>
@@ -680,7 +682,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
               {/* Action Buttons */}
               <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
                 <div className="flex gap-1">
-                  <button
+                  {/*<button
                     onClick={() => {
                       setSelectedTask(task);
                       setShowAssignmentManager(true);
@@ -689,7 +691,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                     title="Manage Assignment"
                   >
                     <PersonIcon fontSize="small" />
-                  </button>
+                  </button>*/}
                   <button
                     onClick={() => {
                       setSelectedTask(task);
@@ -711,6 +713,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                     <TimelineIcon fontSize="small" />
                   </button>
                 </div>
+                {/*
                 <div className="flex gap-1">
                   <button
                     onClick={() => openTaskDetail(task)}
@@ -740,7 +743,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                   >
                     <DeleteIcon fontSize="small" />
                   </button>
-                </div>
+                </div>*/}
               </div>
             </div>
           </div>
@@ -749,11 +752,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
       {/* Empty State */}
       {filteredTasks.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <AssignmentIcon
-            className="mx-auto text-gray-400 mb-4"
-            style={{ fontSize: 64 }}
-          />
+        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             No tasks found
           </h3>
@@ -762,17 +761,17 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
               ? "Try adjusting your filters"
               : "Get started by creating your first task"}
           </p>
-          <div className="flex gap-3">
+          <div className="flex gap-3 justify-center">
             <button
               onClick={() => setShowMonitoringDashboard(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
             >
               <TimelineIcon fontSize="small" />
               Monitoring Dashboard
             </button>
             <button
               onClick={() => setShowCreateDialog(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
             >
               Create Task
             </button>

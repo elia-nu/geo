@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Layout from "../../components/Layout";
 import ProjectFinancialManagement from "../../components/ProjectFinancialManagement";
 import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import Link from "next/link";
 
 const ProjectBudgetPage = ({ params }) => {
-  const { id: projectId } = params;
+  const { id: projectId } = use(params);
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

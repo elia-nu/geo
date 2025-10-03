@@ -35,9 +35,11 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
   // Modal states
   const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [showEditBudgetModal, setShowEditBudgetModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
+  const [editingAllocationId, setEditingAllocationId] = useState(null);
   const [currentItem, setCurrentItem] = useState(null);
 
   // Form states
@@ -196,6 +198,43 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
+  const handleEditBudget = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/budget`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(budgetForm),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setShowEditBudgetModal(false);
+        fetchFinancialData();
+        resetBudgetForm();
+      } else {
+        setError(data.error);
+      }
+    } catch (err) {
+      setError("Failed to update budget: " + err.message);
+    }
+  };
+
+  const handleOpenEditBudget = () => {
+    if (budgetData) {
+      setBudgetForm({
+        totalAmount: budgetData.totalAmount || 0,
+        currency: budgetData.currency || "USD",
+        description: budgetData.description || "",
+        approvedBy: budgetData.approvedBy || "",
+        approvalDate: budgetData.approvalDate
+          ? budgetData.approvalDate.split("T")[0]
+          : "",
+        budgetAllocations: budgetData.allocations || [],
+      });
+      setShowEditBudgetModal(true);
+    }
+  };
+
   const handleAddExpense = async () => {
     try {
       const response = await fetch(`/api/projects/${projectId}/expenses`, {
@@ -241,21 +280,107 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
-  const handleAddAllocation = () => {
+  const handleAddAllocation = async () => {
     if (allocationForm.name && allocationForm.amount) {
-      const newAllocation = {
-        ...allocationForm,
-        amount: parseFloat(allocationForm.amount),
-        _id: Date.now().toString(), // Temporary ID for UI
-      };
+      if (editingAllocationId) {
+        // Update existing allocation
+        await handleUpdateAllocation();
+      } else {
+        // Add new allocation (existing logic for budget creation)
+        const newAllocation = {
+          ...allocationForm,
+          amount: parseFloat(allocationForm.amount),
+          _id: Date.now().toString(), // Temporary ID for UI
+        };
 
-      setBudgetForm((prev) => ({
-        ...prev,
-        budgetAllocations: [...prev.budgetAllocations, newAllocation],
-      }));
+        setBudgetForm((prev) => ({
+          ...prev,
+          budgetAllocations: [...prev.budgetAllocations, newAllocation],
+        }));
 
-      setShowAllocationModal(false);
-      resetAllocationForm();
+        setShowAllocationModal(false);
+        resetAllocationForm();
+      }
+    }
+  };
+
+  const handleUpdateAllocation = async () => {
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/budget/allocations/${editingAllocationId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: allocationForm.name,
+            description: allocationForm.description,
+            category: allocationForm.category,
+            budgetedAmount: parseFloat(allocationForm.amount),
+            department: allocationForm.department,
+            task: allocationForm.task,
+            activity: allocationForm.activity,
+            milestone: allocationForm.milestone,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        setShowAllocationModal(false);
+        setEditingAllocationId(null);
+        resetAllocationForm();
+        fetchFinancialData(); // Refresh the budget data
+      } else {
+        setError(data.error);
+      }
+    } catch (err) {
+      setError("Failed to update allocation: " + err.message);
+    }
+  };
+
+  const handleEditAllocation = async (allocation) => {
+    try {
+      // Set the allocation form with current allocation data
+      setAllocationForm({
+        name: allocation.name || "",
+        description: allocation.description || "",
+        category: allocation.category || "",
+        amount: allocation.budgetedAmount || "",
+        department: allocation.department || "",
+        task: allocation.task || "",
+        activity: allocation.activity || "",
+        milestone: allocation.milestone || "",
+      });
+
+      // Store the allocation ID for updating
+      setEditingAllocationId(allocation._id);
+      setShowAllocationModal(true);
+    } catch (err) {
+      setError("Failed to edit allocation: " + err.message);
+    }
+  };
+
+  const handleDeleteAllocation = async (allocationId) => {
+    if (!confirm("Are you sure you want to delete this allocation?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/budget/allocations/${allocationId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        fetchFinancialData(); // Refresh the budget data
+      } else {
+        setError(data.error);
+      }
+    } catch (err) {
+      setError("Failed to delete allocation: " + err.message);
     }
   };
 
@@ -319,6 +444,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       endDate: "",
       tags: [],
     });
+    setEditingAllocationId(null);
   };
 
   const getStatusColor = (status) => {
@@ -366,95 +492,112 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-white min-h-screen">
+    <div className="max-w-7xl mx-auto p-3 sm:p-6 bg-white min-h-screen">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
               Financial Management
             </h1>
-            <p className="text-gray-600">{projectName}</p>
+            <p className="text-gray-600 text-sm sm:text-base">{projectName}</p>
           </div>
 
-          <div className="flex gap-3">
-            {!budgetData && (
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+            {!budgetData ? (
               <button
                 onClick={() => setShowBudgetModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
               >
-                <PlusIcon className="w-5 h-5" />
-                Create Budget
+                <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden xs:inline">Create Budget</span>
+                <span className="xs:hidden">Budget</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleOpenEditBudget}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+              >
+                <PencilIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden xs:inline">Edit Budget</span>
+                <span className="xs:hidden">Edit</span>
               </button>
             )}
 
             <button
               onClick={() => setShowExpenseModal(true)}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+              className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
-              <PlusIcon className="w-5 h-5" />
-              Add Expense
+              <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden xs:inline">Add Expense</span>
+              <span className="xs:hidden">Expense</span>
             </button>
 
             <button
               onClick={() => setShowIncomeModal(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+              className="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
-              <PlusIcon className="w-5 h-5" />
-              Add Income
+              <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden xs:inline">Add Income</span>
+              <span className="xs:hidden">Income</span>
             </button>
           </div>
         </div>
 
         {error && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mt-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-center gap-2">
-              <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
-              <span className="text-red-700">{error}</span>
+              <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
+              <span className="text-red-700 text-sm sm:text-base">{error}</span>
             </div>
           </div>
         )}
       </div>
 
       {/* Navigation Tabs */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="flex space-x-8">
+      <div className="border-b border-gray-200 mb-4 sm:mb-6">
+        <nav className="flex overflow-x-auto scrollbar-hide space-x-2 sm:space-x-8 pb-2 sm:pb-0">
           {[
             { id: "overview", name: "Overview", icon: ChartBarIcon },
             {
               id: "dashboard",
               name: "Financial Dashboard",
+              shortName: "Dashboard",
               icon: ChartBarIcon,
             },
             {
               id: "entities",
               name: "Entity Management",
+              shortName: "Entities",
               icon: BuildingOfficeIcon,
             },
             {
               id: "budget",
               name: "Budget & Allocations",
+              shortName: "Budget",
               icon: CurrencyDollarIcon,
             },
             { id: "expenses", name: "Expenses", icon: DocumentTextIcon },
             {
               id: "income",
               name: "Income & Payments",
+              shortName: "Income",
               icon: ArrowTrendingUpIcon,
             },
-            { id: "reports", name: "Reports & Analytics", icon: EyeIcon },
+            { id: "reports", name: "Reports & Analytics", shortName: "Reports", icon: EyeIcon },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
+              className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
-              <tab.icon className="w-5 h-5" />
-              {tab.name}
+              <tab.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">{tab.name}</span>
+              <span className="sm:hidden">{tab.shortName || tab.name}</span>
             </button>
           ))}
         </nav>
@@ -488,6 +631,9 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             formatCurrency={formatCurrency}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
+            onCreateBudget={() => setShowBudgetModal(true)}
+            handleEditAllocation={handleEditAllocation}
+            handleDeleteAllocation={handleDeleteAllocation}
           />
         )}
 
@@ -532,6 +678,31 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           handleAddAllocation={handleAddAllocation}
           setShowBudgetModal={setShowBudgetModal}
           resetAllocationForm={resetAllocationForm}
+          milestones={milestones}
+          departments={departments}
+          tasks={tasks}
+          activities={activities}
+          isEdit={false}
+        />
+      )}
+
+      {showEditBudgetModal && (
+        <BudgetModal
+          budgetForm={budgetForm}
+          setBudgetForm={setBudgetForm}
+          allocationForm={allocationForm}
+          setAllocationForm={setAllocationForm}
+          showAllocationModal={showAllocationModal}
+          setShowAllocationModal={setShowAllocationModal}
+          handleCreateBudget={handleEditBudget}
+          handleAddAllocation={handleAddAllocation}
+          setShowBudgetModal={setShowEditBudgetModal}
+          resetAllocationForm={resetAllocationForm}
+          milestones={milestones}
+          departments={departments}
+          tasks={tasks}
+          activities={activities}
+          isEdit={true}
         />
       )}
 
@@ -575,59 +746,59 @@ const OverviewTab = ({
   const profitLoss = summary.profitLoss || 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Budget</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Budget</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
                 {formatCurrency(totalBudget)}
               </p>
             </div>
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <CurrencyDollarIcon className="w-6 h-6 text-blue-600" />
+            <div className="p-2 sm:p-3 bg-blue-50 rounded-lg">
+              <CurrencyDollarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">
                 Total Expenses
               </p>
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-red-600">
                 {formatCurrency(totalExpenses)}
               </p>
             </div>
-            <div className="p-3 bg-red-50 rounded-lg">
-              <ArrowTrendingDownIcon className="w-6 h-6 text-red-600" />
+            <div className="p-2 sm:p-3 bg-red-50 rounded-lg">
+              <ArrowTrendingDownIcon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Income</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Income</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600">
                 {formatCurrency(totalIncome)}
               </p>
             </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <ArrowTrendingUpIcon className="w-6 h-6 text-green-600" />
+            <div className="p-2 sm:p-3 bg-green-50 rounded-lg">
+              <ArrowTrendingUpIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Profit/Loss</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Profit/Loss</p>
               <p
-                className={`text-2xl font-bold ${
+                className={`text-lg sm:text-xl lg:text-2xl font-bold ${
                   profitLoss >= 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
@@ -635,14 +806,14 @@ const OverviewTab = ({
               </p>
             </div>
             <div
-              className={`p-3 rounded-lg ${
+              className={`p-2 sm:p-3 rounded-lg ${
                 profitLoss >= 0 ? "bg-green-50" : "bg-red-50"
               }`}
             >
               {profitLoss >= 0 ? (
-                <ArrowTrendingUpIcon className="w-6 h-6 text-green-600" />
+                <ArrowTrendingUpIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
               ) : (
-                <ArrowTrendingDownIcon className="w-6 h-6 text-red-600" />
+                <ArrowTrendingDownIcon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
               )}
             </div>
           </div>
@@ -651,13 +822,13 @@ const OverviewTab = ({
 
       {/* Budget Utilization */}
       {totalBudget > 0 && (
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 gap-2">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">
               Budget Utilization
             </h3>
             <span
-              className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
+              className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border w-fit ${getStatusColor(
                 budgetUtilization > 100
                   ? "overrun"
                   : budgetUtilization > 90
@@ -668,9 +839,9 @@ const OverviewTab = ({
               {budgetUtilization.toFixed(1)}%
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+          <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 mb-2">
             <div
-              className={`h-3 rounded-full transition-all duration-300 ${
+              className={`h-2 sm:h-3 rounded-full transition-all duration-300 ${
                 budgetUtilization > 100
                   ? "bg-red-500"
                   : budgetUtilization > 90
@@ -680,7 +851,7 @@ const OverviewTab = ({
               style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
             ></div>
           </div>
-          <div className="flex justify-between text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0 text-xs sm:text-sm text-gray-600">
             <span>Spent: {formatCurrency(totalExpenses)}</span>
             <span>
               Remaining:{" "}
@@ -690,14 +861,14 @@ const OverviewTab = ({
 
           {/* Budget Overrun Warning */}
           {budgetUtilization > 100 && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="mt-3 sm:mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center gap-2">
-                <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
-                <span className="text-sm font-medium text-red-800">
+                <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                <span className="text-xs sm:text-sm font-medium text-red-800">
                   Budget Overrun Alert
                 </span>
               </div>
-              <p className="text-sm text-red-700 mt-1">
+              <p className="text-xs sm:text-sm text-red-700 mt-1">
                 Project is {formatCurrency(totalExpenses - totalBudget)} over
                 budget ({(budgetUtilization - 100).toFixed(1)}% overrun)
               </p>
@@ -708,15 +879,15 @@ const OverviewTab = ({
 
       {/* Budget Alerts */}
       {budgetData?.alerts && budgetData.alerts.length > 0 && (
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
             Budget Alerts & Notifications
           </h3>
           <div className="space-y-3">
             {budgetData.alerts.map((alert, index) => (
               <div
                 key={index}
-                className={`p-4 rounded-lg border-l-4 ${
+                className={`p-3 sm:p-4 rounded-lg border-l-4 ${
                   alert.severity === "high"
                     ? "bg-red-50 border-red-400"
                     : alert.severity === "medium"
@@ -724,19 +895,19 @@ const OverviewTab = ({
                     : "bg-blue-50 border-blue-400"
                 }`}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2 sm:gap-3">
                   <div className="flex-shrink-0">
                     {alert.severity === "high" ? (
-                      <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
+                      <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
                     ) : alert.severity === "medium" ? (
-                      <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600" />
+                      <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
                     ) : (
-                      <CheckCircleIcon className="w-5 h-5 text-blue-600" />
+                      <CheckCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                     )}
                   </div>
                   <div className="flex-1">
                     <p
-                      className={`text-sm font-medium ${
+                      className={`text-xs sm:text-sm font-medium ${
                         alert.severity === "high"
                           ? "text-red-800"
                           : alert.severity === "medium"
@@ -747,7 +918,7 @@ const OverviewTab = ({
                       {alert.type.replace("_", " ").toUpperCase()}
                     </p>
                     <p
-                      className={`text-sm ${
+                      className={`text-xs sm:text-sm ${
                         alert.severity === "high"
                           ? "text-red-700"
                           : alert.severity === "medium"
@@ -780,37 +951,37 @@ const OverviewTab = ({
 
       {/* Budget Allocations Overview */}
       {budgetData?.allocations && budgetData.allocations.length > 0 && (
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
             Budget Allocations
           </h3>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {budgetData.allocations.map((allocation) => (
               <div
                 key={allocation._id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg gap-3 sm:gap-0"
               >
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">
+                  <h4 className="text-sm sm:text-base font-medium text-gray-900">
                     {allocation.name || allocation.category}
                   </h4>
-                  <div className="flex items-center gap-4 mt-1">
-                    <span className="text-sm text-gray-600">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
+                    <span className="text-xs sm:text-sm text-gray-600">
                       Budget: {formatCurrency(allocation.budgetedAmount)}
                     </span>
-                    <span className="text-sm text-gray-600">
+                    <span className="text-xs sm:text-sm text-gray-600">
                       Spent: {formatCurrency(allocation.spentAmount)}
                     </span>
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
                         allocation.status
-                      )}`}
+                      )} self-start sm:self-auto`}
                     >
                       {allocation.utilization?.toFixed(1)}%
                     </span>
                   </div>
                 </div>
-                <div className="w-24 bg-gray-200 rounded-full h-2">
+                <div className="w-full sm:w-24 bg-gray-200 rounded-full h-2">
                   <div
                     className={`h-2 rounded-full ${
                       allocation.utilization > 100
@@ -831,14 +1002,14 @@ const OverviewTab = ({
       )}
 
       {/* Recent Transactions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Recent Expenses */}
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">
               Recent Expenses
             </h3>
-            <span className="text-sm text-gray-500">
+            <span className="text-xs sm:text-sm text-gray-500">
               {expenses.length} total
             </span>
           </div>
@@ -846,22 +1017,22 @@ const OverviewTab = ({
             {expenses.slice(0, 5).map((expense) => (
               <div
                 key={expense._id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2 sm:gap-0"
               >
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">{expense.title}</h4>
-                  <p className="text-sm text-gray-600">
+                  <h4 className="text-sm sm:text-base font-medium text-gray-900">{expense.title}</h4>
+                  <p className="text-xs sm:text-sm text-gray-600">
                     {expense.category} • {formatDate(expense.expenseDate)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-red-600">
+                <div className="text-left sm:text-right">
+                  <p className="text-sm sm:text-base font-semibold text-red-600">
                     {formatCurrency(expense.amount)}
                   </p>
                   <span
                     className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
                       expense.status
-                    )}`}
+                    )} inline-block mt-1 sm:mt-0`}
                   >
                     {expense.status}
                   </span>
@@ -872,33 +1043,33 @@ const OverviewTab = ({
         </div>
 
         {/* Recent Income */}
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">
               Recent Income
             </h3>
-            <span className="text-sm text-gray-500">{income.length} total</span>
+            <span className="text-xs sm:text-sm text-gray-500">{income.length} total</span>
           </div>
           <div className="space-y-3">
             {income.slice(0, 5).map((inc) => (
               <div
                 key={inc._id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2 sm:gap-0"
               >
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">{inc.title}</h4>
-                  <p className="text-sm text-gray-600">
+                  <h4 className="text-sm sm:text-base font-medium text-gray-900">{inc.title}</h4>
+                  <p className="text-xs sm:text-sm text-gray-600">
                     {inc.clientName} • {formatDate(inc.receivedDate)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-green-600">
+                <div className="text-left sm:text-right">
+                  <p className="text-sm sm:text-base font-semibold text-green-600">
                     {formatCurrency(inc.amount)}
                   </p>
                   <span
                     className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
                       inc.status
-                    )}`}
+                    )} inline-block mt-1 sm:mt-0`}
                   >
                     {inc.status}
                   </span>
@@ -918,119 +1089,132 @@ const BudgetTab = ({
   formatCurrency,
   getStatusColor,
   formatDate,
+  onCreateBudget,
+  handleEditAllocation,
+  handleDeleteAllocation,
 }) => {
   if (!budgetData) {
     return (
-      <div className="text-center py-12">
-        <CurrencyDollarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
+      <div className="text-center py-8 sm:py-12 px-4">
+        <CurrencyDollarIcon className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" />
+        <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
           No Budget Created
         </h3>
-        <p className="text-gray-600">
+        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
           Create a budget to start managing your project finances.
         </p>
+        <button
+          onClick={onCreateBudget}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-colors flex items-center gap-2 mx-auto"
+        >
+          <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+          Create Budget
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Budget Summary */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
           Budget Information
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <div>
-            <p className="text-sm text-gray-600">Total Budget</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xs sm:text-sm text-gray-600">Total Budget</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900">
               {formatCurrency(budgetData.totalAmount, budgetData.currency)}
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Approved By</p>
-            <p className="text-lg font-medium text-gray-900">
+            <p className="text-xs sm:text-sm text-gray-600">Approved By</p>
+            <p className="text-sm sm:text-lg font-medium text-gray-900">
               {budgetData.approvedBy || "Not specified"}
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Approval Date</p>
-            <p className="text-lg font-medium text-gray-900">
+            <p className="text-xs sm:text-sm text-gray-600">Approval Date</p>
+            <p className="text-sm sm:text-lg font-medium text-gray-900">
               {formatDate(budgetData.approvalDate)}
             </p>
           </div>
         </div>
         {budgetData.description && (
-          <div className="mt-4">
-            <p className="text-sm text-gray-600">Description</p>
-            <p className="text-gray-900">{budgetData.description}</p>
+          <div className="mt-3 sm:mt-4">
+            <p className="text-xs sm:text-sm text-gray-600">Description</p>
+            <p className="text-sm sm:text-base text-gray-900">{budgetData.description}</p>
           </div>
         )}
       </div>
 
       {/* Budget Allocations */}
       {budgetData.allocations && budgetData.allocations.length > 0 && (
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
             Budget Allocations
           </h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Allocation
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Budget
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Spent
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Remaining
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Utilization
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
+                  </th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {budgetData.allocations.map((allocation) => (
                   <tr key={allocation._id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                      <div className="text-xs sm:text-sm font-medium text-gray-900">
                         {allocation.name || "Unnamed"}
                       </div>
                       {allocation.description && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-xs sm:text-sm text-gray-500">
                           {allocation.description}
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                         {allocation.category}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                       {formatCurrency(allocation.budgetedAmount)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-red-600">
                       {formatCurrency(allocation.spentAmount)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                       {formatCurrency(allocation.remainingAmount)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                        <div className="w-12 sm:w-16 bg-gray-200 rounded-full h-2 mr-1 sm:mr-2">
                           <div
                             className={`h-2 rounded-full ${
                               allocation.utilization > 100
@@ -1047,12 +1231,12 @@ const BudgetTab = ({
                             }}
                           ></div>
                         </div>
-                        <span className="text-sm text-gray-900">
+                        <span className="text-xs sm:text-sm text-gray-900">
                           {allocation.utilization?.toFixed(1)}%
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
                           allocation.status
@@ -1060,6 +1244,24 @@ const BudgetTab = ({
                       >
                         {allocation.status}
                       </span>
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
+                      <div className="flex space-x-1 sm:space-x-2">
+                        <button
+                          onClick={() => handleEditAllocation(allocation)}
+                          className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-50"
+                          title="Edit Allocation"
+                        >
+                          <PencilIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAllocation(allocation._id)}
+                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50"
+                          title="Delete Allocation"
+                        >
+                          <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1081,20 +1283,20 @@ const ExpensesTab = ({
   formatDate,
 }) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Expenses Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-sm text-gray-600">Total Expenses</p>
-          <p className="text-xl font-bold text-red-600">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-600">Total Expenses</p>
+          <p className="text-lg sm:text-xl font-bold text-red-600">
             {formatCurrency(
               expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
             )}
           </p>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-sm text-gray-600">Approved</p>
-          <p className="text-xl font-bold text-green-600">
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-600">Approved</p>
+          <p className="text-lg sm:text-xl font-bold text-green-600">
             {formatCurrency(
               expenses
                 .filter((exp) => exp.status === "approved")
@@ -1102,9 +1304,9 @@ const ExpensesTab = ({
             )}
           </p>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-sm text-gray-600">Pending</p>
-          <p className="text-xl font-bold text-yellow-600">
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-600">Pending</p>
+          <p className="text-lg sm:text-xl font-bold text-yellow-600">
             {formatCurrency(
               expenses
                 .filter((exp) => exp.status === "pending")
@@ -1112,40 +1314,40 @@ const ExpensesTab = ({
             )}
           </p>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-sm text-gray-600">Total Count</p>
-          <p className="text-xl font-bold text-gray-900">{expenses.length}</p>
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-600">Total Count</p>
+          <p className="text-lg sm:text-xl font-bold text-gray-900">{expenses.length}</p>
         </div>
       </div>
 
       {/* Expenses Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">All Expenses</h3>
+        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">All Expenses</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Expense
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Amount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Category
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Vendor
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -1153,31 +1355,31 @@ const ExpensesTab = ({
             <tbody className="bg-white divide-y divide-gray-200">
               {expenses.map((expense) => (
                 <tr key={expense._id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                    <div className="text-xs sm:text-sm font-medium text-gray-900">
                       {expense.title}
                     </div>
                     {expense.description && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-xs sm:text-sm text-gray-500">
                         {expense.description}
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-red-600">
                     {formatCurrency(expense.amount)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                       {expense.category}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                     {formatDate(expense.expenseDate)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                     {expense.vendor || "Not specified"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                     <span
                       className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
                         expense.status
@@ -1186,13 +1388,13 @@ const ExpensesTab = ({
                       {expense.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
+                    <div className="flex items-center space-x-1 sm:space-x-2">
                       <button className="text-blue-600 hover:text-blue-900">
-                        <PencilIcon className="w-4 h-4" />
+                        <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                       <button className="text-red-600 hover:text-red-900">
-                        <TrashIcon className="w-4 h-4" />
+                        <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                     </div>
                   </td>
@@ -1209,20 +1411,20 @@ const ExpensesTab = ({
 // Income Tab Component
 const IncomeTab = ({ income, formatCurrency, getStatusColor, formatDate }) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Income Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-sm text-gray-600">Total Income</p>
-          <p className="text-xl font-bold text-green-600">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-600">Total Income</p>
+          <p className="text-lg sm:text-xl font-bold text-green-600">
             {formatCurrency(
               income.reduce((sum, inc) => sum + (inc.amount || 0), 0)
             )}
           </p>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-sm text-gray-600">Collected</p>
-          <p className="text-xl font-bold text-green-600">
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-600">Collected</p>
+          <p className="text-lg sm:text-xl font-bold text-green-600">
             {formatCurrency(
               income
                 .filter((inc) => inc.status === "collected")
@@ -1230,9 +1432,9 @@ const IncomeTab = ({ income, formatCurrency, getStatusColor, formatDate }) => {
             )}
           </p>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-sm text-gray-600">Pending</p>
-          <p className="text-xl font-bold text-yellow-600">
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-600">Pending</p>
+          <p className="text-lg sm:text-xl font-bold text-yellow-600">
             {formatCurrency(
               income
                 .filter((inc) => inc.status === "pending")
@@ -1240,16 +1442,16 @@ const IncomeTab = ({ income, formatCurrency, getStatusColor, formatDate }) => {
             )}
           </p>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-sm text-gray-600">Total Count</p>
-          <p className="text-xl font-bold text-gray-900">{income.length}</p>
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-600">Total Count</p>
+          <p className="text-lg sm:text-xl font-bold text-gray-900">{income.length}</p>
         </div>
       </div>
 
       {/* Income Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
+        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             All Income & Payments
           </h3>
         </div>
@@ -1257,25 +1459,25 @@ const IncomeTab = ({ income, formatCurrency, getStatusColor, formatDate }) => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Income
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Amount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Client
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Payment Method
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -1283,38 +1485,38 @@ const IncomeTab = ({ income, formatCurrency, getStatusColor, formatDate }) => {
             <tbody className="bg-white divide-y divide-gray-200">
               {income.map((inc) => (
                 <tr key={inc._id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                    <div className="text-xs sm:text-sm font-medium text-gray-900">
                       {inc.title}
                     </div>
                     {inc.invoiceNumber && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-xs sm:text-sm text-gray-500">
                         Invoice: {inc.invoiceNumber}
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600">
                     {formatCurrency(inc.amount)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                    <div className="text-xs sm:text-sm text-gray-900">
                       {inc.clientName || "Not specified"}
                     </div>
                     {inc.clientEmail && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-xs sm:text-sm text-gray-500">
                         {inc.clientEmail}
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                       {inc.paymentMethod?.replace("_", " ")}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                     {formatDate(inc.receivedDate)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                     <span
                       className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
                         inc.status
@@ -1323,13 +1525,13 @@ const IncomeTab = ({ income, formatCurrency, getStatusColor, formatDate }) => {
                       {inc.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
+                    <div className="flex items-center space-x-1 sm:space-x-2">
                       <button className="text-blue-600 hover:text-blue-900">
-                        <PencilIcon className="w-4 h-4" />
+                        <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                       <button className="text-red-600 hover:text-red-900">
-                        <TrashIcon className="w-4 h-4" />
+                        <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                     </div>
                   </td>
@@ -1780,6 +1982,11 @@ const BudgetModal = ({
   handleAddAllocation,
   setShowBudgetModal,
   resetAllocationForm,
+  milestones,
+  departments,
+  tasks,
+  activities,
+  isEdit = false,
 }) => {
   const totalAllocated = budgetForm.budgetAllocations.reduce(
     (sum, alloc) => sum + (alloc.amount || 0),
@@ -1789,17 +1996,17 @@ const BudgetModal = ({
     parseFloat(budgetForm.totalAmount || 0) - totalAllocated;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Create Project Budget
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+        <div className="p-3 sm:p-6 border-b border-gray-200">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+            {isEdit ? "Edit Project Budget" : "Create Project Budget"}
           </h3>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
           {/* Basic Budget Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Total Budget Amount *
@@ -1860,9 +2067,9 @@ const BudgetModal = ({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Approved By
               </label>
               <input
@@ -1874,13 +2081,13 @@ const BudgetModal = ({
                     approvedBy: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Approver name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Approval Date
               </label>
               <input
@@ -1892,20 +2099,20 @@ const BudgetModal = ({
                     approvalDate: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
           </div>
 
           {/* Budget Allocations */}
           <div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-md font-semibold text-gray-900">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4">
+              <h4 className="text-sm sm:text-md font-semibold text-gray-900">
                 Budget Allocations
               </h4>
               <button
                 onClick={() => setShowAllocationModal(true)}
-                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className="px-3 py-1 text-xs sm:text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 self-start sm:self-auto"
               >
                 Add Allocation
               </button>
@@ -1916,16 +2123,16 @@ const BudgetModal = ({
                 {budgetForm.budgetAllocations.map((allocation, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-md gap-2 sm:gap-0"
                   >
-                    <div>
-                      <span className="font-medium">{allocation.name}</span>
-                      <span className="text-sm text-gray-600 ml-2">
+                    <div className="flex-1">
+                      <span className="font-medium text-sm sm:text-base">{allocation.name}</span>
+                      <span className="text-xs sm:text-sm text-gray-600 ml-0 sm:ml-2 block sm:inline">
                         ({allocation.category})
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">
+                    <div className="flex items-center justify-between sm:justify-end gap-2">
+                      <span className="font-semibold text-sm sm:text-base">
                         ${allocation.amount.toFixed(2)}
                       </span>
                       <button
@@ -1939,7 +2146,7 @@ const BudgetModal = ({
                         }}
                         className="text-red-600 hover:text-red-800"
                       >
-                        <TrashIcon className="w-4 h-4" />
+                        <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                     </div>
                   </div>
@@ -1949,19 +2156,19 @@ const BudgetModal = ({
 
             {budgetForm.totalAmount && (
               <div className="p-3 bg-blue-50 rounded-md">
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span>Total Budget:</span>
                   <span className="font-semibold">
                     ${parseFloat(budgetForm.totalAmount || 0).toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span>Total Allocated:</span>
                   <span className="font-semibold">
                     ${totalAllocated.toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span>Remaining:</span>
                   <span
                     className={`font-semibold ${
@@ -1976,36 +2183,36 @@ const BudgetModal = ({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+        <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t border-gray-200">
           <button
             onClick={() => setShowBudgetModal(false)}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            className="px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
           >
             Cancel
           </button>
           <button
             onClick={handleCreateBudget}
             disabled={!budgetForm.totalAmount}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
           >
-            Create Budget
+            {isEdit ? "Update Budget" : "Create Budget"}
           </button>
         </div>
       </div>
 
       {/* Allocation Modal */}
       {showAllocationModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full m-4">
-            <div className="p-6 border-b border-gray-200">
-              <h4 className="text-lg font-semibold text-gray-900">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <h4 className="text-base sm:text-lg font-semibold text-gray-900">
                 Add Budget Allocation
               </h4>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   Allocation Name *
                 </label>
                 <input
@@ -2017,14 +2224,14 @@ const BudgetModal = ({
                       name: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="e.g., Development Team"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   Category
                 </label>
                 <select
@@ -2035,7 +2242,7 @@ const BudgetModal = ({
                       category: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
                   <option value="general">General</option>
                   <option value="development">Development</option>
@@ -2049,7 +2256,7 @@ const BudgetModal = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   Amount *
                 </label>
                 <input
@@ -2062,14 +2269,14 @@ const BudgetModal = ({
                       amount: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="0.00"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   Allocation Type
                 </label>
                 <select
@@ -2085,7 +2292,7 @@ const BudgetModal = ({
                       milestoneId: "",
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
                   <option value="general">General</option>
                   <option value="department">Department</option>
@@ -2098,7 +2305,7 @@ const BudgetModal = ({
               {/* Dynamic Entity Selection */}
               {allocationForm.allocationType === "department" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Department *
                   </label>
                   <select
@@ -2109,7 +2316,7 @@ const BudgetModal = ({
                         departmentId: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     required
                   >
                     <option value="">Select Department</option>
@@ -2120,7 +2327,7 @@ const BudgetModal = ({
                     ))}
                   </select>
                   {departments.length === 0 && (
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       No departments found. Create departments first.
                     </p>
                   )}
@@ -2129,7 +2336,7 @@ const BudgetModal = ({
 
               {allocationForm.allocationType === "task" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Task *
                   </label>
                   <select
@@ -2140,7 +2347,7 @@ const BudgetModal = ({
                         taskId: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     required
                   >
                     <option value="">Select Task</option>
@@ -2151,7 +2358,7 @@ const BudgetModal = ({
                     ))}
                   </select>
                   {tasks.length === 0 && (
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       No tasks found. Create tasks first.
                     </p>
                   )}
@@ -2160,7 +2367,7 @@ const BudgetModal = ({
 
               {allocationForm.allocationType === "activity" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Activity *
                   </label>
                   <select
@@ -2171,7 +2378,7 @@ const BudgetModal = ({
                         activityId: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     required
                   >
                     <option value="">Select Activity</option>
@@ -2182,7 +2389,7 @@ const BudgetModal = ({
                     ))}
                   </select>
                   {activities.length === 0 && (
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       No activities found. Create activities first.
                     </p>
                   )}
@@ -2191,7 +2398,7 @@ const BudgetModal = ({
 
               {allocationForm.allocationType === "milestone" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Milestone *
                   </label>
                   <select
@@ -2202,7 +2409,7 @@ const BudgetModal = ({
                         milestoneId: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     required
                   >
                     <option value="">Select Milestone</option>
@@ -2213,53 +2420,55 @@ const BudgetModal = ({
                     ))}
                   </select>
                   {milestones.length === 0 && (
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       No milestones found. Create milestones first.
                     </p>
                   )}
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Priority
-                </label>
-                <select
-                  value={allocationForm.priority}
-                  onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      priority: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                    Priority
+                  </label>
+                  <select
+                    value={allocationForm.priority}
+                    onChange={(e) =>
+                      setAllocationForm((prev) => ({
+                        ...prev,
+                        priority: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={allocationForm.startDate}
+                    onChange={(e) =>
+                      setAllocationForm((prev) => ({
+                        ...prev,
+                        startDate: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={allocationForm.startDate}
-                  onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      startDate: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   End Date
                 </label>
                 <input
@@ -2271,12 +2480,12 @@ const BudgetModal = ({
                       endDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   Description
                 </label>
                 <textarea
@@ -2288,26 +2497,26 @@ const BudgetModal = ({
                     }))
                   }
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="Allocation description..."
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t border-gray-200">
               <button
                 onClick={() => {
                   setShowAllocationModal(false);
                   resetAllocationForm();
                 }}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddAllocation}
                 disabled={!allocationForm.name || !allocationForm.amount}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
               >
                 Add Allocation
               </button>
@@ -2349,18 +2558,18 @@ const ExpenseModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Add New Expense
           </h3>
         </div>
 
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Expense Title *
               </label>
               <input
@@ -2369,14 +2578,14 @@ const ExpenseModal = ({
                 onChange={(e) =>
                   setExpenseForm((prev) => ({ ...prev, title: e.target.value }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="e.g., Office Supplies"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Amount *
               </label>
               <input
@@ -2389,14 +2598,14 @@ const ExpenseModal = ({
                     amount: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="0.00"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Category
               </label>
               <select
@@ -2407,7 +2616,7 @@ const ExpenseModal = ({
                     category: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               >
                 <option value="general">General</option>
                 <option value="development">Development</option>
@@ -2423,7 +2632,7 @@ const ExpenseModal = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Expense Date
               </label>
               <input
@@ -2435,12 +2644,12 @@ const ExpenseModal = ({
                     expenseDate: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Budget Allocation
               </label>
               <select
@@ -2451,7 +2660,7 @@ const ExpenseModal = ({
                     allocationId: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               >
                 <option value="">No specific allocation</option>
                 {budgetData?.allocations?.map((allocation) => (
@@ -2464,7 +2673,7 @@ const ExpenseModal = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Vendor
               </label>
               <input
@@ -2476,13 +2685,13 @@ const ExpenseModal = ({
                     vendor: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Vendor name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
               <select
@@ -2493,7 +2702,7 @@ const ExpenseModal = ({
                     status: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               >
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
@@ -2503,7 +2712,7 @@ const ExpenseModal = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Receipt URL
               </label>
               <input
@@ -2515,13 +2724,13 @@ const ExpenseModal = ({
                     receiptUrl: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="https://..."
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="sm:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Description
               </label>
               <textarea
@@ -2533,21 +2742,21 @@ const ExpenseModal = ({
                   }))
                 }
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Expense description..."
               />
             </div>
 
             {/* Tags */}
-            <div className="md:col-span-2">
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium text-gray-700">
+            <div className="sm:col-span-2">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">
                   Tags
                 </label>
                 <button
                   type="button"
                   onClick={addTag}
-                  className="text-sm text-blue-600 hover:text-blue-800"
+                  className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 self-start sm:self-auto"
                 >
                   + Add Tag
                 </button>
@@ -2559,7 +2768,7 @@ const ExpenseModal = ({
                       type="text"
                       value={tag}
                       onChange={(e) => updateTag(index, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                       placeholder="Tag name"
                     />
                     <button
@@ -2567,7 +2776,7 @@ const ExpenseModal = ({
                       onClick={() => removeTag(index)}
                       className="px-3 py-2 text-red-600 hover:text-red-800"
                     >
-                      <TrashIcon className="w-4 h-4" />
+                      <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                     </button>
                   </div>
                 ))}
@@ -2576,17 +2785,17 @@ const ExpenseModal = ({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 p-4 sm:p-6 border-t border-gray-200">
           <button
             onClick={() => setShowExpenseModal(false)}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
           >
             Cancel
           </button>
           <button
             onClick={handleAddExpense}
             disabled={!expenseForm.title || !expenseForm.amount}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
           >
             Add Expense
           </button>
@@ -2604,18 +2813,18 @@ const IncomeModal = ({
   setShowIncomeModal,
 }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Add New Income/Payment
           </h3>
         </div>
 
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Income Title *
               </label>
               <input
@@ -2624,14 +2833,14 @@ const IncomeModal = ({
                 onChange={(e) =>
                   setIncomeForm((prev) => ({ ...prev, title: e.target.value }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="e.g., Project Payment - Phase 1"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Amount *
               </label>
               <input
@@ -2641,14 +2850,14 @@ const IncomeModal = ({
                 onChange={(e) =>
                   setIncomeForm((prev) => ({ ...prev, amount: e.target.value }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="0.00"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Expected Amount
               </label>
               <input
@@ -2661,13 +2870,13 @@ const IncomeModal = ({
                     expectedAmount: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="0.00"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Client Name
               </label>
               <input
@@ -2679,13 +2888,13 @@ const IncomeModal = ({
                     clientName: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Client name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Client Email
               </label>
               <input
@@ -2697,13 +2906,13 @@ const IncomeModal = ({
                     clientEmail: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="client@example.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Payment Method
               </label>
               <select
@@ -2714,7 +2923,7 @@ const IncomeModal = ({
                     paymentMethod: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               >
                 <option value="bank_transfer">Bank Transfer</option>
                 <option value="credit_card">Credit Card</option>
@@ -2727,7 +2936,7 @@ const IncomeModal = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
               <select
@@ -2735,7 +2944,7 @@ const IncomeModal = ({
                 onChange={(e) =>
                   setIncomeForm((prev) => ({ ...prev, status: e.target.value }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               >
                 <option value="pending">Pending</option>
                 <option value="collected">Collected</option>
@@ -2745,7 +2954,7 @@ const IncomeModal = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Received Date
               </label>
               <input
@@ -2757,12 +2966,12 @@ const IncomeModal = ({
                     receivedDate: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Due Date
               </label>
               <input
@@ -2774,12 +2983,12 @@ const IncomeModal = ({
                     dueDate: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Invoice Number
               </label>
               <input
@@ -2791,13 +3000,13 @@ const IncomeModal = ({
                     invoiceNumber: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="INV-001"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Payment Reference
               </label>
               <input
@@ -2809,13 +3018,13 @@ const IncomeModal = ({
                     paymentReference: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Transaction ID or reference"
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="sm:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Description
               </label>
               <textarea
@@ -2827,13 +3036,13 @@ const IncomeModal = ({
                   }))
                 }
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Income description..."
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="sm:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Notes
               </label>
               <textarea
@@ -2842,24 +3051,24 @@ const IncomeModal = ({
                   setIncomeForm((prev) => ({ ...prev, notes: e.target.value }))
                 }
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Additional notes..."
               />
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 p-4 sm:p-6 border-t border-gray-200">
           <button
             onClick={() => setShowIncomeModal(false)}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
           >
             Cancel
           </button>
           <button
             onClick={handleAddIncome}
             disabled={!incomeForm.title || !incomeForm.amount}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
           >
             Add Income
           </button>

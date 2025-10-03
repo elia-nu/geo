@@ -72,12 +72,23 @@ export async function POST(request, { params }) {
     });
 
     // Get employee details for response
-    const employeeDetails = employees.map((emp) => ({
-      _id: emp._id,
-      name: emp.personalDetails?.name || emp.name || "Unknown",
-      email: emp.personalDetails?.email || emp.email || "",
-      department: emp.department || emp.personalDetails?.department || "",
-    }));
+    const employeeDetails = employees.map((emp) => {
+      // More comprehensive name extraction
+      const name = emp.personalDetails?.name || 
+                   emp.name || 
+                   emp.personalDetails?.fullName ||
+                   emp.fullName ||
+                   emp.personalDetails?.firstName + ' ' + emp.personalDetails?.lastName ||
+                   emp.firstName + ' ' + emp.lastName ||
+                   `Employee ${emp._id.toString().slice(-6)}`;
+      
+      return {
+        _id: emp._id,
+        name: name.trim(),
+        email: emp.personalDetails?.email || emp.email || "",
+        department: emp.department || emp.personalDetails?.department || "",
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -200,14 +211,25 @@ export async function GET(request, { params }) {
       .toArray();
 
     // Format employee data
-    const formattedEmployees = employees.map((emp) => ({
-      _id: emp._id,
-      name: emp.personalDetails?.name || emp.name || "Unknown",
-      email: emp.personalDetails?.email || emp.email || "",
-      department: emp.department || emp.personalDetails?.department || "",
-      position: emp.personalDetails?.position || emp.position || "",
-      phone: emp.personalDetails?.phone || emp.phone || "",
-    }));
+    const formattedEmployees = employees.map((emp) => {
+      // More comprehensive name extraction
+      const name = emp.personalDetails?.name || 
+                   emp.name || 
+                   emp.personalDetails?.fullName ||
+                   emp.fullName ||
+                   emp.personalDetails?.firstName + ' ' + emp.personalDetails?.lastName ||
+                   emp.firstName + ' ' + emp.lastName ||
+                   `Employee ${emp._id.toString().slice(-6)}`;
+      
+      return {
+        _id: emp._id,
+        name: name.trim(),
+        email: emp.personalDetails?.email || emp.email || "",
+        department: emp.department || emp.personalDetails?.department || "",
+        position: emp.personalDetails?.position || emp.position || emp.designation || emp.personalDetails?.designation || "",
+        phone: emp.personalDetails?.phone || emp.phone || emp.personalDetails?.contactNumber || emp.contactNumber || "",
+      };
+    });
 
     return NextResponse.json({
       success: true,

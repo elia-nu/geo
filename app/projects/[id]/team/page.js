@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Layout from "../../../components/Layout";
 import {
   Add as AddIcon,
@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 
 const ProjectTeamPage = ({ params }) => {
-  const { id: projectId } = params;
+  const { id: projectId } = use(params);
 
   const [project, setProject] = useState(null);
   const [assignedEmployees, setAssignedEmployees] = useState([]);
@@ -192,8 +192,20 @@ const ProjectTeamPage = ({ params }) => {
             </li>
             <li>
               <div className="flex items-center">
-                <svg className="w-3 h-3 text-gray-400 mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                  <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
+                <svg
+                  className="w-3 h-3 text-gray-400 mx-1"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 6 10"
+                >
+                  <path
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="m1 9 4-4-4-4"
+                  />
                 </svg>
                 <Link
                   href={`/projects/${projectId}`}
@@ -205,19 +217,31 @@ const ProjectTeamPage = ({ params }) => {
             </li>
             <li aria-current="page">
               <div className="flex items-center">
-                <svg className="w-3 h-3 text-gray-400 mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                  <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
+                <svg
+                  className="w-3 h-3 text-gray-400 mx-1"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 6 10"
+                >
+                  <path
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="m1 9 4-4-4-4"
+                  />
                 </svg>
-                <span className="ml-1 text-sm font-medium text-gray-500 md:ml-2">Team</span>
+                <span className="ml-1 text-sm font-medium text-gray-500 md:ml-2">
+                  Team
+                </span>
               </div>
             </li>
           </ol>
         </nav>
 
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
-          <h1 className="text-3xl font-semibold text-blue-900">
-            Project Team
-          </h1>
+          <h1 className="text-3xl font-semibold text-blue-900">Project Team</h1>
           <button
             onClick={handleOpenDialog}
             className="inline-flex items-center px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors font-medium"
@@ -232,19 +256,19 @@ const ProjectTeamPage = ({ params }) => {
             <h2 className="text-xl font-semibold text-blue-900 mr-4">
               {project.name}
             </h2>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              project.status === "completed"
-                ? "bg-green-100 text-green-800"
-                : project.status === "on_hold"
-                ? "bg-yellow-100 text-yellow-800"
-                : "bg-blue-100 text-blue-800"
-            }`}>
+            <span
+              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                project.status === "completed"
+                  ? "bg-green-100 text-green-800"
+                  : project.status === "on_hold"
+                  ? "bg-yellow-100 text-yellow-800"
+                  : "bg-blue-100 text-blue-800"
+              }`}
+            >
               {project.status || "Active"}
             </span>
           </div>
-          <p className="text-gray-600">
-            {project.description}
-          </p>
+          <p className="text-gray-600">{project.description}</p>
         </div>
 
         {error && (
@@ -279,11 +303,21 @@ const ProjectTeamPage = ({ params }) => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Employee
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Department
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -352,18 +386,29 @@ const ProjectTeamPage = ({ params }) => {
                   </label>
                   <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-300 rounded-md p-2">
                     {getFilteredEmployees().map((employee) => {
-                      const isSelected = selectedEmployees.some(emp => emp._id === employee._id);
+                      const isSelected = selectedEmployees.some(
+                        (emp) => emp._id === employee._id
+                      );
                       return (
                         <div
                           key={employee._id}
                           className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${
-                            isSelected ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
+                            isSelected
+                              ? "bg-blue-50 border-blue-200"
+                              : "hover:bg-gray-50"
                           }`}
                           onClick={() => {
                             if (isSelected) {
-                              setSelectedEmployees(selectedEmployees.filter(emp => emp._id !== employee._id));
+                              setSelectedEmployees(
+                                selectedEmployees.filter(
+                                  (emp) => emp._id !== employee._id
+                                )
+                              );
                             } else {
-                              setSelectedEmployees([...selectedEmployees, employee]);
+                              setSelectedEmployees([
+                                ...selectedEmployees,
+                                employee,
+                              ]);
                             }
                           }}
                         >
@@ -375,19 +420,39 @@ const ProjectTeamPage = ({ params }) => {
                           />
                           <div className="flex-shrink-0 h-8 w-8 mr-3">
                             <div className="h-8 w-8 rounded-full bg-blue-900 flex items-center justify-center text-white text-sm font-medium">
-                              {employee.name ? (
-                                employee.name.charAt(0).toUpperCase()
-                              ) : (
-                                <PersonIcon className="h-4 w-4" />
-                              )}
+                              {(() => {
+                                const displayName = employee.personalDetails?.name || 
+                                                   employee.name || 
+                                                   employee.personalDetails?.fullName || 
+                                                   employee.fullName || 
+                                                   (employee.personalDetails?.firstName && employee.personalDetails?.lastName 
+                                                     ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}` 
+                                                     : null) ||
+                                                   (employee.firstName && employee.lastName 
+                                                     ? `${employee.firstName} ${employee.lastName}` 
+                                                     : null) ||
+                                                   `Employee ${employee._id?.slice(-6) || 'Unknown'}`;
+                                return displayName ? displayName.charAt(0).toUpperCase() : <PersonIcon className="h-4 w-4" />;
+                              })()}
                             </div>
                           </div>
                           <div className="flex-1">
                             <div className="text-sm font-medium text-gray-900">
-                              {employee.name || "Unknown Employee"}
+                              {employee.personalDetails?.name || 
+                               employee.name || 
+                               employee.personalDetails?.fullName || 
+                               employee.fullName || 
+                               (employee.personalDetails?.firstName && employee.personalDetails?.lastName 
+                                 ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}` 
+                                 : null) ||
+                               (employee.firstName && employee.lastName 
+                                 ? `${employee.firstName} ${employee.lastName}` 
+                                 : null) ||
+                               `Employee ${employee._id?.slice(-6) || 'Unknown'}`}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {employee.position || "N/A"} • {employee.department || "N/A"}
+                              {employee.position || "N/A"} •{" "}
+                              {employee.department || "N/A"}
                             </div>
                           </div>
                         </div>
@@ -396,16 +461,34 @@ const ProjectTeamPage = ({ params }) => {
                   </div>
                   {selectedEmployees.length > 0 && (
                     <div className="mt-3">
-                      <p className="text-sm text-gray-600 mb-2">Selected employees:</p>
+                      <p className="text-sm text-gray-600 mb-2">
+                        Selected employees:
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         {selectedEmployees.map((employee) => (
                           <span
                             key={employee._id}
                             className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                           >
-                            {employee.name || "Unknown Employee"}
+                            {employee.personalDetails?.name || 
+                             employee.name || 
+                             employee.personalDetails?.fullName || 
+                             employee.fullName || 
+                             (employee.personalDetails?.firstName && employee.personalDetails?.lastName 
+                               ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}` 
+                               : null) ||
+                             (employee.firstName && employee.lastName 
+                               ? `${employee.firstName} ${employee.lastName}` 
+                               : null) ||
+                             `Employee ${employee._id?.slice(-6) || 'Unknown'}`}
                             <button
-                              onClick={() => setSelectedEmployees(selectedEmployees.filter(emp => emp._id !== employee._id))}
+                              onClick={() =>
+                                setSelectedEmployees(
+                                  selectedEmployees.filter(
+                                    (emp) => emp._id !== employee._id
+                                  )
+                                )
+                              }
                               className="ml-1 text-blue-600 hover:text-blue-800"
                             >
                               ×

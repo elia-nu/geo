@@ -57,11 +57,20 @@ export async function POST(request, { params }) {
     }
 
     // Validate milestone data
-    const { title, description, dueDate, status = "pending" } = data;
+    const { title, description, dueDate, status = "not_started", progress = 0 } = data;
 
     if (!title || !dueDate) {
       return NextResponse.json(
         { error: "Title and due date are required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate progress if provided
+    const progressValue = Number(progress);
+    if (isNaN(progressValue) || progressValue < 0 || progressValue > 100) {
+      return NextResponse.json(
+        { error: "Progress must be a number between 0 and 100" },
         { status: 400 }
       );
     }
@@ -73,6 +82,7 @@ export async function POST(request, { params }) {
       description: description || "",
       dueDate: new Date(dueDate),
       status,
+      progress: progressValue,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

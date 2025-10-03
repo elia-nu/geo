@@ -9,17 +9,27 @@ export async function GET() {
     
     // Format employee data to ensure proper name fields
     const formattedEmployees = employees.map(emp => {
-      // Extract name from personalDetails or use existing name fields
-      const fullName = emp.personalDetails?.name || emp.name || "";
+      // More comprehensive name extraction
+      const fullName = emp.personalDetails?.name || 
+                       emp.name || 
+                       emp.personalDetails?.fullName ||
+                       emp.fullName ||
+                       (emp.personalDetails?.firstName && emp.personalDetails?.lastName ? 
+                         `${emp.personalDetails.firstName} ${emp.personalDetails.lastName}` : '') ||
+                       (emp.firstName && emp.lastName ? 
+                         `${emp.firstName} ${emp.lastName}` : '') ||
+                       `Employee ${emp._id.toString().slice(-6)}`;
+      
       const [firstName, ...lastNameParts] = fullName.split(' ');
       const lastName = lastNameParts.join(' ');
       
       return {
         ...emp,
-        firstName: emp.firstName || firstName || "Unknown",
-        lastName: emp.lastName || lastName || "Employee",
+        firstName: emp.firstName || emp.personalDetails?.firstName || firstName || "Unknown",
+        lastName: emp.lastName || emp.personalDetails?.lastName || lastName || "Employee",
+        fullName: fullName.trim(),
         email: emp.personalDetails?.email || emp.email || "",
-        role: emp.designation || emp.personalDetails?.designation || "Employee",
+        role: emp.designation || emp.personalDetails?.designation || emp.position || emp.personalDetails?.position || "Employee",
         department: emp.department || emp.personalDetails?.department || "General"
       };
     });
