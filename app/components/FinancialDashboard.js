@@ -204,32 +204,32 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             </div>
             <span
               className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                budget.status
+                budget?.status || 'normal'
               )}`}
             >
-              {budget.status}
+              {budget?.status || 'N/A'}
             </span>
           </div>
           <h3 className="text-sm font-medium text-gray-600 mb-1">
             Budget Status
           </h3>
           <p className="text-2xl font-bold text-gray-900">
-            {formatCurrency(budget.totalBudget)}
+            {formatCurrency(budget?.totalBudget || 0)}
           </p>
           <p className="text-sm text-gray-500 mt-1">
-            {formatPercentage(budget.budgetUtilization)} utilized
+            {formatPercentage(budget?.budgetUtilization || 0)} utilized
           </p>
           <div className="mt-2">
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className={`h-2 rounded-full ${
-                  budget.budgetUtilization > 100
+                  (budget?.budgetUtilization || 0) > 100
                     ? "bg-red-500"
-                    : budget.budgetUtilization > 90
+                    : (budget?.budgetUtilization || 0) > 90
                     ? "bg-yellow-500"
                     : "bg-green-500"
                 }`}
-                style={{ width: `${Math.min(budget.budgetUtilization, 100)}%` }}
+                style={{ width: `${Math.min(budget?.budgetUtilization || 0, 100)}%` }}
               ></div>
             </div>
           </div>
@@ -243,32 +243,32 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             </div>
             <span
               className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                income.status
+                income?.status || 'normal'
               )}`}
             >
-              {income.status}
+              {income?.status || 'N/A'}
             </span>
           </div>
           <h3 className="text-sm font-medium text-gray-600 mb-1">
             Income Status
           </h3>
           <p className="text-2xl font-bold text-gray-900">
-            {formatCurrency(income.totalIncome)}
+            {formatCurrency(income?.totalIncome || 0)}
           </p>
           <p className="text-sm text-gray-500 mt-1">
-            {formatPercentage(income.collectionRate)} collected
+            {formatPercentage(income?.collectionRate || 0)} collected
           </p>
           <div className="mt-2">
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className={`h-2 rounded-full ${
-                  income.collectionRate >= 95
+                  (income?.collectionRate || 0) >= 95
                     ? "bg-green-500"
-                    : income.collectionRate >= 80
+                    : (income?.collectionRate || 0) >= 80
                     ? "bg-yellow-500"
                     : "bg-red-500"
                 }`}
-                style={{ width: `${income.collectionRate}%` }}
+                style={{ width: `${income?.collectionRate || 0}%` }}
               ></div>
             </div>
           </div>
@@ -279,10 +279,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
           <div className="flex items-center justify-between mb-4">
             <div
               className={`p-2 rounded-lg ${
-                profitLoss.isProfitable ? "bg-green-100" : "bg-red-100"
+                profitLoss?.isProfitable ? "bg-green-100" : "bg-red-100"
               }`}
             >
-              {profitLoss.isProfitable ? (
+              {profitLoss?.isProfitable ? (
                 <ArrowTrendingUpIcon className="w-6 h-6 text-green-600" />
               ) : (
                 <ArrowTrendingDownIcon className="w-6 h-6 text-red-600" />
@@ -290,10 +290,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             </div>
             <span
               className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                profitLoss.status
+                profitLoss?.status || 'normal'
               )}`}
             >
-              {profitLoss.status}
+              {profitLoss?.status || 'N/A'}
             </span>
           </div>
           <h3 className="text-sm font-medium text-gray-600 mb-1">
@@ -301,13 +301,13 @@ const FinancialDashboard = ({ projectId, projectName }) => {
           </h3>
           <p
             className={`text-2xl font-bold ${
-              profitLoss.isProfitable ? "text-green-600" : "text-red-600"
+              profitLoss?.isProfitable ? "text-green-600" : "text-red-600"
             }`}
           >
-            {formatCurrency(profitLoss.profitLoss)}
+            {formatCurrency(profitLoss?.profitLoss || 0)}
           </p>
           <p className="text-sm text-gray-500 mt-1">
-            ROI: {formatPercentage(profitLoss.roi)}
+            ROI: {formatPercentage(profitLoss?.roi || 0)}
           </p>
         </div>
 
@@ -318,17 +318,17 @@ const FinancialDashboard = ({ projectId, projectName }) => {
               <BanknotesIcon className="w-6 h-6 text-purple-600" />
             </div>
             <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-              {payments.overdue.count} overdue
+              {payments?.overdue?.count || 0} overdue
             </span>
           </div>
           <h3 className="text-sm font-medium text-gray-600 mb-1">
             Payment Status
           </h3>
           <p className="text-2xl font-bold text-gray-900">
-            {formatCurrency(payments.collected.amount)}
+            {formatCurrency(payments?.collected?.amount || 0)}
           </p>
           <p className="text-sm text-gray-500 mt-1">
-            {payments.collected.count} collected
+            {payments?.collected?.count || 0} collected
           </p>
         </div>
       </div>
@@ -371,7 +371,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
           {activeTab === "overview" && (
             <div className="space-y-6">
               {/* Risk Factors */}
-              {analysis.riskFactors.length > 0 && (
+              {analysis?.riskFactors?.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
                     Risk Factors
@@ -409,7 +409,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     </h4>
                     <p className="text-2xl font-bold text-gray-900">
                       {formatPercentage(
-                        analysis.performanceMetrics.budgetEfficiency
+                        analysis?.performanceMetrics?.budgetEfficiency || 0
                       )}
                     </p>
                   </div>
@@ -419,7 +419,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     </h4>
                     <p className="text-2xl font-bold text-gray-900">
                       {formatPercentage(
-                        analysis.performanceMetrics.revenueEfficiency
+                        analysis?.performanceMetrics?.revenueEfficiency || 0
                       )}
                     </p>
                   </div>
@@ -429,7 +429,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     </h4>
                     <p className="text-2xl font-bold text-gray-900">
                       {formatCurrency(
-                        analysis.performanceMetrics.costPerDollarRevenue
+                        analysis?.performanceMetrics?.costPerDollarRevenue || 0
                       )}
                     </p>
                   </div>
@@ -447,7 +447,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                       Daily Burn Rate
                     </h4>
                     <p className="text-2xl font-bold text-gray-900">
-                      {formatCurrency(projections.dailyBurnRate)}
+                      {formatCurrency(projections?.dailyBurnRate || 0)}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -456,12 +456,12 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     </h4>
                     <p
                       className={`text-2xl font-bold ${
-                        projections.projectedVariance > 0
+                        (projections?.projectedVariance || 0) > 0
                           ? "text-red-600"
                           : "text-green-600"
                       }`}
                     >
-                      {formatCurrency(projections.projectedVariance)}
+                      {formatCurrency(projections?.projectedVariance || 0)}
                     </p>
                   </div>
                 </div>
@@ -501,7 +501,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {allocations.summary.map((allocation) => (
+                      {(allocations?.summary || []).map((allocation) => (
                         <tr key={allocation._id}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
@@ -573,10 +573,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     Collected
                   </h4>
                   <p className="text-2xl font-bold text-green-700">
-                    {formatCurrency(paymentTracking.summary.totalCollected)}
+                    {formatCurrency(paymentTracking?.summary?.totalCollected || 0)}
                   </p>
                   <p className="text-sm text-green-600">
-                    {paymentTracking.payments.collected.count} payments
+                    {paymentTracking?.payments?.collected?.count || 0} payments
                   </p>
                 </div>
                 <div className="bg-yellow-50 rounded-lg p-4">
@@ -584,10 +584,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     Pending
                   </h4>
                   <p className="text-2xl font-bold text-yellow-700">
-                    {formatCurrency(paymentTracking.summary.totalPending)}
+                    {formatCurrency(paymentTracking?.summary?.totalPending || 0)}
                   </p>
                   <p className="text-sm text-yellow-600">
-                    {paymentTracking.payments.pending.count} payments
+                    {paymentTracking?.payments?.pending?.count || 0} payments
                   </p>
                 </div>
                 <div className="bg-red-50 rounded-lg p-4">
@@ -595,10 +595,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     Overdue
                   </h4>
                   <p className="text-2xl font-bold text-red-700">
-                    {formatCurrency(paymentTracking.summary.totalOverdue)}
+                    {formatCurrency(paymentTracking?.summary?.totalOverdue || 0)}
                   </p>
                   <p className="text-sm text-red-600">
-                    {paymentTracking.payments.overdue.count} payments
+                    {paymentTracking?.payments?.overdue?.count || 0} payments
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -606,18 +606,18 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     Uncollected
                   </h4>
                   <p className="text-2xl font-bold text-gray-700">
-                    {formatCurrency(paymentTracking.summary.totalUncollected)}
+                    {formatCurrency(paymentTracking?.summary?.totalUncollected || 0)}
                   </p>
                   <p className="text-sm text-gray-600">
                     Collection Rate:{" "}
-                    {formatPercentage(paymentTracking.summary.collectionRate)}
+                    {formatPercentage(paymentTracking?.summary?.collectionRate || 0)}
                   </p>
                 </div>
               </div>
 
               {/* Client Performance */}
-              {paymentTracking.paymentsByClient &&
-                paymentTracking.paymentsByClient.length > 0 && (
+              {paymentTracking?.paymentsByClient &&
+                paymentTracking?.paymentsByClient?.length > 0 && (
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
                       Client Performance
@@ -647,7 +647,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {paymentTracking.paymentsByClient.map(
+                          {paymentTracking?.paymentsByClient?.map(
                             (client, index) => (
                               <tr key={index}>
                                 <td className="px-6 py-4 whitespace-nowrap">

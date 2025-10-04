@@ -434,6 +434,19 @@ export async function PUT(request, { params }) {
 
     const updateData = {};
 
+    // Check if budget exists, if not initialize it
+    if (!existingProject.budget) {
+      updateData.budget = {
+        totalAmount: 0,
+        currency: "USD",
+        description: "",
+        approvedBy: "",
+        approvalDate: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    }
+
     // Update budget fields
     if (totalAmount !== undefined) {
       if (totalAmount <= 0) {
@@ -442,15 +455,44 @@ export async function PUT(request, { params }) {
           { status: 400 }
         );
       }
-      updateData["budget.totalAmount"] = totalAmount;
+      if (existingProject.budget) {
+        updateData["budget.totalAmount"] = totalAmount;
+      } else {
+        updateData.budget.totalAmount = totalAmount;
+      }
     }
 
-    if (currency !== undefined) updateData["budget.currency"] = currency;
-    if (description !== undefined)
-      updateData["budget.description"] = description;
-    if (approvedBy !== undefined) updateData["budget.approvedBy"] = approvedBy;
-    if (approvalDate !== undefined)
-      updateData["budget.approvalDate"] = new Date(approvalDate);
+    if (currency !== undefined) {
+      if (existingProject.budget) {
+        updateData["budget.currency"] = currency;
+      } else {
+        updateData.budget.currency = currency;
+      }
+    }
+    
+    if (description !== undefined) {
+      if (existingProject.budget) {
+        updateData["budget.description"] = description;
+      } else {
+        updateData.budget.description = description;
+      }
+    }
+    
+    if (approvedBy !== undefined) {
+      if (existingProject.budget) {
+        updateData["budget.approvedBy"] = approvedBy;
+      } else {
+        updateData.budget.approvedBy = approvedBy;
+      }
+    }
+    
+    if (approvalDate !== undefined) {
+      if (existingProject.budget) {
+        updateData["budget.approvalDate"] = new Date(approvalDate);
+      } else {
+        updateData.budget.approvalDate = new Date(approvalDate);
+      }
+    }
 
     // Handle budget allocations update
     if (budgetAllocations !== undefined) {
@@ -471,7 +513,7 @@ export async function PUT(request, { params }) {
 
       // Preserve existing allocation IDs or create new ones
       const allocationsWithIds = budgetAllocations.map((allocation) => {
-        if (allocation._id) {
+        if (allocation._id && ObjectId.isValid(allocation._id)) {
           return {
             ...allocation,
             _id:
@@ -490,11 +532,19 @@ export async function PUT(request, { params }) {
         }
       });
 
-      updateData.budgetAllocations = allocationsWithIds;
+      if (existingProject.budget) {
+        updateData["budget.allocations"] = allocationsWithIds;
+      } else {
+        updateData.budget.allocations = allocationsWithIds;
+      }
     }
 
     // Always update the budget's updatedAt timestamp
-    updateData["budget.updatedAt"] = new Date();
+    if (existingProject.budget) {
+      updateData["budget.updatedAt"] = new Date();
+    } else {
+      updateData.budget.updatedAt = new Date();
+    }
     updateData.updatedAt = new Date();
 
     // Update the project

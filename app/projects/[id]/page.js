@@ -432,8 +432,12 @@ const ProjectDetailPage = ({ params }) => {
         budgetAllocations: [],
       };
 
+      // Check if budget already exists to determine method
+      const existingBudget = getBudgetAmount(project.budget);
+      const method = existingBudget > 0 ? "PUT" : "PUT";
+
       const response = await fetch(`/api/projects/${projectId}/budget`, {
-        method: "POST",
+        method: method,
         headers: {
           "Content-Type": "application/json",
         },
@@ -451,9 +455,19 @@ const ProjectDetailPage = ({ params }) => {
         await refreshData(); // Refresh all data
       } else {
         console.error("Failed to update budget:", result.error);
+        alert(
+          `Failed to ${method === "PUT" ? "update" : "create"} budget: ${
+            result.error
+          }`
+        );
       }
     } catch (error) {
       console.error("Error updating budget:", error);
+      alert(
+        `Error ${existingBudget > 0 ? "updating" : "creating"} budget: ${
+          error.message
+        }`
+      );
     } finally {
       setBudgetLoading(false);
     }
