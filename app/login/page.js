@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, User } from "lucide-react";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -64,23 +65,37 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div
+      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4"
+      style={{
+        background: "url('/4565.jpg') no-repeat center center fixed",
+        backgroundSize: "cover ",
+      }}
+    >
+      <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
       <div className="max-w-md w-full">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-4">
-            <Lock className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            HRM Dashboard Login
-          </h1>
-          <p className="text-gray-600">
-            Sign in to access the Human Resource Management system
-          </p>
-        </div>
 
         {/* Login Form */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="bg-white/50 rounded-xl shadow-lg p-8 backdrop-blur-lg">
+          <div className="text-center mb-8">
+            {/*<div className="mx-auto w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-4">
+              <Lock className="w-8 h-8 text-white" />
+            </div>*/}
+            <div className="flex items-center justify-center">
+              <img
+                src="/newlogo.png"
+                alt="Logo"
+                className="w-48 bg-white p-2 rounded-lg"
+              />
+            </div>
+            <h1 className="text-3xl font-bold text-blue-900 my-2 ">
+              EF Architects and Engineers Consulting plc
+            </h1>
+            <p className="text-blue-900">
+              Sign in to access the Human Resource Management system
+            </p>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Employee ID Field */}
             <div>

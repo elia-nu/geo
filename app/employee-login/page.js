@@ -84,23 +84,35 @@ export default function EmployeeLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
+    <div
+      className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4"
+      style={{
+        background: "url('/4565.jpg') no-repeat center center fixed",
+        backgroundSize: "cover ",
+      }}
+    >
+      <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
       <div className="max-w-md w-full">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <User className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Employee Login
-          </h1>
-          <p className="text-gray-600">
-            Access your attendance and document submission
-          </p>
-        </div>
 
         {/* Login Form */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="bg-white/50 rounded-xl shadow-lg p-8 backdrop-blur-lg">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center">
+              <img
+                src="/newlogo.png"
+                alt="Logo"
+                className="w-48 bg-white p-2 rounded-lg"
+              />
+            </div>
+            <h1 className="text-3xl font-bold text-blue-900 my-2 ">
+              EF Architects and Engineers Consulting plc
+            </h1>
+            <p className="text-blue-900">
+              Access your attendance and document submission
+            </p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Message Display */}
             {message && (
