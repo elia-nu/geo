@@ -81,10 +81,16 @@ const EntityManagement = ({ projectId, projectName }) => {
     try {
       setLoading(true);
       const endpoint = getEndpointForTab(activeTab);
+      // Map fields for tasks API which expects `title` instead of `name`
+      const payload =
+        activeTab === "tasks"
+          ? { ...formData, title: formData.name }
+          : formData;
+
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -174,9 +180,9 @@ const EntityManagement = ({ projectId, projectName }) => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-ET", {
       style: "currency",
-      currency: "USD",
+      currency: "ETB",
     }).format(amount || 0);
   };
 
@@ -293,7 +299,7 @@ const EntityManagement = ({ projectId, projectName }) => {
                   <tr key={item._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {item.name}
+                        {item.name || item.title || "Untitled"}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -394,7 +400,7 @@ const EntityManagement = ({ projectId, projectName }) => {
                           onClick={() => {
                             setEditingItem(item);
                             setFormData({
-                              name: item.name,
+                              name: item.name || item.title || "",
                               description: item.description || "",
                               projectId: projectId,
                               managerId: item.managerId || "",

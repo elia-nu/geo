@@ -85,10 +85,10 @@ export default function BudgetManagement() {
     }
   };
 
-  const formatCurrency = (amount, currency = "USD") => {
-    return new Intl.NumberFormat("en-US", {
+  const formatCurrency = (amount, currency = "ETB") => {
+    return new Intl.NumberFormat("en-ET", {
       style: "currency",
-      currency,
+      currency: "ETB",
     }).format(amount || 0);
   };
 
@@ -190,7 +190,7 @@ export default function BudgetManagement() {
   });
 
   const totalBudget = Object.values(budgetData).reduce(
-    (sum, budget) => sum + (budget?.totalAmount || 0),
+    (sum, budget) => sum + (Number(budget?.totalAmount) || 0),
     0
   );
   const totalExpenses = Object.values(budgetData).reduce(
@@ -217,24 +217,19 @@ export default function BudgetManagement() {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="container">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="row row-between row-wrap stack-md">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Budget Management
-            </h1>
-            <p className="text-gray-600">
+            <h1 className="heading-xl">Budget Management</h1>
+            <p className="muted">
               Comprehensive budget, expense, and income tracking for all
               projects
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <a
-              href="/hrm?section=projects"
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
+          <div className="row stack-sm">
+            <a href="/hrm?section=projects" className="btn btn-primary">
               <BuildingOfficeIcon className="w-4 h-4" />
               View Projects
             </a>
@@ -243,57 +238,53 @@ export default function BudgetManagement() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+        <div className="card card-elevated">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 rounded-lg">
               <BuildingOfficeIcon className="w-6 h-6 text-blue-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm text-gray-600">Total Projects</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {projects.length}
-              </p>
+              <p className="text-sm muted">Total Projects</p>
+              <p className="text-2xl font-bold">{projects.length}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="card card-elevated">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 rounded-lg">
               <ChartBarIcon className="w-6 h-6 text-green-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm text-gray-600">Projects with Budget</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {projectsWithBudget}
-              </p>
+              <p className="text-sm muted">Projects with Budget</p>
+              <p className="text-2xl font-bold">{projectsWithBudget}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="card card-elevated">
           <div className="flex items-center">
             <div className="p-2 bg-purple-100 rounded-lg">
               <CurrencyDollarIcon className="w-6 h-6 text-purple-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm text-gray-600">Total Budget</p>
-              <p className="text-2xl font-bold text-gray-900">{totalBudget}</p>
+              <p className="text-sm muted">Total Budget</p>
+              <p className="text-2xl font-bold">
+                {formatCurrency(totalBudget)}
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="card card-elevated">
           <div className="flex items-center">
             <div className="p-2 bg-yellow-100 rounded-lg">
               <ExclamationTriangleIcon className="w-6 h-6 text-yellow-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm text-gray-600">Overrun Projects</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {overrunProjects}
-              </p>
+              <p className="text-sm muted">Overrun Projects</p>
+              <p className="text-2xl font-bold">{overrunProjects}</p>
             </div>
           </div>
         </div>
@@ -301,31 +292,29 @@ export default function BudgetManagement() {
 
       {/* Financial Overview */}
       {financialSummary && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Financial Overview
-          </h2>
+        <div className="card card-elevated mb-8">
+          <h2 className="heading-lg mb-4">Financial Overview</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <p className="text-sm text-gray-600">Total Budget</p>
-              <p className="text-xl font-bold text-gray-900">
+              <p className="text-sm muted">Total Budget</p>
+              <p className="text-xl font-bold">
                 {formatCurrency(financialSummary.summary?.totalBudget || 0)}
               </p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-600">Total Expenses</p>
-              <p className="text-xl font-bold text-gray-900">
+              <p className="text-sm muted">Total Expenses</p>
+              <p className="text-xl font-bold">
                 {formatCurrency(financialSummary.summary?.totalExpenses || 0)}
               </p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-600">Total Income</p>
-              <p className="text-xl font-bold text-gray-900">
+              <p className="text-sm muted">Total Income</p>
+              <p className="text-xl font-bold">
                 {formatCurrency(financialSummary.summary?.totalIncome || 0)}
               </p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-600">Profit/Loss</p>
+              <p className="text-sm muted">Profit/Loss</p>
               <p
                 className={`text-xl font-bold ${
                   (financialSummary.summary?.totalProfitLoss || 0) >= 0
@@ -341,8 +330,9 @@ export default function BudgetManagement() {
       )}
 
       {/* Filters and Search */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
+      <div className="card card-elevated mb-6">
+        <div className="flex flex-col md:flex-row md:items-end gap-4">
+          {/* Search Input with Icon */}
           <div className="flex-1">
             <div className="relative">
               <input
@@ -350,7 +340,7 @@ export default function BudgetManagement() {
                 placeholder="Search projects..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input pl-10 pr-24"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg
@@ -367,46 +357,68 @@ export default function BudgetManagement() {
                   />
                 </svg>
               </div>
+              <button
+                onClick={() =>
+                  setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+                }
+                className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost px-3 py-1 flex items-center gap-2 text-sm"
+                style={{ minWidth: "unset" }}
+                type="button"
+                title="Toggle sort order"
+              >
+                <span>Sort</span>
+                <span className="text-lg">
+                  {sortOrder === "asc" ? "↑" : "↓"}
+                </span>
+              </button>
             </div>
           </div>
-          <div className="flex gap-4">
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Projects</option>
-              <option value="with_budget">With Budget</option>
-              <option value="without_budget">Without Budget</option>
-              <option value="overrun">Overrun</option>
-              <option value="warning">Warning</option>
-              <option value="normal">Normal</option>
-            </select>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="name">Sort by Name</option>
-              <option value="budget">Sort by Budget</option>
-              <option value="expenses">Sort by Expenses</option>
-              <option value="utilization">Sort by Utilization</option>
-              <option value="status">Sort by Status</option>
-            </select>
-            <button
-              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {sortOrder === "asc" ? "↑" : "↓"}
-            </button>
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-2 md:gap-4 flex-wrap items-stretch md:items-end w-full md:w-auto">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">
+                Status
+              </label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="select w-full sm:w-auto"
+              >
+                <option value="all">All Projects</option>
+                <option value="with_budget">With Budget</option>
+                <option value="without_budget">Without Budget</option>
+                <option value="overrun">Overrun</option>
+                <option value="warning">Warning</option>
+                <option value="normal">Normal</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">
+                Sort By
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="select w-full sm:w-auto"
+              >
+                <option value="name">Name</option>
+                <option value="budget">Budget</option>
+                <option value="expenses">Expenses</option>
+                <option value="utilization">Utilization</option>
+                <option value="status">Status</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Projects List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
+      <div className="card card-elevated">
+        <div
+          className="card-section"
+          style={{ borderTop: "none", paddingTop: 0 }}
+        >
+          <h2 className="heading-lg">
             Project Budgets ({filteredProjects.length})
           </h2>
         </div>
@@ -431,16 +443,12 @@ export default function BudgetManagement() {
 
               return (
                 <div key={project._id} className="p-6 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {project.name}
-                        </h3>
+                        <h3 className="text-lg font-medium">{project.name}</h3>
                         <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                            budgetStatus
-                          )}`}
+                          className={`badge ${getStatusColor(budgetStatus)}`}
                         >
                           {budgetStatus === "no_budget"
                             ? "No Budget"
@@ -456,10 +464,10 @@ export default function BudgetManagement() {
                           </span>
                         )}
                       </div>
-                      <p className="text-gray-600 mb-2">
+                      <p className="muted mb-2 break-words">
                         {project.description || "No description"}
                       </p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
                         <span>Category: {project.category || "General"}</span>
                         {project.startDate && (
                           <span>
@@ -494,9 +502,9 @@ export default function BudgetManagement() {
                       </div>
                       {hasBudget && (
                         <div className="mt-2">
-                          <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="progress">
                             <div
-                              className={`h-2 rounded-full ${
+                              className={`progress-bar ${
                                 (budget.summary?.budgetUtilization || 0) > 100
                                   ? "bg-red-500"
                                   : (budget.summary?.budgetUtilization || 0) >
@@ -516,19 +524,19 @@ export default function BudgetManagement() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 ml-4">
+                    <div className="flex items-center gap-2 ml-0 sm:ml-4 flex-wrap w-full sm:w-auto">
                       {hasBudget ? (
                         <>
                           <a
                             href={`/project-budget/${project._id}`}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                            className="btn btn-primary w-full sm:w-auto"
                           >
                             <Eye className="w-4 h-4" />
                             View Dashboard
                           </a>
                           <a
                             href={`/project-budget/${project._id}`}
-                            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                            className="btn w-full sm:w-auto"
                           >
                             <ChartBarIcon className="w-4 h-4" />
                             Manage
@@ -537,7 +545,7 @@ export default function BudgetManagement() {
                       ) : (
                         <a
                           href={`/project-budget/${project._id}?action=create`}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                          className="btn btn-primary w-full sm:w-auto"
                         >
                           <Plus className="w-4 h-4" />
                           Create Budget

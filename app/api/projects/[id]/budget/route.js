@@ -274,7 +274,7 @@ export async function POST(request, { params }) {
 
     const {
       totalAmount,
-      currency = "USD",
+      currency = "ETB",
       description,
       approvedBy,
       approvalDate,
@@ -438,12 +438,12 @@ export async function PUT(request, { params }) {
     if (!existingProject.budget) {
       updateData.budget = {
         totalAmount: 0,
-        currency: "USD",
+        currency: "ETB",
         description: "",
         approvedBy: "",
         approvalDate: null,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
     }
 
@@ -469,7 +469,7 @@ export async function PUT(request, { params }) {
         updateData.budget.currency = currency;
       }
     }
-    
+
     if (description !== undefined) {
       if (existingProject.budget) {
         updateData["budget.description"] = description;
@@ -477,7 +477,7 @@ export async function PUT(request, { params }) {
         updateData.budget.description = description;
       }
     }
-    
+
     if (approvedBy !== undefined) {
       if (existingProject.budget) {
         updateData["budget.approvedBy"] = approvedBy;
@@ -485,7 +485,7 @@ export async function PUT(request, { params }) {
         updateData.budget.approvedBy = approvedBy;
       }
     }
-    
+
     if (approvalDate !== undefined) {
       if (existingProject.budget) {
         updateData["budget.approvalDate"] = new Date(approvalDate);

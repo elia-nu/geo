@@ -78,7 +78,7 @@ const ProjectDetailPage = ({ params }) => {
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetForm, setBudgetForm] = useState({
     totalAmount: "",
-    currency: "USD",
+    currency: "ETB",
     description: "",
     approvedBy: "",
     approvalDate: "",
@@ -400,7 +400,7 @@ const ProjectDetailPage = ({ params }) => {
   const handleEditBudget = () => {
     setBudgetForm({
       totalAmount: getBudgetAmount(project.budget).toString(),
-      currency: "USD",
+      currency: "ETB",
       description: project.description || "",
       approvedBy: "",
       approvalDate: new Date().toISOString().split("T")[0],
@@ -412,7 +412,7 @@ const ProjectDetailPage = ({ params }) => {
     setIsEditingBudget(false);
     setBudgetForm({
       totalAmount: "",
-      currency: "USD",
+      currency: "ETB",
       description: "",
       approvedBy: "",
       approvalDate: "",
@@ -723,7 +723,10 @@ const ProjectDetailPage = ({ params }) => {
                   <p className="text-sm text-gray-500 font-medium">Budget</p>
                   {!isEditingBudget ? (
                     <p className="text-2xl font-bold text-gray-900">
-                      ${getBudgetAmount(project.budget).toLocaleString()}
+                      {new Intl.NumberFormat("en-ET", {
+                        style: "currency",
+                        currency: "ETB",
+                      }).format(getBudgetAmount(project.budget))}
                     </p>
                   ) : (
                     <div className="space-y-2">
@@ -785,12 +788,14 @@ const ProjectDetailPage = ({ params }) => {
                 <div className="text-right">
                   <p className="text-sm text-gray-500 font-medium">Expenses</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    $
-                    {(
+                    {new Intl.NumberFormat("en-ET", {
+                      style: "currency",
+                      currency: "ETB",
+                    }).format(
                       financialData.totalExpenses ||
-                      getTotalExpenses(project.expenses) ||
-                      0
-                    ).toLocaleString()}
+                        getTotalExpenses(project.expenses) ||
+                        0
+                    )}
                   </p>
                 </div>
               </div>
@@ -1018,7 +1023,10 @@ const ProjectDetailPage = ({ params }) => {
                           </Pie>
                           <Tooltip
                             formatter={(value) => [
-                              `$${value.toLocaleString()}`,
+                              new Intl.NumberFormat("en-ET", {
+                                style: "currency",
+                                currency: "ETB",
+                              }).format(value),
                               "Amount",
                             ]}
                           />

@@ -81,6 +81,13 @@ export default function ProjectsManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showBudgetBanner, setShowBudgetBanner] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
+  const [openStatusDialog, setOpenStatusDialog] = useState(false);
+  const [selectedProjectForStatus, setSelectedProjectForStatus] =
+    useState(null);
+  const [openProgressDialog, setOpenProgressDialog] = useState(false);
+  const [selectedProjectForProgress, setSelectedProjectForProgress] =
+    useState(null);
+  const [progressValue, setProgressValue] = useState(0);
 
   // For closing menu on outside click
   const menuRef = useRef(null);
@@ -227,6 +234,77 @@ export default function ProjectsManagement() {
       setError("Error deleting project: " + (err?.message || err));
     }
     handleCloseMenu();
+  }
+
+  function handleOpenStatusDialog() {
+    const project = projects.find((p) => p._id === selectedProjectId);
+    setSelectedProjectForStatus(project);
+    setOpenStatusDialog(true);
+    handleCloseMenu();
+  }
+
+  function handleCloseStatusDialog() {
+    setOpenStatusDialog(false);
+    setSelectedProjectForStatus(null);
+  }
+
+  async function handleStatusChange(newStatus) {
+    if (!selectedProjectForStatus) return;
+    try {
+      setError(null);
+      const res = await fetch(`/api/projects/${selectedProjectForStatus._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchProjects();
+        handleCloseStatusDialog();
+      } else {
+        setError(data.error || "Failed to update project status");
+      }
+    } catch (err) {
+      setError("Error updating project status: " + (err?.message || err));
+    }
+  }
+
+  function handleOpenProgressDialog() {
+    const project = projects.find((p) => p._id === selectedProjectId);
+    setSelectedProjectForProgress(project);
+    setProgressValue(project?.progress || 0);
+    setOpenProgressDialog(true);
+    handleCloseMenu();
+  }
+
+  function handleCloseProgressDialog() {
+    setOpenProgressDialog(false);
+    setSelectedProjectForProgress(null);
+    setProgressValue(0);
+  }
+
+  async function handleProgressUpdate() {
+    if (!selectedProjectForProgress) return;
+    try {
+      setError(null);
+      const res = await fetch(
+        `/api/projects/${selectedProjectForProgress._id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ progress: progressValue }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        fetchProjects();
+        handleCloseProgressDialog();
+      } else {
+        setError(data.error || "Failed to update project progress");
+      }
+    } catch (err) {
+      setError("Error updating project progress: " + (err?.message || err));
+    }
   }
 
   // Filtering logic
@@ -594,6 +672,18 @@ export default function ProjectsManagement() {
             <EditIcon /> Edit
           </div>
           <div
+            className="px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
+            onClick={handleOpenStatusDialog}
+          >
+            <FlagIcon /> Change Status
+          </div>
+          <div
+            className="px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
+            onClick={handleOpenProgressDialog}
+          >
+            <TimelineIcon /> Update Progress
+          </div>
+          <div
             className="px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 cursor-pointer transition-colors"
             onClick={handleDeleteProject}
           >
@@ -755,10 +845,143 @@ export default function ProjectsManagement() {
             <EditIcon /> Edit
           </div>
           <div
+            className="px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
+            onClick={handleOpenStatusDialog}
+          >
+            <FlagIcon /> Change Status
+          </div>
+          <div
+            className="px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
+            onClick={handleOpenProgressDialog}
+          >
+            <TimelineIcon /> Update Progress
+          </div>
+          <div
             className="px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 cursor-pointer transition-colors"
             onClick={handleDeleteProject}
           >
             <DeleteIcon /> Delete
+          </div>
+        </div>
+      )}
+      {/* Status Change Dialog */}
+      {openStatusDialog && selectedProjectForStatus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full border border-gray-200">
+            <div className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <FlagIcon className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Change Project Status
+                </h2>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Update the status for "{selectedProjectForStatus.name}"
+              </p>
+              <div className="space-y-2">
+                {STATUS_OPTIONS.filter((o) => o.value !== "all").map(
+                  (option) => {
+                    const isCurrent =
+                      selectedProjectForStatus.status === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        className={`w-full p-3 rounded-md border text-left flex items-center gap-3 transition-colors ${
+                          isCurrent
+                            ? "bg-blue-50 border-blue-200 text-blue-700"
+                            : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                        }`}
+                        onClick={() => handleStatusChange(option.value)}
+                        disabled={isCurrent}
+                        type="button"
+                      >
+                        <span className="text-sm font-medium">
+                          {option.label}
+                        </span>
+                        {isCurrent && (
+                          <span className="ml-auto text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                            Current
+                          </span>
+                        )}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 pb-6 pt-4 border-t border-gray-200">
+              <button
+                className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md font-medium"
+                onClick={handleCloseStatusDialog}
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Progress Update Dialog */}
+      {openProgressDialog && selectedProjectForProgress && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full border border-gray-200">
+            <div className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <TimelineIcon className="w-5 h-5 text-green-600" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Update Project Progress
+                </h2>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Update the progress for "{selectedProjectForProgress.name}"
+              </p>
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-700">Progress</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {progressValue}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 mb-3">
+                  <div
+                    className="bg-green-600 h-3 rounded-full transition-all"
+                    style={{ width: `${progressValue}%` }}
+                  ></div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={progressValue}
+                  onChange={(e) => setProgressValue(parseInt(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-2">
+                  <span>0%</span>
+                  <span>25%</span>
+                  <span>50%</span>
+                  <span>75%</span>
+                  <span>100%</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 pb-6 pt-4 border-t border-gray-200">
+              <button
+                className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md font-medium"
+                onClick={handleCloseProgressDialog}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-md font-medium"
+                onClick={handleProgressUpdate}
+                type="button"
+              >
+                Update Progress
+              </button>
+            </div>
           </div>
         </div>
       )}

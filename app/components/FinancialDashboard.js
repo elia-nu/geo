@@ -87,10 +87,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
     }
   };
 
-  const formatCurrency = (amount, currency = "USD") => {
-    return new Intl.NumberFormat("en-US", {
+  const formatCurrency = (amount, currency = "ETB") => {
+    return new Intl.NumberFormat("en-ET", {
       style: "currency",
-      currency: currency,
+      currency: "ETB",
     }).format(amount || 0);
   };
 
@@ -204,10 +204,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             </div>
             <span
               className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                budget?.status || 'normal'
+                budget?.status || "normal"
               )}`}
             >
-              {budget?.status || 'N/A'}
+              {budget?.status || "N/A"}
             </span>
           </div>
           <h3 className="text-sm font-medium text-gray-600 mb-1">
@@ -229,7 +229,9 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     ? "bg-yellow-500"
                     : "bg-green-500"
                 }`}
-                style={{ width: `${Math.min(budget?.budgetUtilization || 0, 100)}%` }}
+                style={{
+                  width: `${Math.min(budget?.budgetUtilization || 0, 100)}%`,
+                }}
               ></div>
             </div>
           </div>
@@ -243,10 +245,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             </div>
             <span
               className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                income?.status || 'normal'
+                income?.status || "normal"
               )}`}
             >
-              {income?.status || 'N/A'}
+              {income?.status || "N/A"}
             </span>
           </div>
           <h3 className="text-sm font-medium text-gray-600 mb-1">
@@ -262,13 +264,15 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className={`h-2 rounded-full ${
-                  (income?.collectionRate || 0) >= 95
+                  (income?.collectionRate || 0) >= 90
                     ? "bg-green-500"
-                    : (income?.collectionRate || 0) >= 80
+                    : (income?.collectionRate || 0) >= 70
                     ? "bg-yellow-500"
                     : "bg-red-500"
                 }`}
-                style={{ width: `${income?.collectionRate || 0}%` }}
+                style={{
+                  width: `${Math.min(income?.collectionRate || 0, 100)}%`,
+                }}
               ></div>
             </div>
           </div>
@@ -290,10 +294,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             </div>
             <span
               className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                profitLoss?.status || 'normal'
+                profitLoss?.status || "normal"
               )}`}
             >
-              {profitLoss?.status || 'N/A'}
+              {profitLoss?.status || "N/A"}
             </span>
           </div>
           <h3 className="text-sm font-medium text-gray-600 mb-1">
@@ -503,7 +507,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {(allocations?.summary || []).map((allocation) => (
                         <tr key={allocation._id}>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-normal break-words">
                             <div>
                               <div className="text-sm font-medium text-gray-900">
                                 {allocation.name}
@@ -513,16 +517,16 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
                             {formatCurrency(allocation.budgetedAmount)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
                             {formatCurrency(allocation.spentAmount)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
                             {formatCurrency(allocation.remainingAmount)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-normal break-words">
                             <div className="flex items-center">
                               <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                 <div
@@ -546,7 +550,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                               </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-normal break-words">
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
                                 allocation.status
@@ -573,7 +577,9 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     Collected
                   </h4>
                   <p className="text-2xl font-bold text-green-700">
-                    {formatCurrency(paymentTracking?.summary?.totalCollected || 0)}
+                    {formatCurrency(
+                      paymentTracking?.summary?.totalCollected || 0
+                    )}
                   </p>
                   <p className="text-sm text-green-600">
                     {paymentTracking?.payments?.collected?.count || 0} payments
@@ -584,7 +590,9 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     Pending
                   </h4>
                   <p className="text-2xl font-bold text-yellow-700">
-                    {formatCurrency(paymentTracking?.summary?.totalPending || 0)}
+                    {formatCurrency(
+                      paymentTracking?.summary?.totalPending || 0
+                    )}
                   </p>
                   <p className="text-sm text-yellow-600">
                     {paymentTracking?.payments?.pending?.count || 0} payments
@@ -595,7 +603,9 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     Overdue
                   </h4>
                   <p className="text-2xl font-bold text-red-700">
-                    {formatCurrency(paymentTracking?.summary?.totalOverdue || 0)}
+                    {formatCurrency(
+                      paymentTracking?.summary?.totalOverdue || 0
+                    )}
                   </p>
                   <p className="text-sm text-red-600">
                     {paymentTracking?.payments?.overdue?.count || 0} payments
@@ -606,11 +616,15 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     Uncollected
                   </h4>
                   <p className="text-2xl font-bold text-gray-700">
-                    {formatCurrency(paymentTracking?.summary?.totalUncollected || 0)}
+                    {formatCurrency(
+                      paymentTracking?.summary?.totalUncollected || 0
+                    )}
                   </p>
                   <p className="text-sm text-gray-600">
                     Collection Rate:{" "}
-                    {formatPercentage(paymentTracking?.summary?.collectionRate || 0)}
+                    {formatPercentage(
+                      paymentTracking?.summary?.collectionRate || 0
+                    )}
                   </p>
                 </div>
               </div>
@@ -650,7 +664,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                           {paymentTracking?.paymentsByClient?.map(
                             (client, index) => (
                               <tr key={index}>
-                                <td className="px-6 py-4 whitespace-nowrap">
+                                <td className="px-6 py-4 whitespace-normal break-words">
                                   <div>
                                     <div className="text-sm font-medium text-gray-900">
                                       {client.clientName}
@@ -660,16 +674,16 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
                                   {formatCurrency(client.expectedAmount)}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
                                   {formatCurrency(client.totalAmount)}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
                                   {formatCurrency(client.uncollectedAmount)}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
+                                <td className="px-6 py-4 whitespace-normal break-words">
                                   <div className="flex items-center">
                                     <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                       <div
@@ -690,7 +704,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                                     </span>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
+                                <td className="px-6 py-4 whitespace-normal break-words">
                                   <span
                                     className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
                                       client.status
@@ -824,7 +838,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                                 {Object.values(row).map((value, cellIndex) => (
                                   <td
                                     key={cellIndex}
-                                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                                    className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900"
                                   >
                                     {typeof value === "number"
                                       ? Object.keys(row)[cellIndex].includes(

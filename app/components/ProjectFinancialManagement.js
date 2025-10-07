@@ -45,7 +45,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   // Form states
   const [budgetForm, setBudgetForm] = useState({
     totalAmount: "",
-    currency: "USD",
+    currency: "ETB",
     description: "",
     approvedBy: "",
     approvalDate: "",
@@ -223,7 +223,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     if (budgetData) {
       setBudgetForm({
         totalAmount: budgetData.totalAmount || 0,
-        currency: budgetData.currency || "USD",
+        currency: budgetData.currency || "ETB",
         description: budgetData.description || "",
         approvedBy: budgetData.approvedBy || "",
         approvalDate: budgetData.approvalDate
@@ -387,7 +387,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const resetBudgetForm = () => {
     setBudgetForm({
       totalAmount: "",
-      currency: "USD",
+      currency: "ETB",
       description: "",
       approvedBy: "",
       approvalDate: "",
@@ -467,10 +467,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
-  const formatCurrency = (amount, currency = "USD") => {
-    return new Intl.NumberFormat("en-US", {
+  const formatCurrency = (amount, currency = "ETB") => {
+    return new Intl.NumberFormat("en-ET", {
       style: "currency",
-      currency: currency,
+      currency: "ETB",
     }).format(amount || 0);
   };
 
@@ -584,12 +584,17 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
               shortName: "Income",
               icon: ArrowTrendingUpIcon,
             },
-            { id: "reports", name: "Reports & Analytics", shortName: "Reports", icon: EyeIcon },
+            {
+              id: "reports",
+              name: "Reports & Analytics",
+              shortName: "Reports",
+              icon: EyeIcon,
+            },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 transition-colors whitespace-nowrap flex-shrink-0 ${
+              className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 transition-colors whitespace-normal break-words flex-shrink-0 ${
                 activeTab === tab.id
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -752,7 +757,9 @@ const OverviewTab = ({
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Budget</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">
+                Total Budget
+              </p>
               <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
                 {formatCurrency(totalBudget)}
               </p>
@@ -782,7 +789,9 @@ const OverviewTab = ({
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Income</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">
+                Total Income
+              </p>
               <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600">
                 {formatCurrency(totalIncome)}
               </p>
@@ -796,7 +805,9 @@ const OverviewTab = ({
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs sm:text-sm font-medium text-gray-600">Profit/Loss</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">
+                Profit/Loss
+              </p>
               <p
                 className={`text-lg sm:text-xl lg:text-2xl font-bold ${
                   profitLoss >= 0 ? "text-green-600" : "text-red-600"
@@ -1020,7 +1031,9 @@ const OverviewTab = ({
                 className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2 sm:gap-0"
               >
                 <div className="flex-1">
-                  <h4 className="text-sm sm:text-base font-medium text-gray-900">{expense.title}</h4>
+                  <h4 className="text-sm sm:text-base font-medium text-gray-900">
+                    {expense.title}
+                  </h4>
                   <p className="text-xs sm:text-sm text-gray-600">
                     {expense.category} • {formatDate(expense.expenseDate)}
                   </p>
@@ -1048,7 +1061,9 @@ const OverviewTab = ({
             <h3 className="text-base sm:text-lg font-semibold text-gray-900">
               Recent Income
             </h3>
-            <span className="text-xs sm:text-sm text-gray-500">{income.length} total</span>
+            <span className="text-xs sm:text-sm text-gray-500">
+              {income.length} total
+            </span>
           </div>
           <div className="space-y-3">
             {income.slice(0, 5).map((inc) => (
@@ -1057,7 +1072,9 @@ const OverviewTab = ({
                 className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2 sm:gap-0"
               >
                 <div className="flex-1">
-                  <h4 className="text-sm sm:text-base font-medium text-gray-900">{inc.title}</h4>
+                  <h4 className="text-sm sm:text-base font-medium text-gray-900">
+                    {inc.title}
+                  </h4>
                   <p className="text-xs sm:text-sm text-gray-600">
                     {inc.clientName} • {formatDate(inc.receivedDate)}
                   </p>
@@ -1144,7 +1161,9 @@ const BudgetTab = ({
         {budgetData.description && (
           <div className="mt-3 sm:mt-4">
             <p className="text-xs sm:text-sm text-gray-600">Description</p>
-            <p className="text-sm sm:text-base text-gray-900">{budgetData.description}</p>
+            <p className="text-sm sm:text-base text-gray-900">
+              {budgetData.description}
+            </p>
           </div>
         )}
       </div>
@@ -1316,14 +1335,18 @@ const ExpensesTab = ({
         </div>
         <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
           <p className="text-xs sm:text-sm text-gray-600">Total Count</p>
-          <p className="text-lg sm:text-xl font-bold text-gray-900">{expenses.length}</p>
+          <p className="text-lg sm:text-xl font-bold text-gray-900">
+            {expenses.length}
+          </p>
         </div>
       </div>
 
       {/* Expenses Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">All Expenses</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+            All Expenses
+          </h3>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -1444,7 +1467,9 @@ const IncomeTab = ({ income, formatCurrency, getStatusColor, formatDate }) => {
         </div>
         <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
           <p className="text-xs sm:text-sm text-gray-600">Total Count</p>
-          <p className="text-lg sm:text-xl font-bold text-gray-900">{income.length}</p>
+          <p className="text-lg sm:text-xl font-bold text-gray-900">
+            {income.length}
+          </p>
         </div>
       </div>
 
@@ -2041,10 +2066,7 @@ const BudgetModal = ({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="USD">USD - US Dollar</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="GBP">GBP - British Pound</option>
-                <option value="CAD">CAD - Canadian Dollar</option>
+                <option value="ETB">ETB - Ethiopian Birr</option>
               </select>
             </div>
           </div>
@@ -2126,7 +2148,9 @@ const BudgetModal = ({
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-md gap-2 sm:gap-0"
                   >
                     <div className="flex-1">
-                      <span className="font-medium text-sm sm:text-base">{allocation.name}</span>
+                      <span className="font-medium text-sm sm:text-base">
+                        {allocation.name}
+                      </span>
                       <span className="text-xs sm:text-sm text-gray-600 ml-0 sm:ml-2 block sm:inline">
                         ({allocation.category})
                       </span>
@@ -2353,7 +2377,7 @@ const BudgetModal = ({
                     <option value="">Select Task</option>
                     {tasks.map((task) => (
                       <option key={task._id} value={task._id}>
-                        {task.name}
+                        {task.title || task.name || "Untitled"}
                       </option>
                     ))}
                   </select>
@@ -2415,7 +2439,7 @@ const BudgetModal = ({
                     <option value="">Select Milestone</option>
                     {milestones.map((milestone) => (
                       <option key={milestone._id} value={milestone._id}>
-                        {milestone.name}
+                        {milestone.title || milestone.name || "Untitled"}
                       </option>
                     ))}
                   </select>

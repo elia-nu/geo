@@ -57,13 +57,21 @@ export async function GET(request) {
               endDate: 1,
               budget: 1,
               financialStatus: 1,
-              totalBudget: { $ifNull: ["$budget.totalAmount", 0] },
-              totalExpenses: { $ifNull: ["$financialStatus.totalExpenses", 0] },
-              totalIncome: { $ifNull: ["$financialStatus.totalIncome", 0] },
+              totalBudget: {
+                $toDouble: { $ifNull: ["$budget.totalAmount", 0] },
+              },
+              totalExpenses: {
+                $toDouble: { $ifNull: ["$financialStatus.totalExpenses", 0] },
+              },
+              totalIncome: {
+                $toDouble: { $ifNull: ["$financialStatus.totalIncome", 0] },
+              },
               budgetUtilization: {
                 $ifNull: ["$financialStatus.budgetUtilization", 0],
               },
-              profitLoss: { $ifNull: ["$financialStatus.profitLoss", 0] },
+              profitLoss: {
+                $toDouble: { $ifNull: ["$financialStatus.profitLoss", 0] },
+              },
               roi: {
                 $cond: {
                   if: {
