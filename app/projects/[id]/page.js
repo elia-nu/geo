@@ -683,10 +683,10 @@ const ProjectDetailPage = ({ params }) => {
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Key Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
             {/* Total Tasks */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow ">
+              <div className="flex items-center justify-between mb-4 ">
                 <div className="p-3 bg-blue-100 rounded-lg">
                   <AssignmentIcon className="w-6 h-6 text-blue-600" />
                 </div>
@@ -699,14 +699,14 @@ const ProjectDetailPage = ({ params }) => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-xs border-t border-gray-200 pt-4">
                 <span className="text-green-600 font-semibold flex items-center">
                   <CheckCircleIcon className="w-4 h-4 mr-1" />
                   {taskStats.completed || 0} completed
                 </span>
                 <Link
                   href={`/task-management?projectId=${projectId}`}
-                  className="text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-blue-600 font-bold hover:text-blue-800"
                 >
                   View All
                 </Link>
@@ -743,7 +743,15 @@ const ProjectDetailPage = ({ params }) => {
                   )}
                 </div>
               </div>
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-end text-xs border-t border-gray-200 pt-4">
+                <Link
+                  href={`/project-budget/${projectId}`}
+                  className="text-green-500 font-bold hover:text-blue-800"
+                >
+                  Details
+                </Link>
+              </div>
+              {/*<div className="flex items-center justify-between text-xs">
                 {!isEditingBudget ? (
                   <>
                     <span className="text-green-600 font-semibold flex items-center">
@@ -777,6 +785,7 @@ const ProjectDetailPage = ({ params }) => {
                   </div>
                 )}
               </div>
+              */}
             </div>
 
             {/* Expenses */}
@@ -799,17 +808,17 @@ const ProjectDetailPage = ({ params }) => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-red-600 font-semibold flex items-center">
+              <div className="flex items-center justify-end text-xs border-t border-gray-200 pt-4">
+                {/*<span className="text-red-600 font-semibold flex items-center">
                   <TrendingUpIcon className="w-4 h-4 mr-1" />
                   {financialData.budgetUtilization
                     ? `${Math.round(financialData.budgetUtilization)}%`
                     : "0%"}{" "}
                   used
-                </span>
+                </span>*/}
                 <Link
                   href={`/project-budget/${projectId}`}
-                  className="text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-red-500 font-bold hover:text-blue-800"
                 >
                   Details
                 </Link>
@@ -834,7 +843,7 @@ const ProjectDetailPage = ({ params }) => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-xs border-t border-gray-200 pt-4">
                 <span className="text-orange-600 font-semibold flex items-center">
                   <AccessTimeIcon className="w-4 h-4 mr-1" />
                   {project.endDate
@@ -844,9 +853,7 @@ const ProjectDetailPage = ({ params }) => {
                       )} days left`
                     : "No deadline"}
                 </span>
-                <span className="text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
-                  Timeline
-                </span>
+                <span className="text-blue-600 hover:text-blue-800 font-medium cursor-pointer"></span>
               </div>
             </div>
           </div>

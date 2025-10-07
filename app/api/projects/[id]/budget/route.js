@@ -49,73 +49,77 @@ export async function GET(request, { params }) {
 
     // Calculate allocation summaries with enhanced tracking
     const allocationSummary =
-      project.budgetAllocations?.map((allocation) => {
-        const allocationExpenses =
-          project.expenses?.filter(
-            (exp) => exp.allocationId === allocation._id.toString()
-          ) || [];
-        const spentAmount = allocationExpenses.reduce(
-          (sum, exp) => sum + (exp.amount || 0),
-          0
-        );
-        const budgetedAmount = allocation.amount || 0;
-        const remainingAmount = budgetedAmount - spentAmount;
-        const utilization =
-          budgetedAmount > 0 ? (spentAmount / budgetedAmount) * 100 : 0;
-        const variance = spentAmount - budgetedAmount;
-        const variancePercent =
-          budgetedAmount > 0 ? (variance / budgetedAmount) * 100 : 0;
+      (project.budgetAllocations || project.budget?.allocations)?.map(
+        (allocation) => {
+          const allocationExpenses =
+            project.expenses?.filter(
+              (exp) => exp.allocationId === allocation._id.toString()
+            ) || [];
+          const spentAmount = allocationExpenses.reduce(
+            (sum, exp) => sum + (exp.amount || 0),
+            0
+          );
+          const budgetedAmount = allocation.amount || 0;
+          const remainingAmount = budgetedAmount - spentAmount;
+          const utilization =
+            budgetedAmount > 0 ? (spentAmount / budgetedAmount) * 100 : 0;
+          const variance = spentAmount - budgetedAmount;
+          const variancePercent =
+            budgetedAmount > 0 ? (variance / budgetedAmount) * 100 : 0;
 
-        // Determine status based on utilization and timeline
-        let status = "normal";
-        if (utilization > 100) {
-          status = "overrun";
-        } else if (utilization > 90) {
-          status = "warning";
-        } else if (
-          allocation.endDate &&
-          new Date() > new Date(allocation.endDate) &&
-          utilization < 80
-        ) {
-          status = "underutilized";
-        }
+          // Determine status based on utilization and timeline
+          let status = "normal";
+          if (utilization > 100) {
+            status = "overrun";
+          } else if (utilization > 90) {
+            status = "warning";
+          } else if (
+            allocation.endDate &&
+            new Date() > new Date(allocation.endDate) &&
+            utilization < 80
+          ) {
+            status = "underutilized";
+          }
 
-        return {
-          ...allocation,
-          budgetedAmount,
-          spentAmount,
-          remainingAmount,
-          utilization,
-          variance,
-          variancePercent,
-          status,
-          expenseCount: allocationExpenses.length,
-          // Enhanced tracking
-          isOverBudget: spentAmount > budgetedAmount,
-          isNearLimit: utilization > 80 && utilization <= 100,
-          daysRemaining: allocation.endDate
-            ? Math.max(
-                0,
-                Math.ceil(
-                  (new Date(allocation.endDate) - new Date()) /
-                    (1000 * 60 * 60 * 24)
-                )
-              )
-            : null,
-          burnRate:
-            allocationExpenses.length > 0
-              ? spentAmount /
-                Math.max(
-                  1,
+          return {
+            ...allocation,
+            budgetedAmount,
+            spentAmount,
+            remainingAmount,
+            utilization,
+            variance,
+            variancePercent,
+            status,
+            expenseCount: allocationExpenses.length,
+            // Enhanced tracking
+            isOverBudget: spentAmount > budgetedAmount,
+            isNearLimit: utilization > 80 && utilization <= 100,
+            daysRemaining: allocation.endDate
+              ? Math.max(
+                  0,
                   Math.ceil(
-                    (new Date() -
-                      new Date(allocation.startDate || allocation.createdAt)) /
+                    (new Date(allocation.endDate) - new Date()) /
                       (1000 * 60 * 60 * 24)
                   )
                 )
-              : 0,
-        };
-      }) || [];
+              : null,
+            burnRate:
+              allocationExpenses.length > 0
+                ? spentAmount /
+                  Math.max(
+                    1,
+                    Math.ceil(
+                      (new Date() -
+                        new Date(
+                          allocation.startDate || allocation.createdAt
+                        )) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                  )
+                : 0,
+          };
+        }
+      ) || [];
 
     // Calculate department and category summaries
     const departmentSummary = allocationSummary.reduce((acc, allocation) => {
@@ -247,6 +251,8 @@ export async function GET(request, { params }) {
               : 0,
         },
       },
+      // Also include allocations at the root level for backward compatibility
+      allocations: allocationSummary,
     });
   } catch (error) {
     console.error("Error fetching project budget:", error);
@@ -360,8 +366,11 @@ export async function POST(request, { params }) {
       { _id: new ObjectId(id) },
       {
         $set: {
-          budget: budgetData,
-          budgetAllocations: allocationsWithIds,
+          budget: {
+            ...budgetData,
+            allocations: allocationsWithIds,
+          },
+          budgetAllocations: allocationsWithIds, // Keep both for backward compatibility
           updatedAt: new Date(),
         },
       }
@@ -537,6 +546,8 @@ export async function PUT(request, { params }) {
       } else {
         updateData.budget.allocations = allocationsWithIds;
       }
+      // Also update budgetAllocations for consistency
+      updateData.budgetAllocations = allocationsWithIds;
     }
 
     // Always update the budget's updatedAt timestamp

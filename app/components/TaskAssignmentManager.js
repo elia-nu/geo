@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Swal from "sweetalert2";
 import {
   Person as PersonIcon,
   Group as GroupIcon,
@@ -66,13 +67,27 @@ const TaskAssignmentManager = ({
       if (data.success) {
         setAssignedTo([...assignedTo, newAssignee]);
         setNewAssignee("");
-        setSuccess("Assignee added successfully");
+        Swal.fire({
+          icon: 'success',
+          title: 'Success',
+          text: 'Assignee added successfully'
+        });
         if (onUpdate) onUpdate();
       } else {
-        setError(data.error || "Failed to add assignee");
+        const msg = data.error || "Failed to add assignee";
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: msg
+        });
       }
     } catch (err) {
-      setError("Error adding assignee: " + err.message);
+      const msg = "Error adding assignee: " + err.message;
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: msg
+      });
     } finally {
       setLoading(false);
     }
@@ -95,13 +110,27 @@ const TaskAssignmentManager = ({
       const data = await response.json();
       if (data.success) {
         setAssignedTo(assignedTo.filter((id) => id !== assigneeId));
-        setSuccess("Assignee removed successfully");
+        Swal.fire({
+          icon: 'success',
+          title: 'Success',
+          text: 'Assignee removed successfully'
+        });
         if (onUpdate) onUpdate();
       } else {
-        setError(data.error || "Failed to remove assignee");
+        const msg = data.error || "Failed to remove assignee";
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: msg
+        });
       }
     } catch (err) {
-      setError("Error removing assignee: " + err.message);
+      const msg = "Error removing assignee: " + err.message;
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: msg
+      });
     } finally {
       setLoading(false);
     }
@@ -128,13 +157,27 @@ const TaskAssignmentManager = ({
       if (data.success) {
         setAssignedTeams([...assignedTeams, newTeam]);
         setNewTeam("");
-        setSuccess("Team assigned successfully");
+        Swal.fire({
+          icon: 'success',
+          title: 'Success',
+          text: 'Team assigned successfully'
+        });
         if (onUpdate) onUpdate();
       } else {
-        setError(data.error || "Failed to assign team");
+        const msg = data.error || "Failed to assign team";
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: msg
+        });
       }
     } catch (err) {
-      setError("Error assigning team: " + err.message);
+      const msg = "Error assigning team: " + err.message;
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: msg
+      });
     } finally {
       setLoading(false);
     }
@@ -157,13 +200,27 @@ const TaskAssignmentManager = ({
       const data = await response.json();
       if (data.success) {
         setAssignedTeams(assignedTeams.filter((id) => id !== teamId));
-        setSuccess("Team removed successfully");
+        Swal.fire({
+          icon: 'success',
+          title: 'Success',
+          text: 'Team removed successfully'
+        });
         if (onUpdate) onUpdate();
       } else {
-        setError(data.error || "Failed to remove team");
+        const msg = data.error || "Failed to remove team";
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: msg
+        });
       }
     } catch (err) {
-      setError("Error removing team: " + err.message);
+      const msg = "Error removing team: " + err.message;
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: msg
+      });
     } finally {
       setLoading(false);
     }

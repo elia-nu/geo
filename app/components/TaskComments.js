@@ -11,11 +11,17 @@ import {
   AccessTime as TimeIcon,
 } from "@mui/icons-material";
 
-const TaskComments = ({ taskId, currentUser, onUpdate }) => {
+const TaskComments = ({
+  taskId,
+  currentUser,
+  onUpdate,
+  showSuccessAlert,
+  showErrorAlert,
+  setLoading: setParentLoading,
+}) => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [editingComment, setEditingComment] = useState(null);
   const [editContent, setEditContent] = useState("");
 
@@ -34,10 +40,12 @@ const TaskComments = ({ taskId, currentUser, onUpdate }) => {
       if (data.success) {
         setComments(data.comments || []);
       } else {
-        setError(data.error || "Failed to fetch comments");
+        showErrorAlert &&
+          showErrorAlert(data.error || "Failed to fetch comments");
       }
     } catch (err) {
-      setError("Error fetching comments: " + err.message);
+      showErrorAlert &&
+        showErrorAlert("Error fetching comments: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -49,7 +57,6 @@ const TaskComments = ({ taskId, currentUser, onUpdate }) => {
 
     try {
       setLoading(true);
-      setError(null);
 
       const response = await fetch(`/api/tasks/${taskId}/comments`, {
         method: "POST",
@@ -68,11 +75,12 @@ const TaskComments = ({ taskId, currentUser, onUpdate }) => {
         setNewComment("");
         await fetchComments(); // Refresh comments
         onUpdate && onUpdate(); // Notify parent component
+        showSuccessAlert && showSuccessAlert("Comment added successfully!");
       } else {
-        setError(data.error || "Failed to add comment");
+        showErrorAlert && showErrorAlert(data.error || "Failed to add comment");
       }
     } catch (err) {
-      setError("Error adding comment: " + err.message);
+      showErrorAlert && showErrorAlert("Error adding comment: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -83,7 +91,6 @@ const TaskComments = ({ taskId, currentUser, onUpdate }) => {
 
     try {
       setLoading(true);
-      setError(null);
 
       const response = await fetch(
         `/api/tasks/${taskId}/comments/${commentId}`,
@@ -104,11 +111,14 @@ const TaskComments = ({ taskId, currentUser, onUpdate }) => {
         setEditContent("");
         await fetchComments(); // Refresh comments
         onUpdate && onUpdate(); // Notify parent component
+        showSuccessAlert && showSuccessAlert("Comment updated successfully!");
       } else {
-        setError(data.error || "Failed to update comment");
+        showErrorAlert &&
+          showErrorAlert(data.error || "Failed to update comment");
       }
     } catch (err) {
-      setError("Error updating comment: " + err.message);
+      showErrorAlert &&
+        showErrorAlert("Error updating comment: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -119,7 +129,6 @@ const TaskComments = ({ taskId, currentUser, onUpdate }) => {
 
     try {
       setLoading(true);
-      setError(null);
 
       const response = await fetch(
         `/api/tasks/${taskId}/comments/${commentId}?userId=${
@@ -135,11 +144,14 @@ const TaskComments = ({ taskId, currentUser, onUpdate }) => {
       if (data.success) {
         await fetchComments(); // Refresh comments
         onUpdate && onUpdate(); // Notify parent component
+        showSuccessAlert && showSuccessAlert("Comment deleted successfully!");
       } else {
-        setError(data.error || "Failed to delete comment");
+        showErrorAlert &&
+          showErrorAlert(data.error || "Failed to delete comment");
       }
     } catch (err) {
-      setError("Error deleting comment: " + err.message);
+      showErrorAlert &&
+        showErrorAlert("Error deleting comment: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -181,13 +193,6 @@ const TaskComments = ({ taskId, currentUser, onUpdate }) => {
 
   return (
     <div className="space-y-4">
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      )}
-
       {/* Add Comment Form */}
       <form onSubmit={handleAddComment} className="space-y-3">
         <div className="flex items-start space-x-3">
@@ -307,12 +312,12 @@ const TaskComments = ({ taskId, currentUser, onUpdate }) => {
                 )}
 
                 {/* Comment metadata */}
-                <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                  <span className="flex items-center space-x-1">
+                <div className="flex justify-end space-x-4 mt-2 text-xs text-gray-500">
+                  {/*<span className="flex items-end justify-end space-x-1">
                     <PersonIcon fontSize="small" />
                     <span>{comment.author?.email || "No email"}</span>
-                  </span>
-                  <span className="flex items-center space-x-1">
+                  </span>*/}
+                  <span className="flex items-end justify-end space-x-1">
                     <TimeIcon fontSize="small" />
                     <span>
                       {comment.updatedAt &&

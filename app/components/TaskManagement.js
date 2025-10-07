@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Swal from "sweetalert2";
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -21,18 +22,21 @@ import {
   Search as SearchIcon,
   MoreVert as MoreVertIcon,
   Timeline as TimelineIcon,
+  ArrowBack as ArrowBackIcon,
 } from "@mui/icons-material";
 import TaskCommunicationPanel from "./TaskCommunicationPanel";
 import TaskAssignmentManager from "./TaskAssignmentManager";
 import TaskMonitoringDashboard from "./TaskMonitoringDashboard";
 import SubtaskManager from "./SubtaskManager";
 import TaskDependencyManager from "./TaskDependencyManager";
+import Link from "next/link";
 
 const TaskManagement = ({ projectId, milestoneId = null }) => {
   const [tasks, setTasks] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(projectId);
+  const [currentProject, setCurrentProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -116,10 +120,22 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       if (data.success) {
         setTasks(data.tasks);
       } else {
-        setError(data.error || "Failed to fetch tasks");
+        const msg = data.error || "Failed to fetch tasks";
+        setError(msg);
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: msg,
+        });
       }
     } catch (err) {
-      setError("Error fetching tasks: " + err.message);
+      const msg = "Error fetching tasks: " + err.message;
+      setError(msg);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: msg,
+      });
     } finally {
       setLoading(false);
     }
@@ -149,6 +165,35 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     }
   };
 
+  // Keep current project details for breadcrumb
+  useEffect(() => {
+    const currentProjectId = projectId || selectedProjectId;
+    if (!currentProjectId) {
+      setCurrentProject(null);
+      return;
+    }
+
+    // Try to resolve from loaded list first
+    const inList = projects.find((p) => p._id === currentProjectId);
+    if (inList) {
+      setCurrentProject(inList);
+      return;
+    }
+
+    // Fallback: fetch single project detail
+    (async () => {
+      try {
+        const res = await fetch(`/api/projects/${currentProjectId}`);
+        const data = await res.json();
+        if (data?.success && data.project) {
+          setCurrentProject(data.project);
+        }
+      } catch (e) {
+        // ignore breadcrumb fetch errors
+      }
+    })();
+  }, [projectId, selectedProjectId, projects]);
+
   const handleCreateTask = async (e) => {
     e.preventDefault();
     setError(null);
@@ -156,7 +201,13 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     // Validate required fields
     const currentProjectId = projectId || selectedProjectId;
     if (!currentProjectId) {
-      setError("Project ID is required. Please select a project first.");
+      const msg = "Project ID is required. Please select a project first.";
+      setError(msg);
+      Swal.fire({
+        icon: "warning",
+        title: "Warning",
+        text: msg,
+      });
       return;
     }
 
@@ -191,11 +242,28 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         await fetchTasks();
         setShowCreateDialog(false);
         resetForm();
+        Swal.fire({
+          icon: "success",
+          title: "Success",
+          text: "Task created successfully",
+        });
       } else {
-        setError(data.error || "Failed to create task");
+        const msg = data.error || "Failed to create task";
+        setError(msg);
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: msg,
+        });
       }
     } catch (err) {
-      setError("Error creating task: " + err.message);
+      const msg = "Error creating task: " + err.message;
+      setError(msg);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: msg,
+      });
     }
   };
 
@@ -230,16 +298,34 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         setShowEditDialog(false);
         setSelectedTask(null);
         resetForm();
+        Swal.fire({
+          icon: "success",
+          title: "Success",
+          text: "Task updated",
+        });
       } else {
-        setError(data.error || "Failed to update task");
+        const msg = data.error || "Failed to update task";
+        setError(msg);
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: msg,
+        });
       }
     } catch (err) {
-      setError("Error updating task: " + err.message);
+      const msg = "Error updating task: " + err.message;
+      setError(msg);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: msg,
+      });
     }
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (!confirm("Are you sure you want to delete this task?")) return;
+    const proceed = window.confirm("Delete this task? This cannot be undone.");
+    if (!proceed) return;
 
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
@@ -250,11 +336,28 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
       if (data.success) {
         await fetchTasks();
+        Swal.fire({
+          icon: "success",
+          title: "Success",
+          text: "Task deleted",
+        });
       } else {
-        setError(data.error || "Failed to delete task");
+        const msg = data.error || "Failed to delete task";
+        setError(msg);
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: msg,
+        });
       }
     } catch (err) {
-      setError("Error deleting task: " + err.message);
+      const msg = "Error deleting task: " + err.message;
+      setError(msg);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: msg,
+      });
     }
   };
 
@@ -278,11 +381,28 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         setShowProgressDialog(false);
         setSelectedTask(null);
         setProgressUpdate(0);
+        Swal.fire({
+          icon: "success",
+          title: "Success",
+          text: "Progress updated",
+        });
       } else {
-        setError(data.error || "Failed to update progress");
+        const msg = data.error || "Failed to update progress";
+        setError(msg);
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: msg,
+        });
       }
     } catch (err) {
-      setError("Error updating progress: " + err.message);
+      const msg = "Error updating progress: " + err.message;
+      setError(msg);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: msg,
+      });
     }
   };
 
@@ -402,6 +522,30 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
   return (
     <div className="p-6 bg-white min-h-screen">
+      {/* Breadcrumb */}
+      <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-8 ">
+        <Link
+          href="/projects"
+          className="hover:text-blue-600 transition-colors"
+        >
+          <ArrowBackIcon className="mr-1 text-lg" /> Projects
+        </Link>
+        {(projectId || selectedProjectId) && (
+          <>
+            <span className="text-gray-400">›</span>
+            <Link
+              href={`/projects/${projectId || selectedProjectId}`}
+              className="hover:text-blue-600 transition-colors"
+            >
+              {currentProject?.name || "Project"}
+            </Link>
+          </>
+        )}
+        <span className="text-gray-400">›</span>
+        <span className="text-gray-900 font-medium">
+          {milestoneId ? "Milestone Tasks" : "Tasks"}
+        </span>
+      </nav>
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -442,6 +586,13 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         >
           <AddIcon />
           Create Task
+        </button>
+        <button
+          onClick={() => setShowMonitoringDashboard(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+        >
+          <TimelineIcon fontSize="small" />
+          Monitoring Dashboard
         </button>
       </div>
 
@@ -781,7 +932,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
       {/* Create/Edit Task Dialog */}
       {(showCreateDialog || showEditDialog) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-4">
               {showCreateDialog ? "Create New Task" : "Edit Task"}
@@ -1028,7 +1179,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
       {/* Task Detail View Dialog */}
       {showTaskDetail && selectedTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
@@ -1284,15 +1435,15 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-              <button
+              {/* <button
                 onClick={() => {
                   setShowTaskDetail(false);
                   openEditDialog(selectedTask);
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Edit Task
-              </button>
+                Edit Task1
+              </button>*/}
               <button
                 onClick={() => {
                   setShowTaskDetail(false);
@@ -1309,7 +1460,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
       {/* Progress Update Dialog */}
       {showProgressDialog && selectedTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               Update Task Progress
@@ -1478,13 +1629,15 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
       {/* Task Monitoring Dashboard */}
       {showMonitoringDashboard && (
-        <TaskMonitoringDashboard
-          projectId={selectedProjectId}
-          tasks={tasks}
-          employees={employees}
-          teams={[]} // TODO: Add teams data
-          onRefresh={fetchTasks}
-        />
+        <div className=" pt-10">
+          <TaskMonitoringDashboard
+            projectId={selectedProjectId}
+            tasks={tasks}
+            employees={employees}
+            teams={[]} // TODO: Add teams data
+            onRefresh={fetchTasks}
+          />
+        </div>
       )}
 
       {/* Subtask Manager */}

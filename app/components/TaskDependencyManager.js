@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Swal from "sweetalert2";
 import {
   Timeline as TimelineIcon,
   Add as AddIcon,
@@ -29,6 +30,22 @@ const TaskDependencyManager = ({
   const [dependencies, setDependencies] = useState([]);
   const [newDependency, setNewDependency] = useState("");
   const [dependencyIssues, setDependencyIssues] = useState([]);
+
+  const showSuccessAlert = (message) => {
+    Swal.fire({
+      icon: 'success',
+      title: 'Success',
+      text: message
+    });
+  };
+
+  const showErrorAlert = (message) => {
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: message
+    });
+  };
 
   useEffect(() => {
     if (task && isOpen) {
@@ -116,17 +133,17 @@ const TaskDependencyManager = ({
 
   const handleAddDependency = async () => {
     if (!newDependency) {
-      setError("Please select a task to add as dependency");
+      showErrorAlert("Please select a task to add as dependency");
       return;
     }
 
     if (dependencies.includes(newDependency)) {
-      setError("This task is already a dependency");
+      showErrorAlert("This task is already a dependency");
       return;
     }
 
     if (newDependency === task._id) {
-      setError("A task cannot depend on itself");
+      showErrorAlert("A task cannot depend on itself");
       return;
     }
 
@@ -149,14 +166,16 @@ const TaskDependencyManager = ({
       if (data.success) {
         setDependencies(updatedDependencies);
         setNewDependency("");
-        setSuccess("Dependency added successfully");
+        showSuccessAlert("Dependency added successfully");
         checkDependencyIssues();
         if (onUpdate) onUpdate();
       } else {
-        setError(data.error || "Failed to add dependency");
+        const msg = data.error || "Failed to add dependency";
+        showErrorAlert(msg);
       }
     } catch (err) {
-      setError("Error adding dependency: " + err.message);
+      const msg = "Error adding dependency: " + err.message;
+      showErrorAlert(msg);
     } finally {
       setLoading(false);
     }
@@ -183,14 +202,16 @@ const TaskDependencyManager = ({
       const data = await response.json();
       if (data.success) {
         setDependencies(updatedDependencies);
-        setSuccess("Dependency removed successfully");
+        showSuccessAlert("Dependency removed successfully");
         checkDependencyIssues();
         if (onUpdate) onUpdate();
       } else {
-        setError(data.error || "Failed to remove dependency");
+        const msg = data.error || "Failed to remove dependency";
+        showErrorAlert(msg);
       }
     } catch (err) {
-      setError("Error removing dependency: " + err.message);
+      const msg = "Error removing dependency: " + err.message;
+      showErrorAlert(msg);
     } finally {
       setLoading(false);
     }

@@ -26,19 +26,34 @@ export async function PUT(request, { params }) {
     const result = await db.collection("projects").updateOne(
       {
         _id: new ObjectId(projectId),
-        "budget.allocations._id": new ObjectId(allocationId),
+        $or: [
+          { "budget.allocations._id": new ObjectId(allocationId) },
+          { "budgetAllocations._id": new ObjectId(allocationId) },
+        ],
       },
       {
         $set: {
           "budget.allocations.$.name": updateData.name,
           "budget.allocations.$.description": updateData.description,
           "budget.allocations.$.category": updateData.category,
-          "budget.allocations.$.budgetedAmount": updateData.budgetedAmount,
-          "budget.allocations.$.department": updateData.department,
-          "budget.allocations.$.task": updateData.task,
-          "budget.allocations.$.activity": updateData.activity,
-          "budget.allocations.$.milestone": updateData.milestone,
-          "budget.allocations.$.lastModified": new Date(),
+          "budget.allocations.$.amount":
+            updateData.budgetedAmount || updateData.amount,
+          "budget.allocations.$.departmentId": updateData.departmentId,
+          "budget.allocations.$.taskId": updateData.taskId,
+          "budget.allocations.$.activityId": updateData.activityId,
+          "budget.allocations.$.milestoneId": updateData.milestoneId,
+          "budget.allocations.$.updatedAt": new Date(),
+          // Also update budgetAllocations for consistency
+          "budgetAllocations.$.name": updateData.name,
+          "budgetAllocations.$.description": updateData.description,
+          "budgetAllocations.$.category": updateData.category,
+          "budgetAllocations.$.amount":
+            updateData.budgetedAmount || updateData.amount,
+          "budgetAllocations.$.departmentId": updateData.departmentId,
+          "budgetAllocations.$.taskId": updateData.taskId,
+          "budgetAllocations.$.activityId": updateData.activityId,
+          "budgetAllocations.$.milestoneId": updateData.milestoneId,
+          "budgetAllocations.$.updatedAt": new Date(),
         },
       }
     );
@@ -55,28 +70,36 @@ export async function PUT(request, { params }) {
       _id: new ObjectId(projectId),
     });
 
-    if (updatedProject?.budget?.allocations) {
-      const allocation = updatedProject.budget.allocations.find(
+    const allocations =
+      updatedProject?.budget?.allocations || updatedProject?.budgetAllocations;
+    if (allocations) {
+      const allocation = allocations.find(
         (alloc) => alloc._id.toString() === allocationId
       );
 
       if (allocation) {
-        const remainingAmount =
-          allocation.budgetedAmount - (allocation.spentAmount || 0);
+        const budgetedAmount =
+          allocation.amount || allocation.budgetedAmount || 0;
+        const spentAmount = allocation.spentAmount || 0;
+        const remainingAmount = budgetedAmount - spentAmount;
         const utilization =
-          allocation.budgetedAmount > 0
-            ? ((allocation.spentAmount || 0) / allocation.budgetedAmount) * 100
-            : 0;
+          budgetedAmount > 0 ? (spentAmount / budgetedAmount) * 100 : 0;
 
+        // Update both locations for consistency
         await db.collection("projects").updateOne(
           {
             _id: new ObjectId(projectId),
-            "budget.allocations._id": new ObjectId(allocationId),
+            $or: [
+              { "budget.allocations._id": new ObjectId(allocationId) },
+              { "budgetAllocations._id": new ObjectId(allocationId) },
+            ],
           },
           {
             $set: {
               "budget.allocations.$.remainingAmount": remainingAmount,
               "budget.allocations.$.utilization": utilization,
+              "budgetAllocations.$.remainingAmount": remainingAmount,
+              "budgetAllocations.$.utilization": utilization,
             },
           }
         );
@@ -116,7 +139,9 @@ export async function DELETE(request, { params }) {
     }
 
     // Check if allocation has any expenses before deleting
-    const allocation = project.budget?.allocations?.find(
+    const allocations =
+      project.budget?.allocations || project.budgetAllocations;
+    const allocation = allocations?.find(
       (alloc) => alloc._id.toString() === allocationId
     );
 
@@ -144,9 +169,11 @@ export async function DELETE(request, { params }) {
       {
         $pull: {
           "budget.allocations": { _id: new ObjectId(allocationId) },
+          budgetAllocations: { _id: new ObjectId(allocationId) },
         },
         $set: {
-          "budget.lastModified": new Date(),
+          "budget.updatedAt": new Date(),
+          updatedAt: new Date(),
         },
       }
     );

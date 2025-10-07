@@ -67,8 +67,6 @@ const Layout = ({
                   ? "Document Management"
                   : activeSection === "dashboard"
                   ? "Dashboard"
-                  : activeSection === "project-budget"
-                  ? "Budget & Finance"
                   : activeSection === "project-finances"
                   ? "Financial Management"
                   : formatSectionName(activeSection)}

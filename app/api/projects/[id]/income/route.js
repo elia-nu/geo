@@ -159,17 +159,16 @@ export async function POST(request, { params }) {
       dueDate,
       paymentMethod,
       clientName,
-      clientEmail,
       invoiceNumber,
       status = "pending",
       paymentReference,
       notes,
     } = data;
 
-    // Validation
-    if (!title || !amount || amount <= 0) {
+    // Validation: allow creating records with expectedAmount first (amount optional)
+    if (!title || (!amount && !expectedAmount)) {
       return NextResponse.json(
-        { error: "Title and amount (greater than 0) are required" },
+        { error: "Title and either amount or expectedAmount is required" },
         { status: 400 }
       );
     }
@@ -186,8 +185,8 @@ export async function POST(request, { params }) {
     // Create enhanced income object with better payment tracking
     const expectedAmt = expectedAmount
       ? parseFloat(expectedAmount)
-      : parseFloat(amount);
-    const receivedAmt = parseFloat(amount);
+      : parseFloat(amount || 0);
+    const receivedAmt = amount ? parseFloat(amount) : 0;
     const isFullyCollected = receivedAmt >= expectedAmt;
     const collectionRate =
       expectedAmt > 0 ? (receivedAmt / expectedAmt) * 100 : 100;
@@ -213,11 +212,16 @@ export async function POST(request, { params }) {
       uncollectedAmount: Math.max(0, expectedAmt - receivedAmt),
       collectionRate,
       isFullyCollected,
-      receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
+      receivedDate:
+        receivedAmt > 0
+          ? receivedDate
+            ? new Date(receivedDate)
+            : new Date()
+          : null,
       dueDate: dueDate ? new Date(dueDate) : null,
       paymentMethod: paymentMethod || "bank_transfer",
       clientName: clientName || "",
-      clientEmail: clientEmail || "",
+
       invoiceNumber: invoiceNumber || "",
       status: paymentStatus,
       paymentReference: paymentReference || "",

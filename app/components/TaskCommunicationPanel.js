@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Swal from "sweetalert2";
 import {
   Comment as CommentIcon,
   AttachFile as AttachFileIcon,
@@ -12,6 +13,29 @@ import TaskAttachments from "./TaskAttachments";
 
 const TaskCommunicationPanel = ({ taskId, currentUser, task, onUpdate }) => {
   const [activeTab, setActiveTab] = useState("comments");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setError(null);
+  };
+
+  const showSuccessAlert = (message) => {
+    Swal.fire({
+      icon: "success",
+      title: "Success",
+      text: message,
+    });
+  };
+
+  const showErrorAlert = (message) => {
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: message,
+    });
+  };
 
   const tabs = [
     {
@@ -36,12 +60,13 @@ const TaskCommunicationPanel = ({ taskId, currentUser, task, onUpdate }) => {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
+              disabled={loading}
               className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === tab.id
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+              } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {tab.icon}
               {tab.label}
@@ -57,7 +82,21 @@ const TaskCommunicationPanel = ({ taskId, currentUser, task, onUpdate }) => {
 
       {/* Tab Content */}
       <div className="p-6">
-        {activeTab === "comments" && (
+        {/* Loading Screen */}
+        {loading && (
+          <div className="flex justify-center items-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        )}
+
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && activeTab === "comments" && (
           <div>
             <div className="flex items-center gap-2 mb-4">
               <ChatIcon className="text-gray-400" />
@@ -69,11 +108,14 @@ const TaskCommunicationPanel = ({ taskId, currentUser, task, onUpdate }) => {
               taskId={taskId}
               currentUser={currentUser}
               onUpdate={onUpdate}
+              onSuccess={showSuccessAlert}
+              onError={showErrorAlert}
+              setLoading={setLoading}
             />
           </div>
         )}
 
-        {activeTab === "attachments" && (
+        {!loading && !error && activeTab === "attachments" && (
           <div>
             <div className="flex items-center gap-2 mb-4">
               <FolderIcon className="text-gray-400" />
@@ -85,6 +127,9 @@ const TaskCommunicationPanel = ({ taskId, currentUser, task, onUpdate }) => {
               taskId={taskId}
               currentUser={currentUser}
               onUpdate={onUpdate}
+              onSuccess={showSuccessAlert}
+              onError={showErrorAlert}
+              setLoading={setLoading}
             />
           </div>
         )}

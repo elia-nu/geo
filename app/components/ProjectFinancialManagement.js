@@ -23,6 +23,37 @@ import FinancialDashboard from "./FinancialDashboard";
 import EntityManagement from "./EntityManagement";
 
 const ProjectFinancialManagement = ({ projectId, projectName }) => {
+  function getStatusColor(status) {
+    switch ((status || "").toLowerCase()) {
+      case "not_started":
+      case "default":
+        return "bg-gray-50 text-gray-700 border-gray-200";
+      case "in_progress":
+      case "primary":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "completed":
+      case "success":
+      case "approved":
+      case "paid":
+        return "bg-green-50 text-green-700 border-green-200";
+      case "on_hold":
+      case "pending":
+      case "warning":
+        return "bg-yellow-50 text-yellow-700 border-yellow-200";
+      case "cancelled":
+      case "rejected":
+      case "overrun":
+      case "overdue":
+      case "error":
+      case "failed":
+      case "unpaid":
+        return "bg-red-50 text-red-700 border-red-200";
+      case "normal":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      default:
+        return "bg-gray-50 text-gray-700 border-gray-200";
+    }
+  }
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -41,6 +72,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [editingAllocationId, setEditingAllocationId] = useState(null);
   const [currentItem, setCurrentItem] = useState(null);
+  const [showAllocationEditModal, setShowAllocationEditModal] = useState(false);
 
   // Form states
   const [budgetForm, setBudgetForm] = useState({
@@ -74,12 +106,27 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     dueDate: "",
     paymentMethod: "bank_transfer",
     clientName: "",
-    clientEmail: "",
+
     invoiceNumber: "",
     status: "pending",
     paymentReference: "",
     notes: "",
   });
+
+  // Expected payment (expected-only) form state
+  const [expectedPaymentForm, setExpectedPaymentForm] = useState({
+    title: "",
+    expectedAmount: "",
+    clientName: "",
+    dueDate: "",
+    description: "",
+    notes: "",
+    status: "pending",
+  });
+
+  const [editingIncomeId, setEditingIncomeId] = useState(null);
+  const [showExpectedPaymentModal, setShowExpectedPaymentModal] =
+    useState(false);
 
   const [allocationForm, setAllocationForm] = useState({
     name: "",
@@ -280,6 +327,110 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
+  const handleAddExpectedPayment = async () => {
+    try {
+      const payload = {
+        title: expectedPaymentForm.title,
+        expectedAmount: expectedPaymentForm.expectedAmount,
+        clientName: expectedPaymentForm.clientName,
+        dueDate: expectedPaymentForm.dueDate,
+        description: expectedPaymentForm.description,
+        notes: expectedPaymentForm.notes,
+        status: expectedPaymentForm.status || "pending",
+      };
+      const response = await fetch(`/api/projects/${projectId}/income`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setShowExpectedPaymentModal(false);
+        fetchFinancialData();
+        setExpectedPaymentForm({
+          title: "",
+          expectedAmount: "",
+          clientName: "",
+          dueDate: "",
+          description: "",
+          notes: "",
+          status: "pending",
+        });
+      } else {
+        setError(data.error);
+      }
+    } catch (err) {
+      setError("Failed to add expected payment: " + err.message);
+    }
+  };
+
+  const handleOpenEditIncome = (inc) => {
+    setIncomeForm({
+      title: inc.title || "",
+      description: inc.description || "",
+      amount: (inc.amount ?? "").toString(),
+      expectedAmount: (inc.expectedAmount ?? "").toString(),
+      receivedDate: inc.receivedDate
+        ? new Date(inc.receivedDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0],
+      dueDate: inc.dueDate
+        ? new Date(inc.dueDate).toISOString().split("T")[0]
+        : "",
+      paymentMethod: inc.paymentMethod || "bank_transfer",
+      clientName: inc.clientName || "",
+      invoiceNumber: inc.invoiceNumber || "",
+      status: inc.status || "pending",
+      paymentReference: inc.paymentReference || "",
+      notes: inc.notes || "",
+    });
+    setEditingIncomeId(inc._id);
+    setShowIncomeModal(true);
+  };
+
+  const handleEditIncome = async () => {
+    if (!editingIncomeId) return;
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/income/${editingIncomeId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(incomeForm),
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        setShowIncomeModal(false);
+        setEditingIncomeId(null);
+        fetchFinancialData();
+        resetIncomeForm();
+      } else {
+        setError(data.error);
+      }
+    } catch (err) {
+      setError("Failed to update income: " + err.message);
+    }
+  };
+
+  const handleDeleteIncome = async (incomeId) => {
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/income/${incomeId}`,
+        { method: "DELETE" }
+      );
+      const data = await response.json();
+      if (data.success) {
+        fetchFinancialData();
+      } else {
+        setError(data.error);
+      }
+    } catch (err) {
+      setError("Failed to delete income: " + err.message);
+    }
+  };
+
   const handleAddAllocation = async () => {
     if (allocationForm.name && allocationForm.amount) {
       if (editingAllocationId) {
@@ -306,27 +457,49 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
   const handleUpdateAllocation = async () => {
     try {
+      const inferredType =
+        allocationForm.allocationType ||
+        (allocationForm.departmentId
+          ? "department"
+          : allocationForm.taskId
+          ? "task"
+          : allocationForm.activityId
+          ? "activity"
+          : allocationForm.milestoneId
+          ? "milestone"
+          : "general");
+
+      const body = {
+        name: allocationForm.name,
+        description: allocationForm.description,
+        category: allocationForm.category,
+        budgetedAmount: parseFloat(allocationForm.amount),
+        startDate: allocationForm.startDate || "",
+        endDate: allocationForm.endDate || "",
+        allocationType: inferredType,
+      };
+
+      if (inferredType === "department")
+        body.departmentId = allocationForm.departmentId || "";
+      if (inferredType === "task") body.taskId = allocationForm.taskId || "";
+      if (inferredType === "activity")
+        body.activityId = allocationForm.activityId || "";
+      if (inferredType === "milestone")
+        body.milestoneId = allocationForm.milestoneId || "";
+
       const response = await fetch(
         `/api/projects/${projectId}/budget/allocations/${editingAllocationId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: allocationForm.name,
-            description: allocationForm.description,
-            category: allocationForm.category,
-            budgetedAmount: parseFloat(allocationForm.amount),
-            department: allocationForm.department,
-            task: allocationForm.task,
-            activity: allocationForm.activity,
-            milestone: allocationForm.milestone,
-          }),
+          body: JSON.stringify(body),
         }
       );
 
       const data = await response.json();
       if (data.success) {
         setShowAllocationModal(false);
+        setShowAllocationEditModal(false);
         setEditingAllocationId(null);
         resetAllocationForm();
         fetchFinancialData(); // Refresh the budget data
@@ -345,16 +518,33 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         name: allocation.name || "",
         description: allocation.description || "",
         category: allocation.category || "",
-        amount: allocation.budgetedAmount || "",
-        department: allocation.department || "",
-        task: allocation.task || "",
-        activity: allocation.activity || "",
-        milestone: allocation.milestone || "",
+        amount: (
+          allocation.amount ??
+          allocation.budgetedAmount ??
+          0
+        ).toString(),
+        departmentId: allocation.departmentId || "",
+        taskId: allocation.taskId || "",
+        activityId: allocation.activityId || "",
+        milestoneId: allocation.milestoneId || "",
+        startDate: allocation.startDate || "",
+        endDate: allocation.endDate || "",
+        allocationType:
+          allocation.allocationType ||
+          (allocation.departmentId
+            ? "department"
+            : allocation.taskId
+            ? "task"
+            : allocation.activityId
+            ? "activity"
+            : allocation.milestoneId
+            ? "milestone"
+            : "general"),
       });
 
       // Store the allocation ID for updating
       setEditingAllocationId(allocation._id);
-      setShowAllocationModal(true);
+      setShowAllocationEditModal(true);
     } catch (err) {
       setError("Failed to edit allocation: " + err.message);
     }
@@ -447,26 +637,6 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     setEditingAllocationId(null);
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "approved":
-      case "collected":
-      case "completed":
-      case "normal":
-        return "text-green-600 bg-green-50 border-green-200";
-      case "pending":
-      case "warning":
-        return "text-yellow-600 bg-yellow-50 border-yellow-200";
-      case "rejected":
-      case "overdue":
-      case "cancelled":
-      case "overrun":
-        return "text-red-600 bg-red-50 border-red-200";
-      default:
-        return "text-gray-600 bg-gray-50 border-gray-200";
-    }
-  };
-
   const formatCurrency = (amount, currency = "ETB") => {
     return new Intl.NumberFormat("en-ET", {
       style: "currency",
@@ -520,7 +690,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
               >
                 <PencilIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden xs:inline">Edit Budget</span>
-                <span className="xs:hidden">Edit</span>
+                <span className="xs:hidden">Budget</span>
               </button>
             )}
 
@@ -532,7 +702,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
               <span className="hidden xs:inline">Add Expense</span>
               <span className="xs:hidden">Expense</span>
             </button>
-
+            {/*}
             <button
               onClick={() => setShowIncomeModal(true)}
               className="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
@@ -540,6 +710,15 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
               <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden xs:inline">Add Income</span>
               <span className="xs:hidden">Income</span>
+            </button>*/}
+
+            <button
+              onClick={() => setShowExpectedPaymentModal(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+            >
+              <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden xs:inline">Add Expected Payment</span>
+              <span className="xs:hidden">Expected Payment</span>
             </button>
           </div>
         </div>
@@ -608,6 +787,141 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         </nav>
       </div>
 
+      {/* Expected Payment Modal */}
+      {showExpectedPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-xl">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                Add Expected Payment
+              </h3>
+            </div>
+            <div className="p-4 sm:p-6 space-y-4">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  value={expectedPaymentForm.title}
+                  onChange={(e) =>
+                    setExpectedPaymentForm((p) => ({
+                      ...p,
+                      title: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="e.g., Phase 1 Payment"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Expected Amount *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={expectedPaymentForm.expectedAmount}
+                  onChange={(e) =>
+                    setExpectedPaymentForm((p) => ({
+                      ...p,
+                      expectedAmount: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Client Name
+                </label>
+                <input
+                  type="text"
+                  value={expectedPaymentForm.clientName}
+                  onChange={(e) =>
+                    setExpectedPaymentForm((p) => ({
+                      ...p,
+                      clientName: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="Client name"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Due Date
+                </label>
+                <input
+                  type="date"
+                  value={expectedPaymentForm.dueDate}
+                  onChange={(e) =>
+                    setExpectedPaymentForm((p) => ({
+                      ...p,
+                      dueDate: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={expectedPaymentForm.description}
+                  onChange={(e) =>
+                    setExpectedPaymentForm((p) => ({
+                      ...p,
+                      description: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="Describe the payment"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  rows={2}
+                  value={expectedPaymentForm.notes}
+                  onChange={(e) =>
+                    setExpectedPaymentForm((p) => ({
+                      ...p,
+                      notes: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="Any additional notes"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 sm:p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowExpectedPaymentModal(false)}
+                className="px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddExpectedPayment}
+                disabled={
+                  !expectedPaymentForm.title ||
+                  !expectedPaymentForm.expectedAmount
+                }
+                className="px-4 py-2 text-sm sm:text-base text-white rounded-md bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Expected Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab Content */}
       <div className="space-y-6">
         {activeTab === "overview" && (
@@ -658,6 +972,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             formatCurrency={formatCurrency}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
+            onEditIncome={handleOpenEditIncome}
+            onDeleteIncome={handleDeleteIncome}
           />
         )}
 
@@ -666,6 +982,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             projectId={projectId}
             financialReports={financialReports}
             formatCurrency={formatCurrency}
+            getStatusColor={getStatusColor}
           />
         )}
       </div>
@@ -725,9 +1042,331 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         <IncomeModal
           incomeForm={incomeForm}
           setIncomeForm={setIncomeForm}
-          handleAddIncome={handleAddIncome}
-          setShowIncomeModal={setShowIncomeModal}
+          onSubmit={editingIncomeId ? handleEditIncome : handleAddIncome}
+          onClose={() => {
+            setShowIncomeModal(false);
+            setEditingIncomeId(null);
+          }}
+          isEdit={!!editingIncomeId}
         />
+      )}
+
+      {showAllocationEditModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <h4 className="text-base sm:text-lg font-semibold text-gray-900">
+                Edit Budget Allocation
+              </h4>
+            </div>
+
+            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Allocation Name *
+                </label>
+                <input
+                  type="text"
+                  value={allocationForm.name}
+                  onChange={(e) =>
+                    setAllocationForm((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Category
+                </label>
+                <input
+                  type="text"
+                  value={allocationForm.category}
+                  onChange={(e) =>
+                    setAllocationForm((prev) => ({
+                      ...prev,
+                      category: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="general"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Amount *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={allocationForm.amount}
+                  onChange={(e) =>
+                    setAllocationForm((prev) => ({
+                      ...prev,
+                      amount: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={allocationForm.description}
+                  onChange={(e) =>
+                    setAllocationForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={allocationForm.startDate || ""}
+                    onChange={(e) =>
+                      setAllocationForm((prev) => ({
+                        ...prev,
+                        startDate: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={allocationForm.endDate || ""}
+                    onChange={(e) =>
+                      setAllocationForm((prev) => ({
+                        ...prev,
+                        endDate: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Allocation type display and targeted selector */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Allocation Type
+                </label>
+                <div className="inline-flex items-center px-2 py-1 rounded border text-xs bg-gray-50 text-gray-700">
+                  {allocationForm.allocationType?.charAt(0).toUpperCase() +
+                    allocationForm.allocationType?.slice(1)}
+                </div>
+              </div>
+
+              {allocationForm.allocationType === "department" && (
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                    Department
+                  </label>
+                  {Array.isArray(departments) && departments.length > 0 ? (
+                    <select
+                      value={allocationForm.departmentId || ""}
+                      onChange={(e) =>
+                        setAllocationForm((prev) => ({
+                          ...prev,
+                          departmentId: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                    >
+                      <option value="">Select department</option>
+                      {departments.map((d) => (
+                        <option key={d._id || d.id} value={d._id || d.id}>
+                          {d.name || d.title}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={allocationForm.departmentId || ""}
+                      onChange={(e) =>
+                        setAllocationForm((prev) => ({
+                          ...prev,
+                          departmentId: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  )}
+                </div>
+              )}
+
+              {allocationForm.allocationType === "task" && (
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                    Task
+                  </label>
+                  {Array.isArray(tasks) && tasks.length > 0 ? (
+                    <select
+                      value={allocationForm.taskId || ""}
+                      onChange={(e) =>
+                        setAllocationForm((prev) => ({
+                          ...prev,
+                          taskId: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                    >
+                      <option value="">Select task</option>
+                      {tasks.map((t) => (
+                        <option key={t._id || t.id} value={t._id || t.id}>
+                          {t.name || t.title}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={allocationForm.taskId || ""}
+                      onChange={(e) =>
+                        setAllocationForm((prev) => ({
+                          ...prev,
+                          taskId: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  )}
+                </div>
+              )}
+
+              {allocationForm.allocationType === "activity" && (
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                    Activity
+                  </label>
+                  {Array.isArray(activities) && activities.length > 0 ? (
+                    <select
+                      value={allocationForm.activityId || ""}
+                      onChange={(e) =>
+                        setAllocationForm((prev) => ({
+                          ...prev,
+                          activityId: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                    >
+                      <option value="">Select activity</option>
+                      {activities.map((a) => (
+                        <option key={a._id || a.id} value={a._id || a.id}>
+                          {a.name || a.title}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={allocationForm.activityId || ""}
+                      onChange={(e) =>
+                        setAllocationForm((prev) => ({
+                          ...prev,
+                          activityId: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  )}
+                </div>
+              )}
+
+              {allocationForm.allocationType === "milestone" && (
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                    Milestone
+                  </label>
+                  {Array.isArray(milestones) && milestones.length > 0 ? (
+                    <select
+                      value={allocationForm.milestoneId || ""}
+                      onChange={(e) =>
+                        setAllocationForm((prev) => ({
+                          ...prev,
+                          milestoneId: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                    >
+                      <option value="">Select milestone</option>
+                      {milestones.map((m) => (
+                        <option key={m._id || m.id} value={m._id || m.id}>
+                          {m.name || m.title}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={allocationForm.milestoneId || ""}
+                      onChange={(e) =>
+                        setAllocationForm((prev) => ({
+                          ...prev,
+                          milestoneId: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  )}
+                </div>
+              )}
+
+              {allocationForm.allocationType === "general" && (
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                    Allocation Scope
+                  </label>
+                  <input
+                    type="text"
+                    value="General"
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-200 bg-gray-100 rounded-md text-sm text-gray-700"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowAllocationEditModal(false)}
+                className="px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateAllocation}
+                disabled={!allocationForm.name || !allocationForm.amount}
+                className="px-4 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -753,7 +1392,7 @@ const OverviewTab = ({
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -1432,7 +2071,14 @@ const ExpensesTab = ({
 };
 
 // Income Tab Component
-const IncomeTab = ({ income, formatCurrency, getStatusColor, formatDate }) => {
+const IncomeTab = ({
+  income,
+  formatCurrency,
+  getStatusColor,
+  formatDate,
+  onEditIncome,
+  onDeleteIncome,
+}) => {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Income Summary */}
@@ -1552,10 +2198,18 @@ const IncomeTab = ({ income, formatCurrency, getStatusColor, formatDate }) => {
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
                     <div className="flex items-center space-x-1 sm:space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900">
+                      <button
+                        onClick={() => onEditIncome && onEditIncome(inc)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
                         <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
-                      <button className="text-red-600 hover:text-red-900">
+                      <button
+                        onClick={() =>
+                          onDeleteIncome && onDeleteIncome(inc._id)
+                        }
+                        className="text-red-600 hover:text-red-900"
+                      >
                         <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                     </div>
@@ -1571,7 +2225,12 @@ const IncomeTab = ({ income, formatCurrency, getStatusColor, formatDate }) => {
 };
 
 // Reports Tab Component
-const ReportsTab = ({ projectId, financialReports, formatCurrency }) => {
+const ReportsTab = ({
+  projectId,
+  financialReports,
+  formatCurrency,
+  getStatusColor,
+}) => {
   const [reportType, setReportType] = useState("summary");
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -1631,7 +2290,7 @@ const ReportsTab = ({ projectId, financialReports, formatCurrency }) => {
               name: "Utilization Report",
               description: "Detailed budget utilization with overrun alerts",
             },
-            {
+            /* {
               id: "detailed",
               name: "Detailed Report",
               description: "Complete financial breakdown with all transactions",
@@ -1645,7 +2304,7 @@ const ReportsTab = ({ projectId, financialReports, formatCurrency }) => {
               id: "trends",
               name: "Trend Analysis",
               description: "Monthly financial trends and patterns",
-            },
+            },*/
           ].map((report) => (
             <button
               key={report.id}
@@ -2833,15 +3492,16 @@ const ExpenseModal = ({
 const IncomeModal = ({
   incomeForm,
   setIncomeForm,
-  handleAddIncome,
-  setShowIncomeModal,
+  onSubmit,
+  onClose,
+  isEdit,
 }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-4 sm:p-6 border-b border-gray-200">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
-            Add New Income/Payment
+            {isEdit ? "Edit Income/Payment" : "Add New Income/Payment"}
           </h3>
         </div>
 
@@ -2865,7 +3525,7 @@ const IncomeModal = ({
 
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Amount *
+                Amount
               </label>
               <input
                 type="number"
@@ -2876,7 +3536,7 @@ const IncomeModal = ({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="0.00"
-                required
+                required={isEdit}
               />
             </div>
 
@@ -2896,6 +3556,7 @@ const IncomeModal = ({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="0.00"
+                required={isEdit}
               />
             </div>
 
@@ -2914,26 +3575,11 @@ const IncomeModal = ({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Client name"
+                required={isEdit}
               />
             </div>
 
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Client Email
-              </label>
-              <input
-                type="email"
-                value={incomeForm.clientEmail}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    clientEmail: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="client@example.com"
-              />
-            </div>
+            {/* Client Email removed per requirement */}
 
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
@@ -2948,6 +3594,7 @@ const IncomeModal = ({
                   }))
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                required={isEdit}
               >
                 <option value="bank_transfer">Bank Transfer</option>
                 <option value="credit_card">Credit Card</option>
@@ -2969,6 +3616,7 @@ const IncomeModal = ({
                   setIncomeForm((prev) => ({ ...prev, status: e.target.value }))
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                required={isEdit}
               >
                 <option value="pending">Pending</option>
                 <option value="collected">Collected</option>
@@ -2991,6 +3639,7 @@ const IncomeModal = ({
                   }))
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                required={isEdit}
               />
             </div>
 
@@ -3008,6 +3657,7 @@ const IncomeModal = ({
                   }))
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                required={isEdit}
               />
             </div>
 
@@ -3026,6 +3676,7 @@ const IncomeModal = ({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="INV-001"
+                required={isEdit}
               />
             </div>
 
@@ -3044,6 +3695,7 @@ const IncomeModal = ({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Transaction ID or reference"
+                required={isEdit}
               />
             </div>
 
@@ -3084,17 +3736,35 @@ const IncomeModal = ({
 
         <div className="flex flex-col sm:flex-row sm:justify-end gap-3 p-4 sm:p-6 border-t border-gray-200">
           <button
-            onClick={() => setShowIncomeModal(false)}
+            onClick={onClose}
             className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
           >
             Cancel
           </button>
           <button
-            onClick={handleAddIncome}
-            disabled={!incomeForm.title || !incomeForm.amount}
-            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
+            onClick={onSubmit}
+            disabled={
+              isEdit
+                ? !incomeForm.title ||
+                  !incomeForm.amount ||
+                  !incomeForm.expectedAmount ||
+                  !incomeForm.clientName ||
+                  !incomeForm.paymentMethod ||
+                  !incomeForm.status ||
+                  !incomeForm.receivedDate ||
+                  !incomeForm.dueDate ||
+                  !incomeForm.invoiceNumber ||
+                  !incomeForm.paymentReference
+                : !incomeForm.title ||
+                  (!incomeForm.amount && !incomeForm.expectedAmount)
+            }
+            className={`w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2 ${
+              isEdit
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-green-600 hover:bg-green-700"
+            }`}
           >
-            Add Income
+            {isEdit ? "Save Changes" : "Add Income"}
           </button>
         </div>
       </div>

@@ -17,11 +17,10 @@ import {
   AccessTime as TimeIcon,
 } from "@mui/icons-material";
 
-const TaskAttachments = ({ taskId, currentUser, onUpdate }) => {
+const TaskAttachments = ({ taskId, currentUser, onUpdate, showSuccessAlert, showErrorAlert, setLoading: setParentLoading }) => {
   const [attachments, setAttachments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
   const [editingAttachment, setEditingAttachment] = useState(null);
   const [editDescription, setEditDescription] = useState("");
   const fileInputRef = useRef(null);
@@ -41,10 +40,10 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate }) => {
       if (data.success) {
         setAttachments(data.attachments || []);
       } else {
-        setError(data.error || "Failed to fetch attachments");
+        showErrorAlert && showErrorAlert(data.error || "Failed to fetch attachments");
       }
     } catch (err) {
-      setError("Error fetching attachments: " + err.message);
+      showErrorAlert && showErrorAlert("Error fetching attachments: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -56,7 +55,6 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate }) => {
 
     try {
       setUploading(true);
-      setError(null);
 
       for (const file of files) {
         const formData = new FormData();
@@ -79,11 +77,12 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate }) => {
 
       await fetchAttachments(); // Refresh attachments
       onUpdate && onUpdate(); // Notify parent component
+      showSuccessAlert && showSuccessAlert("Files uploaded successfully!");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     } catch (err) {
-      setError("Error uploading files: " + err.message);
+      showErrorAlert && showErrorAlert("Error uploading files: " + err.message);
     } finally {
       setUploading(false);
     }
@@ -94,7 +93,6 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate }) => {
 
     try {
       setLoading(true);
-      setError(null);
 
       const response = await fetch(
         `/api/tasks/${taskId}/attachments/${attachmentId}?userId=${
@@ -110,11 +108,12 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate }) => {
       if (data.success) {
         await fetchAttachments(); // Refresh attachments
         onUpdate && onUpdate(); // Notify parent component
+        showSuccessAlert && showSuccessAlert("Attachment deleted successfully!");
       } else {
-        setError(data.error || "Failed to delete attachment");
+        showErrorAlert && showErrorAlert(data.error || "Failed to delete attachment");
       }
     } catch (err) {
-      setError("Error deleting attachment: " + err.message);
+      showErrorAlert && showErrorAlert("Error deleting attachment: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -125,7 +124,6 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate }) => {
 
     try {
       setLoading(true);
-      setError(null);
 
       const response = await fetch(
         `/api/tasks/${taskId}/attachments/${attachmentId}`,
@@ -146,11 +144,12 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate }) => {
         setEditDescription("");
         await fetchAttachments(); // Refresh attachments
         onUpdate && onUpdate(); // Notify parent component
+        showSuccessAlert && showSuccessAlert("Attachment description updated successfully!");
       } else {
-        setError(data.error || "Failed to update attachment");
+        showErrorAlert && showErrorAlert(data.error || "Failed to update attachment");
       }
     } catch (err) {
-      setError("Error updating attachment: " + err.message);
+      showErrorAlert && showErrorAlert("Error updating attachment: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -212,13 +211,6 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate }) => {
 
   return (
     <div className="space-y-4">
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      )}
-
       {/* Upload Section */}
       <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
         <input

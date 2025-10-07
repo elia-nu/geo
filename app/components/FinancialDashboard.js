@@ -349,11 +349,11 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                 icon: CurrencyDollarIcon,
               },
               { id: "payments", name: "Payment Tracking", icon: BanknotesIcon },
-              {
-                id: "reports",
+              /*{
+              id: "reports",
                 name: "Financial Reports",
                 icon: DocumentTextIcon,
-              },
+              },*/
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -402,6 +402,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
               )}
 
               {/* Performance Metrics */}
+              {/*
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   Performance Metrics
@@ -439,8 +440,8 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                   </div>
                 </div>
               </div>
-
-              {/* Projections */}
+          
+            
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   Projections
@@ -470,6 +471,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                   </div>
                 </div>
               </div>
+              */}
             </div>
           )}
 
@@ -505,62 +507,64 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {(allocations?.summary || []).map((allocation) => (
-                        <tr key={allocation._id}>
-                          <td className="px-6 py-4 whitespace-normal break-words">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {allocation.name}
+                      {(allocations?.summary || allocations || []).map(
+                        (allocation) => (
+                          <tr key={allocation._id}>
+                            <td className="px-6 py-4 whitespace-normal break-words">
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {allocation.name}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {allocation.category}
+                                </div>
                               </div>
-                              <div className="text-sm text-gray-500">
-                                {allocation.category}
+                            </td>
+                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
+                              {formatCurrency(allocation.budgetedAmount)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
+                              {formatCurrency(allocation.spentAmount)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
+                              {formatCurrency(allocation.remainingAmount)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-normal break-words">
+                              <div className="flex items-center">
+                                <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                  <div
+                                    className={`h-2 rounded-full ${
+                                      allocation.utilization > 100
+                                        ? "bg-red-500"
+                                        : allocation.utilization > 90
+                                        ? "bg-yellow-500"
+                                        : "bg-green-500"
+                                    }`}
+                                    style={{
+                                      width: `${Math.min(
+                                        allocation.utilization,
+                                        100
+                                      )}%`,
+                                    }}
+                                  ></div>
+                                </div>
+                                <span className="text-sm text-gray-900">
+                                  {formatPercentage(allocation.utilization)}
+                                </span>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
-                            {formatCurrency(allocation.budgetedAmount)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
-                            {formatCurrency(allocation.spentAmount)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
-                            {formatCurrency(allocation.remainingAmount)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-normal break-words">
-                            <div className="flex items-center">
-                              <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                <div
-                                  className={`h-2 rounded-full ${
-                                    allocation.utilization > 100
-                                      ? "bg-red-500"
-                                      : allocation.utilization > 90
-                                      ? "bg-yellow-500"
-                                      : "bg-green-500"
-                                  }`}
-                                  style={{
-                                    width: `${Math.min(
-                                      allocation.utilization,
-                                      100
-                                    )}%`,
-                                  }}
-                                ></div>
-                              </div>
-                              <span className="text-sm text-gray-900">
-                                {formatPercentage(allocation.utilization)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-normal break-words">
+                              <span
+                                className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
+                                  allocation.status
+                                )}`}
+                              >
+                                {allocation.status}
                               </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-normal break-words">
-                            <span
-                              className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                                allocation.status
-                              )}`}
-                            >
-                              {allocation.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                          </tr>
+                        )
+                      )}
                     </tbody>
                   </table>
                 </div>

@@ -97,7 +97,18 @@ const SubtaskManager = ({
 
       const data = await response.json();
       if (data.success) {
-        setSubtasks(updatedSubtasks);
+        // Fetch fresh task to get server-assigned ObjectIds for new subtasks
+        try {
+          const refreshed = await fetch(`/api/tasks/${task._id}`);
+          const refreshedJson = await refreshed.json();
+          if (refreshedJson.success && refreshedJson.task?.subtasks) {
+            setSubtasks(refreshedJson.task.subtasks);
+          } else {
+            setSubtasks(updatedSubtasks);
+          }
+        } catch (_) {
+          setSubtasks(updatedSubtasks);
+        }
         setFormData({
           title: "",
           description: "",
@@ -142,7 +153,18 @@ const SubtaskManager = ({
 
       const data = await response.json();
       if (data.success) {
-        setSubtasks(updatedSubtasks);
+        // Refresh from server to ensure we have canonical subtasks with _id
+        try {
+          const refreshed = await fetch(`/api/tasks/${task._id}`);
+          const refreshedJson = await refreshed.json();
+          if (refreshedJson.success && refreshedJson.task?.subtasks) {
+            setSubtasks(refreshedJson.task.subtasks);
+          } else {
+            setSubtasks(updatedSubtasks);
+          }
+        } catch (_) {
+          setSubtasks(updatedSubtasks);
+        }
         setEditingSubtask(null);
         setSuccess("Subtask updated successfully");
         if (onUpdate) onUpdate();
@@ -178,7 +200,18 @@ const SubtaskManager = ({
 
       const data = await response.json();
       if (data.success) {
-        setSubtasks(updatedSubtasks);
+        // Refresh from server to ensure we have canonical subtasks with _id
+        try {
+          const refreshed = await fetch(`/api/tasks/${task._id}`);
+          const refreshedJson = await refreshed.json();
+          if (refreshedJson.success && refreshedJson.task?.subtasks) {
+            setSubtasks(refreshedJson.task.subtasks);
+          } else {
+            setSubtasks(updatedSubtasks);
+          }
+        } catch (_) {
+          setSubtasks(updatedSubtasks);
+        }
         setSuccess("Subtask deleted successfully");
         if (onUpdate) onUpdate();
       } else {
@@ -191,53 +224,25 @@ const SubtaskManager = ({
     }
   };
 
-  // Quick inline edit using prompts (minimal UI to unblock editing)
-  const editSubtask = async (subtask) => {
-    try {
-      const title = window.prompt("Title", subtask.title || "");
-      if (title === null) return;
-      const description = window.prompt(
-        "Description",
-        subtask.description || ""
-      );
-      if (description === null) return;
-      const priority = window.prompt(
-        "Priority (low|medium|high|critical)",
-        subtask.priority || "medium"
-      );
-      if (priority === null) return;
-      const estimatedHoursStr = window.prompt(
-        "Estimated hours",
-        String(subtask.estimatedHours || 0)
-      );
-      if (estimatedHoursStr === null) return;
-      const estimatedHours = parseInt(estimatedHoursStr) || 0;
-      const startDate = window.prompt(
-        "Start date (YYYY-MM-DD)",
-        subtask.startDate
-          ? new Date(subtask.startDate).toISOString().split("T")[0]
-          : ""
-      );
-      if (startDate === null) return;
-      const dueDate = window.prompt(
-        "Due date (YYYY-MM-DD)",
-        subtask.dueDate
-          ? new Date(subtask.dueDate).toISOString().split("T")[0]
-          : ""
-      );
-      if (dueDate === null) return;
-
-      await handleUpdateSubtask(subtask._id, {
-        title: title.trim(),
-        description: description.trim(),
-        priority: (priority || "medium").toLowerCase(),
-        estimatedHours,
-        startDate: startDate || null,
-        dueDate: dueDate || null,
-      });
-    } catch (e) {
-      // noop - errors handled in handleUpdateSubtask
-    }
+  // Enter edit mode with inline form
+  const editSubtask = (subtask) => {
+    setEditingSubtask(subtask._id);
+    // Ensure the add form is closed while editing
+    setShowAddForm(false);
+    setEditData({
+      title: subtask.title || "",
+      description: subtask.description || "",
+      assignedTo: subtask.assignedTo || "",
+      priority: subtask.priority || "medium",
+      estimatedHours: subtask.estimatedHours || 0,
+      startDate: subtask.startDate
+        ? new Date(subtask.startDate).toISOString().split("T")[0]
+        : "",
+      dueDate: subtask.dueDate
+        ? new Date(subtask.dueDate).toISOString().split("T")[0]
+        : "",
+      status: subtask.status || "pending",
+    });
   };
 
   const handleToggleStatus = async (subtaskId) => {
@@ -362,7 +367,7 @@ const SubtaskManager = ({
           </div>
 
           {/* Add Subtask Form */}
-          {showAddForm && (
+          {showAddForm && !editingSubtask && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-blue-900 mb-4">
                 Add New Subtask
@@ -514,8 +519,17 @@ const SubtaskManager = ({
                 Subtasks ({totalCount})
               </h3>
               <button
-                onClick={() => setShowAddForm(!showAddForm)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={() => {
+                  if (editingSubtask) return;
+                  setShowAddForm(!showAddForm);
+                }}
+                disabled={!!editingSubtask}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  editingSubtask
+                    ? "Finish editing before adding a new subtask"
+                    : undefined
+                }
               >
                 <AddIcon fontSize="small" />
                 Add Subtask
@@ -532,89 +546,251 @@ const SubtaskManager = ({
                       : "bg-white border-gray-200"
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <button
-                      onClick={() => handleToggleStatus(subtask._id)}
-                      className="mt-1 text-gray-400 hover:text-green-600 transition-colors"
-                    >
-                      {subtask.status === "completed" ? (
-                        <CheckCircleIcon className="text-green-600" />
-                      ) : (
-                        <UncheckedIcon />
-                      )}
-                    </button>
-
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h4
-                          className={`font-medium ${
-                            subtask.status === "completed"
-                              ? "line-through text-gray-500"
-                              : "text-gray-900"
-                          }`}
-                        >
-                          {subtask.title}
-                        </h4>
-                        <span
-                          className={`px-2 py-1 rounded text-xs ${getPriorityColor(
-                            subtask.priority
-                          )}`}
-                        >
-                          {subtask.priority}
-                        </span>
-                        <span
-                          className={`px-2 py-1 rounded text-xs ${getStatusColor(
-                            subtask.status
-                          )}`}
-                        >
-                          {subtask.status}
-                        </span>
-                      </div>
-
-                      {subtask.description && (
-                        <p className="text-sm text-gray-600 mb-3">
-                          {subtask.description}
-                        </p>
-                      )}
-
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <PersonIcon fontSize="small" />
-                          <span>{getEmployeeName(subtask.assignedTo)}</span>
+                  {editingSubtask === subtask._id ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Title *
+                          </label>
+                          <input
+                            type="text"
+                            value={editData.title}
+                            onChange={(e) =>
+                              setEditData({
+                                ...editData,
+                                title: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Enter subtask title"
+                          />
                         </div>
-                        {subtask.estimatedHours > 0 && (
-                          <div className="flex items-center gap-1">
-                            <ScheduleIcon fontSize="small" />
-                            <span>{subtask.estimatedHours}h estimated</span>
-                          </div>
-                        )}
-                        {subtask.dueDate && (
-                          <div className="flex items-center gap-1">
-                            <FlagIcon fontSize="small" />
-                            <span>
-                              Due:{" "}
-                              {new Date(subtask.dueDate).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Priority
+                          </label>
+                          <select
+                            value={editData.priority}
+                            onChange={(e) =>
+                              setEditData({
+                                ...editData,
+                                priority: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="critical">Critical</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Assigned To
+                          </label>
+                          <select
+                            value={editData.assignedTo || ""}
+                            onChange={(e) =>
+                              setEditData({
+                                ...editData,
+                                assignedTo: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="">Unassigned</option>
+                            {employees.map((employee) => (
+                              <option key={employee._id} value={employee._id}>
+                                {employee.personalDetails?.name ||
+                                  employee.name ||
+                                  "Unknown"}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Estimated Hours
+                          </label>
+                          <input
+                            type="number"
+                            value={editData.estimatedHours}
+                            onChange={(e) =>
+                              setEditData({
+                                ...editData,
+                                estimatedHours: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Start Date
+                          </label>
+                          <input
+                            type="date"
+                            value={editData.startDate}
+                            onChange={(e) =>
+                              setEditData({
+                                ...editData,
+                                startDate: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Due Date
+                          </label>
+                          <input
+                            type="date"
+                            value={editData.dueDate}
+                            onChange={(e) =>
+                              setEditData({
+                                ...editData,
+                                dueDate: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Description
+                        </label>
+                        <textarea
+                          value={editData.description}
+                          onChange={(e) =>
+                            setEditData({
+                              ...editData,
+                              description: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          rows="3"
+                          placeholder="Enter subtask description"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-3">
+                        <button
+                          onClick={() => {
+                            setEditingSubtask(null);
+                          }}
+                          className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleUpdateSubtask(subtask._id, {
+                              title: editData.title.trim(),
+                              description: editData.description.trim(),
+                              assignedTo: editData.assignedTo || null,
+                              priority: editData.priority,
+                              estimatedHours: editData.estimatedHours || 0,
+                              startDate: editData.startDate || null,
+                              dueDate: editData.dueDate || null,
+                              status: editData.status || subtask.status,
+                            })
+                          }
+                          disabled={loading || !editData.title.trim()}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          {loading ? "Saving..." : "Save"}
+                        </button>
                       </div>
                     </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <button
+                        onClick={() => handleToggleStatus(subtask._id)}
+                        className="mt-1 text-gray-400 hover:text-green-600 transition-colors"
+                      >
+                        {subtask.status === "completed" ? (
+                          <CheckCircleIcon className="text-green-600" />
+                        ) : (
+                          <UncheckedIcon />
+                        )}
+                      </button>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => editSubtask(subtask)}
-                        className="text-gray-400 hover:text-blue-600 transition-colors"
-                      >
-                        <EditIcon fontSize="small" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteSubtask(subtask._id)}
-                        className="text-gray-400 hover:text-red-600 transition-colors"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </button>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4
+                            className={`font-medium ${
+                              subtask.status === "completed"
+                                ? "line-through text-gray-500"
+                                : "text-gray-900"
+                            }`}
+                          >
+                            {subtask.title}
+                          </h4>
+                          <span
+                            className={`px-2 py-1 rounded text-xs ${getPriorityColor(
+                              subtask.priority
+                            )}`}
+                          >
+                            {subtask.priority}
+                          </span>
+                          <span
+                            className={`px-2 py-1 rounded text-xs ${getStatusColor(
+                              subtask.status
+                            )}`}
+                          >
+                            {subtask.status}
+                          </span>
+                        </div>
+
+                        {subtask.description && (
+                          <p className="text-sm text-gray-600 mb-3">
+                            {subtask.description}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <PersonIcon fontSize="small" />
+                            <span>{getEmployeeName(subtask.assignedTo)}</span>
+                          </div>
+                          {subtask.estimatedHours > 0 && (
+                            <div className="flex items-center gap-1">
+                              <ScheduleIcon fontSize="small" />
+                              <span>{subtask.estimatedHours}h estimated</span>
+                            </div>
+                          )}
+                          {subtask.dueDate && (
+                            <div className="flex items-center gap-1">
+                              <FlagIcon fontSize="small" />
+                              <span>
+                                Due:{" "}
+                                {new Date(subtask.dueDate).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => editSubtask(subtask)}
+                          className="text-gray-400 hover:text-blue-600 transition-colors"
+                        >
+                          <EditIcon fontSize="small" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSubtask(subtask._id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
 

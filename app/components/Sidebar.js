@@ -359,7 +359,7 @@ const Sidebar = ({
               (item.submenu &&
                 item.submenu.some((sub) => sub.id === activeSection)) ||
               // Special case for project management - highlight when on any project-related page
-              (item.id === "project-management" &&
+              (item.id === "project" &&
                 (activeSection === "projects" ||
                   activeSection === "project-budget" ||
                   activeSection === "project-alerts" ||

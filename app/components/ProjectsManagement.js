@@ -368,14 +368,14 @@ export default function ProjectsManagement() {
         </div>
         <div className="flex gap-3">
           <a
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+            className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 border border-blue-200"
             href="/hrm?section=budget-management"
           >
             <CurrencyDollarIcon className="w-4 h-4" />
             Budget
           </a>
           <button
-            className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
             onClick={() => handleOpenDialog()}
             type="button"
           >
@@ -399,7 +399,7 @@ export default function ProjectsManagement() {
                 placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 pl-10 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                className="w-full px-3 py-2 pl-10 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
               />
               <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                 <SearchIcon className="w-4 h-4" />
@@ -415,7 +415,7 @@ export default function ProjectsManagement() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -433,7 +433,7 @@ export default function ProjectsManagement() {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
             >
               {CATEGORY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -470,7 +470,7 @@ export default function ProjectsManagement() {
           </p>
           <button
             onClick={() => handleOpenDialog()}
-            className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-md font-medium transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
             type="button"
           >
             Create Project
@@ -515,7 +515,7 @@ export default function ProjectsManagement() {
                 {/* Detail Button */}
                 <div className="mb-4 flex justify-end">
                   <a
-                    className="text-sm text-gray-600 hover:text-gray-900 no-underline flex items-center gap-1 transition-colors"
+                    className="text-sm bg-blue-900 text-white hover:bg-blue-800 px-2 py-2  rounded-md no-underline flex items-center gap-1 transition-colors"
                     href={`/projects/${project._id}`}
                   >
                     <VisibilityIcon className="w-4 h-4" />
@@ -565,7 +565,7 @@ export default function ProjectsManagement() {
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
-                      className="bg-gray-900 h-2 rounded-full transition-all duration-300"
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${project.progress || 0}%` }}
                     ></div>
                   </div>
@@ -618,28 +618,28 @@ export default function ProjectsManagement() {
               <div className="border-t border-gray-200 p-4 bg-gray-50">
                 <div className="grid grid-cols-2 gap-2">
                   <a
-                    className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
+                    className="bg-orange-600 hover:bg-orange-300 text-white text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
                     href={`/projects/${project._id}/milestones`}
                   >
                     <TimelineIcon className="w-4 h-4" />
                     <span>Milestones</span>
                   </a>
                   <a
-                    className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
+                    className="bg-blue-800 hover:bg-blue-600 text-white text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
                     href={`/projects/${project._id}/team`}
                   >
                     <PeopleIcon className="w-4 h-4" />
                     <span>Team</span>
                   </a>
                   <a
-                    className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
+                    className="bg-green-800 hover:bg-green-600 text-white text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
                     href={`/project-budget/${project._id}`}
                   >
                     <CurrencyDollarIcon className="w-4 h-4" />
                     <span>Budget</span>
                   </a>
                   <a
-                    className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
+                    className="bg-red-800 hover:bg-red-600 text-white text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
                     href={`/project-alerts?projectId=${project._id}`}
                   >
                     <NotificationsIcon className="w-4 h-4" />
@@ -714,7 +714,7 @@ export default function ProjectsManagement() {
                   Project Name
                 </label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
                   type="text"
                   id="name"
                   name="name"
@@ -733,7 +733,7 @@ export default function ProjectsManagement() {
                   Description
                 </label>
                 <textarea
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 resize-vertical"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 resize-vertical"
                   id="description"
                   name="description"
                   value={formData.description}
@@ -751,7 +751,7 @@ export default function ProjectsManagement() {
                   Category
                 </label>
                 <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
                   id="category"
                   name="category"
                   value={formData.category}
@@ -776,7 +776,7 @@ export default function ProjectsManagement() {
                     Start Date
                   </label>
                   <input
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
                     type="date"
                     id="startDate"
                     name="startDate"
@@ -794,7 +794,7 @@ export default function ProjectsManagement() {
                     End Date
                   </label>
                   <input
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
                     type="date"
                     id="endDate"
                     name="endDate"
@@ -814,7 +814,7 @@ export default function ProjectsManagement() {
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-md font-medium transition-colors"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"
                 onClick={handleSubmit}
                 type="submit"
               >
@@ -975,7 +975,7 @@ export default function ProjectsManagement() {
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-md font-medium"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium"
                 onClick={handleProgressUpdate}
                 type="button"
               >
