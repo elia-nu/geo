@@ -522,30 +522,34 @@ export default function DailyAttendance({
   return (
     <div
       className={`${
-        hideHeader ? "space-y-6" : "max-w-4xl mx-auto p-6 space-y-6"
+        hideHeader ? "space-y-6" : "max-w-4xl mx-auto p-4 sm:p-6 space-y-6"
       }`}
     >
       {/* Header - Only show if not hidden */}
       {!hideHeader && (
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4 sm:p-6 text-white">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div className="bg-white bg-opacity-20 rounded-full p-3">
                 <User className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">Daily Attendance</h1>
-                <p className="text-blue-100">{employeeName}</p>
+                <h1 className="text-xl sm:text-2xl font-bold">
+                  Daily Attendance
+                </h1>
+                <p className="text-blue-100 text-sm sm:text-base">
+                  {employeeName}
+                </p>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-3xl font-bold">
+              <div className="text-2xl sm:text-3xl font-bold">
                 {currentTime.toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
               </div>
-              <div className="text-blue-100 text-sm">
+              <div className="text-blue-100 text-xs sm:text-sm">
                 {currentTime.toLocaleDateString([], {
                   weekday: "long",
                   year: "numeric",
@@ -596,13 +600,13 @@ export default function DailyAttendance({
       )}
 
       {/* Today's Summary */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center space-x-2">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center space-x-2">
           <Calendar className="w-5 h-5 text-blue-600" />
           <span>Today's Summary</span>
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
           {/* Check-in Time */}
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">
@@ -684,8 +688,8 @@ export default function DailyAttendance({
       </div>
 
       {/* Location Status */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-4 flex items-center space-x-2">
           <MapPin className="w-5 h-5 text-blue-600" />
           <span>Location Status</span>
         </h3>
@@ -805,9 +809,9 @@ export default function DailyAttendance({
       </div>
 
       {/* Camera Section */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold flex items-center space-x-2">
+          <h3 className="text-base sm:text-lg font-semibold flex items-center space-x-2">
             <Camera className="w-5 h-5 text-blue-600" />
             <span>Photo Verification</span>
           </h3>
@@ -844,8 +848,8 @@ export default function DailyAttendance({
       </div>
 
       {/* Notes Section */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-4 flex items-center space-x-2">
           <FileText className="w-5 h-5 text-blue-600" />
           <span>Notes (Optional)</span>
         </h3>
@@ -863,8 +867,8 @@ export default function DailyAttendance({
       </div>
 
       {/* Action Buttons */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           {/* Check-in Button */}
           <button
             onClick={() => handleAttendanceAction("check-in")}
@@ -944,7 +948,7 @@ export default function DailyAttendance({
         </div>
 
         {/* Help Text */}
-        <div className="mt-4 text-sm text-gray-600 text-center">
+        <div className="mt-4 text-sm text-gray-600 text-center px-2">
           {!todayRecord?.checkInTime &&
             !isCameraActive &&
             "Enable camera and start your workday by checking in"}

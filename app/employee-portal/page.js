@@ -9,12 +9,13 @@ import EmployeeLeaveRequest from "../components/EmployeeLeaveRequest";
 import LeaveBalance from "../components/LeaveBalance";
 import AttendanceDocuments from "../components/AttendanceDocuments";
 import EmployeeRequestStatus from "../components/EmployeeRequestStatus";
-import { MapPin, Navigation, CheckCircle, AlertCircle } from "lucide-react";
+import { MapPin, Navigation, CheckCircle, Menu, X } from "lucide-react";
 
 export default function EmployeePortal() {
   const [employeeData, setEmployeeData] = useState(null);
   const [workLocations, setWorkLocations] = useState([]);
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Check for URL parameters to set initial section
   useEffect(() => {
@@ -175,6 +176,11 @@ export default function EmployeePortal() {
       url.searchParams.set("section", section);
       window.history.replaceState({}, "", url.toString());
     } catch {}
+  };
+
+  const handleSectionChangeWithClose = (section) => {
+    handleSectionChange(section);
+    setMobileMenuOpen(false);
   };
 
   const renderActiveSection = () => {
@@ -384,18 +390,29 @@ export default function EmployeePortal() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Employee Sidebar */}
-      <EmployeeSidebar
-        activeSection={activeSection}
-        onSectionChange={handleSectionChange}
-        employeeName={employeeData.name}
-      />
+      {/* Employee Sidebar (desktop) */}
+      <div className="hidden md:block">
+        <EmployeeSidebar
+          activeSection={activeSection}
+          onSectionChange={handleSectionChange}
+          employeeName={employeeData.name}
+        />
+      </div>
 
       {/* Main Content - offset for fixed sidebar on md+ screens */}
-      <div className="flex-1 overflow-auto md:ml-64 lg:ml-72">
+      <div className="flex-1 overflow-auto md:ml-64 lg:ml-64">
         {/* Top bar with its own section for logout */}
         <div className="sticky top-0 z-40 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
-          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-end">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="md:hidden inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+              <span className="text-sm font-medium">Menu</span>
+            </button>
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow hover:from-blue-700 hover:to-purple-700 transition-all text-sm font-medium"
@@ -406,6 +423,53 @@ export default function EmployeePortal() {
         </div>
         <div className="p-4 sm:p-6 lg:p-8">{renderActiveSection()}</div>
       </div>
+
+      {/* Mobile slide-over menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="absolute inset-y-0 left-0 w-64 bg-white shadow-xl">
+            <div className="flex items-center justify-between p-3 border-b">
+              <div className="text-sm font-semibold">Employee Portal</div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 rounded-lg hover:bg-gray-100"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Reuse the sidebar menu via simple list for mobile */}
+            <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-56px)]">
+              {[
+                { id: "dashboard", label: "Dashboard" },
+                { id: "attendance", label: "Daily Attendance" },
+                { id: "attendance-history", label: "Attendance History" },
+                { id: "leave-requests", label: "Leave Requests" },
+                { id: "leave-balance", label: "Leave Balance" },
+                { id: "documents", label: "Documents" },
+                { id: "requests-status", label: "Request Status" },
+                { id: "profile", label: "My Profile" },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleSectionChangeWithClose(item.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
+                    activeSection === item.id
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

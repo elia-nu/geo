@@ -141,24 +141,24 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4 sm:p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-xl sm:text-2xl font-bold">
               Welcome back, {employeeName}!
             </h1>
-            <p className="text-blue-100 mt-1">
+            <p className="text-blue-100 mt-1 text-sm sm:text-base">
               Here's your work status overview
             </p>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-bold">
+            <div className="text-2xl sm:text-3xl font-bold">
               {new Date().toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
             </div>
-            <div className="text-blue-100 text-sm">
+            <div className="text-blue-100 text-xs sm:text-sm">
               {new Date().toLocaleDateString([], {
                 weekday: "long",
                 year: "numeric",
@@ -171,14 +171,14 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
       </div>
 
       {/* Today's Status */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
           <div className="flex items-center space-x-3 mb-4">
             <div className="bg-blue-100 p-2 rounded-lg">
               <Clock className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">
                 Today's Status
               </h3>
               <p className="text-sm text-gray-600">Current work status</p>
@@ -219,13 +219,15 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
         </div>
 
         {/* Quick Stats */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
           <div className="flex items-center space-x-3 mb-4">
             <div className="bg-green-100 p-2 rounded-lg">
               <TrendingUp className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">This Week</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+                This Week
+              </h3>
               <p className="text-sm text-gray-600">Attendance summary</p>
             </div>
           </div>
@@ -250,19 +252,19 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
           <div className="flex items-center space-x-3 mb-4">
             <div className="bg-purple-100 p-2 rounded-lg">
               <Calendar className="w-6 h-6 text-purple-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">
                 Quick Actions
               </h3>
               <p className="text-sm text-gray-600">Common tasks</p>
             </div>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             <button
               onClick={() =>
                 (window.location.href = "/employee-portal?section=attendance")
@@ -296,13 +298,13 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
       </div>
 
       {/* Recent Attendance */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
         <div className="flex items-center space-x-3 mb-6">
           <div className="bg-orange-100 p-2 rounded-lg">
             <History className="w-6 h-6 text-orange-600" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800">
               Recent Attendance
             </h3>
             <p className="text-sm text-gray-600">Last 5 days</p>
@@ -314,7 +316,7 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
             recentAttendance.map((record, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-gray-50 rounded-lg gap-2"
               >
                 <div className="flex items-center space-x-4">
                   <div className="text-center">

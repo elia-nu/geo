@@ -23,6 +23,7 @@ export default function EmployeeSidebar({
   employeeName,
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const menuItems = [
     {
@@ -83,83 +84,137 @@ export default function EmployeeSidebar({
   };
 
   return (
-    <div
-      className={`fixed inset-y-0 left-0 bg-white border-r border-gray-200 shadow-md transition-all duration-300 z-40 overflow-y-auto ${
-        isCollapsed ? "w-16" : "w-64"
-      }`}
-    >
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          {!isCollapsed && (
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800">
-                Employee Portal
-              </h2>
-              <p className="text-sm text-gray-600 truncate">{employeeName}</p>
-            </div>
-          )}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+    <>
+      {/* Mobile toggle button */}
+      <div className="md:hidden fixed top-4 left-4 z-50">
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="p-2 rounded-lg bg-white/90 border border-gray-200 shadow-md text-gray-700"
+          aria-label="Open menu"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d={
-                  isCollapsed
-                    ? "M13 5l7 7-7 7M5 5l7 7-7 7"
-                    : "M11 19l-7-7 7-7m8 14l-7-7 7-7"
-                }
-              />
-            </svg>
-          </button>
-        </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+        </button>
       </div>
 
-      {/* Navigation Menu */}
-      <nav className="p-4 space-y-2 pb-24">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeSection === item.id;
+      {/* Backdrop for mobile */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/40 z-40"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
 
-          return (
+      <div
+        className={`fixed inset-y-0 left-0 bg-white border-r border-gray-200 shadow-md transition-all duration-300 z-50 overflow-y-auto transform md:transform-none ${
+          isCollapsed ? "w-16" : "w-64"
+        } ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            {!isCollapsed && (
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Employee Portal
+                </h2>
+                <p className="text-sm text-gray-600 truncate">{employeeName}</p>
+              </div>
+            )}
             <button
-              key={item.id}
-              onClick={() => onSectionChange(item.id)}
-              className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors duration-200 ${
-                isActive
-                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                  : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-              }`}
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
             >
-              <Icon
-                className={`w-5 h-5 ${
-                  isActive ? "text-blue-600" : "text-gray-500"
-                }`}
-              />
-              {!isCollapsed && (
-                <div className="text-left">
-                  <div className="font-medium">{item.label}</div>
-                  <div className="text-xs text-gray-500">
-                    {item.description}
-                  </div>
-                </div>
-              )}
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d={
+                    isCollapsed
+                      ? "M13 5l7 7-7 7M5 5l7 7-7 7"
+                      : "M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                  }
+                />
+              </svg>
             </button>
-          );
-        })}
-      </nav>
+            {/* Close button on mobile */}
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="md:hidden ml-2 p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+              aria-label="Close menu"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
 
-      {/* Footer */}
-      {/* <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+        {/* Navigation Menu */}
+        <nav className="p-4 space-y-2 pb-24">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeSection === item.id;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => onSectionChange(item.id)}
+                className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors duration-200 ${
+                  isActive
+                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+              >
+                <Icon
+                  className={`w-5 h-5 ${
+                    isActive ? "text-blue-600" : "text-gray-500"
+                  }`}
+                />
+                {!isCollapsed && (
+                  <div className="text-left">
+                    <div className="font-medium">{item.label}</div>
+                    <div className="text-xs text-gray-500">
+                      {item.description}
+                    </div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Footer */}
+        {/* <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
         <button
           onClick={handleLogout}
           className="w-full flex items-center space-x-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors duration-200"
@@ -168,6 +223,7 @@ export default function EmployeeSidebar({
           {!isCollapsed && <span className="font-medium">Logout</span>}
         </button>
       </div> */}
-    </div>
+      </div>
+    </>
   );
 }

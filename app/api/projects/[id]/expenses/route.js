@@ -172,11 +172,12 @@ export async function POST(request, { params }) {
     }
 
     // Validate allocation if provided
+    let allocationObj = null;
     if (allocationId) {
-      const allocation = existingProject.budgetAllocations?.find(
+      allocationObj = existingProject.budgetAllocations?.find(
         (alloc) => alloc._id.toString() === allocationId
       );
-      if (!allocation) {
+      if (!allocationObj) {
         return NextResponse.json(
           { error: "Invalid allocation ID" },
           { status: 400 }
@@ -210,34 +211,10 @@ export async function POST(request, { params }) {
 
     // If expense is allocated to a specific budget allocation, update the allocation tracking
     if (allocationId) {
-      // Update the allocation's spent amount and utilization
+      // First, increment spentAmount atomically
       updateOperations.$inc = {
         [`budgetAllocations.$[allocation].spentAmount`]: parseFloat(amount),
       };
-      updateOperations.$set[`budgetAllocations.$[allocation].utilization`] = {
-        $cond: {
-          if: { $gt: [`$budgetAllocations.$[allocation].amount`, 0] },
-          then: {
-            $multiply: [
-              {
-                $divide: [
-                  `$budgetAllocations.$[allocation].spentAmount`,
-                  `$budgetAllocations.$[allocation].amount`,
-                ],
-              },
-              100,
-            ],
-          },
-          else: 0,
-        },
-      };
-      updateOperations.$set[`budgetAllocations.$[allocation].remainingAmount`] =
-        {
-          $subtract: [
-            `$budgetAllocations.$[allocation].amount`,
-            `$budgetAllocations.$[allocation].spentAmount`,
-          ],
-        };
       updateOperations.$set[`budgetAllocations.$[allocation].updatedAt`] =
         new Date();
     }
@@ -257,32 +234,29 @@ export async function POST(request, { params }) {
       .collection("projects")
       .updateOne({ _id: new ObjectId(id) }, updateOperations, { arrayFilters });
 
-    // Update allocation status based on utilization
+    // After increment, compute and set utilization, remainingAmount, and status deterministically
     if (allocationId) {
+      const amountNum = parseFloat(amount) || 0;
+      const previousSpent = allocationObj?.spentAmount || 0;
+      const allocationAmount = allocationObj?.amount || 0;
+      const newSpentAmount = previousSpent + amountNum;
+      const utilization =
+        allocationAmount > 0 ? (newSpentAmount / allocationAmount) * 100 : 0;
+      const remainingAmount = Math.max(0, allocationAmount - newSpentAmount);
+      const statusStr =
+        utilization > 100 ? "overrun" : utilization > 90 ? "warning" : "normal";
+
       await db.collection("projects").updateOne(
+        { _id: new ObjectId(id) },
         {
-          _id: new ObjectId(id),
-          "budgetAllocations._id": new ObjectId(allocationId),
-        },
-        [
-          {
-            $set: {
-              "budgetAllocations.$.status": {
-                $cond: {
-                  if: { $gt: ["$budgetAllocations.$.utilization", 100] },
-                  then: "overrun",
-                  else: {
-                    $cond: {
-                      if: { $gt: ["$budgetAllocations.$.utilization", 90] },
-                      then: "warning",
-                      else: "normal",
-                    },
-                  },
-                },
-              },
-            },
+          $set: {
+            "budgetAllocations.$[allocation].utilization": utilization,
+            "budgetAllocations.$[allocation].remainingAmount": remainingAmount,
+            "budgetAllocations.$[allocation].status": statusStr,
+            "budgetAllocations.$[allocation].updatedAt": new Date(),
           },
-        ]
+        },
+        { arrayFilters }
       );
     }
 

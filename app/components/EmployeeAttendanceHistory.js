@@ -193,7 +193,7 @@ export default function EmployeeAttendanceHistory({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
             Attendance History
           </h1>
           <p className="text-gray-600 mt-1">
@@ -210,8 +210,8 @@ export default function EmployeeAttendanceHistory({
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center space-x-4 mb-4">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-3 sm:gap-0 mb-4">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -235,7 +235,7 @@ export default function EmployeeAttendanceHistory({
 
         {showFilters && (
           <div className="border-t border-gray-200 pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Start Date
@@ -291,13 +291,13 @@ export default function EmployeeAttendanceHistory({
       </div>
 
       {/* Attendance Records */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
         <div className="flex items-center space-x-3 mb-6">
           <div className="bg-blue-100 p-2 rounded-lg">
             <History className="w-6 h-6 text-blue-600" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-gray-800">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
               Attendance Records
             </h2>
             <p className="text-sm text-gray-600">
@@ -311,7 +311,7 @@ export default function EmployeeAttendanceHistory({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         ) : attendanceRecords.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {attendanceRecords.map((record, index) => {
               const status = getStatusDisplay(record);
               const StatusIcon = status.icon;
@@ -323,7 +323,7 @@ export default function EmployeeAttendanceHistory({
               return (
                 <div
                   key={index}
-                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                  className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-4">
@@ -358,7 +358,7 @@ export default function EmployeeAttendanceHistory({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Clock className="w-4 h-4 text-gray-500" />

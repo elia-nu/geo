@@ -181,8 +181,10 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-black">Leave Requests</h1>
-          <p className="text-black mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-black">
+            Leave Requests
+          </h1>
+          <p className="text-black mt-1 text-sm sm:text-base">
             Submit and track your leave requests
           </p>
         </div>
@@ -219,14 +221,14 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
 
       {/* Leave Request Form */}
       {showForm && (
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-6 flex items-center space-x-2 text-black ">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+          <h2 className="text-lg sm:text-xl font-semibold mb-6 flex items-center space-x-2 text-black ">
             <Calendar className="w-6 h-6 text-blue-600" />
             <span>Submit Leave Request</span>
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
                   Leave Type *
@@ -309,7 +311,7 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
               />
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 sm:space-x-4">
               <button
                 type="submit"
                 disabled={loading}
@@ -336,8 +338,8 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
       )}
 
       {/* Leave Requests List */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-6 flex items-center space-x-2 text-black">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-semibold mb-6 flex items-center space-x-2 text-black">
           <FileText className="w-6 h-6 text-blue-600" />
           <span>My Leave Requests</span>
         </h2>
@@ -347,7 +349,7 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         ) : leaveRequests.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {leaveRequests.map((request, index) => {
               const status = getStatusDisplay(request.status);
               const StatusIcon = status.icon;
@@ -355,9 +357,9 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
               return (
                 <div
                   key={index}
-                  className="border border-gray-200 rounded-lg p-4"
+                  className="border border-gray-200 rounded-lg p-3 sm:p-4"
                 >
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                     <div className="flex items-center space-x-3">
                       <div className="bg-blue-100 p-2 rounded-lg">
                         <Calendar className="w-5 h-5 text-blue-600" />
