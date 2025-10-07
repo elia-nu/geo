@@ -218,10 +218,10 @@ export default function ManagerLeaveApproval({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-black">
             Leave Request Approval
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-black mt-1">
             Review and approve leave requests from your team
           </p>
         </div>
@@ -263,7 +263,7 @@ export default function ManagerLeaveApproval({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Status Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-black mb-2">
               Status
             </label>
             <select
@@ -271,7 +271,7 @@ export default function ManagerLeaveApproval({
               onChange={(e) =>
                 setFilters({ ...filters, status: e.target.value })
               }
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
@@ -282,7 +282,7 @@ export default function ManagerLeaveApproval({
 
           {/* Department Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-black mb-2">
               Department
             </label>
             <select
@@ -290,7 +290,7 @@ export default function ManagerLeaveApproval({
               onChange={(e) =>
                 setFilters({ ...filters, department: e.target.value })
               }
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Departments</option>
               <option value="IT">IT</option>
@@ -303,7 +303,7 @@ export default function ManagerLeaveApproval({
 
           {/* Leave Type Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-black mb-2">
               Leave Type
             </label>
             <select
@@ -311,7 +311,7 @@ export default function ManagerLeaveApproval({
               onChange={(e) =>
                 setFilters({ ...filters, leaveType: e.target.value })
               }
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Types</option>
               <option value="annual">Annual</option>
@@ -325,7 +325,7 @@ export default function ManagerLeaveApproval({
 
           {/* Date Range Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-black mb-2">
               Date Range
             </label>
             <select
@@ -333,7 +333,7 @@ export default function ManagerLeaveApproval({
               onChange={(e) =>
                 setFilters({ ...filters, dateRange: e.target.value })
               }
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">All Time</option>
               <option value="today">Today</option>
@@ -344,17 +344,17 @@ export default function ManagerLeaveApproval({
 
           {/* Search */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-black mb-2">
               Search
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-black" />
               <input
                 type="text"
                 placeholder="Search employees..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-500"
               />
             </div>
           </div>
@@ -364,8 +364,8 @@ export default function ManagerLeaveApproval({
       {/* Leave Requests List */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold flex items-center space-x-2">
-            <FileText className="w-6 h-6 text-blue-600" />
+          <h2 className="text-xl font-semibold flex items-center space-x-2 text-black">
+            <FileText className="w-6 h-6 text-black" />
             <span>Leave Requests ({filteredRequests.length})</span>
           </h2>
         </div>
@@ -395,13 +395,13 @@ export default function ManagerLeaveApproval({
                         <User className="w-6 h-6 text-blue-600" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">
+                        <h3 className="font-semibold text-black">
                           {request.employeeName}
                         </h3>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-black">
                           {request.department}
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-black">
                           {request.designation}
                         </p>
                       </div>
@@ -418,7 +418,7 @@ export default function ManagerLeaveApproval({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <div>
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-black">
                         Leave Type:
                       </span>
                       <div className="flex items-center space-x-2 mt-1">
@@ -433,32 +433,32 @@ export default function ManagerLeaveApproval({
                     </div>
 
                     <div>
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-black">
                         Duration:
                       </span>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-black mt-1">
                         {formatDate(request.startDate)} -{" "}
                         {formatDate(request.endDate)}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-black">
                         {leaveDays} working days
                       </p>
                     </div>
 
                     <div>
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-black">
                         Submitted:
                       </span>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-black mt-1">
                         {formatDate(request.submittedAt)}
                       </p>
                     </div>
 
                     <div>
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-black">
                         Reason:
                       </span>
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                      <p className="text-sm text-black mt-1 line-clamp-2">
                         {request.reason}
                       </p>
                     </div>
@@ -488,7 +488,7 @@ export default function ManagerLeaveApproval({
                   {request.approvalHistory &&
                     request.approvalHistory.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-gray-200">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">
+                        <h4 className="text-sm font-medium text-black mb-2">
                           Approval History:
                         </h4>
                         <div className="space-y-2">
@@ -501,12 +501,12 @@ export default function ManagerLeaveApproval({
                                 <span className="font-medium">
                                   {approval.approverName}
                                 </span>
-                                <span className="text-gray-600">
+                                <span className="text-black">
                                   {" "}
                                   - {approval.action}
                                 </span>
                               </div>
-                              <span className="text-gray-500">
+                              <span className="text-black">
                                 {new Date(
                                   approval.approvedAt
                                 ).toLocaleDateString()}
@@ -539,7 +539,7 @@ export default function ManagerLeaveApproval({
       {showApprovalModal && selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">
+            <h3 className="text-lg font-semibold mb-4 text-black">
               {approvalAction === "approve" ? "Approve" : "Reject"} Leave
               Request
             </h3>
@@ -574,7 +574,7 @@ export default function ManagerLeaveApproval({
                 value={approvalNotes}
                 onChange={(e) => setApprovalNotes(e.target.value)}
                 rows={3}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full p-3 text-black  border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder={
                   approvalAction === "approve"
                     ? "Optional approval notes..."

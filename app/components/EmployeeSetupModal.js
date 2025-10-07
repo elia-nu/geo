@@ -8,6 +8,7 @@ import {
   Loader2,
   Plus,
   Trash2,
+  DollarSign,
 } from "lucide-react";
 
 export default function EmployeeSetupModal({
@@ -17,7 +18,7 @@ export default function EmployeeSetupModal({
   onError,
   defaultTab = "password",
 }) {
-  const [setupType, setSetupType] = useState(defaultTab); // "password" or "location"
+  const [setupType, setSetupType] = useState(defaultTab); // "password" | "location" | "salary"
   const [loading, setLoading] = useState(false);
 
   // Password setup form
@@ -30,6 +31,34 @@ export default function EmployeeSetupModal({
   const [workLocations, setWorkLocations] = useState([]);
   const [selectedWorkLocations, setSelectedWorkLocations] = useState([]);
   const [employeeWorkLocations, setEmployeeWorkLocations] = useState([]);
+
+  // Salary setup form
+  const [salaryForm, setSalaryForm] = useState({
+    grossSalary: "",
+    transportAllowance: "",
+  });
+
+  // Populate salary fields from existing employee data
+  useEffect(() => {
+    try {
+      const existingGross =
+        employee?.grossSalary ?? employee?.salary?.grossSalary ?? "";
+      const existingTransport =
+        employee?.transportAllowance ??
+        employee?.salary?.transportAllowance ??
+        "";
+      setSalaryForm({
+        grossSalary:
+          existingGross === null || existingGross === undefined
+            ? ""
+            : String(existingGross),
+        transportAllowance:
+          existingTransport === null || existingTransport === undefined
+            ? ""
+            : String(existingTransport),
+      });
+    } catch {}
+  }, [employee]);
 
   useEffect(() => {
     if (setupType === "location") {
@@ -159,6 +188,45 @@ export default function EmployeeSetupModal({
     }
   };
 
+  const handleSalarySubmit = async () => {
+    const gross = Number(salaryForm.grossSalary);
+    const transport = Number(salaryForm.transportAllowance);
+
+    if (Number.isNaN(gross) || gross <= 0) {
+      onError("Please enter a valid gross salary");
+      return;
+    }
+
+    if (Number.isNaN(transport) || transport < 0) {
+      onError("Please enter a valid transport allowance");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/employee/${employee._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grossSalary: gross,
+          transportAllowance: transport,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        onError(data.error || "Failed to save salary settings");
+        return;
+      }
+      onSuccess("Salary settings saved successfully!");
+    } catch (error) {
+      console.error("Error saving salary settings:", error);
+      onError("Failed to save salary settings. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleWorkLocation = (locationId) => {
     setSelectedWorkLocations((prev) =>
       prev.includes(locationId)
@@ -210,7 +278,7 @@ export default function EmployeeSetupModal({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                <Lock className="w-7 h-7" />
+                <Lock className="w-7 h-7 text-purple-900" strokeWidth={2.2} />
               </div>
               <div>
                 <h3 className="text-2xl font-bold">Employee Setup</h3>
@@ -223,7 +291,7 @@ export default function EmployeeSetupModal({
               onClick={onClose}
               className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center hover:bg-opacity-30 transition-all"
             >
-              <X className="w-6 h-6" />
+              <X className="w-6 h-6 text-purple-900" strokeWidth={2.2} />
             </button>
           </div>
         </div>
@@ -240,7 +308,7 @@ export default function EmployeeSetupModal({
               }`}
             >
               <div className="flex items-center justify-center space-x-2">
-                <Lock className="w-5 h-5" />
+                <Lock className="w-5 h-5" strokeWidth={2.2} />
                 <span>Password Setup</span>
               </div>
             </button>
@@ -253,8 +321,21 @@ export default function EmployeeSetupModal({
               }`}
             >
               <div className="flex items-center justify-center space-x-2">
-                <MapPin className="w-5 h-5" />
+                <MapPin className="w-5 h-5" strokeWidth={2.2} />
                 <span>Work Locations</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setSetupType("salary")}
+              className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
+                setupType === "salary"
+                  ? "border-b-2 border-purple-600 text-purple-600 bg-white"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <DollarSign className="w-5 h-5" strokeWidth={2.2} />
+                <span>Salary</span>
               </div>
             </button>
           </div>
@@ -312,7 +393,7 @@ export default function EmployeeSetupModal({
                 />
               </div>
             </div>
-          ) : (
+          ) : setupType === "location" ? (
             <div className="space-y-6">
               <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
                 <div className="flex">
@@ -340,7 +421,10 @@ export default function EmployeeSetupModal({
                         className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200"
                       >
                         <div className="flex items-center space-x-2">
-                          <CheckCircle className="w-5 h-5 text-green-500" />
+                          <CheckCircle
+                            className="w-5 h-5 text-green-600"
+                            strokeWidth={2.2}
+                          />
                           <div>
                             <p className="font-medium text-gray-900">
                               {location.name}
@@ -358,7 +442,7 @@ export default function EmployeeSetupModal({
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Remove location"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" strokeWidth={2.2} />
                         </button>
                       </div>
                     ))}
@@ -410,6 +494,58 @@ export default function EmployeeSetupModal({
                 )}
               </div>
             </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                <div className="flex">
+                  <div className="ml-3">
+                    <p className="text-sm text-yellow-800">
+                      Store salary inputs for later calculations.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Gross Salary (ETB) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={salaryForm.grossSalary}
+                  onChange={(e) =>
+                    setSalaryForm({
+                      ...salaryForm,
+                      grossSalary: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. 15000"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Transport Allowance (ETB)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={salaryForm.transportAllowance}
+                  onChange={(e) =>
+                    setSalaryForm({
+                      ...salaryForm,
+                      transportAllowance: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. 1000"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                />
+              </div>
+            </div>
           )}
         </div>
 
@@ -426,7 +562,9 @@ export default function EmployeeSetupModal({
             onClick={
               setupType === "password"
                 ? handlePasswordSubmit
-                : handleLocationSubmit
+                : setupType === "location"
+                ? handleLocationSubmit
+                : handleSalarySubmit
             }
             disabled={loading}
             className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
@@ -442,7 +580,9 @@ export default function EmployeeSetupModal({
                 <span>
                   {setupType === "password"
                     ? "Set Password"
-                    : "Assign Locations"}
+                    : setupType === "location"
+                    ? "Assign Locations"
+                    : "Save Salary"}
                 </span>
               </>
             )}

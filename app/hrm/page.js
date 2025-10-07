@@ -9,6 +9,7 @@ import NotificationManager from "../components/NotificationManager";
 import AttendanceReporting from "../components/AttendanceReporting";
 import ManagerLeaveApproval from "../components/ManagerLeaveApproval";
 import LeaveBalance from "../components/LeaveBalance";
+import AdminLeaveBalanceManagement from "../components/AdminLeaveBalanceManagement";
 import EthiopianCalendar from "../components/EthiopianCalendar";
 import IntegratedPayrollSystem from "../components/IntegratedPayrollSystem";
 import EmployeeLocationManagement from "../components/EmployeeLocationManagement";
@@ -21,6 +22,7 @@ import DepartmentAnalytics from "../components/DepartmentAnalytics";
 import DocumentReports from "../components/DocumentReports";
 import AdminAttendanceManagement from "../components/AdminAttendanceManagement";
 import DesignationsManagement from "../components/DesignationsManagement";
+import AllAttendance from "../components/AllAttendance";
 
 export default function HRMDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -200,8 +202,13 @@ export default function HRMDashboard() {
       case "attendance-reports":
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Attendance Reports</h2>
             <AttendanceReporting />
+          </div>
+        );
+      case "attendance-all":
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <AllAttendance />
           </div>
         );
       case "payroll":
@@ -209,9 +216,6 @@ export default function HRMDashboard() {
       case "payroll-calculator":
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">
-              Integrated Payroll System
-            </h2>
             <IntegratedPayrollSystem />
           </div>
         );
@@ -238,7 +242,6 @@ export default function HRMDashboard() {
       case "attendance-daily":
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Daily Attendance</h2>
             <p className="text-gray-600">
               Daily attendance - component coming soon...
             </p>
@@ -247,7 +250,6 @@ export default function HRMDashboard() {
       case "attendance-documents":
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Submit Documents</h2>
             <p className="text-gray-600">
               Attendance documents - component coming soon...
             </p>
@@ -256,7 +258,6 @@ export default function HRMDashboard() {
       case "attendance-legacy":
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Legacy System</h2>
             <p className="text-gray-600">
               Legacy system - component coming soon...
             </p>
@@ -265,25 +266,18 @@ export default function HRMDashboard() {
       case "leave-approval":
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Leave Request Approval</h2>
             <ManagerLeaveApproval />
           </div>
         );
       case "leave-balances":
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Leave Balances</h2>
-            <LeaveBalance
-              employeeId="all"
-              employeeName="All Employees"
-              isManager={true}
-            />
+            <AdminLeaveBalanceManagement />
           </div>
         );
       case "leave-reports":
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Leave Reports</h2>
             <p className="text-gray-600">
               Leave reports and analytics coming soon...
             </p>

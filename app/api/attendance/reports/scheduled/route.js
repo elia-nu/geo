@@ -497,7 +497,7 @@ async function generatePDFReport(reportData, reportType, startDate, endDate) {
     try {
       doc.font("Helvetica");
     } catch (error) {
-      console.log("Font loading error, using default font:", error.message);
+      console.error("Font loading error, using default font:", error.message);
       // Continue with default font
     }
 

@@ -28,7 +28,7 @@ export default function DailyAttendance({
 }) {
   // State management
   const [todayRecord, setTodayRecord] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState(null); // 'check-in' | 'check-out' | null
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
   const [location, setLocation] = useState(null);
@@ -42,6 +42,35 @@ export default function DailyAttendance({
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
   const webcamRef = useRef(null);
+
+  // Build user-friendly geolocation error messages
+  const getLocationErrorMessage = (err) => {
+    try {
+      if (!err || typeof err !== "object") {
+        return "Unable to get your location. Please try again.";
+      }
+      let errorMessage = "Unable to get your location. ";
+      const code = err.code;
+      switch (code) {
+        case 1: // PERMISSION_DENIED
+          errorMessage +=
+            "Please allow location access in your browser settings.";
+          break;
+        case 2: // POSITION_UNAVAILABLE
+          errorMessage +=
+            "Location information is unavailable. Please try again.";
+          break;
+        case 3: // TIMEOUT
+          errorMessage += "Location request timed out. Please try again.";
+          break;
+        default:
+          errorMessage += err.message || "Unknown error.";
+      }
+      return errorMessage;
+    } catch {
+      return "Unable to get your location. Please try again.";
+    }
+  };
 
   // Update current time every second
   useEffect(() => {
@@ -138,7 +167,7 @@ export default function DailyAttendance({
     console.log("getCurrentLocation called");
 
     if (!navigator.geolocation) {
-      console.error("Geolocation not supported");
+      console.warn("Geolocation not supported");
       setLocationError("Geolocation is not supported by your browser");
       return;
     }
@@ -187,7 +216,7 @@ export default function DailyAttendance({
           }
         },
         (error) => {
-          console.error(`Location error on attempt ${attempts}:`, error);
+          console.warn(`Location warning on attempt ${attempts}:`, error);
 
           if (attempts >= maxAttempts) {
             // If we've tried enough times, use whatever we have
@@ -195,24 +224,7 @@ export default function DailyAttendance({
               processLocationReadings();
             } else {
               // No successful readings
-              let errorMessage = "Unable to get your location. ";
-
-              switch (error.code) {
-                case error.PERMISSION_DENIED:
-                  errorMessage +=
-                    "Please allow location access in your browser settings.";
-                  break;
-                case error.POSITION_UNAVAILABLE:
-                  errorMessage +=
-                    "Location information is unavailable. Please try again.";
-                  break;
-                case error.TIMEOUT:
-                  errorMessage +=
-                    "Location request timed out. Please try again.";
-                  break;
-                default:
-                  errorMessage += error.message;
-              }
+              const errorMessage = getLocationErrorMessage(error);
 
               setLocationError(errorMessage);
               setLocationValidation({
@@ -332,7 +344,7 @@ export default function DailyAttendance({
       return;
     }
 
-    setLoading(true);
+    setLoadingAction(action);
     setMessage("Processing...");
 
     try {
@@ -348,7 +360,7 @@ export default function DailyAttendance({
           "Location validation failed. Please ensure you are at one of your work locations.",
           "error"
         );
-        setLoading(false);
+        setLoadingAction(null);
         return;
       }
 
@@ -358,7 +370,7 @@ export default function DailyAttendance({
         const photo = capturePhoto();
         if (!photo) {
           showMessage("Failed to capture photo", "error");
-          setLoading(false);
+          setLoadingAction(null);
           return;
         }
 
@@ -386,7 +398,7 @@ export default function DailyAttendance({
         } catch (error) {
           console.error("Error saving photo:", error);
           showMessage("Failed to save photo", "error");
-          setLoading(false);
+          setLoadingAction(null);
           return;
         }
       }
@@ -447,7 +459,7 @@ export default function DailyAttendance({
       console.error("Error recording attendance:", error);
       showMessage("Failed to record attendance", "error");
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
 
@@ -857,12 +869,13 @@ export default function DailyAttendance({
           <button
             onClick={() => handleAttendanceAction("check-in")}
             disabled={
-              loading ||
+              loadingAction !== null ||
               (todayRecord && todayRecord.checkInTime) ||
               !isCameraActive ||
               !locationValidation?.isValid
             }
             className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
+              loadingAction !== null ||
               (todayRecord && todayRecord.checkInTime) ||
               !isCameraActive ||
               !locationValidation?.isValid
@@ -870,7 +883,7 @@ export default function DailyAttendance({
                 : "bg-green-600 hover:bg-green-700 active:bg-green-800"
             }`}
           >
-            {loading ? (
+            {loadingAction === "check-in" ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
@@ -892,13 +905,14 @@ export default function DailyAttendance({
           <button
             onClick={() => handleAttendanceAction("check-out")}
             disabled={
-              loading ||
+              loadingAction !== null ||
               !todayRecord?.checkInTime ||
               todayRecord?.checkOutTime ||
               !isCameraActive ||
               !locationValidation?.isValid
             }
             className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
+              loadingAction !== null ||
               !todayRecord?.checkInTime ||
               !isCameraActive ||
               !locationValidation?.isValid
@@ -908,7 +922,7 @@ export default function DailyAttendance({
                 : "bg-red-600 hover:bg-red-700 active:bg-red-800"
             }`}
           >
-            {loading ? (
+            {loadingAction === "check-out" ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>

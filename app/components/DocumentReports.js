@@ -43,18 +43,18 @@ export default function DocumentReports() {
               type="date"
               value={range.start}
               onChange={(e) => setRange({ ...range, start: e.target.value })}
-              className="border rounded p-2 text-sm"
+              className="border rounded p-2 text-sm text-black"
             />
             <span className="text-gray-500">to</span>
             <input
               type="date"
               value={range.end}
               onChange={(e) => setRange({ ...range, end: e.target.value })}
-              className="border rounded p-2 text-sm"
+              className="border rounded p-2 text-sm text-black"
             />
             <button
               onClick={() => load(range.start, range.end)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-black  "
             >
               Apply
             </button>

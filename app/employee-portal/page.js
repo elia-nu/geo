@@ -29,6 +29,14 @@ export default function EmployeePortal() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem("employeeToken");
+      localStorage.removeItem("employeeData");
+    } catch {}
+    window.location.href = "/employee-login";
+  };
+
   useEffect(() => {
     checkAuthentication();
   }, []);
@@ -48,8 +56,6 @@ export default function EmployeePortal() {
 
       // Fetch fresh employee data from the database to get latest work locations
       const employeeId = employee._id || employee.id;
-      console.log("Employee ID to fetch:", employeeId);
-      console.log("Employee has workLocations:", employee.workLocations);
 
       if (!employeeId) {
         setError("Invalid employee data. Please login again.");
@@ -57,16 +63,10 @@ export default function EmployeePortal() {
       }
 
       // Set initial employee data
-      console.log("Setting employee data:", employee);
-      console.log("Employee _id:", employee._id, "Type:", typeof employee._id);
       setEmployeeData(employee);
 
       // If employee already has workLocations from localStorage, use them initially
       if (employee.workLocations && employee.workLocations.length > 0) {
-        console.log(
-          "Using workLocations from localStorage initially:",
-          employee.workLocations
-        );
         // For now, just set the IDs - we'll fetch full location details
         setWorkLocations([]);
         await fetchWorkLocationsForEmployee(employee);
@@ -85,16 +85,12 @@ export default function EmployeePortal() {
 
   const fetchLatestEmployeeData = async (employeeId) => {
     try {
-      console.log("Fetching latest employee data for:", employeeId);
-
       // Fetch the latest employee data from the database
       const response = await fetch(`/api/employee/${employeeId}`);
       const result = await response.json();
 
       if (result.success && result.employee) {
         const latestEmployee = result.employee;
-        console.log("Latest employee data:", latestEmployee);
-
         // Update employee data
         setEmployeeData(latestEmployee);
 
@@ -115,20 +111,16 @@ export default function EmployeePortal() {
 
   const fetchWorkLocationsForEmployee = async (employee) => {
     try {
-      console.log("Fetching work locations for employee:", employee);
-
       // Check for work locations in different possible formats
       let locationIds = [];
 
       // New format: workLocations array
       if (employee.workLocations && Array.isArray(employee.workLocations)) {
         locationIds = employee.workLocations;
-        console.log("Found workLocations array:", locationIds);
       }
       // Old format: single workLocation object
       else if (employee.workLocation && employee.workLocation._id) {
         locationIds = [employee.workLocation._id];
-        console.log("Found single workLocation:", locationIds);
       }
       // Check in personalDetails
       else if (
@@ -136,35 +128,22 @@ export default function EmployeePortal() {
         employee.personalDetails.workLocation._id
       ) {
         locationIds = [employee.personalDetails.workLocation._id];
-        console.log("Found workLocation in personalDetails:", locationIds);
       }
 
       if (locationIds.length === 0) {
-        console.log("No work locations found for employee");
         setWorkLocations([]);
         return;
       }
 
-      console.log("Employee location IDs to match:", locationIds);
-      console.log(
-        "Location IDs types:",
-        locationIds.map((id) => typeof id)
-      );
-
       // Fetch all work locations
-      console.log("Fetching work locations from API...");
       const response = await fetch("/api/work-locations");
       const result = await response.json();
-
-      console.log("Work locations API response:", result);
 
       if (
         result.success &&
         result.locations &&
         Array.isArray(result.locations)
       ) {
-        console.log("All work locations:", result.locations);
-
         // Filter locations that belong to this employee
         // Convert both locationIds and location._id to strings for comparison
         const employeeLocations = result.locations.filter((location) => {
@@ -172,24 +151,15 @@ export default function EmployeePortal() {
           const hasMatch = locationIds.some(
             (id) => id.toString() === locationIdStr
           );
-          console.log(
-            `Checking location ${location.name} (${locationIdStr}) against employee locations:`,
-            locationIds,
-            "Match:",
-            hasMatch
-          );
           return hasMatch;
         });
 
-        console.log("Employee's work locations:", employeeLocations);
         setWorkLocations(employeeLocations);
       } else {
         console.error(
           "Failed to fetch work locations or invalid response:",
           result
         );
-        console.error("Response locations type:", typeof result.locations);
-        console.error("Response locations:", result.locations);
         setWorkLocations([]);
       }
     } catch (error) {
@@ -423,6 +393,17 @@ export default function EmployeePortal() {
 
       {/* Main Content - offset for fixed sidebar on md+ screens */}
       <div className="flex-1 overflow-auto md:ml-64 lg:ml-72">
+        {/* Top bar with its own section for logout */}
+        <div className="sticky top-0 z-40 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-end">
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow hover:from-blue-700 hover:to-purple-700 transition-all text-sm font-medium"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
         <div className="p-4 sm:p-6 lg:p-8">{renderActiveSection()}</div>
       </div>
     </div>
@@ -442,15 +423,6 @@ function EnhancedDailyAttendance({
   const [locationLoading, setLocationLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [todayRecord, setTodayRecord] = useState(null);
-
-  // Debug logging
-  console.log("EnhancedDailyAttendance props:", {
-    employeeId,
-    employeeName,
-    employeeData,
-    workLocations,
-    workLocationsLength: workLocations?.length || 0,
-  });
 
   // Update current time every second
   useEffect(() => {

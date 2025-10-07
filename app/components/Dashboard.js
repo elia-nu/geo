@@ -346,7 +346,7 @@ const Dashboard = ({ onSectionChange }) => {
             >
               <TrendingUp className="h-5 w-5" />
               <div className="text-left">
-                <div className="font-medium">Integrated Payroll</div>
+                <div className="font-medium">Payroll</div>
                 <div className="text-sm opacity-90">
                   Calculator, Attendance & Reports
                 </div>

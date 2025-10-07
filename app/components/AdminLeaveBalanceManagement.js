@@ -25,8 +25,11 @@ export default function AdminLeaveBalanceManagement() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [departments, setDepartments] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedLeaveType, setSelectedLeaveType] = useState(null);
   const [adjustmentData, setAdjustmentData] = useState({
     leaveType: "",
     days: 0,
@@ -58,6 +61,22 @@ export default function AdminLeaveBalanceManagement() {
       }
     };
   }, [autoRefresh, filters]);
+
+  // Load departments once for the filter dropdown
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const res = await fetch("/api/departments");
+        const data = await res.json();
+        if (data?.success && Array.isArray(data.departments)) {
+          setDepartments(data.departments);
+        }
+      } catch (err) {
+        console.error("Failed to load departments", err);
+      }
+    };
+    fetchDepartments();
+  }, []);
 
   const fetchLeaveBalances = async () => {
     try {
@@ -228,6 +247,18 @@ export default function AdminLeaveBalanceManagement() {
     return "good";
   };
 
+  // Helper to compute overall usage percentage for an employee across all leave types
+  const getEmployeeOverallUsagePct = (employee) => {
+    const entries = Object.values(employee?.balances || {});
+    const totalAvailable = entries.reduce(
+      (sum, b) => sum + (b.available || 0),
+      0
+    );
+    const totalUsed = entries.reduce((sum, b) => sum + (b.used || 0), 0);
+    const totalAll = totalAvailable + totalUsed;
+    return totalAll > 0 ? Math.round((totalUsed / totalAll) * 100) : 0;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -326,14 +357,14 @@ export default function AdminLeaveBalanceManagement() {
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-white rounded-xl shadow-lg p-6 text-black">
         <h2 className="text-lg font-semibold mb-4 flex items-center space-x-2">
           <Settings className="w-5 h-5 text-blue-600" />
           <span>Filters</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-black mb-2">
               Department
             </label>
             <select
@@ -344,14 +375,15 @@ export default function AdminLeaveBalanceManagement() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">All Departments</option>
-              <option value="IT">IT</option>
-              <option value="HR">HR</option>
-              <option value="Finance">Finance</option>
-              <option value="Operations">Operations</option>
+              {departments.map((dept) => (
+                <option key={dept._id} value={dept.name}>
+                  {dept.name}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex items-center space-x-4">
-            <label className="flex items-center space-x-2">
+            <label className="flex items-center space-x-2 text-black">
               <input
                 type="checkbox"
                 checked={filters.lowBalance}
@@ -362,7 +394,7 @@ export default function AdminLeaveBalanceManagement() {
               />
               <span className="text-sm">Low Balance Only</span>
             </label>
-            <label className="flex items-center space-x-2">
+            <label className="flex items-center space-x-2 text-black">
               <input
                 type="checkbox"
                 checked={filters.highUsage}
@@ -382,10 +414,8 @@ export default function AdminLeaveBalanceManagement() {
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">
-                Total Employees
-              </p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-black">Total Employees</p>
+              <p className="text-2xl font-bold text-black">
                 {leaveBalances.length}
               </p>
             </div>
@@ -398,13 +428,11 @@ export default function AdminLeaveBalanceManagement() {
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Low Balances</p>
+              <p className="text-sm font-medium text-black">Low Balances</p>
               <p className="text-2xl font-bold text-red-600">
                 {
-                  leaveBalances.filter((emp) =>
-                    Object.values(emp.balances).some(
-                      (balance) => balance.available <= 2
-                    )
+                  leaveBalances.filter(
+                    (emp) => getEmployeeOverallUsagePct(emp) >= 75
                   ).length
                 }
               </p>
@@ -418,18 +446,13 @@ export default function AdminLeaveBalanceManagement() {
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">High Usage</p>
+              <p className="text-sm font-medium text-black">Medium Usage</p>
               <p className="text-2xl font-bold text-orange-600">
                 {
-                  leaveBalances.filter((emp) =>
-                    Object.values(emp.balances).some(
-                      (balance) =>
-                        calculateUsagePercentage(
-                          balance.used,
-                          balance.available
-                        ) >= 80
-                    )
-                  ).length
+                  leaveBalances.filter((emp) => {
+                    const pct = getEmployeeOverallUsagePct(emp);
+                    return pct >= 50 && pct < 75;
+                  }).length
                 }
               </p>
             </div>
@@ -442,30 +465,30 @@ export default function AdminLeaveBalanceManagement() {
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">
-                Pending Requests
+              <p className="text-sm font-medium text-black">
+                Total Leave Usage
               </p>
-              <p className="text-2xl font-bold text-yellow-600">
+              <p className="text-2xl font-bold text-blue-600">
                 {leaveBalances.reduce(
                   (sum, emp) =>
                     sum +
-                    Object.values(emp.balances).reduce(
-                      (empSum, balance) => empSum + balance.pending,
+                    Object.values(emp.balances || {}).reduce(
+                      (empSum, balance) => empSum + (balance.used || 0),
                       0
                     ),
                   0
                 )}
               </p>
             </div>
-            <div className="bg-yellow-100 p-3 rounded-lg">
-              <Clock className="w-6 h-6 text-yellow-600" />
+            <div className="bg-blue-100 p-3 rounded-lg">
+              <TrendingDown className="w-6 h-6 text-blue-600" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Employee Leave Balances */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-white rounded-xl shadow-lg p-6 text-black">
         <h2 className="text-xl font-semibold mb-6 flex items-center space-x-2">
           <BarChart3 className="w-6 h-6 text-blue-600" />
           <span>Employee Leave Balances</span>
@@ -475,25 +498,19 @@ export default function AdminLeaveBalanceManagement() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-700">
+                <th className="text-left py-3 px-4 font-medium text-black">
                   Employee
                 </th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">
+                <th className="text-left py-3 px-4 font-medium text-black">
                   Department
                 </th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">
-                  Annual
+                <th className="text-left py-3 px-4 font-medium text-black">
+                  Balances (Summary)
                 </th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">
-                  Sick
-                </th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">
-                  Personal
-                </th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">
+                <th className="text-left py-3 px-4 font-medium text-black">
                   Status
                 </th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">
+                <th className="text-left py-3 px-4 font-medium text-black">
                   Actions
                 </th>
               </tr>
@@ -504,16 +521,24 @@ export default function AdminLeaveBalanceManagement() {
                 const sickBalance = employee.balances?.sick;
                 const personalBalance = employee.balances?.personal;
 
-                const hasLowBalance = Object.values(
-                  employee.balances || {}
-                ).some((balance) => balance.available <= 2);
-                const hasHighUsage = Object.values(
-                  employee.balances || {}
-                ).some(
-                  (balance) =>
-                    calculateUsagePercentage(balance.used, balance.available) >=
-                    80
+                const balanceEntries = Object.values(employee.balances || {});
+                const totalAvailable = balanceEntries.reduce(
+                  (sum, b) => sum + (b.available || 0),
+                  0
                 );
+                const totalUsed = balanceEntries.reduce(
+                  (sum, b) => sum + (b.used || 0),
+                  0
+                );
+                const totalAll = totalAvailable + totalUsed;
+                const overallUsagePct =
+                  totalAll > 0 ? Math.round((totalUsed / totalAll) * 100) : 0;
+                const overallStatus =
+                  overallUsagePct >= 75
+                    ? "Low"
+                    : overallUsagePct >= 50
+                    ? "Medium"
+                    : "Good";
 
                 return (
                   <tr
@@ -522,78 +547,88 @@ export default function AdminLeaveBalanceManagement() {
                   >
                     <td className="py-3 px-4">
                       <div>
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-black">
                           {employee.employee?.name || "Unknown"}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-black">
                           {employee.employee?.email || ""}
                         </div>
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-black">
                         {employee.employee?.department || "N/A"}
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      {annualBalance ? (
-                        <div className="text-sm">
-                          <div className="font-medium text-gray-900">
-                            {annualBalance.available} days
-                          </div>
-                          <div className="text-gray-500">
-                            {annualBalance.used} used
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">N/A</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      {sickBalance ? (
-                        <div className="text-sm">
-                          <div className="font-medium text-gray-900">
-                            {sickBalance.available} days
-                          </div>
-                          <div className="text-gray-500">
-                            {sickBalance.used} used
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">N/A</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      {personalBalance ? (
-                        <div className="text-sm">
-                          <div className="font-medium text-gray-900">
-                            {personalBalance.available} days
-                          </div>
-                          <div className="text-gray-500">
-                            {personalBalance.used} used
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">N/A</span>
-                      )}
+                      <div className="text-xs text-black space-y-1">
+                        {employee.balances ? (
+                          Object.entries(employee.balances).map(
+                            ([leaveType, balance]) => (
+                              <button
+                                key={leaveType}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedEmployee(employee);
+                                  setSelectedLeaveType(leaveType);
+                                  setShowViewModal(true);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setSelectedEmployee(employee);
+                                    setSelectedLeaveType(leaveType);
+                                    setShowViewModal(true);
+                                  }
+                                }}
+                                className="flex w-full justify-start items-center gap-3 rounded-md px-3 py-1.5 -mx-2 bg-white hover:bg-blue-50/60 border border-gray-200 hover:border-blue-300 shadow-sm focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                title={`View ${leaveType} details`}
+                                aria-label={`View ${leaveType} balance details for ${
+                                  employee.employee?.name || "employee"
+                                }`}
+                              >
+                                <span className="capitalize px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 border border-gray-200">
+                                  {leaveType}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                                  {balance.available} avail
+                                </span>
+                                <span className="px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                                  {balance.used} used
+                                </span>
+                                {balance.pending > 0 && (
+                                  <span className="px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-200">
+                                    {balance.pending} pending
+                                  </span>
+                                )}
+                              </button>
+                            )
+                          )
+                        ) : (
+                          <span>N/A</span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center space-x-2">
-                        {hasLowBalance && (
+                        {overallStatus === "Low" && (
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            Low Balance
+                            Low
                           </span>
                         )}
-                        {hasHighUsage && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                            High Usage
+                        {overallStatus === "Medium" && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Medium
                           </span>
                         )}
-                        {!hasLowBalance && !hasHighUsage && (
+                        {overallStatus === "Good" && (
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Good
                           </span>
                         )}
+                        <span className="text-xs text-gray-500">
+                          {overallUsagePct}% used
+                        </span>
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -601,12 +636,13 @@ export default function AdminLeaveBalanceManagement() {
                         <button
                           onClick={() => {
                             setSelectedEmployee(employee);
-                            setShowAdjustmentModal(true);
+                            setSelectedLeaveType(null);
+                            setShowViewModal(true);
                           }}
                           className="p-1 text-blue-600 hover:text-blue-800"
-                          title="Adjust Balance"
+                          title="View Balances"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() =>
@@ -725,6 +761,88 @@ export default function AdminLeaveBalanceManagement() {
               >
                 <Save className="w-4 h-4" />
                 <span>Save Adjustment</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Balances Modal */}
+      {showViewModal && selectedEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-2xl text-black">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-xl font-semibold text-black">
+                {selectedEmployee.employee?.name || "Employee"} - Leave Balances
+              </h3>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-300">
+                    <th className="text-left py-3 px-4 font-semibold text-black">
+                      Leave Type
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-black">
+                      Available
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-black">
+                      Used
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-black">
+                      Pending
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedEmployee.balances &&
+                    Object.entries(selectedEmployee.balances).map(
+                      ([leaveType, balance]) => (
+                        <tr
+                          key={leaveType}
+                          className={`border-b border-gray-200 hover:bg-gray-50/60 ${
+                            selectedLeaveType === leaveType ? "bg-blue-50" : ""
+                          }`}
+                        >
+                          <td className="py-3 px-4 capitalize text-black">
+                            {leaveType}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                              {balance.available ?? 0}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                              {balance.used ?? 0}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-200">
+                              {balance.pending ?? 0}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-end mt-6">
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="px-4 py-2 text-black bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

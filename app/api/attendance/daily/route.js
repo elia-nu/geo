@@ -51,9 +51,6 @@ export async function GET(request) {
     } else if (date) {
       query.date = date;
     }
-
-    console.log("Fetching daily attendance with query:", query);
-
     const attendanceRecords = await db
       .collection("daily_attendance")
       .find(query)
@@ -116,12 +113,6 @@ export async function POST(request) {
       photoUrl,
       accuracy,
     } = data;
-
-    console.log("Processing attendance action:", {
-      employeeId,
-      action,
-      hasLocation: !!(latitude && longitude),
-    });
 
     // Validate required fields
     if (!employeeId || !action) {
@@ -257,12 +248,6 @@ export async function POST(request) {
       accuracy,
       new Date()
     );
-
-    console.log("📍 GPS Validation:", {
-      isValid: gpsValidation.isValid,
-      riskScore: gpsValidation.riskScore,
-      issues: gpsValidation.issues,
-    });
 
     // Block attendance if GPS validation fails
     if (!gpsValidation.isValid) {

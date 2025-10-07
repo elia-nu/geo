@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Users,
   X,
@@ -19,6 +19,7 @@ import StepperEmployeeForm from "./StepperEmployeeForm";
 import EmployeeSetupModal from "./EmployeeSetupModal";
 
 export default function EmployeeDatabase() {
+  const searchInputRef = useRef(null);
   const [employees, setEmployees] = useState([]);
   const [filteredEmployees, setFilteredEmployees] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -67,6 +68,72 @@ export default function EmployeeDatabase() {
     fetchEmployees();
     fetchDepartmentsAndLocations();
   }, []);
+
+  // When opening the profile dialog, fetch the enhanced employee document to ensure
+  // skills, health records and work locations are present (from related tables)
+  useEffect(() => {
+    const fetchEnhancedEmployee = async (id) => {
+      try {
+        const res = await fetch(`/api/employee/${id}/enhanced-simple`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const base = data?.employee || {};
+        // Resolve workLocations -> array of ids and friendly names
+        const rawWorkLocationIds =
+          base?.workLocations || data?.workLocations || [];
+        const workLocationIds = Array.isArray(rawWorkLocationIds)
+          ? rawWorkLocationIds
+              .map((v) =>
+                typeof v === "string" ? v : v?.$oid || v?._id || v?.id || ""
+              )
+              .filter(Boolean)
+          : [];
+
+        let workLocationsDetails = [];
+        try {
+          const wlRes = await fetch(`/api/work-locations`);
+          if (wlRes.ok) {
+            const wlData = await wlRes.json();
+            const list = Array.isArray(wlData?.locations)
+              ? wlData.locations
+              : Array.isArray(wlData)
+              ? wlData
+              : [];
+            const idSet = new Set(workLocationIds.map(String));
+            workLocationsDetails = list
+              .filter((loc) => idSet.has(String(loc._id || loc.id || "")))
+              .map((loc) => ({
+                id: String(loc._id || loc.id),
+                name: loc.name,
+              }));
+          }
+        } catch {}
+
+        const merged = {
+          ...(selectedEmployee || {}),
+          ...base,
+          skills: data?.skills ?? base?.skills ?? [],
+          healthRecords: data?.healthRecords ?? base?.healthRecords ?? {},
+          employmentHistory: data?.employmentHistory ?? base?.employmentHistory,
+          certifications: data?.certifications ?? base?.certifications,
+          workLocations: workLocationIds,
+          workLocationsDetails,
+        };
+        if (merged && typeof merged === "object") {
+          setSelectedEmployee(merged);
+        }
+      } catch {}
+    };
+
+    if (
+      isProfileDialogOpen &&
+      selectedEmployee &&
+      (selectedEmployee._id || selectedEmployee.id)
+    ) {
+      const empId = selectedEmployee._id || selectedEmployee.id;
+      fetchEnhancedEmployee(empId);
+    }
+  }, [isProfileDialogOpen, selectedEmployee]);
 
   const fetchDepartmentsAndLocations = async () => {
     try {
@@ -117,9 +184,60 @@ export default function EmployeeDatabase() {
     return emp.personalDetails?.email || emp.email || "";
   };
 
-  // Helper function to safely get employee skills
+  // Helper function to safely get employee phone/contact number
+  const getEmployeePhone = (emp) => {
+    return (
+      emp.personalDetails?.contactNumber ||
+      emp.contactNumber ||
+      emp.personalDetails?.phone ||
+      emp.phone ||
+      ""
+    );
+  };
+
+  // Helper to normalize skills for display (supports string, array of strings, array of objects)
   const getEmployeeSkills = (emp) => {
-    return emp.skills || [];
+    const raw = emp?.skills ?? emp?.personalDetails?.skills ?? [];
+    if (Array.isArray(raw)) {
+      if (raw.length > 0 && typeof raw[0] === "object") {
+        return raw
+          .map(
+            (s) => s?.skillName || s?.name || s?.title || String(s || "").trim()
+          )
+          .filter(Boolean);
+      }
+      return raw.map((s) => String(s || "").trim()).filter(Boolean);
+    }
+    if (typeof raw === "string") {
+      return raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  // Normalize health records fields for display
+  const getHealthRecords = (emp) => {
+    const records =
+      emp?.healthRecords || emp?.personalDetails?.healthRecords || {};
+    const normalizeList = (value) => {
+      if (Array.isArray(value))
+        return value.map((v) => String(v || "").trim()).filter(Boolean);
+      if (typeof value === "string")
+        return value
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      return [];
+    };
+    return {
+      bloodType: records?.bloodType || emp?.bloodType || "",
+      allergies: normalizeList(records?.allergies || emp?.allergies),
+      medicalConditions: normalizeList(
+        records?.medicalConditions || emp?.medicalConditions
+      ),
+    };
   };
 
   // Helper to normalize workLocation to a displayable string
@@ -127,6 +245,34 @@ export default function EmployeeDatabase() {
     if (typeof value === "object" && value?.name) return String(value.name);
     if (typeof value === "string") return value;
     return "";
+  };
+
+  // Resolve all known location names for an employee (supports legacy and new formats)
+  const getEmployeeLocationNames = (emp) => {
+    const names = new Set();
+    // Legacy single location
+    const legacy = getWorkLocationDisplay(emp.workLocation);
+    if (legacy) names.add(legacy);
+    // New: details array with names
+    if (Array.isArray(emp.workLocationsDetails)) {
+      emp.workLocationsDetails.forEach((wl) => {
+        if (wl && (wl.name || typeof wl === "string")) {
+          names.add(String(wl.name || wl));
+        }
+      });
+    }
+    // New: ids array -> map to names using workLocations state
+    if (Array.isArray(emp.workLocations) && Array.isArray(workLocations)) {
+      const idToName = new Map(
+        workLocations.map((wl) => [String(wl._id || wl.id), wl.name])
+      );
+      emp.workLocations.forEach((id) => {
+        const key = String(id && (id.$oid || id._id || id.id || id));
+        const nm = idToName.get(key);
+        if (nm) names.add(nm);
+      });
+    }
+    return Array.from(names);
   };
 
   // Filter employees based on search and filters
@@ -174,9 +320,10 @@ export default function EmployeeDatabase() {
     }
 
     if (locationFilter) {
-      filtered = filtered.filter(
-        (emp) => getWorkLocationDisplay(emp.workLocation) === locationFilter
-      );
+      filtered = filtered.filter((emp) => {
+        const names = getEmployeeLocationNames(emp);
+        return names.includes(locationFilter);
+      });
     }
 
     setFilteredEmployees(filtered);
@@ -193,6 +340,10 @@ export default function EmployeeDatabase() {
     try {
       setLoading(true);
       setError("");
+      // Guard: clear any unintended autofill in the search box after async events
+      if (searchInputRef?.current) {
+        searchInputRef.current.setAttribute("autocomplete", "new-password");
+      }
       const response = await fetch("/api/employee");
       if (!response.ok) {
         throw new Error(`Failed to fetch employees: ${response.statusText}`);
@@ -517,6 +668,14 @@ export default function EmployeeDatabase() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-500"
+              name="employeeSearch"
+              autoComplete="new-password"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              ref={searchInputRef}
+              data-lpignore="true"
+              data-1p-ignore="true"
             />
           </div>
           <div>
@@ -579,11 +738,15 @@ export default function EmployeeDatabase() {
               className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900"
             >
               <option value="">All Locations</option>
-              {getUniqueLocations().map((location, index) => (
-                <option key={`location-${index}-${location}`} value={location}>
-                  {location}
-                </option>
-              ))}
+              {Array.isArray(workLocations) &&
+                workLocations.map((loc) => (
+                  <option
+                    key={`location-${loc._id || loc.id || loc.name}`}
+                    value={loc.name}
+                  >
+                    {loc.name}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="flex items-end">
@@ -632,24 +795,24 @@ export default function EmployeeDatabase() {
 
       {/* Employee List */}
       <div className="bg-white rounded-lg shadow">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-x-auto w-full">
+          <table className="min-w-[980px] divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Phone No
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Department
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Designation
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Location
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Skills
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -690,48 +853,20 @@ export default function EmployeeDatabase() {
               ) : (
                 filteredEmployees.map((employee) => (
                   <tr key={employee._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {getEmployeeName(employee)}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {getEmployeeEmail(employee)}
-                        </div>
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[180px] overflow-hidden text-ellipsis">
+                      {getEmployeeName(employee)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[220px] overflow-hidden text-ellipsis">
+                      {getEmployeeEmail(employee)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[140px] overflow-hidden text-ellipsis">
+                      {getEmployeePhone(employee) || "-"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[160px] overflow-hidden text-ellipsis">
                       {employee.department}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[180px] overflow-hidden text-ellipsis">
                       {employee.designation}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {typeof employee.workLocation === "object" &&
-                      employee.workLocation?.name
-                        ? employee.workLocation.name
-                        : typeof employee.workLocation === "string"
-                        ? employee.workLocation
-                        : "Not specified"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {getEmployeeSkills(employee)
-                          .slice(0, 3)
-                          .map((skill, index) => (
-                            <span
-                              key={`${employee._id}-skill-${index}-${skill}`}
-                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                        {getEmployeeSkills(employee).length > 3 && (
-                          <span className="text-xs text-gray-500">
-                            +{getEmployeeSkills(employee).length - 3} more
-                          </span>
-                        )}
-                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
@@ -791,7 +926,10 @@ export default function EmployeeDatabase() {
         <div
           className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           style={{ zIndex: 9999 }}
-          onClick={() => setIsAddDialogOpen(false)}
+          onClick={() => {
+            setIsAddDialogOpen(false);
+            setSearchTerm("");
+          }}
         >
           <div
             className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col"
@@ -812,7 +950,10 @@ export default function EmployeeDatabase() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setIsAddDialogOpen(false)}
+                  onClick={() => {
+                    setIsAddDialogOpen(false);
+                    setSearchTerm("");
+                  }}
                   className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center hover:bg-opacity-30 transition-all"
                 >
                   <X className="w-5 h-5" />
@@ -1279,10 +1420,14 @@ export default function EmployeeDatabase() {
       {/* Stepper Employee Form */}
       <StepperEmployeeForm
         isOpen={isStepperFormOpen}
-        onClose={() => setIsStepperFormOpen(false)}
+        onClose={() => {
+          setIsStepperFormOpen(false);
+          setSearchTerm("");
+        }}
         onEmployeeAdded={() => {
           fetchEmployees();
           setIsStepperFormOpen(false);
+          setSearchTerm("");
         }}
       />
 
@@ -1293,12 +1438,14 @@ export default function EmployeeDatabase() {
           setIsEditDialogOpen(false);
           setSelectedEmployee(null);
           setFormErrors({});
+          setSearchTerm("");
         }}
         employee={selectedEmployee}
         onEmployeeUpdated={() => {
           fetchEmployees();
           setIsEditDialogOpen(false);
           setSelectedEmployee(null);
+          setSearchTerm("");
         }}
       />
 
@@ -1324,7 +1471,10 @@ export default function EmployeeDatabase() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setIsProfileDialogOpen(false)}
+                  onClick={() => {
+                    setIsProfileDialogOpen(false);
+                    setSearchTerm("");
+                  }}
                   className="w-10 h-10 bg-white rounded-lg flex items-center justify-center hover:bg-red-50 transition-all shadow-md group"
                 >
                   <X className="w-6 h-6 text-gray-700 group-hover:text-red-600" />
@@ -1347,7 +1497,7 @@ export default function EmployeeDatabase() {
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <label className="text-sm font-semibold text-gray-700">
+                      <label className="text-sm font-semibold text-gray-900">
                         Full Name
                       </label>
                       <p className="text-gray-900 font-semibold mt-1">
@@ -1355,7 +1505,7 @@ export default function EmployeeDatabase() {
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700">
+                      <label className="text-sm font-semibold text-gray-900">
                         Email
                       </label>
                       <p className="text-gray-900 mt-1">
@@ -1363,7 +1513,7 @@ export default function EmployeeDatabase() {
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700">
+                      <label className="text-sm font-semibold text-gray-900">
                         Contact Number
                       </label>
                       <p className="text-gray-900 mt-1">
@@ -1373,7 +1523,7 @@ export default function EmployeeDatabase() {
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700">
+                      <label className="text-sm font-semibold text-gray-900">
                         Date of Birth
                       </label>
                       <p className="text-gray-900 mt-1">
@@ -1383,7 +1533,7 @@ export default function EmployeeDatabase() {
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700">
+                      <label className="text-sm font-semibold text-gray-900">
                         Address
                       </label>
                       <p className="text-gray-900 mt-1">
@@ -1407,7 +1557,7 @@ export default function EmployeeDatabase() {
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <label className="text-sm font-semibold text-gray-700">
+                      <label className="text-sm font-semibold text-gray-900">
                         Department
                       </label>
                       <p className="text-gray-900 font-semibold mt-1">
@@ -1415,7 +1565,7 @@ export default function EmployeeDatabase() {
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700">
+                      <label className="text-sm font-semibold text-gray-900">
                         Designation
                       </label>
                       <p className="text-gray-900 font-semibold mt-1">
@@ -1423,17 +1573,24 @@ export default function EmployeeDatabase() {
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700">
-                        Work Location
+                      <label className="text-sm font-semibold text-gray-900">
+                        Work Locations
                       </label>
-                      <p className="text-gray-900 mt-1">
-                        {typeof selectedEmployee.workLocation === "object" &&
-                        selectedEmployee.workLocation?.name
-                          ? selectedEmployee.workLocation.name
-                          : typeof selectedEmployee.workLocation === "string"
-                          ? selectedEmployee.workLocation
-                          : "Not specified"}
-                      </p>
+                      {Array.isArray(selectedEmployee.workLocationsDetails) &&
+                      selectedEmployee.workLocationsDetails.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {selectedEmployee.workLocationsDetails.map((wl) => (
+                            <span
+                              key={wl.id}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+                            >
+                              {wl.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-900 mt-1">Not specified</p>
+                      )}
                     </div>
                     <div>
                       <label className="text-sm font-semibold text-gray-700 block mb-2">
@@ -1544,7 +1701,7 @@ export default function EmployeeDatabase() {
                         Blood Type
                       </label>
                       <p className="text-gray-900 mt-1 font-medium">
-                        {selectedEmployee.healthRecords?.bloodType ||
+                        {getHealthRecords(selectedEmployee).bloodType ||
                           "Not provided"}
                       </p>
                     </div>
@@ -1553,9 +1710,9 @@ export default function EmployeeDatabase() {
                         Allergies
                       </label>
                       <div className="flex flex-wrap gap-2 mt-1">
-                        {selectedEmployee.healthRecords?.allergies?.length >
+                        {getHealthRecords(selectedEmployee).allergies.length >
                         0 ? (
-                          selectedEmployee.healthRecords.allergies.map(
+                          getHealthRecords(selectedEmployee).allergies.map(
                             (allergy, index) => (
                               <span
                                 key={`allergy-${index}-${allergy}`}
@@ -1572,23 +1729,23 @@ export default function EmployeeDatabase() {
                         )}
                       </div>
                     </div>
-                    {selectedEmployee.healthRecords?.medicalConditions?.length >
-                      0 && (
+                    {getHealthRecords(selectedEmployee).medicalConditions
+                      .length > 0 && (
                       <div>
                         <label className="text-sm font-semibold text-gray-700 block mb-2">
                           Medical Conditions
                         </label>
                         <div className="flex flex-wrap gap-2 mt-1">
-                          {selectedEmployee.healthRecords.medicalConditions.map(
-                            (condition, index) => (
-                              <span
-                                key={`condition-${index}-${condition}`}
-                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"
-                              >
-                                {condition}
-                              </span>
-                            )
-                          )}
+                          {getHealthRecords(
+                            selectedEmployee
+                          ).medicalConditions.map((condition, index) => (
+                            <span
+                              key={`condition-${index}-${condition}`}
+                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"
+                            >
+                              {condition}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -1636,17 +1793,17 @@ export default function EmployeeDatabase() {
           onClose={() => {
             setIsSetupDialogOpen(false);
             setSelectedEmployee(null);
+            setSearchTerm("");
           }}
           onSuccess={(message) => {
             setSuccess(message);
             setIsSetupDialogOpen(false);
             setSelectedEmployee(null);
-            // Clear search and filters
+            // Do not modify user search/filter inputs here
+            // Refresh employees to reflect latest changes
+            fetchEmployees();
+            // Extra guard: clear any unintended autofill
             setSearchTerm("");
-            setDepartmentFilter("");
-            setSkillFilter("");
-            setDesignationFilter("");
-            setLocationFilter("");
             setTimeout(() => setSuccess(""), 3000);
           }}
           onError={(message) => {
@@ -1810,6 +1967,7 @@ export default function EmployeeDatabase() {
                 onClick={() => {
                   setIsDeleteDialogOpen(false);
                   setSelectedEmployee(null);
+                  setSearchTerm("");
                 }}
                 disabled={loading}
                 className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1817,7 +1975,10 @@ export default function EmployeeDatabase() {
                 Cancel
               </button>
               <button
-                onClick={handleDeleteEmployee}
+                onClick={() => {
+                  handleDeleteEmployee();
+                  setSearchTerm("");
+                }}
                 disabled={loading}
                 className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >

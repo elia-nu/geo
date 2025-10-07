@@ -317,7 +317,6 @@ export async function GET(request, { params }) {
       );
     }
 
-    console.log("Enhanced data fetched successfully");
     return NextResponse.json({
       employee,
       employmentHistory,

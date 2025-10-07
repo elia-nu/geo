@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { Eye, Edit2, Trash2 } from "lucide-react";
 import UploadDocumentDialog from "./UploadDocumentDialog";
 
 export default function DocumentManager() {
@@ -16,6 +17,7 @@ export default function DocumentManager() {
   const [formErrors, setFormErrors] = useState({});
   const [docxRenderError, setDocxRenderError] = useState("");
   const [isRenderingDocx, setIsRenderingDocx] = useState(false);
+  const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [newDocument, setNewDocument] = useState({
     employeeId: "",
     documentType: "",
@@ -256,36 +258,39 @@ export default function DocumentManager() {
       setDocxRenderError("");
       setViewingDocument(doc);
       setIsViewDialogOpen(true);
+      setPreviewUnavailable(false);
 
-      // PDFs and images can be inlined directly from our API
-      if (
+      // Only preview PDFs inline; other types are not supported here
+      const isPdf =
         doc.mimeType === "application/pdf" ||
-        doc.mimeType?.startsWith("image/")
-      ) {
-        setPreviewUrl(`/api/documents/${doc._id}/download?inline=1`);
+        /\.pdf$/i.test(doc.originalName || doc.title || "");
+      if (isPdf) {
+        try {
+          const res = await fetch(`/api/documents/${doc._id}/download`);
+          if (!res.ok) {
+            setPreviewUrl("");
+            setPreviewUnavailable(true);
+            return;
+          }
+          const blob = await res.blob();
+          const objUrl = URL.createObjectURL(blob);
+          setPreviewUrl(objUrl);
+        } catch (e) {
+          console.error(e);
+          setPreviewUrl("");
+          setPreviewUnavailable(true);
+        }
         return;
       }
 
-      // DOCX: render locally using docx-preview
-      if (
-        doc.mimeType ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      ) {
-        setPreviewUrl("__DOCX_RENDER__");
-        return;
-      }
-
-      // Legacy .doc: cannot preview reliably in-browser; show metadata and allow download
-      if (doc.mimeType === "application/msword") {
-        setPreviewUrl("");
-        return;
-      }
-
-      // Fallback to inline
-      setPreviewUrl(`/api/documents/${doc._id}/download?inline=1`);
+      // Non-PDF: show message to download
+      setPreviewUrl("");
+      setPreviewUnavailable(true);
+      return;
     } catch (e) {
       console.error("Preview error:", e);
       setPreviewUrl("");
+      setPreviewUnavailable(true);
     }
   };
 
@@ -295,6 +300,7 @@ export default function DocumentManager() {
     setPreviewUrl("");
     setViewingDocument(null);
     setIsViewDialogOpen(false);
+    setPreviewUnavailable(false);
   };
 
   // Render DOCX preview dynamically using docx-preview
@@ -338,7 +344,9 @@ export default function DocumentManager() {
 
   const getEmployeeName = (employeeId) => {
     const employee = employees.find((emp) => emp._id === employeeId);
-    return employee ? employee.personalDetails.name : "Unknown";
+    if (!employee) return "Unknown";
+    const name = employee.personalDetails?.name || employee.name;
+    return name || "Unknown";
   };
 
   const getDocumentStatus = (expiryDate) => {
@@ -421,7 +429,7 @@ export default function DocumentManager() {
             <h2 className="text-2xl font-bold text-gray-900">
               Document Management
             </h2>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-900 mt-1">
               Upload, manage, and track document expiry dates
             </p>
           </div>
@@ -440,7 +448,7 @@ export default function DocumentManager() {
         <div className="space-y-4">
           {expiredDocuments.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-red-800 mb-2">
+              <h3 className="text-lg font-semibold text-red-900 mb-2">
                 ⚠️ Expired Documents ({expiredDocuments.length})
               </h3>
               <div className="space-y-2">
@@ -449,7 +457,7 @@ export default function DocumentManager() {
                     key={doc._id}
                     className="flex justify-between items-center bg-white p-2 rounded"
                   >
-                    <span className="text-sm">
+                    <span className="text-sm text-black">
                       {getEmployeeName(doc.employeeId)} - {doc.title}
                     </span>
                     <span className="text-xs text-red-600">
@@ -468,7 +476,7 @@ export default function DocumentManager() {
 
           {expiringDocuments.length > 0 && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-orange-800 mb-2">
+              <h3 className="text-lg font-semibold text-orange-900 mb-2">
                 ⏰ Expiring Soon ({expiringDocuments.length})
               </h3>
               <div className="space-y-2">
@@ -477,7 +485,7 @@ export default function DocumentManager() {
                     key={doc._id}
                     className="flex justify-between items-center bg-white p-2 rounded"
                   >
-                    <span className="text-sm">
+                    <span className="text-sm text-black">
                       {getEmployeeName(doc.employeeId)} - {doc.title}
                     </span>
                     <span className="text-xs text-orange-600">
@@ -562,24 +570,32 @@ export default function DocumentManager() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => openViewDialog(document)}
                         disabled={loading}
-                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all hover:scale-110 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         title="View Document"
                       >
-                        View
+                        <Eye className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setIsUploadDialogOpen(true)}
+                        disabled={loading}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all hover:scale-110 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        title="Edit/Replace Document"
+                      >
+                        <Edit2 className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() =>
                           handleDeleteDocument(document._id, document.title)
                         }
                         disabled={loading}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all hover:scale-110 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         title="Delete Document"
                       >
-                        Delete
+                        <Trash2 className="w-5 h-5" />
                       </button>
                     </div>
                   </td>
@@ -590,140 +606,19 @@ export default function DocumentManager() {
         </div>
       </div>
 
-      {/* Upload Document Dialog */}
-      {isUploadDialogOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Upload New Document</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Select Employee
-                </label>
-                <select
-                  value={newDocument.employeeId}
-                  onChange={(e) =>
-                    setNewDocument({
-                      ...newDocument,
-                      employeeId: e.target.value,
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                >
-                  <option value="">Select an employee</option>
-                  {employees.map((emp) => (
-                    <option key={emp._id} value={emp._id}>
-                      {emp.personalDetails.name} - {emp.department}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Document Type
-                </label>
-                <select
-                  value={newDocument.documentType}
-                  onChange={(e) =>
-                    setNewDocument({
-                      ...newDocument,
-                      documentType: e.target.value,
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                >
-                  <option value="">Select document type</option>
-                  <option value="ID Card">ID Card</option>
-                  <option value="Contract">Contract</option>
-                  <option value="Certificate">Certificate</option>
-                  <option value="License">License</option>
-                  <option value="Medical Report">Medical Report</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Document Title
-                </label>
-                <input
-                  type="text"
-                  value={newDocument.title}
-                  onChange={(e) =>
-                    setNewDocument({
-                      ...newDocument,
-                      title: e.target.value,
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={newDocument.description}
-                  onChange={(e) =>
-                    setNewDocument({
-                      ...newDocument,
-                      description: e.target.value,
-                    })
-                  }
-                  rows={3}
-                  className="w-full p-2 border border-gray-300 rounded"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Expiry Date (Optional)
-                </label>
-                <input
-                  type="date"
-                  value={newDocument.expiryDate}
-                  onChange={(e) =>
-                    setNewDocument({
-                      ...newDocument,
-                      expiryDate: e.target.value,
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Select File
-                </label>
-                <input
-                  type="file"
-                  onChange={(e) => setSelectedFile(e.target.files[0])}
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                  className="w-full p-2 border border-gray-300 rounded"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                onClick={() => setIsUploadDialogOpen(false)}
-                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleFileUpload}
-                disabled={!selectedFile || !newDocument.employeeId}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
-              >
-                Upload Document
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Upload Document Dialog - Consistent with stepper UI */}
+      <UploadDocumentDialog
+        isOpen={isUploadDialogOpen}
+        onClose={() => setIsUploadDialogOpen(false)}
+        employees={employees}
+        newDocument={newDocument}
+        setNewDocument={setNewDocument}
+        selectedFile={selectedFile}
+        setSelectedFile={setSelectedFile}
+        onUpload={handleFileUpload}
+        loading={loading}
+        formErrors={formErrors}
+      />
 
       {/* View Document Dialog */}
       {isViewDialogOpen && viewingDocument && (
@@ -756,21 +651,13 @@ export default function DocumentManager() {
             </div>
 
             <div className="mb-4">
-              {previewUrl &&
-                previewUrl !== "__DOCX_RENDER__" &&
-                (viewingDocument.mimeType?.startsWith("image/") ? (
-                  <img
-                    src={previewUrl}
-                    alt={viewingDocument.title}
-                    className="max-h-[60vh] w-full object-contain border rounded"
-                  />
-                ) : (
-                  <iframe
-                    src={previewUrl}
-                    title="Document Preview"
-                    className="w-full h-[70vh] border rounded bg-white"
-                  />
-                ))}
+              {previewUrl && previewUrl !== "__DOCX_RENDER__" && (
+                <embed
+                  src={previewUrl}
+                  type="application/pdf"
+                  className="w-full h-[70vh] border rounded bg-white"
+                />
+              )}
               {previewUrl === "__DOCX_RENDER__" && (
                 <div className="w-full border rounded bg-white">
                   {isRenderingDocx ? (
@@ -790,9 +677,15 @@ export default function DocumentManager() {
                   )}
                 </div>
               )}
-              {!previewUrl && (
+              {!previewUrl && !previewUnavailable && (
                 <div className="p-6 bg-gray-50 border rounded text-gray-600 text-sm">
                   Loading preview or preview not available.
+                </div>
+              )}
+              {!previewUrl && previewUnavailable && (
+                <div className="p-6 bg-yellow-50 border border-yellow-200 rounded text-yellow-800 text-sm">
+                  Preview is not available for this file type. Please download
+                  to view.
                 </div>
               )}
             </div>

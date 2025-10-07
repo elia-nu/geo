@@ -155,23 +155,29 @@ export default function AttendanceReporting() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Attendance Reports
-          </h2>
-          <p className="text-gray-600">
-            Generate attendance reports and export to text files for compliance and
-            analysis
-          </p>
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="bg-white/20 rounded-full p-3 ring-1 ring-white/30">
+              <BarChart3 className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white">
+                Attendance Reports
+              </h2>
+              <p className="text-white/80">
+                Generate and export attendance reports
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowGenerateModal(true)}
+            className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 text-white"
+          >
+            <FileText className="w-4 h-4 text-white" />
+            <span>Generate Report</span>
+          </button>
         </div>
-        <button
-          onClick={() => setShowGenerateModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center space-x-2"
-        >
-          <FileText className="w-4 h-4" />
-          <span>Generate Report</span>
-        </button>
       </div>
 
       {/* Message */}
@@ -205,7 +211,7 @@ export default function AttendanceReporting() {
             </h3>
             <button
               onClick={clearCurrentReport}
-              className="text-sm text-gray-600 hover:text-gray-800"
+              className="text-sm text-gray-700 hover:text-gray-900"
             >
               Clear Report
             </button>
@@ -302,15 +308,17 @@ export default function AttendanceReporting() {
 
       {/* Generate Report Modal */}
       {showGenerateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white">
+              <h3 className="text-lg font-semibold">
                 Generate Attendance Report
               </h3>
+            </div>
+            <div className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
                     Report Type
                   </label>
                   <select
@@ -321,7 +329,7 @@ export default function AttendanceReporting() {
                         reportType: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
                   >
                     <option value="daily">Daily Report</option>
                     <option value="weekly">Weekly Report</option>
@@ -329,7 +337,7 @@ export default function AttendanceReporting() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
                     Start Date
                   </label>
                   <input
@@ -341,11 +349,11 @@ export default function AttendanceReporting() {
                         startDate: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
                     End Date
                   </label>
                   <input
@@ -357,11 +365,11 @@ export default function AttendanceReporting() {
                         endDate: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
                     Employee ID (Optional)
                   </label>
                   <input
@@ -374,11 +382,11 @@ export default function AttendanceReporting() {
                         employeeId: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
                     Department (Optional)
                   </label>
                   <input
@@ -391,10 +399,10 @@ export default function AttendanceReporting() {
                         department: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                   />
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-6">
                   <label className="flex items-center">
                     <input
                       type="checkbox"
@@ -407,7 +415,7 @@ export default function AttendanceReporting() {
                       }
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-700">
+                    <span className="ml-2 text-sm text-gray-900">
                       Include Photos
                     </span>
                   </label>
@@ -423,19 +431,19 @@ export default function AttendanceReporting() {
                       }
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-700">
+                    <span className="ml-2 text-sm text-gray-900">
                       Include Location Data
                     </span>
                   </label>
                 </div>
               </div>
             </div>
-            <div className="p-6 border-t border-gray-200">
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
               <div className="flex items-center space-x-3">
                 <button
                   onClick={handleGenerateReport}
                   disabled={generating}
-                  className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow"
                 >
                   {generating ? (
                     <>
@@ -451,7 +459,7 @@ export default function AttendanceReporting() {
                 </button>
                 <button
                   onClick={() => setShowGenerateModal(false)}
-                  className="flex-1 py-2 px-4 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium"
+                  className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
                 >
                   Cancel
                 </button>
