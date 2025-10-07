@@ -661,7 +661,9 @@ export default function EmployeeDatabase() {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <div>
-            <label className="block text-sm font-medium mb-1">Search</label>
+            <label className="block text-sm font-medium mb-1 text-black">
+              Search
+            </label>
             <input
               type="text"
               placeholder="Search by name, email, department, skills..."
@@ -679,22 +681,31 @@ export default function EmployeeDatabase() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Department</label>
+            <label className="block text-sm font-medium mb-1 text-black">
+              Department
+            </label>
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900"
             >
               <option value="">All Departments</option>
-              {getUniqueDepartments().map((dept, index) => (
-                <option key={`dept-${index}-${dept}`} value={dept}>
-                  {dept}
-                </option>
-              ))}
+              {Array.isArray(departments) &&
+                departments
+                  .map((d) => ({
+                    id: String(d?._id || d?.id || d?.value || d),
+                    name: String(d?.name || d?.title || d?.label || d || ""),
+                  }))
+                  .filter((d) => d.id && d.name)
+                  .map((d) => (
+                    <option key={`dept-${d.id}`} value={d.name}>
+                      {d.name}
+                    </option>
+                  ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-medium mb-1 text-black">
               Designation
             </label>
             <select
@@ -703,18 +714,24 @@ export default function EmployeeDatabase() {
               className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900"
             >
               <option value="">All Designations</option>
-              {getUniqueDesignations().map((designation, index) => (
-                <option
-                  key={`designation-${index}-${designation}`}
-                  value={designation}
-                >
-                  {designation}
-                </option>
-              ))}
+              {Array.isArray(designations) &&
+                designations
+                  .map((d) => ({
+                    id: String(d?._id || d?.id || d?.value || d),
+                    name: String(d?.name || d?.title || d?.label || d || ""),
+                  }))
+                  .filter((d) => d.id && d.name)
+                  .map((d) => (
+                    <option key={`designation-${d.id}`} value={d.name}>
+                      {d.name}
+                    </option>
+                  ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Skills</label>
+            <label className="block text-sm font-medium mb-1 text-black">
+              Skills
+            </label>
             <select
               value={skillFilter}
               onChange={(e) => setSkillFilter(e.target.value)}
@@ -729,7 +746,7 @@ export default function EmployeeDatabase() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-medium mb-1 text-black">
               Work Location
             </label>
             <select

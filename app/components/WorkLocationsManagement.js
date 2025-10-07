@@ -41,6 +41,19 @@ export default function WorkLocationsManagement() {
     employeeIds: [],
   });
 
+  // Normalize potentially varying ID shapes to a comparable string
+  const normalizeId = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+      if (value.$oid) return String(value.$oid);
+      if (value._id) return String(value._id);
+      if (value.id) return String(value.id);
+      if (typeof value.toString === "function") return String(value.toString());
+    }
+    return String(value);
+  };
+
   useEffect(() => {
     fetchLocations();
     fetchEmployees();
@@ -257,10 +270,55 @@ export default function WorkLocationsManagement() {
     setShowEditModal(true);
   };
 
-  const openAssignModal = (location) => {
+  const openAssignModal = async (location) => {
     setSelectedLocation(location);
     setAssignForm({ employeeIds: [] });
     setShowAssignModal(true);
+
+    // Preselect employees assigned to this location
+    try {
+      let preselectedIds = [];
+
+      // Try to fetch freshest location with assigned employees
+      try {
+        const res = await fetch(
+          `/api/work-locations/${normalizeId(location._id)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const loc = data?.location || data;
+          if (loc && Array.isArray(loc.assignedEmployees)) {
+            // assignedEmployees may be employee docs (from $lookup) or raw ids
+            preselectedIds = loc.assignedEmployees.map((item) => {
+              if (item && typeof item === "object") {
+                return normalizeId(item._id || item.id || item.$oid || item);
+              }
+              return normalizeId(item);
+            });
+          }
+        }
+      } catch {}
+
+      // Fallback: infer from employee.workLocations
+      if (preselectedIds.length === 0) {
+        const locationId = normalizeId(location._id);
+        preselectedIds = employees
+          .filter((emp) => {
+            const raw = emp.workLocations || emp.workLocation || [];
+            const list = Array.isArray(raw) ? raw : [raw];
+            return list.some((locId) => normalizeId(locId) === locationId);
+          })
+          .map((emp) => normalizeId(emp._id));
+      }
+
+      setAssignForm({
+        employeeIds: Array.from(new Set(preselectedIds.filter(Boolean))).map(
+          String
+        ),
+      });
+    } catch {
+      // Ignore errors, keep empty selection
+    }
   };
 
   const filteredLocations = locations.filter(
@@ -835,19 +893,24 @@ export default function WorkLocationsManagement() {
                     >
                       <input
                         type="checkbox"
-                        value={employee._id}
-                        checked={assignForm.employeeIds.includes(employee._id)}
+                        value={normalizeId(employee._id)}
+                        checked={assignForm.employeeIds.includes(
+                          normalizeId(employee._id)
+                        )}
                         onChange={(e) => {
                           if (e.target.checked) {
                             setAssignForm((prev) => ({
                               ...prev,
-                              employeeIds: [...prev.employeeIds, employee._id],
+                              employeeIds: [
+                                ...prev.employeeIds,
+                                normalizeId(employee._id),
+                              ],
                             }));
                           } else {
                             setAssignForm((prev) => ({
                               ...prev,
                               employeeIds: prev.employeeIds.filter(
-                                (id) => id !== employee._id
+                                (id) => id !== normalizeId(employee._id)
                               ),
                             }));
                           }

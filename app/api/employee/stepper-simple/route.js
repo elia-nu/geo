@@ -23,9 +23,33 @@ export async function POST(request) {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+    // Derive next employeeId if not provided
+    let employeeIdString = data.personalDetails?.employeeId;
+    if (!employeeIdString) {
+      const regex = /^EF-(\d+)$/i;
+      let maxNum = 0;
+      const cursor = db
+        .collection("employees")
+        .find(
+          { employeeId: { $exists: true } },
+          { projection: { employeeId: 1 } }
+        );
+      for await (const doc of cursor) {
+        const m =
+          typeof doc?.employeeId === "string" && doc.employeeId.match(regex);
+        if (m && m[1]) {
+          const n = parseInt(m[1], 10);
+          if (!Number.isNaN(n) && n > maxNum) maxNum = n;
+        }
+      }
+      const nextNum = maxNum + 1;
+      employeeIdString = `EF-${String(nextNum).padStart(3, "0")}`;
+    }
+
     // 1. Insert Personal Details (main employee record)
     const employeeData = {
       ...data.personalDetails,
+      employeeId: employeeIdString,
       password: hashedPassword,
       createdAt: new Date(),
       updatedAt: new Date(),

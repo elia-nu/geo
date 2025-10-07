@@ -132,10 +132,10 @@ export default function EmployeeLoginPage() {
               </div>
             )}
 
-            {/* Employee ID */}
+            {/* Employee ID / Email / Phone */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Employee ID
+                Employee ID / Email / Phone
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -144,7 +144,7 @@ export default function EmployeeLoginPage() {
                   name="employeeId"
                   value={formData.employeeId}
                   onChange={handleInputChange}
-                  placeholder="Enter your employee ID"
+                  placeholder="Enter employee ID, email or phone"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                   required
                 />

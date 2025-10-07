@@ -592,7 +592,7 @@ function EnhancedDailyAttendance({
     <div className="space-y-6">
       {/* Enhanced Header with Real-time Features */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
               <CheckCircle className="w-6 h-6" />
@@ -604,7 +604,7 @@ function EnhancedDailyAttendance({
           </div>
 
           {/* Real-time Clock and Date */}
-          <div className="text-right space-y-2">
+          <div className="text-left sm:text-right space-y-2">
             <div className="text-3xl font-bold">
               {currentTime.toLocaleTimeString([], {
                 hour: "2-digit",
@@ -619,7 +619,7 @@ function EnhancedDailyAttendance({
                 day: "numeric",
               })}
             </div>
-            <div className="flex items-center gap-2 justify-end">
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <button
                 onClick={() => setShowMap((v) => !v)}
                 disabled={workLocations.length === 0}
@@ -643,7 +643,7 @@ function EnhancedDailyAttendance({
         </div>
 
         {/* Status and Location Info */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center space-x-4">
             {/* Work Status Badge */}
             <span
@@ -677,7 +677,7 @@ function EnhancedDailyAttendance({
           <div className="bg-blue-50 rounded-lg p-4 mb-4 text-sm text-gray-700">
             Use the layer control to switch between Satellite and Street views.
           </div>
-          <div className="relative h-96 bg-gray-200 rounded-lg overflow-hidden">
+          <div className="relative h-64 sm:h-80 md:h-96 bg-gray-200 rounded-lg overflow-hidden">
             {currentLocation ? (
               <LocationMap
                 currentLocation={currentLocation}
@@ -765,7 +765,7 @@ function EnhancedDailyAttendance({
                     Use the layer control to switch between Satellite and Street
                     views.
                   </div>
-                  <div className="relative h-96 bg-gray-200 rounded-lg overflow-hidden">
+                  <div className="relative h-64 sm:h-80 md:h-96 bg-gray-200 rounded-lg overflow-hidden">
                     {currentLocation ? (
                       <LocationMap
                         currentLocation={currentLocation}

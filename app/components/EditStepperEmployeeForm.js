@@ -629,14 +629,10 @@ export default function EditStepperEmployeeForm({
                 <input
                   type="text"
                   value={personalDetails.employeeId}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      employeeId: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
-                  placeholder="Enter employee ID"
+                  readOnly
+                  disabled
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-900 cursor-not-allowed"
+                  placeholder="Auto-generated"
                 />
               </div>
 
