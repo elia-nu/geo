@@ -4,8 +4,6 @@ import { NextResponse } from "next/server";
 export async function POST(request) {
   try {
     const data = await request.json();
-    console.log("Export request data:", data);
-
     const { reportType, startDate, endDate, summary, records, stats, filters } =
       data;
 
@@ -16,8 +14,6 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-
-    console.log("Generating text report for export...");
 
     // Generate text report
     const reportText = generateTextReport(

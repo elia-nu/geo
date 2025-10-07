@@ -4,10 +4,8 @@ import { createAuditLog } from "../../../../utils/audit.js";
 
 export async function POST(request) {
   try {
-    console.log("Starting simple report generation...");
     const db = await getDb();
     const data = await request.json();
-    console.log("Request data:", data);
 
     const {
       reportType, // "daily", "weekly", "monthly"
@@ -47,8 +45,6 @@ export async function POST(request) {
       query.employeeId = employeeId;
     }
 
-    console.log("Building query:", query);
-
     // Get attendance records with employee and work location details
     const attendanceRecords = await db
       .collection("daily_attendance")
@@ -84,8 +80,6 @@ export async function POST(request) {
       ])
       .toArray();
 
-    console.log("Found attendance records:", attendanceRecords.length);
-
     // Process records
     const processedRecords = attendanceRecords.map((record) => ({
       _id: record._id,
@@ -115,8 +109,6 @@ export async function POST(request) {
       adminApproval: record.adminApproval,
       approvalStatus: record.adminApproval?.status || "pending",
     }));
-
-    console.log("Processing records:", processedRecords.length);
 
     // Generate simple report data
     const employees = new Set();
@@ -166,8 +158,6 @@ export async function POST(request) {
       },
       records: processedRecords.slice(0, 10), // Limit to first 10 records for response
     };
-
-    console.log("Generated report data:", reportData.summary);
 
     // Save report metadata to database
     const reportMetadata = {

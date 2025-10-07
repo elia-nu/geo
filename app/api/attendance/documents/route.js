@@ -48,8 +48,6 @@ export async function GET(request) {
       };
     }
 
-    console.log("Fetching attendance documents with query:", query);
-
     const documents = await db
       .collection("attendance_documents")
       .find(query)
@@ -138,16 +136,6 @@ export async function POST(request) {
       attendanceId = formData.get("attendanceId");
       files = formData.getAll("documents");
     }
-
-    console.log("Processing attendance document submission:", {
-      employeeId,
-      type,
-      requestDate,
-      startDate,
-      endDate,
-      leaveType,
-      filesCount: files.length,
-    });
 
     // Validate required fields based on type
     if (!employeeId || !type || !reason) {

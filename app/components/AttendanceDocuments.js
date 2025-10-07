@@ -247,21 +247,23 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
       <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="bg-white bg-opacity-20 rounded-full p-3">
-              <FileText className="w-6 h-6" />
+            <div className="bg-white/20 rounded-full p-3 ring-1 ring-white/30">
+              <FileText className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Attendance Documents</h1>
-              <p className="text-purple-100">
+              <h1 className="text-2xl font-bold text-white">
+                Attendance Documents
+              </h1>
+              <p className="text-white/80">
                 Submit requests and upload supporting documents
               </p>
             </div>
           </div>
           <button
             onClick={() => setIsSubmitModalOpen(true)}
-            className="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+            className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors text-white"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 text-white" />
             <span>New Request</span>
           </button>
         </div>

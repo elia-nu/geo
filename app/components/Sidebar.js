@@ -23,6 +23,7 @@ import {
   UserPlus,
   LineChart,
   DollarSign,
+  Calculator,
 } from "lucide-react";
 
 const Sidebar = ({
@@ -127,23 +128,24 @@ const Sidebar = ({
       id: "documents",
       label: "Document Management",
       icon: FileText,
-      submenu: [
-        {
-          id: "document-list",
-          label: "All Documents",
-          path: "/hrm?section=documents",
-        },
-        {
-          id: "document-upload",
-          label: "Upload Document",
-          path: "/hrm?section=document-upload",
-        },
-        {
-          id: "document-expiry",
-          label: "Expiry Alerts",
-          path: "/hrm?section=document-expiry",
-        },
-      ],
+      path: "/hrm?section=documents",
+      // submenu: [
+      //   {
+      //     id: "document-list",
+      //     label: "All Documents",
+      //     path: "/hrm?section=documents",
+      //   },
+      //   {
+      //     id: "document-upload",
+      //     label: "Upload Document",
+      //     path: "/hrm?section=document-upload",
+      //   },
+      //   {
+      //     id: "document-expiry",
+      //     label: "Expiry Alerts",
+      //     path: "/hrm?section=document-expiry",
+      //   },
+      // ],
     },
 
     {
@@ -151,6 +153,51 @@ const Sidebar = ({
       label: "Work Locations",
       icon: MapPin,
       path: "/hrm?section=work-locations",
+    },
+    {
+      id: "attendance",
+      label: "Attendance",
+      icon: Calendar,
+      submenu: [
+        {
+          id: "admin-attendance",
+          label: "Admin Management",
+          path: "/hrm?section=admin-attendance",
+        },
+        {
+          id: "attendance-all",
+          label: "All Attendance",
+          path: "/hrm?section=attendance-all",
+        },
+        {
+          id: "attendance-reports",
+          label: "Attendance Reports",
+          path: "/hrm?section=attendance-reports",
+        },
+      ],
+    },
+    {
+      id: "payroll",
+      label: "Payroll",
+      icon: Calculator,
+      path: "/hrm?section=payroll",
+    },
+    {
+      id: "leave-management",
+      label: "Leave Management",
+      icon: Calendar,
+      submenu: [
+        {
+          id: "leave-approval",
+          label: "Leave Approval",
+          path: "/hrm?section=leave-approval",
+        },
+        {
+          id: "leave-balances",
+          label: "Leave Balances",
+          path: "/hrm?section=leave-balances",
+        },
+      ],
     },
     {
       id: "projects",
@@ -170,50 +217,7 @@ const Sidebar = ({
       icon: Calendar,
       path: "/hrm?section=calendar",
     },
-    {
-      id: "attendance",
-      label: "Attendance",
-      icon: Calendar,
-      submenu: [
-        {
-          id: "admin-attendance",
-          label: "Admin Management",
-          path: "/hrm?section=admin-attendance",
-        },
-        {
-          id: "attendance-reports",
-          label: "Attendance Reports",
-          path: "/hrm?section=attendance-reports",
-        },
-        {
-          id: "payroll",
-          label: "Integrated Payroll",
-          path: "/hrm?section=payroll",
-        },
-      ],
-    },
-    {
-      id: "leave-management",
-      label: "Leave Management",
-      icon: Calendar,
-      submenu: [
-        {
-          id: "leave-approval",
-          label: "Leave Approval",
-          path: "/hrm?section=leave-approval",
-        },
-        {
-          id: "leave-balances",
-          label: "Leave Balances",
-          path: "/hrm?section=leave-balances",
-        },
-        {
-          id: "leave-reports",
-          label: "Leave Reports",
-          path: "/hrm?section=leave-reports",
-        },
-      ],
-    },
+
     /*{
       id: "project-management",
       label: "Project Management",
@@ -319,7 +323,7 @@ const Sidebar = ({
           {!isCollapsed && (
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-white" />
+                <Users className="w-5 h-5 text-white" strokeWidth={2.2} />
               </div>
               <div>
                 <h1 className="text-lg font-bold">HRM System</h1>
@@ -335,9 +339,9 @@ const Sidebar = ({
             className="p-2 rounded-lg hover:bg-slate-700 transition-colors"
           >
             {isCollapsed ? (
-              <Menu className="w-5 h-5" />
+              <Menu className="w-5 h-5" strokeWidth={2.2} />
             ) : (
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" strokeWidth={2.2} />
             )}
           </button>
         </div>
@@ -390,6 +394,7 @@ const Sidebar = ({
                 >
                   <Icon
                     className={`w-5 h-5 ${isCollapsed ? "mx-auto" : "mr-3"}`}
+                    strokeWidth={2.1}
                   />
                   {!isCollapsed && (
                     <>
@@ -397,9 +402,15 @@ const Sidebar = ({
                       {item.submenu && (
                         <div className="ml-2">
                           {isExpanded ? (
-                            <ChevronDown className="w-4 h-4" />
+                            <ChevronDown
+                              className="w-4 h-4"
+                              strokeWidth={2.2}
+                            />
                           ) : (
-                            <ChevronRight className="w-4 h-4" />
+                            <ChevronRight
+                              className="w-4 h-4"
+                              strokeWidth={2.2}
+                            />
                           )}
                         </div>
                       )}
@@ -439,7 +450,10 @@ const Sidebar = ({
                           }`}
                         >
                           {SubmenuIcon && (
-                            <SubmenuIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+                            <SubmenuIcon
+                              className="w-4 h-4 mr-2 flex-shrink-0"
+                              strokeWidth={2.1}
+                            />
                           )}
                           <span className="flex-1">{submenuItem.label}</span>
                         </button>

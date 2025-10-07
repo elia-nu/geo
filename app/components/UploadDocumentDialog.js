@@ -30,8 +30,8 @@ export default function UploadDocumentDialog({
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                <Upload className="w-6 h-6" />
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center ring-1 ring-white/30">
+                <Upload className="w-6 h-6 text-white" aria-hidden="true" />
               </div>
               <div>
                 <h3 className="text-2xl font-bold">Upload Document</h3>
@@ -42,9 +42,9 @@ export default function UploadDocumentDialog({
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center hover:bg-opacity-30 transition-all"
+              className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-all ring-1 ring-white/30"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 text-white" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -55,15 +55,15 @@ export default function UploadDocumentDialog({
             {/* Employee Selection Section */}
             <div className="bg-blue-50 rounded-xl p-4">
               <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <User className="w-5 h-5 text-blue-600" />
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center ring-1 ring-blue-200">
+                  <User className="w-5 h-5 text-blue-700" aria-hidden="true" />
                 </div>
                 <h4 className="text-lg font-semibold text-gray-900">
                   Employee Selection
                 </h4>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Select Employee <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -74,16 +74,19 @@ export default function UploadDocumentDialog({
                       employeeId: e.target.value,
                     })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all bg-white text-black ${
                     formErrors.employeeId
                       ? "border-red-300 focus:ring-red-500"
                       : "border-gray-300 focus:ring-blue-500"
                   }`}
                 >
                   <option value="">Select an employee</option>
-                  {employees.map((employee) => (
-                    <option key={employee._id} value={employee._id}>
-                      {employee.personalDetails.name} - {employee.department}
+                  {(employees || []).map((employee) => (
+                    <option key={employee?._id} value={employee?._id}>
+                      {employee?.personalDetails?.name ||
+                        employee?.name ||
+                        "Unknown"}{" "}
+                      - {employee?.department || ""}
                     </option>
                   ))}
                 </select>
@@ -98,8 +101,11 @@ export default function UploadDocumentDialog({
             {/* Document Information Section */}
             <div className="bg-green-50 rounded-xl p-4">
               <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-green-600" />
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center ring-1 ring-green-200">
+                  <FileText
+                    className="w-5 h-5 text-green-700"
+                    aria-hidden="true"
+                  />
                 </div>
                 <h4 className="text-lg font-semibold text-gray-900">
                   Document Information
@@ -107,7 +113,7 @@ export default function UploadDocumentDialog({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
                     Document Type <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -118,7 +124,7 @@ export default function UploadDocumentDialog({
                         documentType: e.target.value,
                       })
                     }
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all bg-white text-black ${
                       formErrors.documentType
                         ? "border-red-300 focus:ring-red-500"
                         : "border-gray-300 focus:ring-green-500"
@@ -139,7 +145,7 @@ export default function UploadDocumentDialog({
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
                     Document Title <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -151,7 +157,7 @@ export default function UploadDocumentDialog({
                         title: e.target.value,
                       })
                     }
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all bg-white text-black ${
                       formErrors.title
                         ? "border-red-300 focus:ring-red-500"
                         : "border-gray-300 focus:ring-green-500"
@@ -165,7 +171,7 @@ export default function UploadDocumentDialog({
                   )}
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
                     Description
                   </label>
                   <textarea
@@ -178,7 +184,7 @@ export default function UploadDocumentDialog({
                     }
                     placeholder="Enter document description"
                     rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none bg-white text-black"
                   />
                 </div>
               </div>
@@ -187,8 +193,11 @@ export default function UploadDocumentDialog({
             {/* File Upload & Expiry Section */}
             <div className="bg-purple-50 rounded-xl p-4">
               <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-purple-600" />
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center ring-1 ring-purple-200">
+                  <Calendar
+                    className="w-5 h-5 text-purple-700"
+                    aria-hidden="true"
+                  />
                 </div>
                 <h4 className="text-lg font-semibold text-gray-900">
                   File & Expiry Details
@@ -196,7 +205,7 @@ export default function UploadDocumentDialog({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
                     Select File <span className="text-red-500">*</span>
                   </label>
                   <div
@@ -232,7 +241,7 @@ export default function UploadDocumentDialog({
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
                     Expiry Date
                   </label>
                   <input
@@ -244,7 +253,7 @@ export default function UploadDocumentDialog({
                         expiryDate: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
                   />
                   <p className="text-sm text-gray-500 mt-1">
                     Leave blank if document doesn't expire

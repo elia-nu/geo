@@ -38,7 +38,7 @@ const Layout = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex justify-center">
+    <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
       <Sidebar
         activeSection={activeSection}
@@ -53,7 +53,7 @@ const Layout = ({
       {/* Main Content */}
       <div
         className={`transition-all duration-300 w-full ${
-          isSidebarCollapsed ? "ml-0 sm:ml-16" : "ml-0 sm:ml-64"
+          isSidebarCollapsed ? "ml-0 sm:ml-16" : "ml-64"
         }`}
       >
         {/* Top Header */}

@@ -181,8 +181,8 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Leave Requests</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-black">Leave Requests</h1>
+          <p className="text-black mt-1">
             Submit and track your leave requests
           </p>
         </div>
@@ -220,7 +220,7 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
       {/* Leave Request Form */}
       {showForm && (
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-6 flex items-center space-x-2">
+          <h2 className="text-xl font-semibold mb-6 flex items-center space-x-2 text-black ">
             <Calendar className="w-6 h-6 text-blue-600" />
             <span>Submit Leave Request</span>
           </h2>
@@ -228,14 +228,14 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   Leave Type *
                 </label>
                 <select
                   name="leaveType"
                   value={formData.leaveType}
                   onChange={handleInputChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-600"
                   required
                 >
                   <option value="">Select leave type</option>
@@ -250,7 +250,7 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   Start Date *
                 </label>
                 <input
@@ -258,13 +258,13 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
                   name="startDate"
                   value={formData.startDate}
                   onChange={handleInputChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-600"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   End Date *
                 </label>
                 <input
@@ -272,20 +272,20 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
                   name="endDate"
                   value={formData.endDate}
                   onChange={handleInputChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-600"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   Supporting Documents
                 </label>
                 <input
                   type="file"
                   multiple
                   onChange={handleFileChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-600"
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -295,7 +295,7 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 Reason for Leave *
               </label>
               <textarea
@@ -303,7 +303,7 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
                 value={formData.reason}
                 onChange={handleInputChange}
                 rows={4}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full p-3 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-600"
                 placeholder="Please provide a detailed reason for your leave request..."
                 required
               />
@@ -337,7 +337,7 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
 
       {/* Leave Requests List */}
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-6 flex items-center space-x-2">
+        <h2 className="text-xl font-semibold mb-6 flex items-center space-x-2 text-black">
           <FileText className="w-6 h-6 text-blue-600" />
           <span>My Leave Requests</span>
         </h2>
@@ -363,10 +363,10 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
                         <Calendar className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900 capitalize">
+                        <h3 className="font-semibold text-black capitalize">
                           {request.leaveType} Leave
                         </h3>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-black">
                           {formatDate(request.startDate)} -{" "}
                           {formatDate(request.endDate)}
                         </p>
@@ -384,16 +384,16 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
 
                   <div className="space-y-2">
                     <div>
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-black">
                         Reason:
                       </span>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-black mt-1">
                         {request.reason}
                       </p>
                     </div>
 
                     {request.submittedAt && (
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-black">
                         Submitted on {formatDate(request.submittedAt)}
                       </div>
                     )}
@@ -415,12 +415,12 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
             })}
           </div>
         ) : (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-black">
             <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-lg font-medium text-black mb-2">
               No leave requests yet
             </h3>
-            <p className="text-gray-600">
+            <p className="text-black">
               Submit your first leave request to get started
             </p>
           </div>

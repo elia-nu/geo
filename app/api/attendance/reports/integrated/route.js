@@ -35,17 +35,11 @@ export async function GET(request) {
     }
 
     // Get attendance records
-    console.log("Integrated Reports - Attendance query:", attendanceQuery);
     const attendanceRecords = await db
       .collection("daily_attendance")
       .find(attendanceQuery)
       .sort({ date: 1 })
       .toArray();
-    console.log(
-      "Integrated Reports - Found attendance records:",
-      attendanceRecords.length
-    );
-
     // Get approved leave requests for the same period
     const leaveQuery = {
       type: "leave",
@@ -65,24 +59,15 @@ export async function GET(request) {
       leaveQuery.employeeId = new ObjectId(employeeId);
     }
 
-    console.log("Integrated Reports - Leave query:", leaveQuery);
     const approvedLeaves = await db
       .collection("attendance_documents")
       .find(leaveQuery)
       .toArray();
-    console.log(
-      "Integrated Reports - Found approved leaves:",
-      approvedLeaves.length
-    );
 
     // Get employee details
     const employeeIds = [
       ...new Set(attendanceRecords.map((record) => record.employeeId)),
     ];
-    console.log(
-      "Integrated Reports - Employee IDs from attendance:",
-      employeeIds
-    );
 
     // Convert string IDs to ObjectIds for the query
     const objectIdEmployeeIds = employeeIds
@@ -90,22 +75,15 @@ export async function GET(request) {
         try {
           return new ObjectId(id);
         } catch (error) {
-          console.log("Invalid ObjectId:", id);
           return null;
         }
       })
       .filter((id) => id !== null);
 
-    console.log(
-      "Integrated Reports - ObjectId employee IDs:",
-      objectIdEmployeeIds
-    );
-
     const employees = await db
       .collection("employees")
       .find({ _id: { $in: objectIdEmployeeIds } })
       .toArray();
-    console.log("Integrated Reports - Found employees:", employees.length);
 
     // Filter by department if specified
     let filteredEmployees = employees;
@@ -131,20 +109,11 @@ export async function GET(request) {
       includeLeaveDetails
     );
 
-    console.log(
-      "Integrated Reports - Processed records:",
-      processedRecords.length
-    );
     if (processedRecords.length > 0) {
-      console.log(
-        "Sample processed record:",
-        JSON.stringify(processedRecords[0], null, 2)
-      );
     }
 
     // Calculate comprehensive statistics
     const statistics = calculateIntegratedStatistics(processedRecords);
-    console.log("Integrated Reports - Statistics:", statistics);
 
     return NextResponse.json({
       success: true,
@@ -204,14 +173,7 @@ async function processIntegratedAttendance(
   // Process each attendance record
   const processedRecords = attendanceRecords
     .map((record) => {
-      console.log(
-        "Processing record for employeeId:",
-        record.employeeId,
-        "Type:",
-        typeof record.employeeId
-      );
       const employee = employeeMap[record.employeeId.toString()];
-      console.log("Found employee:", employee ? employee.name : "NOT FOUND");
       if (!employee) return null; // Skip if employee not in filtered list
 
       const dateKey = record.date;

@@ -12,6 +12,7 @@ import {
   Loader2,
   Search,
   Filter,
+  X,
 } from "lucide-react";
 
 export default function WorkLocationsManagement() {
@@ -317,13 +318,13 @@ export default function WorkLocationsManagement() {
         <div className="flex items-center space-x-4">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Search locations..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
               />
             </div>
           </div>
@@ -455,14 +456,37 @@ export default function WorkLocationsManagement() {
       {/* Create Location Modal */}
       {showCreateModal && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           style={{ zIndex: 9999 }}
         >
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">Create Work Location</h2>
-            <form onSubmit={handleCreateLocation} className="space-y-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center ring-1 ring-white/30">
+                    <MapPin className="w-6 h-6 text-white" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">Create Work Location</h3>
+                    <p className="text-blue-100 text-sm">
+                      Define a geofence and optional details
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-all ring-1 ring-white/30"
+                >
+                  <X className="w-5 h-5 text-white" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            <form
+              onSubmit={handleCreateLocation}
+              className="p-6 overflow-y-auto flex-1 space-y-4"
+            >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-900 mb-1">
                   Location Name *
                 </label>
                 <input
@@ -474,14 +498,14 @@ export default function WorkLocationsManagement() {
                       name: e.target.value,
                     }))
                   }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                   placeholder="e.g., Main Office"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-900 mb-1">
                   Address
                 </label>
                 <input
@@ -493,14 +517,14 @@ export default function WorkLocationsManagement() {
                       address: e.target.value,
                     }))
                   }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                   placeholder="Full address"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
                     Latitude *
                   </label>
                   <input
@@ -513,14 +537,14 @@ export default function WorkLocationsManagement() {
                         latitude: e.target.value,
                       }))
                     }
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                     placeholder="e.g., 40.7128"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
                     Longitude *
                   </label>
                   <input
@@ -533,7 +557,7 @@ export default function WorkLocationsManagement() {
                         longitude: e.target.value,
                       }))
                     }
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                     placeholder="e.g., -74.0060"
                     required
                   />
@@ -541,7 +565,7 @@ export default function WorkLocationsManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-900 mb-1">
                   Radius (meters)
                 </label>
                 <input
@@ -553,13 +577,13 @@ export default function WorkLocationsManagement() {
                       radius: e.target.value,
                     }))
                   }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                   placeholder="100"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-900 mb-1">
                   Description
                 </label>
                 <textarea
@@ -570,7 +594,7 @@ export default function WorkLocationsManagement() {
                       description: e.target.value,
                     }))
                   }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                   placeholder="Optional description"
                   rows="3"
                 />
@@ -578,22 +602,22 @@ export default function WorkLocationsManagement() {
 
               <div className="flex space-x-3">
                 <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-100 transition-all font-medium"
+                >
+                  Cancel
+                </button>
+                <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all font-medium shadow-lg"
                 >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                   ) : (
                     "Create"
                   )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
-                >
-                  Cancel
                 </button>
               </div>
             </form>
@@ -604,14 +628,37 @@ export default function WorkLocationsManagement() {
       {/* Edit Location Modal */}
       {showEditModal && selectedLocation && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           style={{ zIndex: 9999 }}
         >
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">Edit Work Location</h2>
-            <form onSubmit={handleEditLocation} className="space-y-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center ring-1 ring-white/30">
+                    <MapPin className="w-6 h-6 text-white" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">Edit Work Location</h3>
+                    <p className="text-blue-100 text-sm">
+                      Update details or geofence settings
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-all ring-1 ring-white/30"
+                >
+                  <X className="w-5 h-5 text-white" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            <form
+              onSubmit={handleEditLocation}
+              className="p-6 overflow-y-auto flex-1 space-y-4"
+            >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-900 mb-1">
                   Location Name *
                 </label>
                 <input
@@ -623,13 +670,13 @@ export default function WorkLocationsManagement() {
                       name: e.target.value,
                     }))
                   }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-900 mb-1">
                   Address
                 </label>
                 <input
@@ -641,13 +688,13 @@ export default function WorkLocationsManagement() {
                       address: e.target.value,
                     }))
                   }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
                     Latitude *
                   </label>
                   <input
@@ -660,13 +707,13 @@ export default function WorkLocationsManagement() {
                         latitude: e.target.value,
                       }))
                     }
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
                     Longitude *
                   </label>
                   <input
@@ -679,14 +726,14 @@ export default function WorkLocationsManagement() {
                         longitude: e.target.value,
                       }))
                     }
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-900 mb-1">
                   Radius (meters)
                 </label>
                 <input
@@ -698,12 +745,12 @@ export default function WorkLocationsManagement() {
                       radius: e.target.value,
                     }))
                   }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-900 mb-1">
                   Description
                 </label>
                 <textarea
@@ -714,29 +761,29 @@ export default function WorkLocationsManagement() {
                       description: e.target.value,
                     }))
                   }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
                   rows="3"
                 />
               </div>
 
               <div className="flex space-x-3">
                 <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-100 transition-all font-medium"
+                >
+                  Cancel
+                </button>
+                <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all font-medium shadow-lg"
                 >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                   ) : (
                     "Update"
                   )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
-                >
-                  Cancel
                 </button>
               </div>
             </form>
@@ -747,23 +794,44 @@ export default function WorkLocationsManagement() {
       {/* Assign Employees Modal */}
       {showAssignModal && selectedLocation && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           style={{ zIndex: 9999 }}
         >
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">
-              Assign Employees to {selectedLocation.name}
-            </h2>
-            <form onSubmit={handleAssignEmployees} className="space-y-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center ring-1 ring-white/30">
+                    <Users className="w-6 h-6 text-white" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">Assign Employees</h3>
+                    <p className="text-blue-100 text-sm">
+                      Select employees to assign to {selectedLocation.name}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAssignModal(false)}
+                  className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-all ring-1 ring-white/30"
+                >
+                  <X className="w-5 h-5 text-white" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            <form
+              onSubmit={handleAssignEmployees}
+              className="p-6 overflow-y-auto flex-1 space-y-4"
+            >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Select Employees
                 </label>
                 <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
                   {employees.map((employee) => (
                     <label
                       key={employee._id}
-                      className="flex items-center space-x-2 py-1"
+                      className="flex items-center space-x-2 py-1 text-gray-900"
                     >
                       <input
                         type="checkbox"
@@ -802,22 +870,22 @@ export default function WorkLocationsManagement() {
 
               <div className="flex space-x-3">
                 <button
+                  type="button"
+                  onClick={() => setShowAssignModal(false)}
+                  className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-100 transition-all font-medium"
+                >
+                  Cancel
+                </button>
+                <button
                   type="submit"
                   disabled={loading || assignForm.employeeIds.length === 0}
-                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all font-medium shadow-lg"
                 >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                   ) : (
                     "Assign"
                   )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAssignModal(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
-                >
-                  Cancel
                 </button>
               </div>
             </form>
