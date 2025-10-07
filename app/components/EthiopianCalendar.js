@@ -111,21 +111,21 @@ export default function EthiopianCalendar() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setEtYear((y) => y - 1)}
-            className="px-3 py-2 rounded border border-gray-300 hover:bg-gray-50 flex items-center gap-1"
+            className="px-3 py-2 text-black rounded border border-gray-300 hover:bg-gray-50 flex items-center gap-1"
           >
-            <ChevronLeft className="w-4 h-4" /> Prev Year
+            <ChevronLeft className="w-4 h-4 text-black" /> Prev Year
           </button>
           <button
             onClick={() => setEtYear(todayEc.year)}
-            className="px-3 py-2 rounded border border-gray-300 hover:bg-gray-50"
+            className="px-3 py-2 text-black rounded border border-gray-300 hover:bg-gray-50"
           >
             Today (EC {todayEc.year})
           </button>
           <button
             onClick={() => setEtYear((y) => y + 1)}
-            className="px-3 py-2 rounded border border-gray-300 hover:bg-gray-50 flex items-center gap-1"
+            className="px-3 py-2 text-black rounded border border-gray-300 hover:bg-gray-50 flex items-center gap-1"
           >
-            Next Year <ChevronRight className="w-4 h-4" />
+            Next Year <ChevronRight className="w-4 h-4 text-black" />
           </button>
         </div>
       </div>
@@ -136,9 +136,12 @@ export default function EthiopianCalendar() {
             <div className="px-4 py-2 bg-gray-50 border-b font-semibold text-gray-800">
               {m.name}
             </div>
-            <div className="grid grid-cols-7 text-center text-xs font-medium text-gray-600 bg-white">
+            <div className="grid grid-cols-7 text-center text-xs font-medium text-gray-600 bg-white text-black">
               {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((h) => (
-                <div key={h} className="py-2 border-b border-gray-100">
+                <div
+                  key={h}
+                  className="py-2 border-b border-gray-100 text-black"
+                >
                   {h}
                 </div>
               ))}
@@ -147,7 +150,7 @@ export default function EthiopianCalendar() {
               {m.cells.map((cell) => {
                 if (cell.empty) return <div key={cell.key} className="h-8" />;
                 const base =
-                  "h-8 flex items-center justify-center rounded text-xs border transition-colors";
+                  "h-8 flex items-center justify-center rounded text-xs border transition-colors text-black";
                 const isHoliday = !!cell.holiday;
                 let style =
                   "bg-white border-gray-200 text-gray-900 hover:bg-gray-50";

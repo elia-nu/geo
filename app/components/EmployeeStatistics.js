@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 export default function EmployeeStatistics() {
   const [data, setData] = useState(null);
   const [departments, setDepartments] = useState([]);
+  const [workLocations, setWorkLocations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -12,16 +13,19 @@ export default function EmployeeStatistics() {
       try {
         setLoading(true);
         setError("");
-        const [overviewRes, deptRes] = await Promise.all([
+        const [overviewRes, deptRes, locRes] = await Promise.all([
           fetch("/api/reports/analytics?type=overview"),
           fetch("/api/departments"),
+          fetch("/api/work-locations"),
         ]);
         if (!overviewRes.ok)
           throw new Error("Failed to fetch employee overview");
         if (!deptRes.ok) throw new Error("Failed to fetch departments");
-        const [overview, deptPayload] = await Promise.all([
+        if (!locRes.ok) throw new Error("Failed to fetch work locations");
+        const [overview, deptPayload, locPayload] = await Promise.all([
           overviewRes.json(),
           deptRes.json(),
+          locRes.json(),
         ]);
         setData(overview);
         const list = Array.isArray(deptPayload?.departments)
@@ -30,6 +34,12 @@ export default function EmployeeStatistics() {
           ? deptPayload
           : [];
         setDepartments(list);
+        const locs = Array.isArray(locPayload?.locations)
+          ? locPayload.locations
+          : Array.isArray(locPayload)
+          ? locPayload
+          : [];
+        setWorkLocations(locs);
       } catch (e) {
         setError(e.message || "Failed to load report");
       } finally {
@@ -66,11 +76,6 @@ export default function EmployeeStatistics() {
         label: "Expired Docs",
         value: s.expiredDocuments,
         color: "from-rose-600 to-red-600",
-      },
-      {
-        label: "Notifications (7d)",
-        value: s.recentNotifications,
-        color: "from-fuchsia-600 to-pink-600",
       },
     ];
   }, [data]);
@@ -157,26 +162,38 @@ export default function EmployeeStatistics() {
 
               <div className="border rounded-lg p-4">
                 <h3 className="font-semibold text-gray-900 mb-3">
-                  Location Distribution
+                  Work Location Distribution
                 </h3>
                 <div className="overflow-x-auto">
                   <div className="space-y-3">
-                    {(data?.locationDistribution || []).map((row) => (
-                      <div key={row.name} className="space-y-1">
-                        <div className="flex justify-between text-sm text-gray-800">
-                          <span>{row.name}</span>
-                          <span className="font-medium">
-                            {row.count} • {row.percentage}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded h-2">
-                          <div
-                            className="h-2 rounded bg-emerald-600"
-                            style={{ width: `${row.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
+                    {(() => {
+                      const total = workLocations.reduce(
+                        (sum, l) => sum + (l.employeeCount || 0),
+                        0
+                      );
+                      return workLocations.map((l) => {
+                        const count = l.employeeCount || 0;
+                        const pct = total
+                          ? ((count / total) * 100).toFixed(1)
+                          : 0;
+                        return (
+                          <div key={l._id || l.name} className="space-y-1">
+                            <div className="flex justify-between text-sm text-gray-800">
+                              <span>{l.name}</span>
+                              <span className="font-medium">
+                                {count} • {pct}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded h-2">
+                              <div
+                                className="h-2 rounded bg-emerald-600"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               </div>

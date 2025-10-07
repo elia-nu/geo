@@ -9,6 +9,7 @@ import NotificationManager from "../../components/NotificationManager";
 import AttendanceReporting from "../../components/AttendanceReporting";
 import ManagerLeaveApproval from "../../components/ManagerLeaveApproval";
 import LeaveBalance from "../../components/LeaveBalance";
+import AdminLeaveBalanceManagement from "../../components/AdminLeaveBalanceManagement";
 
 export default function ProtectedHRMDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -184,11 +185,7 @@ export default function ProtectedHRMDashboard() {
         return (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4">Leave Balances</h2>
-            <LeaveBalance
-              employeeId="all"
-              employeeName="All Employees"
-              isManager={true}
-            />
+            <AdminLeaveBalanceManagement />
           </div>
         );
       case "leave-reports":

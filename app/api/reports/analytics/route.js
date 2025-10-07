@@ -282,9 +282,24 @@ async function generateDocumentReport(db, startDate, endDate) {
   }
 
   const documents = await db.collection("documents").find(dateFilter).toArray();
+  if (!Array.isArray(documents)) {
+    return {
+      total: 0,
+      byType: {},
+      byStatus: { active: 0, expiring: 0, expired: 0 },
+      byEmployee: {},
+      uploadTrend: {},
+      dateRange: startDate && endDate ? { startDate, endDate } : null,
+      generatedAt: new Date().toISOString(),
+    };
+  }
   const employees = await db.collection("employees").find({}).toArray();
   const employeeMap = employees.reduce((map, emp) => {
-    map[emp._id.toString()] = emp;
+    try {
+      map[emp._id.toString()] = emp;
+    } catch (_) {
+      // ignore
+    }
     return map;
   }, {});
 
@@ -303,19 +318,28 @@ async function generateDocumentReport(db, startDate, endDate) {
 
   documents.forEach((doc) => {
     // Type breakdown
-    const type = doc.documentType || "Other";
+    const type = doc.documentType || doc.type || "Other";
     documentStats.byType[type] = (documentStats.byType[type] || 0) + 1;
 
     // Status breakdown
-    if (doc.expiryDate) {
-      const expiryDate = new Date(doc.expiryDate);
+    if (doc.expiryDate || doc.expirationDate) {
+      const expiryRaw = doc.expiryDate || doc.expirationDate;
+      const expiryDate = new Date(expiryRaw);
       const thirtyDaysFromNow = new Date(
         now.getTime() + 30 * 24 * 60 * 60 * 1000
       );
 
-      if (expiryDate < now) {
+      if (
+        expiryDate instanceof Date &&
+        !isNaN(expiryDate.getTime()) &&
+        expiryDate < now
+      ) {
         documentStats.byStatus.expired++;
-      } else if (expiryDate <= thirtyDaysFromNow) {
+      } else if (
+        expiryDate instanceof Date &&
+        !isNaN(expiryDate.getTime()) &&
+        expiryDate <= thirtyDaysFromNow
+      ) {
         documentStats.byStatus.expiring++;
       } else {
         documentStats.byStatus.active++;
@@ -325,17 +349,36 @@ async function generateDocumentReport(db, startDate, endDate) {
     }
 
     // Employee breakdown
-    const employee = employeeMap[doc.employeeId];
-    if (employee) {
-      const empName = employee.personalDetails.name;
-      documentStats.byEmployee[empName] =
-        (documentStats.byEmployee[empName] || 0) + 1;
+    try {
+      const empKey =
+        doc.employeeId && doc.employeeId.toString
+          ? doc.employeeId.toString()
+          : doc.employeeId
+          ? String(doc.employeeId)
+          : "";
+      const employee = employeeMap[empKey];
+      if (employee) {
+        const empName =
+          employee.personalDetails?.name || employee.name || empKey;
+        documentStats.byEmployee[empName] =
+          (documentStats.byEmployee[empName] || 0) + 1;
+      }
+    } catch (_) {
+      // tolerate malformed employee linkage
     }
 
-    // Upload trend (by month)
-    const uploadMonth = new Date(doc.uploadDate).toISOString().substring(0, 7); // YYYY-MM
-    documentStats.uploadTrend[uploadMonth] =
-      (documentStats.uploadTrend[uploadMonth] || 0) + 1;
+    // Upload trend (by month) – tolerate missing/invalid dates
+    try {
+      const uploadSource = doc.uploadDate || doc.createdAt || doc.updatedAt;
+      const uploadDate = uploadSource ? new Date(uploadSource) : null;
+      if (uploadDate && !isNaN(uploadDate.getTime())) {
+        const uploadMonth = uploadDate.toISOString().substring(0, 7); // YYYY-MM
+        documentStats.uploadTrend[uploadMonth] =
+          (documentStats.uploadTrend[uploadMonth] || 0) + 1;
+      }
+    } catch (_) {
+      // ignore bad dates
+    }
   });
 
   return {

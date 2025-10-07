@@ -415,7 +415,7 @@ export default function LeaveBalance({
       {/* Leave Balance Details */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl text-black font-semibold flex items-center space-x-2">
+          <h2 className="text-xl font-semibold flex items-center space-x-2">
             <BarChart3 className="w-6 h-6 text-blue-600" />
             <span>Leave Balance Details</span>
           </h2>
@@ -472,14 +472,14 @@ export default function LeaveBalance({
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Available</span>
-                        <span className="font-semibold text-green-600 text-black">
+                        <span className="font-semibold text-green-600">
                           {balance.available} days
                         </span>
                       </div>
 
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Used</span>
-                        <span className="font-semibold text-orange-600 text-black">
+                        <span className="font-semibold text-orange-600">
                           {balance.used} days
                         </span>
                       </div>
@@ -487,7 +487,7 @@ export default function LeaveBalance({
                       {balance.pending > 0 && (
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600">Pending</span>
-                          <span className="font-semibold text-yellow-600 text-black ">
+                          <span className="font-semibold text-yellow-600">
                             {balance.pending} days
                           </span>
                         </div>
@@ -520,7 +520,7 @@ export default function LeaveBalance({
                         <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
                           <div className="flex justify-between text-xs">
                             <span className="text-gray-600">Total Earned:</span>
-                            <span className="font-medium text-black">
+                            <span className="font-medium">
                               {balance.totalEarned} days
                             </span>
                           </div>
@@ -529,7 +529,7 @@ export default function LeaveBalance({
                               <span className="text-gray-600">
                                 Carried Forward:
                               </span>
-                              <span className="font-medium text-black">
+                              <span className="font-medium">
                                 {balance.carriedForward} days
                               </span>
                             </div>
@@ -540,7 +540,7 @@ export default function LeaveBalance({
                                 <span className="text-gray-600">
                                   Current Year Accrual:
                                 </span>
-                                <span className="font-medium text-green-600 text-black">
+                                <span className="font-medium text-green-600">
                                   {balance.currentYearAccrual} days
                                 </span>
                               </div>
@@ -550,7 +550,7 @@ export default function LeaveBalance({
                               <span className="text-gray-600">
                                 Next Accrual:
                               </span>
-                              <span className="font-medium text-blue-600 text-black">
+                              <span className="font-medium text-blue-600">
                                 {new Date(
                                   balance.nextAccrualDate
                                 ).toLocaleDateString()}
@@ -562,7 +562,7 @@ export default function LeaveBalance({
                               <span className="text-gray-600">
                                 Last Calculated:
                               </span>
-                              <span className="font-medium text-gray-500 text-black">
+                              <span className="font-medium text-gray-500">
                                 {new Date(
                                   balance.lastCalculated
                                 ).toLocaleTimeString()}
@@ -587,7 +587,7 @@ export default function LeaveBalance({
 
       {/* Employment Information */}
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl text-black font-semibold mb-4 flex items-center space-x-2">
+        <h2 className="text-xl font-semibold mb-4 flex items-center space-x-2">
           <Calendar className="w-6 h-6 text-blue-600" />
           <span>Employment Information</span>
         </h2>
@@ -635,7 +635,7 @@ export default function LeaveBalance({
       {/* Recent Adjustments */}
       {leaveBalance.adjustments && leaveBalance.adjustments.length > 0 && (
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl text-black  font-semibold mb-4 flex items-center space-x-2">
+          <h2 className="text-xl font-semibold mb-4 flex items-center space-x-2">
             <TrendingUp className="w-6 h-6 text-blue-600" />
             <span>Recent Adjustments</span>
           </h2>

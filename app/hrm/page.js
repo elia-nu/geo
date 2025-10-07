@@ -9,6 +9,7 @@ import NotificationManager from "../components/NotificationManager";
 import AttendanceReporting from "../components/AttendanceReporting";
 import ManagerLeaveApproval from "../components/ManagerLeaveApproval";
 import LeaveBalance from "../components/LeaveBalance";
+import AdminLeaveBalanceManagement from "../components/AdminLeaveBalanceManagement";
 import EthiopianCalendar from "../components/EthiopianCalendar";
 import IntegratedPayrollSystem from "../components/IntegratedPayrollSystem";
 import EmployeeLocationManagement from "../components/EmployeeLocationManagement";
@@ -271,11 +272,7 @@ export default function HRMDashboard() {
       case "leave-balances":
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <LeaveBalance
-              employeeId="all"
-              employeeName="All Employees"
-              isManager={true}
-            />
+            <AdminLeaveBalanceManagement />
           </div>
         );
       case "leave-reports":
