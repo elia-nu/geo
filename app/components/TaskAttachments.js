@@ -17,7 +17,14 @@ import {
   AccessTime as TimeIcon,
 } from "@mui/icons-material";
 
-const TaskAttachments = ({ taskId, currentUser, onUpdate, showSuccessAlert, showErrorAlert, setLoading: setParentLoading }) => {
+const TaskAttachments = ({
+  taskId,
+  currentUser,
+  onUpdate,
+  showSuccessAlert,
+  showErrorAlert,
+  setLoading: setParentLoading,
+}) => {
   const [attachments, setAttachments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -40,10 +47,12 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate, showSuccessAlert, show
       if (data.success) {
         setAttachments(data.attachments || []);
       } else {
-        showErrorAlert && showErrorAlert(data.error || "Failed to fetch attachments");
+        showErrorAlert &&
+          showErrorAlert(data.error || "Failed to fetch attachments");
       }
     } catch (err) {
-      showErrorAlert && showErrorAlert("Error fetching attachments: " + err.message);
+      showErrorAlert &&
+        showErrorAlert("Error fetching attachments: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -108,12 +117,15 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate, showSuccessAlert, show
       if (data.success) {
         await fetchAttachments(); // Refresh attachments
         onUpdate && onUpdate(); // Notify parent component
-        showSuccessAlert && showSuccessAlert("Attachment deleted successfully!");
+        showSuccessAlert &&
+          showSuccessAlert("Attachment deleted successfully!");
       } else {
-        showErrorAlert && showErrorAlert(data.error || "Failed to delete attachment");
+        showErrorAlert &&
+          showErrorAlert(data.error || "Failed to delete attachment");
       }
     } catch (err) {
-      showErrorAlert && showErrorAlert("Error deleting attachment: " + err.message);
+      showErrorAlert &&
+        showErrorAlert("Error deleting attachment: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -144,12 +156,15 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate, showSuccessAlert, show
         setEditDescription("");
         await fetchAttachments(); // Refresh attachments
         onUpdate && onUpdate(); // Notify parent component
-        showSuccessAlert && showSuccessAlert("Attachment description updated successfully!");
+        showSuccessAlert &&
+          showSuccessAlert("Attachment description updated successfully!");
       } else {
-        showErrorAlert && showErrorAlert(data.error || "Failed to update attachment");
+        showErrorAlert &&
+          showErrorAlert(data.error || "Failed to update attachment");
       }
     } catch (err) {
-      showErrorAlert && showErrorAlert("Error updating attachment: " + err.message);
+      showErrorAlert &&
+        showErrorAlert("Error updating attachment: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -190,6 +205,8 @@ const TaskAttachments = ({ taskId, currentUser, onUpdate, showSuccessAlert, show
   };
 
   const getFileIcon = (fileType) => {
+    if (!fileType) return <FileIcon className="text-gray-500" />;
+
     if (fileType.startsWith("image/"))
       return <ImageIcon className="text-blue-500" />;
     if (fileType === "application/pdf")

@@ -205,6 +205,12 @@ const Sidebar = ({
       icon: Briefcase,
       path: "/hrm?section=projects",
     },
+    {
+      id: "category-management",
+      label: "Category Management",
+      icon: Settings,
+      path: "/category-management",
+    },
     // {
     //   id: "notifications",
     //   label: "Notifications",
@@ -248,12 +254,12 @@ const Sidebar = ({
         },
       ],
     },*/
-    {
+    /*{
       id: "budget-management",
       label: "Budget Management",
       icon: DollarSign,
       path: "/hrm?section=budget-management",
-    },
+    },*/
     {
       id: "analytics",
       label: "Analytics & Reports",

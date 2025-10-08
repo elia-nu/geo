@@ -68,7 +68,19 @@ const ProjectAlertsPage = () => {
   // Fetch alerts and projects on component mount
   useEffect(() => {
     fetchProjects();
-    fetchAlerts();
+    // Generate alerts first for freshest data (scoped to project when present)
+    (async () => {
+      try {
+        const url = projectId
+          ? `/api/project-alerts?projectId=${projectId}`
+          : "/api/project-alerts";
+        await fetch(url, { method: "PUT" });
+      } catch (e) {
+        console.warn("Alert generation failed", e);
+      } finally {
+        fetchAlerts();
+      }
+    })();
   }, [projectId]);
 
   const fetchAlerts = async () => {
@@ -147,9 +159,10 @@ const ProjectAlertsPage = () => {
 
   const handleGenerateAlerts = async () => {
     try {
-      const response = await fetch("/api/project-alerts", {
-        method: "PUT",
-      });
+      const url = projectId
+        ? `/api/project-alerts?projectId=${projectId}`
+        : "/api/project-alerts";
+      const response = await fetch(url, { method: "PUT" });
 
       const data = await response.json();
 
@@ -247,29 +260,37 @@ const ProjectAlertsPage = () => {
   };
 
   const getAlertTypeIcon = (type) => {
-    switch (type) {
-      case "DELAY":
-        return <WarningIcon color="warning" />;
-      case "MILESTONE":
-        return <InfoIcon color="info" />;
-      case "CRITICAL":
-        return <ErrorIcon color="error" />;
-      default:
-        return <NotificationsIcon />;
-    }
+    const t = (type || "").toLowerCase();
+    if (
+      t === "overdue_project" ||
+      t === "missed_milestone" ||
+      t === "overdue_task"
+    )
+      return <ErrorIcon color="error" />;
+    if (
+      t === "approaching_deadline" ||
+      t === "approaching_milestone" ||
+      t === "approaching_task_deadline"
+    )
+      return <WarningIcon color="warning" />;
+    return <InfoIcon color="info" />;
   };
 
   const getAlertTypeColor = (type) => {
-    switch (type) {
-      case "DELAY":
-        return "warning";
-      case "MILESTONE":
-        return "info";
-      case "CRITICAL":
-        return "error";
-      default:
-        return "default";
-    }
+    const t = (type || "").toLowerCase();
+    if (
+      t === "overdue_project" ||
+      t === "missed_milestone" ||
+      t === "overdue_task"
+    )
+      return "error";
+    if (
+      t === "approaching_deadline" ||
+      t === "approaching_milestone" ||
+      t === "approaching_task_deadline"
+    )
+      return "warning";
+    return "info";
   };
 
   const getPriorityColor = (priority) => {
@@ -286,7 +307,16 @@ const ProjectAlertsPage = () => {
   };
 
   const formatAlertType = (type) => {
-    return type.charAt(0) + type.slice(1).toLowerCase();
+    const map = {
+      approaching_deadline: "Approaching Project Deadline",
+      overdue_project: "Overdue Project",
+      approaching_milestone: "Approaching Milestone",
+      missed_milestone: "Missed Milestone",
+      approaching_task_deadline: "Approaching Task Deadline",
+      overdue_task: "Overdue Task",
+      low_progress: "Low Progress",
+    };
+    return map[(type || "").toLowerCase()] || type || "Alert";
   };
 
   const formatDate = (dateString) => {

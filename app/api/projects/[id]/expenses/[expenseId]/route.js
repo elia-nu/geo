@@ -27,7 +27,9 @@ export async function GET(request, { params }) {
     }
 
     const expense = project.expenses?.find(
-      (exp) => exp._id.toString() === expenseId
+      (exp) =>
+        exp._id.toString() === expenseId ||
+        exp._id.toString() === new ObjectId(expenseId).toString()
     );
 
     if (!expense) {
@@ -73,7 +75,9 @@ export async function PUT(request, { params }) {
 
     // Find expense index
     const expenseIndex = project.expenses?.findIndex(
-      (exp) => exp._id.toString() === expenseId
+      (exp) =>
+        exp._id.toString() === expenseId ||
+        exp._id.toString() === new ObjectId(expenseId).toString()
     );
 
     if (expenseIndex === -1 || expenseIndex === undefined) {
@@ -206,7 +210,9 @@ export async function DELETE(request, { params }) {
 
     // Find expense
     const expense = project.expenses?.find(
-      (exp) => exp._id.toString() === expenseId
+      (exp) =>
+        exp._id.toString() === expenseId ||
+        exp._id.toString() === new ObjectId(expenseId).toString()
     );
 
     if (!expense) {

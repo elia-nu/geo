@@ -57,6 +57,16 @@ import {
   Area,
   AreaChart,
 } from "recharts";
+import {
+  validateBudgetForm,
+  hasFormErrors,
+  getFirstError,
+} from "../../utils/formValidation";
+import {
+  handleFormSubmission,
+  projectToasts,
+  showValidationErrors,
+} from "../../utils/sweetAlert";
 
 const ProjectDetailPage = ({ params }) => {
   const { id: projectId } = use(params);
@@ -66,6 +76,7 @@ const ProjectDetailPage = ({ params }) => {
   const [assignedEmployees, setAssignedEmployees] = useState([]);
   const [milestones, setMilestones] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
   const [tasks, setTasks] = useState([]);
   const [taskStats, setTaskStats] = useState({});
   const [financialData, setFinancialData] = useState({});
@@ -84,6 +95,7 @@ const ProjectDetailPage = ({ params }) => {
     approvalDate: "",
   });
   const [budgetLoading, setBudgetLoading] = useState(false);
+  const [budgetFormErrors, setBudgetFormErrors] = useState({});
 
   // Utility functions
   const getBudgetAmount = (budget) => {
@@ -181,20 +193,14 @@ const ProjectDetailPage = ({ params }) => {
       setLoading(true);
       setError(null);
 
-      // Fetch all data in parallel for better performance
-      const [
-        projectResponse,
-        teamResponse,
-        alertsResponse,
-        tasksResponse,
-        financialResponse,
-      ] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/assign-employees`),
-        fetch(`/api/project-alerts?projectId=${projectId}`),
-        fetch(`/api/tasks?projectId=${projectId}`),
-        fetch(`/api/projects/${projectId}/financial-summary`),
-      ]);
+      // Fetch core data in parallel for better performance (alerts loaded separately)
+      const [projectResponse, teamResponse, tasksResponse, financialResponse] =
+        await Promise.all([
+          fetch(`/api/projects/${projectId}`),
+          fetch(`/api/projects/${projectId}/assign-employees`),
+          fetch(`/api/tasks?projectId=${projectId}`),
+          fetch(`/api/projects/${projectId}/financial-summary`),
+        ]);
 
       // Process project data
       const projectData = await projectResponse.json();
@@ -213,11 +219,27 @@ const ProjectDetailPage = ({ params }) => {
         setAssignedEmployees(teamData.assignedEmployees || []);
       }
 
-      // Process alerts data
-      const alertsData = await alertsResponse.json();
-      if (alertsData.success) {
-        setAlerts(alertsData.alerts || []);
-      }
+      // Load alerts without blocking the whole page
+      (async () => {
+        try {
+          setAlertsLoading(true);
+          // Generate latest alerts then fetch for this project
+          await fetch(`/api/project-alerts?projectId=${projectId}`, {
+            method: "PUT",
+          });
+          const ar = await fetch(
+            `/api/project-alerts?projectId=${projectId}&status=active`
+          );
+          const ad = await ar.json();
+          if (ad.success) {
+            setAlerts(ad.alerts || []);
+          }
+        } catch (e) {
+          console.warn("Failed to load alerts", e);
+        } finally {
+          setAlertsLoading(false);
+        }
+      })();
 
       // Process tasks data
       const tasksData = await tasksResponse.json();
@@ -420,9 +442,18 @@ const ProjectDetailPage = ({ params }) => {
   };
 
   const handleSaveBudget = async () => {
-    try {
-      setBudgetLoading(true);
+    // Validate form data
+    const errors = validateBudgetForm(budgetForm);
+    if (hasFormErrors(errors)) {
+      setBudgetFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
 
+    // Clear any existing errors
+    setBudgetFormErrors({});
+
+    const submitFunction = async () => {
       const budgetData = {
         totalAmount: parseFloat(budgetForm.totalAmount) || 0,
         currency: budgetForm.currency,
@@ -446,30 +477,36 @@ const ProjectDetailPage = ({ params }) => {
 
       const result = await response.json();
 
-      if (result.success) {
-        setProject((prev) => ({
-          ...prev,
-          budget: budgetData.totalAmount,
-        }));
-        setIsEditingBudget(false);
-        await refreshData(); // Refresh all data
-      } else {
-        console.error("Failed to update budget:", result.error);
-        alert(
-          `Failed to ${method === "PUT" ? "update" : "create"} budget: ${
-            result.error
-          }`
-        );
+      if (!result.success) {
+        throw new Error(result.error || "Failed to save budget");
       }
+
+      return result;
+    };
+
+    try {
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Saving Budget...",
+        loadingText: "Please wait while we save your budget information",
+        successTitle: "Budget Saved!",
+        successText:
+          existingBudget > 0
+            ? "Budget has been updated successfully"
+            : "Budget has been created successfully",
+        errorTitle: "Budget Error",
+        errorText: "Failed to save budget. Please try again.",
+      });
+
+      // Update local state on success
+      setProject((prev) => ({
+        ...prev,
+        budget: parseFloat(budgetForm.totalAmount) || 0,
+      }));
+      setIsEditingBudget(false);
+      await refreshData(); // Refresh all data
     } catch (error) {
-      console.error("Error updating budget:", error);
-      alert(
-        `Error ${existingBudget > 0 ? "updating" : "creating"} budget: ${
-          error.message
-        }`
-      );
-    } finally {
-      setBudgetLoading(false);
+      console.error("Error saving budget:", error);
+      // Error handling is done by handleFormSubmission
     }
   };
 
@@ -478,6 +515,14 @@ const ProjectDetailPage = ({ params }) => {
       ...prev,
       [field]: value,
     }));
+
+    // Clear field-specific error when user starts typing
+    if (budgetFormErrors[field]) {
+      setBudgetFormErrors((prev) => ({
+        ...prev,
+        [field]: "",
+      }));
+    }
   };
 
   // Loading state
@@ -674,6 +719,13 @@ const ProjectDetailPage = ({ params }) => {
                     <TrendingUpIcon className="w-4 h-4" />
                     Milestones
                   </Link>
+                  <Link
+                    href={`/project-alerts?projectId=${projectId}`}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors text-sm flex-1 lg:flex-none justify-center"
+                  >
+                    <NotificationsIcon className="w-4 h-4" />
+                    Alerts
+                  </Link>
                 </div>
               </div>
             </div>
@@ -737,8 +789,17 @@ const ProjectDetailPage = ({ params }) => {
                         onChange={(e) =>
                           handleBudgetFormChange("totalAmount", e.target.value)
                         }
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 ${
+                          budgetFormErrors.totalAmount
+                            ? "border-red-500 focus:ring-red-500"
+                            : "border-gray-300 focus:ring-blue-500"
+                        }`}
                       />
+                      {budgetFormErrors.totalAmount && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {budgetFormErrors.totalAmount}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -947,7 +1008,7 @@ const ProjectDetailPage = ({ params }) => {
               </div>
 
               {/* Interactive Project Analytics */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1  gap-6">
                 {/* Task Status Distribution Chart */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                   <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
@@ -997,7 +1058,7 @@ const ProjectDetailPage = ({ params }) => {
                 </div>
 
                 {/* Budget Utilization Chart */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                {/*} <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                   <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4">
                     <div className="flex items-center">
                       <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
@@ -1046,7 +1107,7 @@ const ProjectDetailPage = ({ params }) => {
                     )}
                   </div>
                 </div>
-
+*/}
                 {/* Category Progress Bar Chart */}
                 {prepareCategoryProgressData().length > 0 && (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
@@ -1275,13 +1336,25 @@ const ProjectDetailPage = ({ params }) => {
                       </h2>
                     </div>
                     <span className="px-3 py-1 bg-white bg-opacity-90 text-gray-700 text-xs font-semibold rounded-full shadow-sm border border-gray-200">
-                      {alerts.length}
+                      {alertsLoading ? "…" : alerts.length}
                     </span>
                   </div>
                 </div>
 
                 <div className="p-6">
-                  {alerts.length > 0 ? (
+                  {alertsLoading ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-600 border-t-transparent"></div>
+                        <p className="text-sm text-gray-600">
+                          Fetching latest alerts…
+                        </p>
+                      </div>
+                      <div className="h-4 bg-gray-100 rounded w-11/12" />
+                      <div className="h-4 bg-gray-100 rounded w-10/12" />
+                      <div className="h-4 bg-gray-100 rounded w-9/12" />
+                    </div>
+                  ) : alerts.length > 0 ? (
                     <div className="space-y-4">
                       {alerts.slice(0, 3).map((alert) => (
                         <div
@@ -1341,22 +1414,6 @@ const ProjectDetailPage = ({ params }) => {
                                     "MMM dd, yyyy"
                                   )}
                                 </span>
-                                <button
-                                  className={`text-xs font-medium hover:underline ${
-                                    (alert.alertType || alert.type) ===
-                                    "warning"
-                                      ? "text-yellow-700"
-                                      : (alert.alertType || alert.type) ===
-                                        "success"
-                                      ? "text-green-700"
-                                      : (alert.alertType || alert.type) ===
-                                        "error"
-                                      ? "text-red-700"
-                                      : "text-blue-700"
-                                  }`}
-                                >
-                                  View Details
-                                </button>
                               </div>
                             </div>
                           </div>
@@ -1364,9 +1421,11 @@ const ProjectDetailPage = ({ params }) => {
                       ))}
                       {alerts.length > 3 && (
                         <div className="text-center pt-2">
-                          <button className="text-sm text-orange-600 hover:text-orange-800 font-medium">
-                            View {alerts.length - 3} more alerts
-                          </button>
+                          <Link href={`/project-alerts?projectId=${projectId}`}>
+                            <button className="text-sm text-orange-600 border border-orange-600 rounded-md px-2 py-1 hover:text-orange-800 font-medium">
+                              View {alerts.length - 3} more alerts
+                            </button>
+                          </Link>
                         </div>
                       )}
                     </div>

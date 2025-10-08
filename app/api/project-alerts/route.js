@@ -172,13 +172,22 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const db = await getDb();
+    const { searchParams } = new URL(request.url);
+    const filterProjectId = searchParams.get("projectId");
     const today = new Date();
     const alerts = [];
 
-    // Find all active projects
+    // Find projects in active-like states (and optionally a specific project)
+    const projectQuery = {
+      status: { $in: ["active", "in_progress", "pending"] },
+      ...(filterProjectId && ObjectId.isValid(filterProjectId)
+        ? { _id: new ObjectId(filterProjectId) }
+        : {}),
+    };
+
     const projects = await db
       .collection("projects")
-      .find({ status: "active" })
+      .find(projectQuery)
       .toArray();
 
     for (const project of projects) {
@@ -292,12 +301,86 @@ export async function PUT(request) {
 
         alerts.push(alert);
       }
+
+      // Check task deadlines (approaching and overdue)
+      const projectTasks = await db
+        .collection("tasks")
+        .find({ projectId: project._id, status: { $ne: "completed" } })
+        .toArray();
+
+      for (const task of projectTasks) {
+        if (!task.dueDate) continue;
+        const taskDue = new Date(task.dueDate);
+        const daysToTaskDue = Math.ceil(
+          (taskDue - today) / (1000 * 60 * 60 * 24)
+        );
+
+        // Approaching task deadline (within 3 days)
+        if (daysToTaskDue >= 0 && daysToTaskDue <= 3) {
+          const alert = {
+            projectId: project._id,
+            alertType: "approaching_task_deadline",
+            message: `Task "${task.title}" is due in ${daysToTaskDue} day(s)`,
+            priority: daysToTaskDue <= 1 ? "high" : "medium",
+            status: "active",
+            relatedEntityId: task._id,
+            relatedEntityType: "task",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          alerts.push(alert);
+        }
+
+        // Overdue task
+        if (daysToTaskDue < 0) {
+          const alert = {
+            projectId: project._id,
+            alertType: "overdue_task",
+            message: `Task "${task.title}" is overdue by ${Math.abs(
+              daysToTaskDue
+            )} day(s)`,
+            priority: "high",
+            status: "active",
+            relatedEntityId: task._id,
+            relatedEntityType: "task",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          alerts.push(alert);
+        }
+      }
     }
 
-    // Insert all alerts if any exist
+    // De-duplicate against existing active alerts before inserting
     let result = { insertedCount: 0 };
     if (alerts.length > 0) {
-      result = await db.collection("project_alerts").insertMany(alerts);
+      const filteredAlerts = [];
+      for (const alert of alerts) {
+        const exists = await db.collection("project_alerts").findOne({
+          projectId: alert.projectId,
+          alertType: alert.alertType,
+          status: "active",
+          relatedEntityId: alert.relatedEntityId || null,
+          relatedEntityType: alert.relatedEntityType || null,
+        });
+        if (!exists) {
+          filteredAlerts.push(alert);
+        } else {
+          // Touch updatedAt/message if already exists (optional light refresh)
+          await db
+            .collection("project_alerts")
+            .updateOne(
+              { _id: exists._id },
+              { $set: { updatedAt: new Date(), message: alert.message } }
+            );
+        }
+      }
+
+      if (filteredAlerts.length > 0) {
+        result = await db
+          .collection("project_alerts")
+          .insertMany(filteredAlerts);
+      }
     }
 
     // Create audit log

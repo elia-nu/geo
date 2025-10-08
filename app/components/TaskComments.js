@@ -252,7 +252,7 @@ const TaskComments = ({
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center space-x-2">
                     <span className="font-medium text-gray-900">
-                      {comment.author?.name || "Unknown"}
+                      {comment.userName || comment.author?.name || "Unknown"}
                     </span>
                     <span className="text-sm text-gray-500">
                       {formatDate(comment.createdAt)}

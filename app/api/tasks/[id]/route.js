@@ -161,6 +161,7 @@ export async function PUT(request, { params }) {
       dependencies,
       subtasks,
       category,
+      categoryId,
       isBlocked,
       blockReason,
       requiresApproval,
@@ -168,6 +169,35 @@ export async function PUT(request, { params }) {
     } = data;
 
     const updateData = {};
+
+    // Validate categoryId if provided
+    if (categoryId !== undefined) {
+      if (categoryId === null) {
+        updateData.categoryId = null;
+      } else {
+        if (!ObjectId.isValid(categoryId)) {
+          return NextResponse.json(
+            { error: "Invalid category ID" },
+            { status: 400 }
+          );
+        }
+
+        // Verify category exists
+        const categoryExists = await db.collection("taskCategories").findOne({
+          _id: new ObjectId(categoryId),
+          status: "active",
+        });
+
+        if (!categoryExists) {
+          return NextResponse.json(
+            { error: "Task category not found or inactive" },
+            { status: 400 }
+          );
+        }
+
+        updateData.categoryId = new ObjectId(categoryId);
+      }
+    }
 
     // Only update fields that are provided
     if (title !== undefined) updateData.title = title;
@@ -190,7 +220,7 @@ export async function PUT(request, { params }) {
     if (progress !== undefined)
       updateData.progress = Math.min(100, Math.max(0, progress));
     if (tags !== undefined) updateData.tags = tags;
-    if (category !== undefined) updateData.category = category;
+    if (category !== undefined) updateData.category = category; // Keep for backward compatibility
     if (isBlocked !== undefined) updateData.isBlocked = isBlocked;
     if (blockReason !== undefined) updateData.blockReason = blockReason;
     if (requiresApproval !== undefined)
@@ -313,6 +343,18 @@ export async function PUT(request, { params }) {
         $push: { activityLog: activityEntry },
       }
     );
+
+    // Resolve any active alerts tied to this task when it is completed
+    if (status === "completed") {
+      await db.collection("project_alerts").updateMany(
+        {
+          relatedEntityId: new ObjectId(id),
+          relatedEntityType: "task",
+          status: "active",
+        },
+        { $set: { status: "resolved", updatedAt: new Date() } }
+      );
+    }
 
     // Create audit log
     await createAuditLog({

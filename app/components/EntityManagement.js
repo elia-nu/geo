@@ -5,20 +5,14 @@ import {
   PlusIcon,
   PencilIcon,
   TrashIcon,
-  BuildingOfficeIcon,
-  ClipboardDocumentListIcon,
   CogIcon,
-  FlagIcon,
 } from "@heroicons/react/24/outline";
 
 const EntityManagement = ({ projectId, projectName }) => {
-  const [activeTab, setActiveTab] = useState("departments");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // Data states
-  const [departments, setDepartments] = useState([]);
-  const [tasks, setTasks] = useState([]);
   const [activities, setActivities] = useState([]);
 
   // Modal states
@@ -30,8 +24,6 @@ const EntityManagement = ({ projectId, projectName }) => {
     name: "",
     description: "",
     projectId: projectId,
-    managerId: "",
-    budget: "",
     priority: "medium",
     estimatedHours: "",
     startDate: "",
@@ -49,29 +41,14 @@ const EntityManagement = ({ projectId, projectName }) => {
   const fetchEntityData = async () => {
     try {
       setLoading(true);
-      const [departmentsRes, tasksRes, activitiesRes] = await Promise.all([
-        fetch(`/api/departments?projectId=${projectId}`),
-        fetch(`/api/tasks?projectId=${projectId}`),
-        fetch(`/api/activities?projectId=${projectId}`),
-      ]);
+      const activitiesRes = await fetch(`/api/activities?projectId=${projectId}`);
+      const activitiesData = await activitiesRes.json();
 
-      const [departmentsData, tasksData, activitiesData] = await Promise.all([
-        departmentsRes.json(),
-        tasksRes.json(),
-        activitiesRes.json(),
-      ]);
-
-      if (departmentsData.success) {
-        setDepartments(departmentsData.departments || []);
-      }
-      if (tasksData.success) {
-        setTasks(tasksData.tasks || []);
-      }
       if (activitiesData.success) {
         setActivities(activitiesData.activities || []);
       }
     } catch (err) {
-      setError("Error fetching entity data: " + err.message);
+      setError("Error fetching activities data: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -80,17 +57,10 @@ const EntityManagement = ({ projectId, projectName }) => {
   const handleCreate = async () => {
     try {
       setLoading(true);
-      const endpoint = getEndpointForTab(activeTab);
-      // Map fields for tasks API which expects `title` instead of `name`
-      const payload =
-        activeTab === "tasks"
-          ? { ...formData, title: formData.name }
-          : formData;
-
-      const response = await fetch(endpoint, {
+      const response = await fetch("/api/activities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
@@ -102,34 +72,18 @@ const EntityManagement = ({ projectId, projectName }) => {
         setError(data.error);
       }
     } catch (err) {
-      setError(
-        "Failed to create " + activeTab.slice(0, -1) + ": " + err.message
-      );
+      setError("Failed to create activity: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const getEndpointForTab = (tab) => {
-    switch (tab) {
-      case "departments":
-        return "/api/departments";
-      case "tasks":
-        return "/api/tasks";
-      case "activities":
-        return "/api/activities";
-      default:
-        return "/api/departments";
-    }
-  };
 
   const resetForm = () => {
     setFormData({
       name: "",
       description: "",
       projectId: projectId,
-      managerId: "",
-      budget: "",
       priority: "medium",
       estimatedHours: "",
       startDate: "",
@@ -141,43 +95,9 @@ const EntityManagement = ({ projectId, projectName }) => {
   };
 
   const getCurrentData = () => {
-    switch (activeTab) {
-      case "departments":
-        return departments;
-      case "tasks":
-        return tasks;
-      case "activities":
-        return activities;
-      default:
-        return [];
-    }
+    return activities;
   };
 
-  const getTabIcon = (tab) => {
-    switch (tab) {
-      case "departments":
-        return BuildingOfficeIcon;
-      case "tasks":
-        return ClipboardDocumentListIcon;
-      case "activities":
-        return CogIcon;
-      default:
-        return BuildingOfficeIcon;
-    }
-  };
-
-  const getTabTitle = (tab) => {
-    switch (tab) {
-      case "departments":
-        return "Departments";
-      case "tasks":
-        return "Tasks";
-      case "activities":
-        return "Activities";
-      default:
-        return "Entities";
-    }
-  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-ET", {
@@ -198,10 +118,10 @@ const EntityManagement = ({ projectId, projectName }) => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Entity Management
+              Activity Management
             </h2>
             <p className="text-gray-600">
-              Manage departments, tasks, and activities for {projectName}
+              Manage activities for {projectName}
             </p>
           </div>
           <button
@@ -209,34 +129,13 @@ const EntityManagement = ({ projectId, projectName }) => {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <PlusIcon className="w-4 h-4" />
-            Create {activeTab.slice(0, -1)}
+            Create Activity
           </button>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Activities Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
-            {["departments", "tasks", "activities"].map((tab) => {
-              const Icon = getTabIcon(tab);
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab
-                      ? "border-blue-500 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  {getTabTitle(tab)}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
 
         <div className="p-6">
           {/* Data Table */}
@@ -250,42 +149,15 @@ const EntityManagement = ({ projectId, projectName }) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Description
                   </th>
-                  {activeTab === "departments" && (
-                    <>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Budget
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                    </>
-                  )}
-                  {activeTab === "tasks" && (
-                    <>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Priority
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Estimated Hours
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                    </>
-                  )}
-                  {activeTab === "activities" && (
-                    <>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Priority
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                    </>
-                  )}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Priority
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
                   </th>
@@ -299,7 +171,7 @@ const EntityManagement = ({ projectId, projectName }) => {
                   <tr key={item._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {item.name || item.title || "Untitled"}
+                        {item.name || "Untitled"}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -307,90 +179,35 @@ const EntityManagement = ({ projectId, projectName }) => {
                         {item.description || "No description"}
                       </div>
                     </td>
-                    {activeTab === "departments" && (
-                      <>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatCurrency(item.budget)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              item.status === "active"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {item.status}
-                          </span>
-                        </td>
-                      </>
-                    )}
-                    {activeTab === "tasks" && (
-                      <>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              item.priority === "high"
-                                ? "bg-red-100 text-red-800"
-                                : item.priority === "medium"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-green-100 text-green-800"
-                            }`}
-                          >
-                            {item.priority}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.estimatedHours || 0} hours
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              item.status === "completed"
-                                ? "bg-green-100 text-green-800"
-                                : item.status === "in_progress"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {item.status}
-                          </span>
-                        </td>
-                      </>
-                    )}
-                    {activeTab === "activities" && (
-                      <>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.activityType || "development"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              item.priority === "high"
-                                ? "bg-red-100 text-red-800"
-                                : item.priority === "medium"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-green-100 text-green-800"
-                            }`}
-                          >
-                            {item.priority}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              item.status === "completed"
-                                ? "bg-green-100 text-green-800"
-                                : item.status === "in_progress"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {item.status}
-                          </span>
-                        </td>
-                      </>
-                    )}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {item.activityType || "development"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          item.priority === "high"
+                            ? "bg-red-100 text-red-800"
+                            : item.priority === "medium"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-green-100 text-green-800"
+                        }`}
+                      >
+                        {item.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          item.status === "completed"
+                            ? "bg-green-100 text-green-800"
+                            : item.status === "in_progress"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(item.createdAt)}
                     </td>
@@ -400,11 +217,9 @@ const EntityManagement = ({ projectId, projectName }) => {
                           onClick={() => {
                             setEditingItem(item);
                             setFormData({
-                              name: item.name || item.title || "",
+                              name: item.name || "",
                               description: item.description || "",
                               projectId: projectId,
-                              managerId: item.managerId || "",
-                              budget: item.budget || "",
                               priority: item.priority || "medium",
                               estimatedHours: item.estimatedHours || "",
                               startDate: item.startDate
@@ -446,26 +261,17 @@ const EntityManagement = ({ projectId, projectName }) => {
           {getCurrentData().length === 0 && (
             <div className="text-center py-8">
               <div className="text-gray-400 mb-4">
-                {activeTab === "departments" && (
-                  <BuildingOfficeIcon className="w-12 h-12 mx-auto" />
-                )}
-                {activeTab === "tasks" && (
-                  <ClipboardDocumentListIcon className="w-12 h-12 mx-auto" />
-                )}
-                {activeTab === "activities" && (
-                  <CogIcon className="w-12 h-12 mx-auto" />
-                )}
+                <CogIcon className="w-12 h-12 mx-auto" />
               </div>
               <p className="text-gray-500 mb-4">
-                No {activeTab} found. Create your first {activeTab.slice(0, -1)}{" "}
-                to get started.
+                No activities found. Create your first activity to get started.
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto"
               >
                 <PlusIcon className="w-4 h-4" />
-                Create {activeTab.slice(0, -1)}
+                Create Activity
               </button>
             </div>
           )}
@@ -478,7 +284,7 @@ const EntityManagement = ({ projectId, projectName }) => {
           <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
-                {editingItem ? "Edit" : "Create"} {activeTab.slice(0, -1)}
+                {editingItem ? "Edit" : "Create"} Activity
               </h3>
             </div>
 
@@ -494,7 +300,7 @@ const EntityManagement = ({ projectId, projectName }) => {
                     setFormData((prev) => ({ ...prev, name: e.target.value }))
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder={`Enter ${activeTab.slice(0, -1)} name`}
+                  placeholder="Enter activity name"
                   required
                 />
               </div>
@@ -513,142 +319,94 @@ const EntityManagement = ({ projectId, projectName }) => {
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows={3}
-                  placeholder={`Enter ${activeTab.slice(0, -1)} description`}
+                  placeholder="Enter activity description"
                 />
               </div>
 
-              {activeTab === "departments" && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Budget
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.budget}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          budget: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="0.00"
-                    />
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Priority
+                </label>
+                <select
+                  value={formData.priority}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      priority: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Status
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          status: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
-                  </div>
-                </>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Estimated Hours
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={formData.estimatedHours}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      estimatedHours: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0"
+                />
+              </div>
 
-              {(activeTab === "tasks" || activeTab === "activities") && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Priority
-                    </label>
-                    <select
-                      value={formData.priority}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          priority: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      status: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Estimated Hours
-                    </label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={formData.estimatedHours}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          estimatedHours: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="0"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Status
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          status: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="completed">Completed</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {activeTab === "activities" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Activity Type
-                  </label>
-                  <select
-                    value={formData.activityType}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        activityType: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="development">Development</option>
-                    <option value="testing">Testing</option>
-                    <option value="design">Design</option>
-                    <option value="documentation">Documentation</option>
-                    <option value="meeting">Meeting</option>
-                    <option value="research">Research</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Activity Type
+                </label>
+                <select
+                  value={formData.activityType}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      activityType: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="development">Development</option>
+                  <option value="testing">Testing</option>
+                  <option value="design">Design</option>
+                  <option value="documentation">Documentation</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="research">Research</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
