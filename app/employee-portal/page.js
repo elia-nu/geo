@@ -412,7 +412,7 @@ export default function EmployeePortal() {
       <div className="flex-1 overflow-auto md:ml-64 lg:ml-64">
         {/* Top bar with its own section for logout */}
         <div className="sticky top-0 z-40 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
-          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center">
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -424,7 +424,7 @@ export default function EmployeePortal() {
             </button>
             <button
               onClick={handleLogout}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow hover:from-blue-700 hover:to-purple-700 transition-all text-sm font-medium"
+              className="ml-auto px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow hover:from-blue-700 hover:to-purple-700 transition-all text-sm font-medium"
             >
               Logout
             </button>

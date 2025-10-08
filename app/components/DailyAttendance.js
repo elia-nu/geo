@@ -72,6 +72,37 @@ export default function DailyAttendance({
     }
   };
 
+  // Normalize a distance value to meters. Supports numbers and strings with units (mm, cm, m, km)
+  const parseDistanceToMeters = (value) => {
+    try {
+      if (typeof value === "number" && Number.isFinite(value)) return value;
+      if (value === null || value === undefined) return 100;
+      const str = String(value).trim().toLowerCase();
+      // Extract numeric part and optional unit
+      const match = str.match(/^(\d+(?:\.\d+)?)(?:\s*(mm|cm|m|km))?$/);
+      if (!match) {
+        const asNumber = parseFloat(str);
+        return Number.isFinite(asNumber) ? asNumber : 100;
+      }
+      const num = parseFloat(match[1]);
+      const unit = match[2] || "m";
+      switch (unit) {
+        case "mm":
+          return num / 1000; // millimeters to meters
+        case "cm":
+          return num / 100; // centimeters to meters
+        case "m":
+          return num; // meters
+        case "km":
+          return num * 1000; // kilometers to meters
+        default:
+          return num; // fallback assume meters
+      }
+    } catch {
+      return 100;
+    }
+  };
+
   // Update current time every second
   useEffect(() => {
     const timer = setInterval(() => {
@@ -130,7 +161,7 @@ export default function DailyAttendance({
         workLocation.longitude
       );
 
-      const radius = workLocation.radius || 100; // Default 100 meters
+      const radius = parseDistanceToMeters(workLocation.radius); // normalize to meters
 
       if (distance <= radius) {
         isValid = true;
@@ -154,7 +185,9 @@ export default function DailyAttendance({
           }.`
         : `You are ${Math.round(shortestDistance)}m from ${
             nearestLocation.name
-          }. Must be within ${nearestLocation.radius || 100}m.`,
+          }. Must be within ${Math.round(
+            parseDistanceToMeters(nearestLocation.radius || 100)
+          )}m.`,
       distance: Math.round(shortestDistance),
       nearestLocation,
     });
@@ -390,7 +423,7 @@ export default function DailyAttendance({
           const photoResult = await photoResponse.json();
           if (!photoResponse.ok) {
             showMessage("Failed to save photo", "error");
-            setLoading(false);
+            setLoadingAction(null);
             return;
           }
 
