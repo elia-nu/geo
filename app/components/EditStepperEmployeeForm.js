@@ -63,6 +63,7 @@ export default function EditStepperEmployeeForm({
   const [departments, setDepartments] = useState([]);
   const [workLocations, setWorkLocations] = useState([]);
   const [designations, setDesignations] = useState([]);
+  const [filteredDesignations, setFilteredDesignations] = useState([]);
 
   // Helper functions to safely get data from either structure
   const getEmployeeName = (emp) =>
@@ -255,6 +256,45 @@ export default function EditStepperEmployeeForm({
       });
     }
   }, [enhancedEmployee, isOpen]);
+
+  // Filter designations based on selected department
+  useEffect(() => {
+    if (personalDetails.department && departments.length > 0) {
+      const selectedDept = departments.find(
+        (d) => d.name === personalDetails.department
+      );
+
+      if (selectedDept) {
+        // Fetch designations for the selected department
+        const fetchDeptDesignations = async () => {
+          try {
+            const res = await fetch(
+              `/api/departments/${selectedDept._id}/designations`
+            );
+            if (res.ok) {
+              const data = await res.json();
+              const deptDesignations = Array.isArray(data?.designations)
+                ? data.designations
+                : [];
+              setFilteredDesignations(deptDesignations);
+            } else {
+              // Fallback to all designations if department-specific fetch fails
+              setFilteredDesignations(designations);
+            }
+          } catch (error) {
+            // Fallback to all designations on error
+            setFilteredDesignations(designations);
+          }
+        };
+
+        fetchDeptDesignations();
+      } else {
+        setFilteredDesignations(designations);
+      }
+    } else {
+      setFilteredDesignations(designations);
+    }
+  }, [personalDetails.department, departments, designations]);
 
   // Add keyboard navigation
   useEffect(() => {
@@ -681,6 +721,7 @@ export default function EditStepperEmployeeForm({
                     setPersonalDetails({
                       ...personalDetails,
                       department: e.target.value,
+                      designation: "", // Clear designation when department changes
                     })
                   }
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
@@ -715,14 +756,21 @@ export default function EditStepperEmployeeForm({
                       designation: e.target.value,
                     })
                   }
+                  disabled={!personalDetails.department}
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
                     formErrors.designation
                       ? "border-red-300 focus:ring-red-500"
+                      : !personalDetails.department
+                      ? "border-slate-300 bg-gray-100 cursor-not-allowed"
                       : "border-gray-300 focus:ring-blue-500"
                   }`}
                 >
-                  <option value="">Select Designation</option>
-                  {designations.map((des) => (
+                  <option value="">
+                    {!personalDetails.department
+                      ? "Select Department First"
+                      : "Select Designation"}
+                  </option>
+                  {filteredDesignations.map((des) => (
                     <option key={`edit-des-${des}`} value={des}>
                       {des}
                     </option>
@@ -1564,7 +1612,7 @@ export default function EditStepperEmployeeForm({
                       onClick={(e) => {
                         const input =
                           e.target.parentElement.querySelector("input");
-                        if (input.value.trim()) {
+                        if (input && input.value && input.value.trim()) {
                           addHealthItem("allergies", input.value);
                           input.value = "";
                         }
@@ -1615,7 +1663,7 @@ export default function EditStepperEmployeeForm({
                       onClick={(e) => {
                         const input =
                           e.target.parentElement.querySelector("input");
-                        if (input.value.trim()) {
+                        if (input && input.value && input.value.trim()) {
                           addHealthItem("medicalConditions", input.value);
                           input.value = "";
                         }
@@ -1668,7 +1716,7 @@ export default function EditStepperEmployeeForm({
                       onClick={(e) => {
                         const input =
                           e.target.parentElement.querySelector("input");
-                        if (input.value.trim()) {
+                        if (input && input.value && input.value.trim()) {
                           addHealthItem("medications", input.value);
                           input.value = "";
                         }

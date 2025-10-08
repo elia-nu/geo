@@ -254,12 +254,12 @@ const Sidebar = ({
         },
       ],
     },*/
-    /*{
+    {
       id: "budget-management",
       label: "Budget Management",
       icon: DollarSign,
       path: "/hrm?section=budget-management",
-    },*/
+    },
     {
       id: "analytics",
       label: "Analytics & Reports",

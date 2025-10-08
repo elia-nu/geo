@@ -28,24 +28,40 @@ export async function GET(_request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const db = await getDb();
+
     if (!ObjectId.isValid(params.id)) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
+
     const body = await request.json();
+
     const update = {
       ...(body.name ? { name: body.name } : {}),
-      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.description !== undefined
+        ? { description: body.description }
+        : {}),
       ...(body.status ? { status: body.status } : {}),
       updatedAt: new Date(),
     };
 
-    const result = await db
+    // First check if the department exists
+    const existingDept = await db
       .collection("departments")
-      .findOneAndUpdate({ _id: new ObjectId(params.id) }, { $set: update }, { returnDocument: "after" });
+      .findOne({ _id: new ObjectId(params.id) });
 
-    if (!result.value) {
+    if (!existingDept) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+
+    // Update the department
+    await db
+      .collection("departments")
+      .updateOne({ _id: new ObjectId(params.id) }, { $set: update });
+
+    // Get the updated department
+    const updatedDept = await db
+      .collection("departments")
+      .findOne({ _id: new ObjectId(params.id) });
 
     await createAuditLog({
       action: "UPDATE_DEPARTMENT",
@@ -56,7 +72,7 @@ export async function PUT(request, { params }) {
       metadata: { update },
     });
 
-    return NextResponse.json({ success: true, department: result.value });
+    return NextResponse.json({ success: true, department: updatedDept });
   } catch (e) {
     console.error("PUT department error:", e);
     return NextResponse.json({ error: "Failed to update" }, { status: 500 });
@@ -71,8 +87,11 @@ export async function DELETE(_request, { params }) {
     }
 
     // Prevent deleting if employees still reference this department
-    const dept = await db.collection("departments").findOne({ _id: new ObjectId(params.id) });
-    if (!dept) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const dept = await db
+      .collection("departments")
+      .findOne({ _id: new ObjectId(params.id) });
+    if (!dept)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const employeeCount = await db.collection("employees").countDocuments({
       $or: [
@@ -84,7 +103,9 @@ export async function DELETE(_request, { params }) {
 
     if (employeeCount > 0) {
       return NextResponse.json(
-        { error: `Cannot delete department with ${employeeCount} assigned employee(s)` },
+        {
+          error: `Cannot delete department with ${employeeCount} assigned employee(s)`,
+        },
         { status: 400 }
       );
     }
@@ -102,11 +123,12 @@ export async function DELETE(_request, { params }) {
       metadata: { name: dept.name },
     });
 
-    return NextResponse.json({ success: true, deletedCount: result.deletedCount });
+    return NextResponse.json({
+      success: true,
+      deletedCount: result.deletedCount,
+    });
   } catch (e) {
     console.error("DELETE department error:", e);
     return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
   }
 }
-
-

@@ -26,11 +26,24 @@ export default function DepartmentsManagement() {
 
   // Safely extract a string id from MongoDB ObjectId or plain string
   const getDeptId = (dept) => {
-    const id = dept?._id;
-    if (!id) return "";
+    if (!dept || !dept._id) return "";
+
+    const id = dept._id;
+
+    // If it's already a string, return it
     if (typeof id === "string") return id;
-    if (typeof id === "object")
-      return id.$oid || id.oid || id.toHexString?.() || id.toString?.() || "";
+
+    // If it's an object, try different ways to extract the string
+    if (typeof id === "object") {
+      if (id.$oid) return id.$oid;
+      if (id.oid) return id.oid;
+      if (typeof id.toHexString === "function") return id.toHexString();
+      if (typeof id.toString === "function") return id.toString();
+      // Last resort - convert to string
+      return String(id);
+    }
+
+    // Fallback
     return String(id);
   };
 
@@ -82,6 +95,9 @@ export default function DepartmentsManagement() {
   }
 
   function startEdit(dept) {
+    console.log("Starting edit for department:", dept);
+    console.log("Department _id:", dept._id);
+    console.log("Extracted ID:", getDeptId(dept));
     setEditDept(dept);
     setForm({ name: dept.name || "", description: dept.description || "" });
   }
@@ -96,7 +112,9 @@ export default function DepartmentsManagement() {
     try {
       setError("");
       setCreating(true);
-      const res = await fetch(`/api/departments/${getDeptId(editDept)}`, {
+      const deptId = getDeptId(editDept);
+
+      const res = await fetch(`/api/departments/${deptId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -104,9 +122,12 @@ export default function DepartmentsManagement() {
           description: form.description.trim(),
         }),
       });
+
       const data = await res.json();
+
       if (!res.ok || !data.success)
         throw new Error(data.error || "Update failed");
+
       // Optimistically update UI and close modal immediately
       const updated = data.department || {
         ...editDept,
@@ -122,6 +143,7 @@ export default function DepartmentsManagement() {
       // Background refresh to sync counts and any server-calculated fields
       fetchDepartments();
     } catch (e) {
+      console.error("Update error:", e);
       setError(e?.message || "Failed to update department");
     } finally {
       setCreating(false);
