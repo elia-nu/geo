@@ -6,25 +6,37 @@ import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function POST(request) {
   try {
     const db = await getDb();
     const { employeeId, password } = await request.json();
-    console.log("employeeId", employeeId);
+    // 'employeeId' here is treated as a generic identifier which can be
+    // employeeId, email, or phone/contact number
+    const identifier = typeof employeeId === "string" ? employeeId.trim() : "";
+    console.log("identifier", identifier);
     console.log("password", password);
 
-    if (!employeeId || !password) {
+    if (!identifier || !password) {
       return NextResponse.json(
-        { error: "Employee ID and password are required" },
+        { error: "Employee ID/Email/Phone and password are required" },
         { status: 400 }
       );
     }
 
-    // Find employee by employee ID
+    // Find employee by employeeId OR email (case-insensitive) OR contact number
+    const emailRegex = new RegExp(`^${escapeRegExp(identifier)}$`, "i");
     const employee = await db.collection("employees").findOne({
       $or: [
-        { employeeId: employeeId },
-        { "personalDetails.employeeId": employeeId },
+        { employeeId: identifier },
+        { "personalDetails.employeeId": identifier },
+        { email: emailRegex },
+        { "personalDetails.email": emailRegex },
+        { contactNumber: identifier },
+        { "personalDetails.contactNumber": identifier },
       ],
     });
     console.log("employee", employee);

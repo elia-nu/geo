@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../../utils/audit.js";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
@@ -9,31 +10,87 @@ import { existsSync } from "fs";
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = await params;
+    const { id } = params;
 
+    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
     }
 
-    const task = await db
-      .collection("tasks")
-      .findOne(
-        { _id: new ObjectId(id) },
-        { projection: { attachments: 1, title: 1 } }
-      );
+    // Find the task
+    const task = await db.collection("tasks").findOne({
+      _id: new ObjectId(id),
+    });
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
+    // Get attachments with uploadedByName populated and consistent structure
+    const attachments = task.attachments || [];
+    const attachmentsWithNames = await Promise.all(
+      attachments.map(async (attachment) => {
+        let employeeName = attachment.uploadedByName || "Unknown";
+
+        // If we have uploadedBy but no uploadedByName, fetch the employee
+        if (attachment.uploadedBy && !attachment.uploadedByName) {
+          const employee = await db.collection("employees").findOne({
+            _id: new ObjectId(attachment.uploadedBy),
+          });
+
+          console.log("Attachment employee lookup:", {
+            attachmentId: attachment._id,
+            uploadedBy: attachment.uploadedBy,
+            employeeFound: !!employee,
+            employeeName: employee?.personalDetails?.name || employee?.name,
+            employeeStructure: employee ? Object.keys(employee) : null,
+          });
+
+          // Extract employee name using multiple possible field structures
+          if (employee) {
+            employeeName =
+              employee.personalDetails?.name ||
+              employee.name ||
+              employee.personalDetails?.fullName ||
+              employee.fullName ||
+              (employee.personalDetails?.firstName &&
+              employee.personalDetails?.lastName
+                ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}`
+                : null) ||
+              (employee.firstName && employee.lastName
+                ? `${employee.firstName} ${employee.lastName}`
+                : null) ||
+              "Unknown";
+          }
+        }
+
+        // Return consistent structure
+        return {
+          _id: attachment._id,
+          originalName: attachment.originalName,
+          fileName: attachment.fileName,
+          filePath: attachment.filePath,
+          mimeType: attachment.mimeType || attachment.fileType,
+          size: attachment.size || attachment.fileSize,
+          uploadedBy: attachment.uploadedBy,
+          uploadedByName: employeeName,
+          uploadedAt: attachment.uploadedAt,
+          // Additional fields that might exist
+          description: attachment.description || "",
+          downloadCount: attachment.downloadCount || 0,
+          isDeleted: attachment.isDeleted || false,
+        };
+      })
+    );
+
     return NextResponse.json({
       success: true,
-      attachments: task.attachments || [],
+      attachments: attachmentsWithNames,
     });
   } catch (error) {
     console.error("Error fetching task attachments:", error);
     return NextResponse.json(
-      { error: "Failed to fetch attachments" },
+      { error: "Failed to fetch task attachments" },
       { status: 500 }
     );
   }
@@ -43,23 +100,14 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = await params;
-    const formData = await request.formData();
+    const { id } = params;
 
+    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
     }
 
-    const file = formData.get("file");
-    const userId = formData.get("userId");
-    const userName = formData.get("userName");
-    const description = formData.get("description") || "";
-
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    // Check if task exists
+    // Find the task
     const task = await db.collection("tasks").findOne({
       _id: new ObjectId(id),
     });
@@ -68,33 +116,17 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Validate file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "File size must be less than 10MB" },
-        { status: 400 }
-      );
+    const formData = await request.formData();
+    const file = formData.get("file");
+
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Validate file type
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "text/plain",
-      "application/zip",
-      "application/x-rar-compressed",
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
-        { error: "File type not allowed" },
+        { error: "File size must be less than 10MB" },
         { status: 400 }
       );
     }
@@ -117,69 +149,93 @@ export async function POST(request, { params }) {
       .substring(2)}.${fileExtension}`;
     const filePath = join(uploadsDir, fileName);
 
-    // Save file
+    // Save file to disk
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     await writeFile(filePath, buffer);
 
+    // Get employee ID from request headers (passed from frontend)
+    const employeeId = request.headers.get("x-employee-id");
+    if (!employeeId) {
+      return NextResponse.json(
+        { error: "Employee ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Get employee details for uploadedByName
+    const employee = await db.collection("employees").findOne({
+      _id: new ObjectId(employeeId),
+    });
+
+    // Extract employee name using multiple possible field structures
+    let employeeName = "Unknown";
+    if (employee) {
+      employeeName =
+        employee.personalDetails?.name ||
+        employee.name ||
+        employee.personalDetails?.fullName ||
+        employee.fullName ||
+        (employee.personalDetails?.firstName &&
+        employee.personalDetails?.lastName
+          ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}`
+          : null) ||
+        (employee.firstName && employee.lastName
+          ? `${employee.firstName} ${employee.lastName}`
+          : null) ||
+        "Unknown";
+    }
+
     // Create attachment record
-    const attachment = {
+    const newAttachment = {
       _id: new ObjectId(),
       originalName: file.name,
       fileName: fileName,
       filePath: `/uploads/task-attachments/${fileName}`,
-      fileSize: file.size,
-      fileType: file.type,
-      description: description.trim(),
-      uploadedBy:
-        userId && ObjectId.isValid(userId) ? new ObjectId(userId) : null,
-      uploadedByName: userName || "Unknown",
+      mimeType: file.type,
+      size: file.size,
+      uploadedBy: new ObjectId(employeeId),
+      uploadedByName: employeeName,
       uploadedAt: new Date(),
-      downloadCount: 0,
-      isDeleted: false,
     };
-
-    // First, ensure attachments array exists
-    await db
-      .collection("tasks")
-      .updateOne(
-        { _id: new ObjectId(id), attachments: { $exists: false } },
-        { $set: { attachments: [] } }
-      );
 
     // Add attachment to task
     const result = await db.collection("tasks").updateOne(
       { _id: new ObjectId(id) },
       {
+        $push: { attachments: newAttachment },
         $set: { updatedAt: new Date() },
-        $push: {
-          attachments: attachment,
-          activityLog: {
-            action: "attachment_added",
-            userId: attachment.uploadedBy,
-            timestamp: new Date(),
-            details: `File uploaded: ${file.name}`,
-          },
-        },
       }
     );
 
-    if (result.modifiedCount === 0) {
-      return NextResponse.json(
-        { error: "Failed to add attachment" },
-        { status: 500 }
-      );
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
+
+    // Create audit log
+    await createAuditLog({
+      action: "UPLOAD_ATTACHMENT",
+      entityType: "task",
+      entityId: id,
+      userId: employeeId,
+      userEmail: "employee@company.com", // TODO: Get from auth context
+      metadata: {
+        taskTitle: task.title,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+      },
+    });
 
     return NextResponse.json({
       success: true,
       message: "File uploaded successfully",
-      attachment: attachment,
+      attachment: newAttachment,
     });
   } catch (error) {
-    console.error("Error uploading attachment:", error);
+    console.error("Error uploading task attachment:", error);
     return NextResponse.json(
-      { error: "Failed to upload file" },
+      { error: "Failed to upload task attachment" },
       { status: 500 }
     );
   }

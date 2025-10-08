@@ -18,6 +18,7 @@ export default function DocumentManager() {
   const [docxRenderError, setDocxRenderError] = useState("");
   const [isRenderingDocx, setIsRenderingDocx] = useState(false);
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
+  const [editingDocumentId, setEditingDocumentId] = useState(null);
   const [newDocument, setNewDocument] = useState({
     employeeId: "",
     documentType: "",
@@ -136,22 +137,52 @@ export default function DocumentManager() {
 
       setLoading(true);
 
-      const formData = new FormData();
-      formData.append("file", selectedFile);
+      let response;
 
-      // Add timestamp to document data
-      const documentData = {
-        ...newDocument,
-        uploadDate: new Date(),
-        status: "active",
-      };
+      // If editing an existing document WITHOUT a new file selected → metadata-only update
+      if (editingDocumentId && !selectedFile) {
+        const updateData = {
+          employeeId: newDocument.employeeId,
+          documentType: newDocument.documentType,
+          title: newDocument.title,
+          description: newDocument.description,
+          expiryDate: newDocument.expiryDate || "",
+          status: newDocument.status || "active",
+          tags: Array.isArray(newDocument.tags) ? newDocument.tags : [],
+        };
+        response = await fetch(`/api/documents/${editingDocumentId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updateData),
+        });
+      } else {
+        // New file upload (either new document or replacing file on existing one)
+        const formData = new FormData();
+        formData.append("file", selectedFile);
 
-      formData.append("documentData", JSON.stringify(documentData));
+        // Add timestamp to document data
+        const documentData = {
+          ...newDocument,
+          uploadDate: new Date(),
+          status: "active",
+        };
 
-      const response = await fetch("/api/documents/upload", {
-        method: "POST",
-        body: formData,
-      });
+        formData.append("documentData", JSON.stringify(documentData));
+
+        if (editingDocumentId) {
+          // Replace existing file and update metadata in-place
+          response = await fetch(`/api/documents/${editingDocumentId}/upload`, {
+            method: "POST",
+            body: formData,
+          });
+        } else {
+          // Create new document
+          response = await fetch("/api/documents/upload", {
+            method: "POST",
+            body: formData,
+          });
+        }
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -162,6 +193,7 @@ export default function DocumentManager() {
       setSuccess("Document uploaded successfully!");
       setIsUploadDialogOpen(false);
       setSelectedFile(null);
+      setEditingDocumentId(null);
 
       // Reset form
       setNewDocument({
@@ -301,6 +333,28 @@ export default function DocumentManager() {
     setViewingDocument(null);
     setIsViewDialogOpen(false);
     setPreviewUnavailable(false);
+  };
+
+  // Open upload dialog prefilled with an existing document (edit/replace flow)
+  const openEditDialog = (doc) => {
+    try {
+      setFormErrors({});
+      setEditingDocumentId(doc?._id || null);
+      setSelectedFile(null);
+      setNewDocument({
+        employeeId: doc?.employeeId || "",
+        documentType: doc?.documentType || "",
+        title: doc?.title || doc?.originalName || "",
+        description: doc?.description || "",
+        uploadDate: doc?.uploadDate ? new Date(doc.uploadDate) : new Date(),
+        expiryDate: doc?.expiryDate ? doc.expiryDate : "",
+        status: doc?.status || "active",
+        tags: Array.isArray(doc?.tags) ? doc.tags : [],
+      });
+      setIsUploadDialogOpen(true);
+    } catch (_) {
+      setIsUploadDialogOpen(true);
+    }
   };
 
   // Render DOCX preview dynamically using docx-preview
@@ -580,7 +634,7 @@ export default function DocumentManager() {
                         <Eye className="w-5 h-5" />
                       </button>
                       <button
-                        onClick={() => setIsUploadDialogOpen(true)}
+                        onClick={() => openEditDialog(document)}
                         disabled={loading}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all hover:scale-110 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         title="Edit/Replace Document"

@@ -54,6 +54,9 @@ export default function StepperEmployeeForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [designations, setDesignations] = useState([]);
+  const [suggestedEmployeeId, setSuggestedEmployeeId] = useState("");
 
   // Form data for each step
   const [personalDetails, setPersonalDetails] = useState({
@@ -113,6 +116,76 @@ export default function StepperEmployeeForm({
   });
 
   const [formErrors, setFormErrors] = useState({});
+
+  // Fetch departments, designations and next employee id when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isCancelled = false;
+
+    const fetchMeta = async () => {
+      try {
+        const [depRes, desRes, nextIdRes] = await Promise.all([
+          fetch("/api/departments", { cache: "no-store" }),
+          fetch("/api/designations", { cache: "no-store" }),
+          fetch("/api/employee/next-id", { cache: "no-store" }),
+        ]);
+
+        if (!isCancelled) {
+          if (depRes.ok) {
+            const depData = await depRes.json();
+            const depList = Array.isArray(depData?.departments)
+              ? depData.departments
+              : Array.isArray(depData)
+              ? depData
+              : [];
+            setDepartments(depList);
+          } else {
+            // One more attempt without special options
+            try {
+              const retry = await fetch("/api/departments");
+              if (retry.ok) {
+                const depData = await retry.json();
+                const depList = Array.isArray(depData?.departments)
+                  ? depData.departments
+                  : Array.isArray(depData)
+                  ? depData
+                  : [];
+                setDepartments(depList);
+              }
+            } catch {}
+          }
+          if (desRes.ok) {
+            const desData = await desRes.json();
+            const desList = Array.isArray(desData?.designations)
+              ? desData.designations
+              : Array.isArray(desData)
+              ? desData
+              : [];
+            setDesignations(desList);
+          }
+          if (nextIdRes?.ok) {
+            const nextData = await nextIdRes.json();
+            if (nextData?.nextId) {
+              setSuggestedEmployeeId(nextData.nextId);
+              // Pre-fill into the form as read-only value
+              setPersonalDetails((prev) => ({
+                ...prev,
+                employeeId: nextData.nextId,
+              }));
+            }
+          }
+        }
+      } catch (e) {
+        // silently ignore network errors; dropdowns will show fallback
+      }
+    };
+
+    fetchMeta();
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen]);
 
   const canNavigateToStep = (targetStep) => {
     if (targetStep <= currentStep) return true;
@@ -509,15 +582,11 @@ export default function StepperEmployeeForm({
                 </label>
                 <input
                   type="text"
-                  value={personalDetails.employeeId}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      employeeId: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
-                  placeholder="Enter employee ID"
+                  value={personalDetails.employeeId || suggestedEmployeeId}
+                  readOnly
+                  disabled
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-gray-100 text-gray-900 cursor-not-allowed"
+                  placeholder="Auto-generated"
                 />
               </div>
 
@@ -575,12 +644,18 @@ export default function StepperEmployeeForm({
                   }`}
                 >
                   <option value="">Select Department</option>
-                  <option value="IT">IT</option>
-                  <option value="HR">HR</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Operations">Operations</option>
+                  {departments
+                    .map((d) => {
+                      const id = d?._id || d?.id || d?.value || d;
+                      const name = d?.name || d?.title || d?.label || String(d);
+                      return { id: String(id), name: String(name) };
+                    })
+                    .filter((d) => d.id && d.name)
+                    .map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.name}
+                      </option>
+                    ))}
                 </select>
                 {formErrors.department && (
                   <p className="text-red-500 text-sm mt-1">
@@ -593,8 +668,7 @@ export default function StepperEmployeeForm({
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Designation <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={personalDetails.designation}
                   onChange={(e) =>
                     setPersonalDetails({
@@ -605,10 +679,23 @@ export default function StepperEmployeeForm({
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
                     formErrors.designation
                       ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                      : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
                   }`}
-                  placeholder="Enter designation"
-                />
+                >
+                  <option value="">Select Designation</option>
+                  {designations
+                    .map((d) => {
+                      const id = d?._id || d?.id || d?.value || d;
+                      const name = d?.name || d?.title || d?.label || String(d);
+                      return { id: String(id), name: String(name) };
+                    })
+                    .filter((d) => d.id && d.name)
+                    .map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.name}
+                      </option>
+                    ))}
+                </select>
                 {formErrors.designation && (
                   <p className="text-red-500 text-sm mt-1">
                     {formErrors.designation}
@@ -616,30 +703,7 @@ export default function StepperEmployeeForm({
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Work Location
-                </label>
-                <input
-                  type="text"
-                  value={
-                    typeof personalDetails.workLocation === "object" &&
-                    personalDetails.workLocation?.name
-                      ? personalDetails.workLocation.name
-                      : typeof personalDetails.workLocation === "string"
-                      ? personalDetails.workLocation
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      workLocation: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 hover:border-teal-400"
-                  placeholder="Enter work location"
-                />
-              </div>
+              {/* Work Location is configured later in Employee Settings; removed from stepper */}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
