@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb } from "../../../../mongo";
+import { getDb } from "../../../../../mongo";
 import { ObjectId } from "mongodb";
 import { readFile } from "fs/promises";
 import { join } from "path";
