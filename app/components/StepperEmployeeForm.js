@@ -57,6 +57,7 @@ export default function StepperEmployeeForm({
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
   const [suggestedEmployeeId, setSuggestedEmployeeId] = useState("");
+  const [filteredDesignations, setFilteredDesignations] = useState([]);
 
   // Form data for each step
   const [personalDetails, setPersonalDetails] = useState({
@@ -186,6 +187,45 @@ export default function StepperEmployeeForm({
       isCancelled = true;
     };
   }, [isOpen]);
+
+  // Filter designations based on selected department
+  useEffect(() => {
+    if (personalDetails.department && departments.length > 0) {
+      const selectedDept = departments.find(
+        (d) => d.name === personalDetails.department
+      );
+
+      if (selectedDept) {
+        // Fetch designations for the selected department
+        const fetchDeptDesignations = async () => {
+          try {
+            const res = await fetch(
+              `/api/departments/${selectedDept._id}/designations`
+            );
+            if (res.ok) {
+              const data = await res.json();
+              const deptDesignations = Array.isArray(data?.designations)
+                ? data.designations
+                : [];
+              setFilteredDesignations(deptDesignations);
+            } else {
+              // Fallback to all designations if department-specific fetch fails
+              setFilteredDesignations(designations);
+            }
+          } catch (error) {
+            // Fallback to all designations on error
+            setFilteredDesignations(designations);
+          }
+        };
+
+        fetchDeptDesignations();
+      } else {
+        setFilteredDesignations(designations);
+      }
+    } else {
+      setFilteredDesignations(designations);
+    }
+  }, [personalDetails.department, departments, designations]);
 
   const canNavigateToStep = (targetStep) => {
     if (targetStep <= currentStep) return true;
@@ -635,6 +675,7 @@ export default function StepperEmployeeForm({
                     setPersonalDetails({
                       ...personalDetails,
                       department: e.target.value,
+                      designation: "", // Clear designation when department changes
                     })
                   }
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
@@ -676,14 +717,21 @@ export default function StepperEmployeeForm({
                       designation: e.target.value,
                     })
                   }
+                  disabled={!personalDetails.department}
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
                     formErrors.designation
                       ? "border-red-300 focus:ring-red-500"
+                      : !personalDetails.department
+                      ? "border-slate-300 bg-gray-100 cursor-not-allowed"
                       : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
                   }`}
                 >
-                  <option value="">Select Designation</option>
-                  {designations
+                  <option value="">
+                    {!personalDetails.department
+                      ? "Select Department First"
+                      : "Select Designation"}
+                  </option>
+                  {filteredDesignations
                     .map((d) => {
                       const id = d?._id || d?.id || d?.value || d;
                       const name = d?.name || d?.title || d?.label || String(d);

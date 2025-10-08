@@ -22,6 +22,13 @@ const Dashboard = ({ onSectionChange }) => {
     expiredDocuments: 0,
     departments: {},
     locations: {},
+    workLocationStats: {
+      total: 0,
+      active: 0,
+      totalEmployeesAssigned: 0,
+      employeesWithoutLocation: 0,
+      topLocations: [],
+    },
   });
   const [lastUpdated, setLastUpdated] = useState("");
 
@@ -39,6 +46,10 @@ const Dashboard = ({ onSectionChange }) => {
       // Fetch document stats
       const documentsResponse = await fetch("/api/documents/stats");
       const documentStats = await documentsResponse.json();
+
+      // Fetch work location stats
+      const workLocationResponse = await fetch("/api/work-locations/stats");
+      const workLocationData = await workLocationResponse.json();
 
       // Calculate department and location stats
       const departments = {};
@@ -78,6 +89,15 @@ const Dashboard = ({ onSectionChange }) => {
         expiredDocuments: documentStats.expired || 0,
         departments,
         locations,
+        workLocationStats: workLocationData.success
+          ? workLocationData.stats
+          : {
+              total: 0,
+              active: 0,
+              totalEmployeesAssigned: 0,
+              employeesWithoutLocation: 0,
+              topLocations: [],
+            },
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -91,6 +111,18 @@ const Dashboard = ({ onSectionChange }) => {
   };
 
   const getTopLocations = () => {
+    // Use real work location data from database
+    if (
+      stats.workLocationStats.topLocations &&
+      stats.workLocationStats.topLocations.length > 0
+    ) {
+      return stats.workLocationStats.topLocations.map((loc) => [
+        loc.name,
+        loc.employeeCount,
+      ]);
+    }
+
+    // Fallback to employee work location data
     return Object.entries(stats.locations)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5);
@@ -201,20 +233,22 @@ const Dashboard = ({ onSectionChange }) => {
         </Card>
 
         <Card
-          className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border border-orange-100/60"
-          onClick={() => onSectionChange("payroll-integration")}
+          className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border border-purple-100/60"
+          onClick={() => onSectionChange("work-locations")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Payroll Integration
+              Work Locations
             </CardTitle>
-            <Activity className="h-4 w-4 text-orange-600" />
+            <MapPin className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-extrabold text-orange-600">Live</div>
+            <div className="text-3xl font-extrabold text-purple-600">
+              {stats.workLocationStats.total}
+            </div>
             <p className="text-xs text-gray-500 flex items-center mt-1">
-              <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
-              Attendance & Leave
+              <Activity className="w-3 h-3 mr-1 text-blue-500" />
+              {stats.workLocationStats.active} active
             </p>
           </CardContent>
         </Card>
@@ -264,6 +298,13 @@ const Dashboard = ({ onSectionChange }) => {
               <MapPin className="h-5 w-5 text-green-600" />
               Work Locations
             </CardTitle>
+            <div className="flex gap-4 text-sm text-gray-600">
+              <span>Total: {stats.workLocationStats.total}</span>
+              <span>Active: {stats.workLocationStats.active}</span>
+              <span>
+                Assigned: {stats.workLocationStats.totalEmployeesAssigned}
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -278,7 +319,14 @@ const Dashboard = ({ onSectionChange }) => {
                       <div
                         className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-500"
                         style={{
-                          width: `${(count / stats.totalEmployees) * 100}%`,
+                          width: `${
+                            stats.workLocationStats.totalEmployeesAssigned > 0
+                              ? (count /
+                                  stats.workLocationStats
+                                    .totalEmployeesAssigned) *
+                                100
+                              : 0
+                          }%`,
                         }}
                       ></div>
                     </div>
@@ -288,7 +336,17 @@ const Dashboard = ({ onSectionChange }) => {
                   </div>
                 </div>
               ))}
-              {Object.keys(stats.locations).length === 0 && (
+              {stats.workLocationStats.employeesWithoutLocation > 0 && (
+                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                  <span className="text-sm font-medium text-orange-600">
+                    Unassigned
+                  </span>
+                  <Badge variant="destructive" className="text-xs">
+                    {stats.workLocationStats.employeesWithoutLocation}
+                  </Badge>
+                </div>
+              )}
+              {getTopLocations().length === 0 && (
                 <p className="text-sm text-gray-500 text-center py-8">
                   No location data available
                 </p>
@@ -341,14 +399,14 @@ const Dashboard = ({ onSectionChange }) => {
             </Button>
 
             <Button
-              onClick={() => onSectionChange("payroll-integration")}
+              onClick={() => onSectionChange("work-locations")}
               className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-md"
             >
-              <TrendingUp className="h-5 w-5" />
+              <MapPin className="h-5 w-5" />
               <div className="text-left">
-                <div className="font-medium">Payroll</div>
+                <div className="font-medium">Work Locations</div>
                 <div className="text-sm opacity-90">
-                  Calculator, Attendance & Reports
+                  Manage locations & assignments
                 </div>
               </div>
             </Button>
