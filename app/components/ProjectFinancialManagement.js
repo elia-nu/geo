@@ -21,6 +21,18 @@ import {
 } from "@heroicons/react/24/outline";
 import FinancialDashboard from "./FinancialDashboard";
 import EntityManagement from "./EntityManagement";
+import {
+  validateBudgetForm,
+  validateExpenseForm,
+  validateAllocationForm,
+  hasFormErrors,
+} from "../utils/formValidation";
+import {
+  handleFormSubmission,
+  projectToasts,
+  showValidationErrors,
+  showDeleteConfirmDialog,
+} from "../utils/sweetAlert";
 
 const ProjectFinancialManagement = ({ projectId, projectName }) => {
   function getStatusColor(status) {
@@ -89,6 +101,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     description: "",
     amount: "",
     category: "general",
+    categoryId: "",
     expenseDate: new Date().toISOString().split("T")[0],
     allocationId: "",
     vendor: "",
@@ -96,6 +109,11 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     status: "pending",
     tags: [],
   });
+
+  // Form validation states
+  const [budgetFormErrors, setBudgetFormErrors] = useState({});
+  const [expenseFormErrors, setExpenseFormErrors] = useState({});
+  const [allocationFormErrors, setAllocationFormErrors] = useState({});
 
   const [incomeForm, setIncomeForm] = useState({
     title: "",
@@ -106,7 +124,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     dueDate: "",
     paymentMethod: "bank_transfer",
     clientName: "",
-
+    categoryId: "",
     invoiceNumber: "",
     status: "pending",
     paymentReference: "",
@@ -125,12 +143,14 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   });
 
   const [editingIncomeId, setEditingIncomeId] = useState(null);
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [showExpectedPaymentModal, setShowExpectedPaymentModal] =
     useState(false);
 
   const [allocationForm, setAllocationForm] = useState({
     name: "",
     category: "general",
+    categoryId: "",
     amount: "",
     description: "",
     allocationType: "general",
@@ -148,6 +168,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [departments, setDepartments] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [budgetAllocationCategories, setBudgetAllocationCategories] = useState(
+    []
+  );
+  const [incomeCategories, setIncomeCategories] = useState([]);
   const [milestones, setMilestones] = useState([]);
 
   // Fetch all financial data
@@ -155,6 +179,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     if (projectId) {
       fetchFinancialData();
       fetchEntityData();
+      fetchCategoryData();
     }
   }, [projectId]);
 
@@ -193,7 +218,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     try {
       const [departmentsRes, tasksRes, activitiesRes, milestonesRes] =
         await Promise.all([
-          fetch(`/api/departments?projectId=${projectId}`),
+          fetch(`/api/departments`), // Fetch all departments (main system)
           fetch(`/api/tasks?projectId=${projectId}`),
           fetch(`/api/activities?projectId=${projectId}`),
           fetch(`/api/projects/${projectId}/milestones`),
@@ -224,8 +249,42 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
-  const handleCreateBudget = async () => {
+  const fetchCategoryData = async () => {
     try {
+      const [budgetCategoriesRes, incomeCategoriesRes] = await Promise.all([
+        fetch("/api/budget-allocation-categories"),
+        fetch("/api/income-categories"),
+      ]);
+
+      const [budgetCategoriesData, incomeCategoriesData] = await Promise.all([
+        budgetCategoriesRes.json(),
+        incomeCategoriesRes.json(),
+      ]);
+
+      if (budgetCategoriesData.success) {
+        setBudgetAllocationCategories(budgetCategoriesData.categories || []);
+      }
+      if (incomeCategoriesData.success) {
+        setIncomeCategories(incomeCategoriesData.categories || []);
+      }
+    } catch (error) {
+      console.error("Error fetching category data:", error);
+    }
+  };
+
+  const handleCreateBudget = async () => {
+    // Validate form data
+    const errors = validateBudgetForm(budgetForm);
+    if (hasFormErrors(errors)) {
+      setBudgetFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
+
+    // Clear any existing errors
+    setBudgetFormErrors({});
+
+    const submitFunction = async () => {
       const response = await fetch(`/api/projects/${projectId}/budget`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -233,15 +292,30 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       });
 
       const data = await response.json();
-      if (data.success) {
-        setShowBudgetModal(false);
-        fetchFinancialData();
-        resetBudgetForm();
-      } else {
-        setError(data.error);
+      if (!data.success) {
+        throw new Error(data.error || "Failed to create budget");
       }
-    } catch (err) {
-      setError("Failed to create budget: " + err.message);
+
+      return data;
+    };
+
+    try {
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Creating Budget...",
+        loadingText: "Please wait while we create your project budget",
+        successTitle: "Budget Created!",
+        successText: "Project budget has been created successfully",
+        errorTitle: "Budget Error",
+        errorText: "Failed to create budget. Please try again.",
+      });
+
+      // Update UI on success
+      setShowBudgetModal(false);
+      fetchFinancialData();
+      resetBudgetForm();
+    } catch (error) {
+      console.error("Error creating budget:", error);
+      // Error handling is done by handleFormSubmission
     }
   };
 
@@ -283,7 +357,18 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleAddExpense = async () => {
-    try {
+    // Validate form data
+    const errors = validateExpenseForm(expenseForm);
+    if (hasFormErrors(errors)) {
+      setExpenseFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
+
+    // Clear any existing errors
+    setExpenseFormErrors({});
+
+    const submitFunction = async () => {
       const response = await fetch(`/api/projects/${projectId}/expenses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -294,15 +379,30 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       });
 
       const data = await response.json();
-      if (data.success) {
-        setShowExpenseModal(false);
-        fetchFinancialData();
-        resetExpenseForm();
-      } else {
-        setError(data.error);
+      if (!data.success) {
+        throw new Error(data.error || "Failed to add expense");
       }
-    } catch (err) {
-      setError("Failed to add expense: " + err.message);
+
+      return data;
+    };
+
+    try {
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Adding Expense...",
+        loadingText: "Please wait while we add your expense",
+        successTitle: "Expense Added!",
+        successText: "Expense has been added successfully",
+        errorTitle: "Expense Error",
+        errorText: "Failed to add expense. Please try again.",
+      });
+
+      // Update UI on success
+      setShowExpenseModal(false);
+      fetchFinancialData();
+      resetExpenseForm();
+    } catch (error) {
+      console.error("Error adding expense:", error);
+      // Error handling is done by handleFormSubmission
     }
   };
 
@@ -388,6 +488,25 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     setShowIncomeModal(true);
   };
 
+  const handleOpenEditExpense = (expense) => {
+    setExpenseForm({
+      title: expense.title || "",
+      description: expense.description || "",
+      amount: expense.amount || "",
+      category: expense.category || "general",
+      categoryId: expense.categoryId || "",
+      expenseDate:
+        expense.expenseDate || new Date().toISOString().split("T")[0],
+      allocationId: expense.allocationId || "",
+      vendor: expense.vendor || "",
+      receiptUrl: expense.receiptUrl || "",
+      status: expense.status || "pending",
+      tags: expense.tags || [],
+    });
+    setEditingExpenseId(expense._id);
+    setShowExpenseModal(true);
+  };
+
   const handleEditIncome = async () => {
     if (!editingIncomeId) return;
     try {
@@ -414,6 +533,106 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
+  const handleEditExpense = async () => {
+    if (!editingExpenseId) return;
+
+    // Validate form data
+    const errors = validateExpenseForm(expenseForm);
+    if (hasFormErrors(errors)) {
+      setExpenseFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
+
+    // Clear any existing errors
+    setExpenseFormErrors({});
+
+    const submitFunction = async () => {
+      const response = await fetch(
+        `/api/projects/${projectId}/expenses/${editingExpenseId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...expenseForm,
+            tags: expenseForm.tags.filter((tag) => tag.trim() !== ""),
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to update expense");
+      }
+
+      return data;
+    };
+
+    try {
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Updating Expense...",
+        loadingText: "Please wait while we update your expense",
+        successTitle: "Expense Updated!",
+        successText: "Expense has been updated successfully",
+        errorTitle: "Expense Error",
+        errorText: "Failed to update expense. Please try again.",
+      });
+
+      // Update UI on success
+      setShowExpenseModal(false);
+      setEditingExpenseId(null);
+      fetchFinancialData();
+      resetExpenseForm();
+    } catch (error) {
+      console.error("Error updating expense:", error);
+      // Error handling is done by handleFormSubmission
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId) => {
+    const confirmed = await showDeleteConfirmDialog(
+      "Delete Expense",
+      "Are you sure you want to delete this expense? This action cannot be undone.",
+      "Delete",
+      "Cancel"
+    );
+
+    if (!confirmed) return;
+
+    const submitFunction = async () => {
+      const response = await fetch(
+        `/api/projects/${projectId}/expenses/${expenseId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to delete expense");
+      }
+
+      return data;
+    };
+
+    try {
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Deleting Expense...",
+        loadingText: "Please wait while we delete the expense",
+        successTitle: "Expense Deleted!",
+        successText: "Expense has been deleted successfully",
+        errorTitle: "Delete Error",
+        errorText: "Failed to delete expense. Please try again.",
+      });
+
+      // Update UI on success
+      fetchFinancialData();
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+      // Error handling is done by handleFormSubmission
+    }
+  };
+
   const handleDeleteIncome = async (incomeId) => {
     try {
       const response = await fetch(
@@ -432,26 +651,36 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleAddAllocation = async () => {
-    if (allocationForm.name && allocationForm.amount) {
-      if (editingAllocationId) {
-        // Update existing allocation
-        await handleUpdateAllocation();
-      } else {
-        // Add new allocation (existing logic for budget creation)
-        const newAllocation = {
-          ...allocationForm,
-          amount: parseFloat(allocationForm.amount),
-          _id: Date.now().toString(), // Temporary ID for UI
-        };
+    // Validate form data
+    const errors = validateAllocationForm(allocationForm);
+    if (hasFormErrors(errors)) {
+      setAllocationFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
 
-        setBudgetForm((prev) => ({
-          ...prev,
-          budgetAllocations: [...prev.budgetAllocations, newAllocation],
-        }));
+    // Clear any existing errors
+    setAllocationFormErrors({});
 
-        setShowAllocationModal(false);
-        resetAllocationForm();
-      }
+    if (editingAllocationId) {
+      // Update existing allocation
+      await handleUpdateAllocation();
+    } else {
+      // Add new allocation (existing logic for budget creation)
+      const newAllocation = {
+        ...allocationForm,
+        amount: parseFloat(allocationForm.amount),
+        _id: Date.now().toString(), // Temporary ID for UI
+      };
+
+      setBudgetForm((prev) => ({
+        ...prev,
+        budgetAllocations: [...prev.budgetAllocations, newAllocation],
+      }));
+
+      setShowAllocationModal(false);
+      resetAllocationForm();
+      projectToasts.allocationAdded();
     }
   };
 
@@ -467,7 +696,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           ? "activity"
           : allocationForm.milestoneId
           ? "milestone"
-          : "general");
+          : "");
 
       const body = {
         name: allocationForm.name,
@@ -583,6 +812,53 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       approvalDate: "",
       budgetAllocations: [],
     });
+    setBudgetFormErrors({});
+  };
+
+  // Form change handlers that clear validation errors
+  const handleBudgetFormChange = (field, value) => {
+    setBudgetForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    // Clear field-specific error when user starts typing
+    if (budgetFormErrors[field]) {
+      setBudgetFormErrors((prev) => ({
+        ...prev,
+        [field]: "",
+      }));
+    }
+  };
+
+  const handleExpenseFormChange = (field, value) => {
+    setExpenseForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    // Clear field-specific error when user starts typing
+    if (expenseFormErrors[field]) {
+      setExpenseFormErrors((prev) => ({
+        ...prev,
+        [field]: "",
+      }));
+    }
+  };
+
+  const handleAllocationFormChange = (field, value) => {
+    setAllocationForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    // Clear field-specific error when user starts typing
+    if (allocationFormErrors[field]) {
+      setAllocationFormErrors((prev) => ({
+        ...prev,
+        [field]: "",
+      }));
+    }
   };
 
   const resetExpenseForm = () => {
@@ -591,6 +867,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       description: "",
       amount: "",
       category: "general",
+      categoryId: "",
       expenseDate: new Date().toISOString().split("T")[0],
       allocationId: "",
       vendor: "",
@@ -598,6 +875,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       status: "pending",
       tags: [],
     });
+    setExpenseFormErrors({});
   };
 
   const resetIncomeForm = () => {
@@ -622,6 +900,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     setAllocationForm({
       name: "",
       category: "general",
+      categoryId: "",
       amount: "",
       description: "",
       allocationType: "general",
@@ -634,6 +913,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       endDate: "",
       tags: [],
     });
+    setAllocationFormErrors({});
     setEditingAllocationId(null);
   };
 
@@ -963,6 +1243,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             formatCurrency={formatCurrency}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
+            onEditExpense={handleOpenEditExpense}
+            onDeleteExpense={handleDeleteExpense}
           />
         )}
 
@@ -992,8 +1274,12 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         <BudgetModal
           budgetForm={budgetForm}
           setBudgetForm={setBudgetForm}
+          budgetFormErrors={budgetFormErrors}
+          handleBudgetFormChange={handleBudgetFormChange}
           allocationForm={allocationForm}
           setAllocationForm={setAllocationForm}
+          allocationFormErrors={allocationFormErrors}
+          handleAllocationFormChange={handleAllocationFormChange}
           showAllocationModal={showAllocationModal}
           setShowAllocationModal={setShowAllocationModal}
           handleCreateBudget={handleCreateBudget}
@@ -1012,8 +1298,12 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         <BudgetModal
           budgetForm={budgetForm}
           setBudgetForm={setBudgetForm}
+          budgetFormErrors={budgetFormErrors}
+          handleBudgetFormChange={handleBudgetFormChange}
           allocationForm={allocationForm}
           setAllocationForm={setAllocationForm}
+          allocationFormErrors={allocationFormErrors}
+          handleAllocationFormChange={handleAllocationFormChange}
           showAllocationModal={showAllocationModal}
           setShowAllocationModal={setShowAllocationModal}
           handleCreateBudget={handleEditBudget}
@@ -1032,9 +1322,14 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         <ExpenseModal
           expenseForm={expenseForm}
           setExpenseForm={setExpenseForm}
+          expenseFormErrors={expenseFormErrors}
+          handleExpenseFormChange={handleExpenseFormChange}
           budgetData={budgetData}
-          handleAddExpense={handleAddExpense}
+          onSubmit={editingExpenseId ? handleEditExpense : handleAddExpense}
           setShowExpenseModal={setShowExpenseModal}
+          setEditingExpenseId={setEditingExpenseId}
+          resetExpenseForm={resetExpenseForm}
+          isEdit={!!editingExpenseId}
         />
       )}
 
@@ -1440,7 +1735,7 @@ const OverviewTab = ({
             </div>
           </div>
         </div>
-
+        {/*
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -1467,7 +1762,7 @@ const OverviewTab = ({
               )}
             </div>
           </div>
-        </div>
+        </div>*/}
       </div>
 
       {/* Budget Utilization */}
@@ -1939,6 +2234,8 @@ const ExpensesTab = ({
   formatCurrency,
   getStatusColor,
   formatDate,
+  onEditExpense,
+  onDeleteExpense,
 }) => {
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -2052,10 +2349,18 @@ const ExpensesTab = ({
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
                     <div className="flex items-center space-x-1 sm:space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900">
+                      <button
+                        onClick={() => onEditExpense(expense)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit Expense"
+                      >
                         <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
-                      <button className="text-red-600 hover:text-red-900">
+                      <button
+                        onClick={() => onDeleteExpense(expense._id)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Delete Expense"
+                      >
                         <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                     </div>
@@ -2658,8 +2963,12 @@ const ReportsTab = ({
 const BudgetModal = ({
   budgetForm,
   setBudgetForm,
+  budgetFormErrors,
+  handleBudgetFormChange,
   allocationForm,
   setAllocationForm,
+  allocationFormErrors,
+  handleAllocationFormChange,
   showAllocationModal,
   setShowAllocationModal,
   handleCreateBudget,
@@ -2700,15 +3009,21 @@ const BudgetModal = ({
                 step="0.01"
                 value={budgetForm.totalAmount}
                 onChange={(e) =>
-                  setBudgetForm((prev) => ({
-                    ...prev,
-                    totalAmount: e.target.value,
-                  }))
+                  handleBudgetFormChange("totalAmount", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                  budgetFormErrors.totalAmount
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
                 placeholder="0.00"
                 required
               />
+              {budgetFormErrors.totalAmount && (
+                <p className="text-xs text-red-600 mt-1">
+                  {budgetFormErrors.totalAmount}
+                </p>
+              )}
             </div>
 
             <div>
@@ -2718,15 +3033,21 @@ const BudgetModal = ({
               <select
                 value={budgetForm.currency}
                 onChange={(e) =>
-                  setBudgetForm((prev) => ({
-                    ...prev,
-                    currency: e.target.value,
-                  }))
+                  handleBudgetFormChange("currency", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                  budgetFormErrors.currency
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
               >
                 <option value="ETB">ETB - Ethiopian Birr</option>
               </select>
+              {budgetFormErrors.currency && (
+                <p className="text-xs text-red-600 mt-1">
+                  {budgetFormErrors.currency}
+                </p>
+              )}
             </div>
           </div>
 
@@ -2737,15 +3058,21 @@ const BudgetModal = ({
             <textarea
               value={budgetForm.description}
               onChange={(e) =>
-                setBudgetForm((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
+                handleBudgetFormChange("description", e.target.value)
               }
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                budgetFormErrors.description
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
               placeholder="Budget description..."
             />
+            {budgetFormErrors.description && (
+              <p className="text-xs text-red-600 mt-1">
+                {budgetFormErrors.description}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -2757,14 +3084,20 @@ const BudgetModal = ({
                 type="text"
                 value={budgetForm.approvedBy}
                 onChange={(e) =>
-                  setBudgetForm((prev) => ({
-                    ...prev,
-                    approvedBy: e.target.value,
-                  }))
+                  handleBudgetFormChange("approvedBy", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                  budgetFormErrors.approvedBy
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
                 placeholder="Approver name"
               />
+              {budgetFormErrors.approvedBy && (
+                <p className="text-xs text-red-600 mt-1">
+                  {budgetFormErrors.approvedBy}
+                </p>
+              )}
             </div>
 
             <div>
@@ -2775,13 +3108,19 @@ const BudgetModal = ({
                 type="date"
                 value={budgetForm.approvalDate}
                 onChange={(e) =>
-                  setBudgetForm((prev) => ({
-                    ...prev,
-                    approvalDate: e.target.value,
-                  }))
+                  handleBudgetFormChange("approvalDate", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                  budgetFormErrors.approvalDate
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
               />
+              {budgetFormErrors.approvalDate && (
+                <p className="text-xs text-red-600 mt-1">
+                  {budgetFormErrors.approvalDate}
+                </p>
+              )}
             </div>
           </div>
 
@@ -2902,15 +3241,21 @@ const BudgetModal = ({
                   type="text"
                   value={allocationForm.name}
                   onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
+                    handleAllocationFormChange("name", e.target.value)
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                    allocationFormErrors.name
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
+                  }`}
                   placeholder="e.g., Development Team"
                   required
                 />
+                {allocationFormErrors.name && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {allocationFormErrors.name}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -2918,23 +3263,21 @@ const BudgetModal = ({
                   Category
                 </label>
                 <select
-                  value={allocationForm.category}
+                  value={allocationForm.categoryId}
                   onChange={(e) =>
                     setAllocationForm((prev) => ({
                       ...prev,
-                      category: e.target.value,
+                      categoryId: e.target.value,
                     }))
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
-                  <option value="general">General</option>
-                  <option value="development">Development</option>
-                  <option value="design">Design</option>
-                  <option value="marketing">Marketing</option>
-                  <option value="operations">Operations</option>
-                  <option value="equipment">Equipment</option>
-                  <option value="travel">Travel</option>
-                  <option value="materials">Materials</option>
+                  <option value="">Select Category</option>
+                  {budgetAllocationCategories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -2947,42 +3290,50 @@ const BudgetModal = ({
                   step="0.01"
                   value={allocationForm.amount}
                   onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      amount: e.target.value,
-                    }))
+                    handleAllocationFormChange("amount", e.target.value)
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                    allocationFormErrors.amount
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
+                  }`}
                   placeholder="0.00"
                   required
                 />
+                {allocationFormErrors.amount && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {allocationFormErrors.amount}
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Allocation Type
+                  Allocation Type (Optional)
                 </label>
                 <select
                   value={allocationForm.allocationType}
                   onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      allocationType: e.target.value,
-                      // Reset entity IDs when type changes
-                      departmentId: "",
-                      taskId: "",
-                      activityId: "",
-                      milestoneId: "",
-                    }))
+                    handleAllocationFormChange("allocationType", e.target.value)
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                    allocationFormErrors.allocationType
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
+                  }`}
                 >
+                  <option value="">Select Type (Optional)</option>
                   <option value="general">General</option>
                   <option value="department">Department</option>
                   <option value="task">Task</option>
                   <option value="activity">Activity</option>
                   <option value="milestone">Milestone</option>
                 </select>
+                {allocationFormErrors.allocationType && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {allocationFormErrors.allocationType}
+                  </p>
+                )}
               </div>
 
               {/* Dynamic Entity Selection */}
@@ -3215,9 +3566,14 @@ const BudgetModal = ({
 const ExpenseModal = ({
   expenseForm,
   setExpenseForm,
+  expenseFormErrors,
+  handleExpenseFormChange,
   budgetData,
-  handleAddExpense,
+  onSubmit,
   setShowExpenseModal,
+  setEditingExpenseId,
+  resetExpenseForm,
+  isEdit = false,
 }) => {
   const addTag = () => {
     setExpenseForm((prev) => ({
@@ -3245,7 +3601,7 @@ const ExpenseModal = ({
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-4 sm:p-6 border-b border-gray-200">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
-            Add New Expense
+            {isEdit ? "Edit Expense" : "Add New Expense"}
           </h3>
         </div>
 
@@ -3259,12 +3615,21 @@ const ExpenseModal = ({
                 type="text"
                 value={expenseForm.title}
                 onChange={(e) =>
-                  setExpenseForm((prev) => ({ ...prev, title: e.target.value }))
+                  handleExpenseFormChange("title", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                  expenseFormErrors.title
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
                 placeholder="e.g., Office Supplies"
                 required
               />
+              {expenseFormErrors.title && (
+                <p className="text-xs text-red-600 mt-1">
+                  {expenseFormErrors.title}
+                </p>
+              )}
             </div>
 
             <div>
@@ -3276,15 +3641,21 @@ const ExpenseModal = ({
                 step="0.01"
                 value={expenseForm.amount}
                 onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    amount: e.target.value,
-                  }))
+                  handleExpenseFormChange("amount", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                  expenseFormErrors.amount
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
                 placeholder="0.00"
                 required
               />
+              {expenseFormErrors.amount && (
+                <p className="text-xs text-red-600 mt-1">
+                  {expenseFormErrors.amount}
+                </p>
+              )}
             </div>
 
             <div>
@@ -3292,26 +3663,28 @@ const ExpenseModal = ({
                 Category
               </label>
               <select
-                value={expenseForm.category}
+                value={expenseForm.categoryId}
                 onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    category: e.target.value,
-                  }))
+                  handleExpenseFormChange("categoryId", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                  expenseFormErrors.categoryId
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
               >
-                <option value="general">General</option>
-                <option value="development">Development</option>
-                <option value="design">Design</option>
-                <option value="marketing">Marketing</option>
-                <option value="operations">Operations</option>
-                <option value="equipment">Equipment</option>
-                <option value="travel">Travel</option>
-                <option value="materials">Materials</option>
-                <option value="utilities">Utilities</option>
-                <option value="software">Software</option>
+                <option value="">Select Category</option>
+                {budgetAllocationCategories.map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
               </select>
+              {expenseFormErrors.category && (
+                <p className="text-xs text-red-600 mt-1">
+                  {expenseFormErrors.category}
+                </p>
+              )}
             </div>
 
             <div>
@@ -3322,13 +3695,19 @@ const ExpenseModal = ({
                 type="date"
                 value={expenseForm.expenseDate}
                 onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    expenseDate: e.target.value,
-                  }))
+                  handleExpenseFormChange("expenseDate", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                  expenseFormErrors.expenseDate
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
               />
+              {expenseFormErrors.expenseDate && (
+                <p className="text-xs text-red-600 mt-1">
+                  {expenseFormErrors.expenseDate}
+                </p>
+              )}
             </div>
 
             <div>
@@ -3419,15 +3798,21 @@ const ExpenseModal = ({
               <textarea
                 value={expenseForm.description}
                 onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
+                  handleExpenseFormChange("description", e.target.value)
                 }
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                  expenseFormErrors.description
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
                 placeholder="Expense description..."
               />
+              {expenseFormErrors.description && (
+                <p className="text-xs text-red-600 mt-1">
+                  {expenseFormErrors.description}
+                </p>
+              )}
             </div>
 
             {/* Tags */}
@@ -3470,17 +3855,22 @@ const ExpenseModal = ({
 
         <div className="flex flex-col sm:flex-row sm:justify-end gap-3 p-4 sm:p-6 border-t border-gray-200">
           <button
-            onClick={() => setShowExpenseModal(false)}
+            onClick={() => {
+              setShowExpenseModal(false);
+              if (isEdit) {
+                setEditingExpenseId(null);
+              }
+            }}
             className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
           >
             Cancel
           </button>
           <button
-            onClick={handleAddExpense}
+            onClick={onSubmit}
             disabled={!expenseForm.title || !expenseForm.amount}
             className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
           >
-            Add Expense
+            {isEdit ? "Update Expense" : "Add Expense"}
           </button>
         </div>
       </div>
@@ -3538,6 +3928,29 @@ const IncomeModal = ({
                 placeholder="0.00"
                 required={isEdit}
               />
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <select
+                value={incomeForm.categoryId}
+                onChange={(e) =>
+                  setIncomeForm((prev) => ({
+                    ...prev,
+                    categoryId: e.target.value,
+                  }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              >
+                <option value="">Select Category</option>
+                {incomeCategories.map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

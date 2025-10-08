@@ -278,7 +278,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
           </div>
         </div>
 
-        {/* Profit/Loss */}
+        {/* Profit/Loss 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div
@@ -313,7 +313,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
           <p className="text-sm text-gray-500 mt-1">
             ROI: {formatPercentage(profitLoss?.roi || 0)}
           </p>
-        </div>
+        </div>*/}
 
         {/* Payment Status */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -688,8 +688,8 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                                   {formatCurrency(client.uncollectedAmount)}
                                 </td>
                                 <td className="px-6 py-4 whitespace-normal break-words">
-                                  <div className="flex items-center">
-                                    <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                  <div className="flex flex-col items-center justify-center space-y-2">
+                                    <div className="w-full max-w-32 bg-gray-200 rounded-full h-2 relative overflow-hidden">
                                       <div
                                         className={`h-2 rounded-full ${
                                           client.collectionRate >= 95
@@ -699,11 +699,14 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                                             : "bg-red-500"
                                         }`}
                                         style={{
-                                          width: `${client.collectionRate}%`,
+                                          width: `${Math.min(
+                                            100,
+                                            client.collectionRate
+                                          )}%`,
                                         }}
                                       ></div>
                                     </div>
-                                    <span className="text-sm text-gray-900">
+                                    <span className="text-xs text-gray-900 font-medium text-center">
                                       {formatPercentage(client.collectionRate)}
                                     </span>
                                   </div>

@@ -13,6 +13,7 @@ export async function POST(request) {
       name,
       description,
       category,
+      categoryId,
       startDate,
       endDate,
       status = "not_started",
@@ -33,11 +34,37 @@ export async function POST(request) {
       typeof id === "string" ? new ObjectId(id) : id
     );
 
+    // Validate categoryId if provided
+    let categoryObjectId = null;
+    if (categoryId) {
+      if (!ObjectId.isValid(categoryId)) {
+        return NextResponse.json(
+          { error: "Invalid category ID" },
+          { status: 400 }
+        );
+      }
+      categoryObjectId = new ObjectId(categoryId);
+
+      // Verify category exists
+      const categoryExists = await db.collection("projectCategories").findOne({
+        _id: categoryObjectId,
+        status: "active",
+      });
+
+      if (!categoryExists) {
+        return NextResponse.json(
+          { error: "Project category not found or inactive" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Create project object
     const project = {
       name,
       description: description || "",
-      category: category || "general",
+      category: category || "general", // Keep for backward compatibility
+      categoryId: categoryObjectId,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       status,
@@ -151,42 +178,58 @@ export async function GET(request) {
                       $cond: {
                         if: {
                           $and: [
-                            { $ne: ["$$employee.personalDetails.firstName", null] },
-                            { $ne: ["$$employee.personalDetails.lastName", null] }
-                          ]
+                            {
+                              $ne: [
+                                "$$employee.personalDetails.firstName",
+                                null,
+                              ],
+                            },
+                            {
+                              $ne: [
+                                "$$employee.personalDetails.lastName",
+                                null,
+                              ],
+                            },
+                          ],
                         },
                         then: {
                           $concat: [
                             "$$employee.personalDetails.firstName",
                             " ",
-                            "$$employee.personalDetails.lastName"
-                          ]
+                            "$$employee.personalDetails.lastName",
+                          ],
                         },
                         else: {
                           $cond: {
                             if: {
                               $and: [
                                 { $ne: ["$$employee.firstName", null] },
-                                { $ne: ["$$employee.lastName", null] }
-                              ]
+                                { $ne: ["$$employee.lastName", null] },
+                              ],
                             },
                             then: {
                               $concat: [
                                 "$$employee.firstName",
                                 " ",
-                                "$$employee.lastName"
-                              ]
+                                "$$employee.lastName",
+                              ],
                             },
                             else: {
                               $concat: [
                                 "Employee ",
-                                { $substr: [{ $toString: "$$employee._id" }, -6, -1] }
-                              ]
-                            }
-                          }
-                        }
-                      }
-                    }
+                                {
+                                  $substr: [
+                                    { $toString: "$$employee._id" },
+                                    -6,
+                                    -1,
+                                  ],
+                                },
+                              ],
+                            },
+                          },
+                        },
+                      },
+                    },
                   ],
                 },
                 email: {

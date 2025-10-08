@@ -35,6 +35,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
   const [tasks, setTasks] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [taskCategories, setTaskCategories] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(projectId);
   const [currentProject, setCurrentProject] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -82,11 +83,13 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     dependencies: [],
     subtasks: [],
     category: "general",
+    categoryId: "",
   });
 
   useEffect(() => {
     fetchTasks();
     fetchEmployees();
+    fetchTaskCategories();
     if (!projectId) {
       fetchProjects();
     }
@@ -162,6 +165,18 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       }
     } catch (err) {
       console.error("Error fetching projects:", err);
+    }
+  };
+
+  const fetchTaskCategories = async () => {
+    try {
+      const response = await fetch("/api/task-categories");
+      const data = await response.json();
+      if (data.success) {
+        setTaskCategories(data.categories || []);
+      }
+    } catch (err) {
+      console.error("Error fetching task categories:", err);
     }
   };
 
@@ -427,6 +442,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       dependencies: [],
       subtasks: [],
       category: "general",
+      categoryId: "",
     });
   };
 
@@ -450,6 +466,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       dependencies: task.dependencies || [],
       subtasks: task.subtasks || [],
       category: task.category || "general",
+      categoryId: task.categoryId || "",
     });
     setShowEditDialog(true);
   };
@@ -1079,21 +1096,21 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                     Category
                   </label>
                   <select
-                    value={formData.category}
+                    value={formData.categoryId}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        category: e.target.value,
+                        categoryId: e.target.value,
                       }))
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="general">General</option>
-                    <option value="development">Development</option>
-                    <option value="design">Design</option>
-                    <option value="testing">Testing</option>
-                    <option value="documentation">Documentation</option>
-                    <option value="research">Research</option>
+                    <option value="">Select Category</option>
+                    {taskCategories.map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

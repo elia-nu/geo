@@ -3,7 +3,6 @@ import { getDb } from "../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../utils/audit.js";
 
-
 // Create a new task
 export async function POST(request) {
   try {
@@ -11,7 +10,6 @@ export async function POST(request) {
     const data = await request.json();
 
     const {
-
       title,
       description,
       projectId,
@@ -28,6 +26,7 @@ export async function POST(request) {
       dependencies = [],
       subtasks = [],
       category = "general",
+      categoryId,
       createdBy,
     } = data;
 
@@ -39,7 +38,6 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-
 
     // Validate ObjectIds
     if (!ObjectId.isValid(projectId)) {
@@ -57,6 +55,31 @@ export async function POST(request) {
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Validate categoryId if provided
+    let categoryObjectId = null;
+    if (categoryId) {
+      if (!ObjectId.isValid(categoryId)) {
+        return NextResponse.json(
+          { error: "Invalid category ID" },
+          { status: 400 }
+        );
+      }
+      categoryObjectId = new ObjectId(categoryId);
+
+      // Verify category exists
+      const categoryExists = await db.collection("taskCategories").findOne({
+        _id: categoryObjectId,
+        status: "active",
+      });
+
+      if (!categoryExists) {
+        return NextResponse.json(
+          { error: "Task category not found or inactive" },
+          { status: 400 }
+        );
+      }
     }
 
     // Convert employee IDs to ObjectIds
@@ -117,7 +140,8 @@ export async function POST(request) {
       tags,
       dependencies: dependencyObjectIds,
       subtasks: processedSubtasks,
-      category,
+      category, // Keep for backward compatibility
+      categoryId: categoryObjectId,
       createdBy: createdBy
         ? typeof createdBy === "string" && ObjectId.isValid(createdBy)
           ? new ObjectId(createdBy)
@@ -153,13 +177,11 @@ export async function POST(request) {
       approvedBy: null,
       approvedAt: null,
 
-
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     const result = await db.collection("tasks").insertOne(task);
-
 
     // Update project with task reference
     await db.collection("projects").updateOne(
@@ -169,7 +191,6 @@ export async function POST(request) {
         $set: { updatedAt: new Date() },
       }
     );
-
 
     // Create audit log
     await createAuditLog({
@@ -185,7 +206,6 @@ export async function POST(request) {
         assignedCount: assignedToObjectIds.length,
         priority,
         dueDate,
-
       },
     });
 
@@ -194,7 +214,6 @@ export async function POST(request) {
       message: "Task created successfully",
 
       task: { _id: result.insertedId, ...task },
-
     });
   } catch (error) {
     console.error("Error creating task:", error);
@@ -204,7 +223,6 @@ export async function POST(request) {
     );
   }
 }
-
 
 // Get all tasks with filtering and pagination
 export async function GET(request) {

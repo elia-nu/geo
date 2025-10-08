@@ -93,7 +93,8 @@ export async function PUT(request, { params }) {
     }
 
     // Prepare update data
-    const { title, description, dueDate, status, progress, completedDate } = data;
+    const { title, description, dueDate, status, progress, completedDate } =
+      data;
     const updateData = {};
 
     // Only update fields that are provided
@@ -150,6 +151,19 @@ export async function PUT(request, { params }) {
       .findOne({ _id: new ObjectId(id) });
 
     const updatedMilestone = updatedProject.milestones[milestoneIndex];
+
+    // If milestone is completed, resolve related active alerts
+    if (status === "completed") {
+      await db.collection("project_alerts").updateMany(
+        {
+          projectId: new ObjectId(id),
+          relatedEntityId: updatedMilestone._id,
+          relatedEntityType: "milestone",
+          status: "active",
+        },
+        { $set: { status: "resolved", updatedAt: new Date() } }
+      );
+    }
 
     return NextResponse.json({
       success: true,

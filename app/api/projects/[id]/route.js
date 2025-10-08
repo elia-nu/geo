@@ -46,42 +46,58 @@ export async function GET(request, { params }) {
                       $cond: {
                         if: {
                           $and: [
-                            { $ne: ["$$employee.personalDetails.firstName", null] },
-                            { $ne: ["$$employee.personalDetails.lastName", null] }
-                          ]
+                            {
+                              $ne: [
+                                "$$employee.personalDetails.firstName",
+                                null,
+                              ],
+                            },
+                            {
+                              $ne: [
+                                "$$employee.personalDetails.lastName",
+                                null,
+                              ],
+                            },
+                          ],
                         },
                         then: {
                           $concat: [
                             "$$employee.personalDetails.firstName",
                             " ",
-                            "$$employee.personalDetails.lastName"
-                          ]
+                            "$$employee.personalDetails.lastName",
+                          ],
                         },
                         else: {
                           $cond: {
                             if: {
                               $and: [
                                 { $ne: ["$$employee.firstName", null] },
-                                { $ne: ["$$employee.lastName", null] }
-                              ]
+                                { $ne: ["$$employee.lastName", null] },
+                              ],
                             },
                             then: {
                               $concat: [
                                 "$$employee.firstName",
                                 " ",
-                                "$$employee.lastName"
-                              ]
+                                "$$employee.lastName",
+                              ],
                             },
                             else: {
                               $concat: [
                                 "Employee ",
-                                { $substr: [{ $toString: "$$employee._id" }, -6, -1] }
-                              ]
-                            }
-                          }
-                        }
-                      }
-                    }
+                                {
+                                  $substr: [
+                                    { $toString: "$$employee._id" },
+                                    -6,
+                                    -1,
+                                  ],
+                                },
+                              ],
+                            },
+                          },
+                        },
+                      },
+                    },
                   ],
                 },
                 email: {
@@ -153,6 +169,7 @@ export async function PUT(request, { params }) {
       name,
       description,
       category,
+      categoryId,
       startDate,
       endDate,
       status,
@@ -163,10 +180,41 @@ export async function PUT(request, { params }) {
 
     const updateData = {};
 
+    // Validate categoryId if provided
+    if (categoryId !== undefined) {
+      if (categoryId === null) {
+        updateData.categoryId = null;
+      } else {
+        if (!ObjectId.isValid(categoryId)) {
+          return NextResponse.json(
+            { error: "Invalid category ID" },
+            { status: 400 }
+          );
+        }
+
+        // Verify category exists
+        const categoryExists = await db
+          .collection("projectCategories")
+          .findOne({
+            _id: new ObjectId(categoryId),
+            status: "active",
+          });
+
+        if (!categoryExists) {
+          return NextResponse.json(
+            { error: "Project category not found or inactive" },
+            { status: 400 }
+          );
+        }
+
+        updateData.categoryId = new ObjectId(categoryId);
+      }
+    }
+
     // Only update fields that are provided
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
-    if (category !== undefined) updateData.category = category;
+    if (category !== undefined) updateData.category = category; // Keep for backward compatibility
     if (startDate !== undefined) updateData.startDate = new Date(startDate);
     if (endDate !== undefined) updateData.endDate = new Date(endDate);
     if (status !== undefined) updateData.status = status;
