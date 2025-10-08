@@ -11,6 +11,47 @@ const Layout = ({
   onLogout = null,
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [expiringDocs, setExpiringDocs] = useState([]);
+
+  // Compute expiring within 30 days
+  const computeExpiring = (docs) => {
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(
+      now.getTime() + 30 * 24 * 60 * 60 * 1000
+    );
+    return (Array.isArray(docs) ? docs : [])
+      .filter((doc) => {
+        if (!doc?.expiryDate) return false;
+        const expiry = new Date(doc.expiryDate);
+        return !isNaN(expiry) && expiry >= now && expiry <= thirtyDaysFromNow;
+      })
+      .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+  };
+
+  // Fetch documents and compute expiring list
+  React.useEffect(() => {
+    const fetchAndCompute = async () => {
+      try {
+        const res = await fetch("/api/documents");
+        if (!res.ok) return;
+        const data = await res.json();
+        // API may return array or an object; normalize to array
+        const docs = Array.isArray(data?.documents)
+          ? data.documents
+          : Array.isArray(data)
+          ? data
+          : [];
+        setExpiringDocs(computeExpiring(docs));
+      } catch {}
+    };
+
+    fetchAndCompute();
+
+    const onFocus = () => fetchAndCompute();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   React.useEffect(() => {
     try {
@@ -102,13 +143,72 @@ const Layout = ({
               </button>
 
               {/* Notifications */}
-              <button
-                className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Notifications"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setIsNotifOpen((v) => !v)}
+                  className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Notifications"
+                  aria-expanded={isNotifOpen}
+                >
+                  <Bell className="w-5 h-5" />
+                  {expiringDocs.length > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-red-600 text-white text-[10px] font-semibold rounded-full">
+                      {expiringDocs.length}
+                    </span>
+                  )}
+                </button>
+
+                {isNotifOpen && (
+                  <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="text-sm font-semibold text-gray-900">
+                        Document Alerts
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {expiringDocs.length > 0
+                          ? `${expiringDocs.length} document${
+                              expiringDocs.length > 1 ? "s" : ""
+                            } expiring within 30 days`
+                          : "No upcoming expiries"}
+                      </p>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {expiringDocs.length === 0 ? (
+                        <div className="p-4 text-sm text-gray-600">
+                          You're all set. No documents expiring soon.
+                        </div>
+                      ) : (
+                        expiringDocs.slice(0, 10).map((doc) => (
+                          <div
+                            key={doc._id}
+                            className="px-4 py-3 flex items-start gap-3 hover:bg-gray-50"
+                          >
+                            <div className="mt-0.5 w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {doc.title || doc.originalName || "Document"}
+                              </p>
+                              <p className="text-xs text-gray-600">
+                                Expires:{" "}
+                                {new Date(doc.expiryDate).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="px-4 py-2 border-t border-gray-100 text-right">
+                      <a
+                        href="/hrm?section=documents"
+                        className="text-sm text-blue-600 hover:text-blue-700"
+                        onClick={() => setIsNotifOpen(false)}
+                      >
+                        View all documents
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Settings - Hide on smallest screens */}
               <button
