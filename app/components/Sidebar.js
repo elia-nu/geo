@@ -302,8 +302,14 @@ const Sidebar = ({
     if (item.submenu) {
       toggleSubmenu(item.id);
     } else {
-      const path = item.path || `/hrm?section=${item.id}`;
-      router.push(path);
+      if (item.id === "dashboard") {
+        router.push("/hrm");
+        onSectionChange("dashboard");
+      } else {
+        const path = item.path || `/hrm?section=${item.id}`;
+        router.push(path);
+        onSectionChange(item.id);
+      }
     }
   };
 
