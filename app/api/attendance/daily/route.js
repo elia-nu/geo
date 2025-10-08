@@ -20,6 +20,36 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return distance * 1000; // Convert to meters
 }
 
+// Normalize a distance value to meters. Supports numbers and strings with units (mm, cm, m, km)
+function parseDistanceToMeters(value) {
+  try {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (value === null || value === undefined) return 100;
+    const str = String(value).trim().toLowerCase();
+    const match = str.match(/^(\d+(?:\.\d+)?)(?:\s*(mm|cm|m|km))?$/);
+    if (!match) {
+      const asNumber = parseFloat(str);
+      return Number.isFinite(asNumber) ? asNumber : 100;
+    }
+    const num = parseFloat(match[1]);
+    const unit = match[2] || "m";
+    switch (unit) {
+      case "mm":
+        return num / 1000;
+      case "cm":
+        return num / 100;
+      case "m":
+        return num;
+      case "km":
+        return num * 1000;
+      default:
+        return num;
+    }
+  } catch {
+    return 100;
+  }
+}
+
 // Get today's date in YYYY-MM-DD format
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
@@ -177,12 +207,20 @@ export async function POST(request) {
     };
 
     if (latitude && longitude && workLocations.length > 0) {
-      // Find the nearest work location
+      // Evaluate all locations: valid if ANY location is within its own radius
       let shortestDistance = Infinity;
       let nearestLocation = null;
-      let isValid = false;
+      let foundValid = false;
 
       for (const workLocation of workLocations) {
+        if (
+          workLocation == null ||
+          workLocation.latitude == null ||
+          workLocation.longitude == null
+        ) {
+          continue;
+        }
+
         const distance = calculateDistance(
           latitude,
           longitude,
@@ -194,31 +232,38 @@ export async function POST(request) {
           shortestDistance = distance;
           nearestLocation = workLocation;
         }
+
+        const radiusMeters = parseDistanceToMeters(workLocation.radius);
+        if (distance <= radiusMeters) {
+          foundValid = true;
+        }
       }
 
-      const radius = nearestLocation.radius || 100; // Default 100 meters
-      isValid = shortestDistance <= radius;
+      const nearestRadius = parseDistanceToMeters(
+        (nearestLocation && nearestLocation.radius) || 100
+      );
 
       geofenceValidation = {
-        isValid,
+        isValid: foundValid,
         distance: Math.round(shortestDistance),
-        message: isValid
+        message: foundValid
           ? `Location verified! You are ${Math.round(shortestDistance)}m from ${
-              nearestLocation.name
+              nearestLocation?.name || "work location"
             }.`
           : `You are ${Math.round(shortestDistance)}m from ${
-              nearestLocation.name
-            }. Must be within ${radius}m.`,
-        workLocationName: nearestLocation.name || "Work Location",
+              nearestLocation?.name || "work location"
+            }. Must be within ${Math.round(nearestRadius)}m.`,
+        workLocationName:
+          (nearestLocation && nearestLocation.name) || "Work Location",
         nearestLocation: nearestLocation,
       };
 
       // Reject if not at any work location
-      if (!isValid) {
+      if (!foundValid) {
         return NextResponse.json(
           {
             error: `You must be at one of your designated work locations to check in/out. Nearest location: ${
-              nearestLocation.name
+              nearestLocation?.name || "Work Location"
             } (${Math.round(shortestDistance)}m away)`,
             geofenceError: true,
             details: geofenceValidation,
