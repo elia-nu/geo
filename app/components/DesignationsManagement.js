@@ -129,14 +129,23 @@ export default function DesignationsManagement() {
       );
       if (!res.ok) throw new Error("Failed to update designation");
       setRename({ oldName: "", newName: "" });
-      const deptRes = await fetch(
-        `/api/departments/${selectedDeptId}/designations`
-      );
+
+      // Refresh both the department designations and the main designations list
+      const [deptRes, allRes] = await Promise.all([
+        fetch(`/api/departments/${selectedDeptId}/designations`),
+        fetch("/api/designations"),
+      ]);
+
       if (deptRes.ok) {
         const j = await deptRes.json();
         setDeptDesignations(
           Array.isArray(j?.designations) ? j.designations : []
         );
+      }
+
+      if (allRes.ok) {
+        const j = await allRes.json();
+        setDesignations(Array.isArray(j?.designations) ? j.designations : []);
       }
     } catch (e) {
       setError(e.message || "Failed to update designation");
@@ -159,14 +168,23 @@ export default function DesignationsManagement() {
         }
       );
       if (!res.ok) throw new Error("Failed to remove designation");
-      const deptRes = await fetch(
-        `/api/departments/${selectedDeptId}/designations`
-      );
+
+      // Refresh both the department designations and the main designations list
+      const [deptRes, allRes] = await Promise.all([
+        fetch(`/api/departments/${selectedDeptId}/designations`),
+        fetch("/api/designations"),
+      ]);
+
       if (deptRes.ok) {
         const j = await deptRes.json();
         setDeptDesignations(
           Array.isArray(j?.designations) ? j.designations : []
         );
+      }
+
+      if (allRes.ok) {
+        const j = await allRes.json();
+        setDesignations(Array.isArray(j?.designations) ? j.designations : []);
       }
     } catch (e) {
       setError(e.message || "Failed to remove designation");
@@ -226,13 +244,13 @@ export default function DesignationsManagement() {
               </button>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <select
                 value={rename.oldName}
                 onChange={(e) =>
                   setRename({ ...rename, oldName: e.target.value })
                 }
-                className="flex-1 p-2 border border-gray-300 rounded bg-white text-gray-900"
+                className="flex-1 p-2 border border-gray-300 rounded bg-white text-gray-900 min-w-0"
               >
                 <option value="">Select existing</option>
                 {deptDesignations.map((n) => (
@@ -248,13 +266,13 @@ export default function DesignationsManagement() {
                   setRename({ ...rename, newName: e.target.value })
                 }
                 placeholder="New name"
-                className="flex-1 p-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-500"
+                className="flex-1 p-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-500 min-w-0"
               />
               <button
                 onClick={updateDesignation}
-                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm whitespace-nowrap flex-shrink-0"
               >
-                Rename
+                Update
               </button>
             </div>
 
