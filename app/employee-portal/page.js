@@ -9,6 +9,9 @@ import EmployeeLeaveRequest from "../components/EmployeeLeaveRequest";
 import LeaveBalance from "../components/LeaveBalance";
 import AttendanceDocuments from "../components/AttendanceDocuments";
 import EmployeeRequestStatus from "../components/EmployeeRequestStatus";
+import EmployeeProjects from "../components/EmployeeProjects";
+import EmployeeTasks from "../components/EmployeeTasks";
+import EmployeeMilestones from "../components/EmployeeMilestones";
 import { MapPin, Navigation, CheckCircle, Menu, X } from "lucide-react";
 
 export default function EmployeePortal() {
@@ -351,6 +354,12 @@ export default function EmployeePortal() {
             </div>
           </div>
         );
+      case "projects":
+        return <EmployeeProjects employeeId={employeeData._id} />;
+      case "tasks":
+        return <EmployeeTasks employeeId={employeeData._id} />;
+      case "milestones":
+        return <EmployeeMilestones employeeId={employeeData._id} />;
       default:
         return (
           <div className="flex items-center justify-center h-64">

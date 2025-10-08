@@ -1,57 +1,88 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../../utils/audit.js";
 
 // Get all comments for a task
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = await params;
+    const { id } = params;
 
+    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
     }
 
-    const task = await db
-      .collection("tasks")
-      .findOne(
-        { _id: new ObjectId(id) },
-        { projection: { comments: 1, title: 1 } }
-      );
+    // Find the task
+    const task = await db.collection("tasks").findOne({
+      _id: new ObjectId(id),
+    });
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Populate comment author details
+    // Return comments with author details
+    const comments = task.comments || [];
     const commentsWithAuthors = await Promise.all(
-      (task.comments || []).map(async (comment) => {
-        if (comment.userId && ObjectId.isValid(comment.userId)) {
-          const user = await db.collection("employees").findOne(
-            { _id: new ObjectId(comment.userId) },
-            {
-              projection: {
-                name: 1,
-                "personalDetails.name": 1,
-                "personalDetails.email": 1,
-                email: 1,
-              },
-            }
-          );
+      comments.map(async (comment) => {
+        // Determine the employee ID to look up
+        const employeeId = comment.userId || comment.authorId;
+        let authorName = comment.userName || "Unknown";
+        let userEmail = comment.userEmail || "";
 
-          return {
-            ...comment,
-            author: user
-              ? {
-                  name: user.personalDetails?.name || user.name || "Unknown",
-                  email: user.personalDetails?.email || user.email || "",
-                }
-              : { name: "Unknown", email: "" },
-          };
+        // If we have an employee ID but no userName, fetch the employee
+        if (employeeId && !comment.userName) {
+          const author = await db.collection("employees").findOne({
+            _id: new ObjectId(employeeId),
+          });
+
+          console.log("Comment employee lookup:", {
+            commentId: comment._id,
+            employeeId: employeeId,
+            employeeFound: !!author,
+            employeeName: author?.personalDetails?.name || author?.name,
+            employeeStructure: author ? Object.keys(author) : null,
+          });
+
+          // Extract name using multiple possible field structures
+          if (author) {
+            authorName =
+              author.personalDetails?.name ||
+              author.name ||
+              author.personalDetails?.fullName ||
+              author.fullName ||
+              (author.personalDetails?.firstName &&
+              author.personalDetails?.lastName
+                ? `${author.personalDetails.firstName} ${author.personalDetails.lastName}`
+                : null) ||
+              (author.firstName && author.lastName
+                ? `${author.firstName} ${author.lastName}`
+                : null) ||
+              "Unknown";
+
+            userEmail = author.personalDetails?.email || author.email || "";
+          }
         }
+
+        // Return consistent structure for all comments
         return {
           ...comment,
-          author: { name: "System", email: "" },
+          userId: employeeId?.toString() || null,
+          userName: authorName,
+          userEmail: userEmail,
+          isEdited: comment.isEdited || false,
+          mentions: comment.mentions || [],
+          attachments: comment.attachments || [],
+          // Keep the old structure for backward compatibility
+          author: employeeId
+            ? {
+                _id: employeeId,
+                name: authorName,
+                email: userEmail,
+              }
+            : null,
         };
       })
     );
@@ -63,7 +94,7 @@ export async function GET(request, { params }) {
   } catch (error) {
     console.error("Error fetching task comments:", error);
     return NextResponse.json(
-      { error: "Failed to fetch comments" },
+      { error: "Failed to fetch task comments" },
       { status: 500 }
     );
   }
@@ -73,14 +104,15 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = await params;
+    const { id } = params;
     const data = await request.json();
 
+    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
     }
 
-    const { content, userId, userName, userEmail } = data;
+    const { content, type = "comment" } = data;
 
     if (!content || !content.trim()) {
       return NextResponse.json(
@@ -89,7 +121,7 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Check if task exists
+    // Find the task
     const task = await db.collection("tasks").findOne({
       _id: new ObjectId(id),
     });
@@ -98,64 +130,113 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
+    // Get employee ID from request headers (passed from frontend)
+    const employeeId = request.headers.get("x-employee-id");
+    if (!employeeId) {
+      return NextResponse.json(
+        { error: "Employee ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Get employee details to include name in comment
+    const author = await db.collection("employees").findOne({
+      _id: new ObjectId(employeeId),
+    });
+
+    // Extract name using multiple possible field structures
+    let authorName = "Unknown";
+    let authorEmail = "";
+    if (author) {
+      authorName =
+        author.personalDetails?.name ||
+        author.name ||
+        author.personalDetails?.fullName ||
+        author.fullName ||
+        (author.personalDetails?.firstName && author.personalDetails?.lastName
+          ? `${author.personalDetails.firstName} ${author.personalDetails.lastName}`
+          : null) ||
+        (author.firstName && author.lastName
+          ? `${author.firstName} ${author.lastName}`
+          : null) ||
+        "Unknown";
+
+      authorEmail = author.personalDetails?.email || author.email || "";
+    }
+
+    // Create new comment with user information included
     const newComment = {
       _id: new ObjectId(),
       content: content.trim(),
-      userId: userId && ObjectId.isValid(userId) ? new ObjectId(userId) : null,
-      userName: userName || "Unknown",
-      userEmail: userEmail || "",
+      type,
+      authorId: new ObjectId(employeeId),
+      userId: employeeId,
+      userName: authorName,
+      userEmail: authorEmail,
+      isEdited: false,
+      mentions: [],
+      attachments: [],
       createdAt: new Date(),
       updatedAt: new Date(),
-      isEdited: false,
-      mentions: [], // For future @mention functionality
-      attachments: [], // For comment-specific attachments
     };
-
-    // First, ensure comments array exists
-    await db
-      .collection("tasks")
-      .updateOne(
-        { _id: new ObjectId(id), comments: { $exists: false } },
-        { $set: { comments: [] } }
-      );
 
     // Add comment to task
     const result = await db.collection("tasks").updateOne(
       { _id: new ObjectId(id) },
       {
-        $set: {
-          updatedAt: new Date(),
-        },
-        $push: {
-          comments: newComment,
-          activityLog: {
-            action: "comment_added",
-            userId: newComment.userId,
-            timestamp: new Date(),
-            details: `Comment added: "${content.substring(0, 50)}${
-              content.length > 50 ? "..." : ""
-            }"`,
-          },
-        },
+        $push: { comments: newComment },
+        $set: { updatedAt: new Date() },
       }
     );
 
-    if (result.modifiedCount === 0) {
-      return NextResponse.json(
-        { error: "Failed to add comment" },
-        { status: 500 }
-      );
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
+
+    console.log("Comment created with user info:", {
+      employeeId,
+      authorId: newComment.authorId,
+      authorFound: !!author,
+      authorName: newComment.userName,
+      authorEmail: newComment.userEmail,
+    });
+
+    // Return the comment with all user information already included
+    const commentWithAuthor = {
+      ...newComment,
+      // Keep the old structure for backward compatibility
+      author: author
+        ? {
+            _id: author._id,
+            name: newComment.userName,
+            email: newComment.userEmail,
+          }
+        : null,
+    };
+
+    // Create audit log
+    await createAuditLog({
+      action: "ADD_COMMENT",
+      entityType: "task",
+      entityId: id,
+      userId: employeeId,
+      userEmail: commentWithAuthor.author?.email || "employee@company.com",
+      metadata: {
+        taskTitle: task.title,
+        commentType: type,
+        commentLength: content.length,
+      },
+    });
 
     return NextResponse.json({
       success: true,
       message: "Comment added successfully",
-      comment: newComment,
+      comment: commentWithAuthor,
     });
   } catch (error) {
-    console.error("Error adding comment:", error);
+    console.error("Error adding task comment:", error);
     return NextResponse.json(
-      { error: "Failed to add comment" },
+      { error: "Failed to add task comment" },
       { status: 500 }
     );
   }

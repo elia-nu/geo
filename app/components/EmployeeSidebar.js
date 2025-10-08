@@ -15,6 +15,9 @@ import {
   Upload,
   Settings,
   BarChart3,
+  Target,
+  CheckSquare,
+  Flag,
 } from "lucide-react";
 
 export default function EmployeeSidebar({
@@ -55,6 +58,24 @@ export default function EmployeeSidebar({
       label: "Leave Balance",
       icon: BarChart3,
       description: "View your leave balances and accruals",
+    },
+    {
+      id: "projects",
+      label: "My Projects",
+      icon: Target,
+      description: "View assigned projects and progress",
+    },
+    {
+      id: "tasks",
+      label: "My Tasks",
+      icon: CheckSquare,
+      description: "Track and manage assigned tasks",
+    },
+    {
+      id: "milestones",
+      label: "My Milestones",
+      icon: Flag,
+      description: "Monitor project milestones",
     },
     {
       id: "documents",
