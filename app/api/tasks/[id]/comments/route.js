@@ -139,14 +139,23 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Get employee details to include name in comment
-    const author = await db.collection("employees").findOne({
-      _id: new ObjectId(employeeId),
-    });
+    // Get employee details (accept both Mongo _id and business employeeId)
+    let author = null;
+    let resolvedAuthorId = null;
+    if (ObjectId.isValid(employeeId)) {
+      author = await db.collection("employees").findOne({
+        _id: new ObjectId(employeeId),
+      });
+      resolvedAuthorId = author?._id || new ObjectId(employeeId);
+    } else {
+      // Try lookup by business employeeId field
+      author = await db.collection("employees").findOne({ employeeId });
+      resolvedAuthorId = author?._id || null;
+    }
 
     // Extract name using multiple possible field structures
-    let authorName = "Unknown";
-    let authorEmail = "";
+    let authorName = data.userName || "Unknown";
+    let authorEmail = data.userEmail || "";
     if (author) {
       authorName =
         author.personalDetails?.name ||
@@ -159,9 +168,10 @@ export async function POST(request, { params }) {
         (author.firstName && author.lastName
           ? `${author.firstName} ${author.lastName}`
           : null) ||
-        "Unknown";
+        authorName;
 
-      authorEmail = author.personalDetails?.email || author.email || "";
+      authorEmail =
+        author.personalDetails?.email || author.email || authorEmail;
     }
 
     // Create new comment with user information included
@@ -169,8 +179,8 @@ export async function POST(request, { params }) {
       _id: new ObjectId(),
       content: content.trim(),
       type,
-      authorId: new ObjectId(employeeId),
-      userId: employeeId,
+      authorId: resolvedAuthorId,
+      userId: resolvedAuthorId ? resolvedAuthorId.toString() : employeeId,
       userName: authorName,
       userEmail: authorEmail,
       isEdited: false,
@@ -219,7 +229,7 @@ export async function POST(request, { params }) {
       action: "ADD_COMMENT",
       entityType: "task",
       entityId: id,
-      userId: employeeId,
+      userId: newComment.userId,
       userEmail: commentWithAuthor.author?.email || "employee@company.com",
       metadata: {
         taskTitle: task.title,

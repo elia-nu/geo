@@ -118,6 +118,8 @@ export async function POST(request, { params }) {
 
     const formData = await request.formData();
     const file = formData.get("file");
+    const formUserId = formData.get("userId");
+    const formUserName = formData.get("userName");
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -155,21 +157,29 @@ export async function POST(request, { params }) {
     await writeFile(filePath, buffer);
 
     // Get employee ID from request headers (passed from frontend)
-    const employeeId = request.headers.get("x-employee-id");
-    if (!employeeId) {
-      return NextResponse.json(
-        { error: "Employee ID is required" },
-        { status: 400 }
-      );
+    // Fallbacks: x-user-id header or formData userId
+    const headerEmployeeId = request.headers.get("x-employee-id");
+    const headerUserId = request.headers.get("x-user-id");
+    const employeeId = headerEmployeeId || headerUserId || formUserId || null;
+
+    // Resolve employee by either Mongo _id or business employeeId
+    let employee = null;
+    let resolvedAuthorId = null;
+    if (employeeId) {
+      if (ObjectId.isValid(employeeId)) {
+        employee = await db.collection("employees").findOne({
+          _id: new ObjectId(employeeId),
+        });
+        resolvedAuthorId = employee?._id || new ObjectId(employeeId);
+      } else {
+        // Try lookup by business employeeId
+        employee = await db.collection("employees").findOne({ employeeId });
+        resolvedAuthorId = employee?._id || null;
+      }
     }
 
-    // Get employee details for uploadedByName
-    const employee = await db.collection("employees").findOne({
-      _id: new ObjectId(employeeId),
-    });
-
     // Extract employee name using multiple possible field structures
-    let employeeName = "Unknown";
+    let employeeName = formUserName || "Unknown";
     if (employee) {
       employeeName =
         employee.personalDetails?.name ||
@@ -194,7 +204,9 @@ export async function POST(request, { params }) {
       filePath: `/uploads/task-attachments/${fileName}`,
       mimeType: file.type,
       size: file.size,
-      uploadedBy: new ObjectId(employeeId),
+      ...(resolvedAuthorId
+        ? { uploadedBy: new ObjectId(resolvedAuthorId) }
+        : {}),
       uploadedByName: employeeName,
       uploadedAt: new Date(),
     };
@@ -217,7 +229,7 @@ export async function POST(request, { params }) {
       action: "UPLOAD_ATTACHMENT",
       entityType: "task",
       entityId: id,
-      userId: employeeId,
+      userId: resolvedAuthorId ? resolvedAuthorId.toString() : null,
       userEmail: "employee@company.com", // TODO: Get from auth context
       metadata: {
         taskTitle: task.title,

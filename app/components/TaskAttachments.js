@@ -74,6 +74,9 @@ const TaskAttachments = ({
 
         const response = await fetch(`/api/tasks/${taskId}/attachments`, {
           method: "POST",
+          headers: {
+            "x-employee-id": currentUser?.id || "",
+          },
           body: formData,
         });
 
@@ -282,7 +285,7 @@ const TaskAttachments = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <h4 className="text-sm font-medium text-gray-900 truncate">
-                    {attachment.originalName}
+                    {attachment.originalName}1111
                   </h4>
                   <div className="flex items-center space-x-1">
                     <a
@@ -347,7 +350,7 @@ const TaskAttachments = ({
                       </p>
                     )}
                     <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      <span>{formatFileSize(attachment.fileSize)}</span>
+                      <span>{formatFileSize(attachment.size)}</span>
                       <span className="flex items-center space-x-1">
                         <PersonIcon fontSize="small" />
                         <span>{attachment.uploadedByName}</span>

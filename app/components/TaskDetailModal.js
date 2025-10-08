@@ -19,6 +19,7 @@ import {
   Upload,
   Download,
   Eye,
+  Folder,
 } from "lucide-react";
 
 export default function TaskDetailModal({
@@ -28,12 +29,22 @@ export default function TaskDetailModal({
   onUpdate,
   employeeId,
 }) {
+  // Improve UX: close on ESC and click on backdrop
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isOpen, onClose]);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showAllComments, setShowAllComments] = useState(false);
 
   useEffect(() => {
     if (isOpen && task) {
@@ -278,17 +289,20 @@ export default function TaskDetailModal({
   if (!isOpen || !task) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+    <div className="fixed inset-0 z-50" aria-modal="true" role="dialog">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+
+      <div className="relative h-full w-full flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
           {/* Header */}
-          <div className="bg-white px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-6 py-4 border-b border-gray-200">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-xl font-semibold text-gray-900 truncate">
                   {task.title}
                 </h3>
-                <div className="flex items-center gap-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <div
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(
                       task.priority
@@ -311,33 +325,34 @@ export default function TaskDetailModal({
               </div>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="shrink-0 rounded-md p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                aria-label="Close"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
           {/* Content */}
-          <div className="bg-white px-6 py-4 max-h-96 overflow-y-auto">
+          <div className="px-6 py-5 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {/* Task Description */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">
                     Description
                   </h4>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                  <p className="text-sm text-gray-700 leading-6 whitespace-pre-wrap">
                     {task.description || "No description available"}
                   </p>
                 </div>
 
                 {/* Task Details */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <div className="flex items-center text-sm text-gray-600">
                       <Calendar className="w-4 h-4 mr-2" />
@@ -379,13 +394,13 @@ export default function TaskDetailModal({
                 {/* Progress Bar */}
                 {task.progress !== undefined && (
                   <div>
-                    <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                    <div className="flex items-center justify-between text-sm text-gray-700 mb-2">
                       <span>Progress</span>
                       <span>{task.progress}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
                       <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
                         style={{ width: `${task.progress}%` }}
                       ></div>
                     </div>
@@ -395,14 +410,14 @@ export default function TaskDetailModal({
                 {/* Tags */}
                 {task.tags && task.tags.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">
                       Tags
                     </h4>
                     <div className="flex flex-wrap gap-2">
                       {task.tags.map((tag, index) => (
                         <span
                           key={index}
-                          className="inline-block px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                          className="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
                         >
                           {tag}
                         </span>
@@ -411,96 +426,58 @@ export default function TaskDetailModal({
                   </div>
                 )}
 
-                {/* Attachments */}
+                {/* Comments - show first with See more/less */}
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-medium text-gray-900">
-                      Attachments
-                    </h4>
-                    <label className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
-                      <Upload className="w-3 h-3 mr-1" />
-                      Upload
-                      <input
-                        type="file"
-                        className="hidden"
-                        onChange={handleFileUpload}
-                        disabled={uploadingFile}
-                      />
-                    </label>
-                  </div>
-                  {uploadingFile && (
-                    <div className="flex items-center text-sm text-blue-600 mb-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                      Uploading file...
-                    </div>
-                  )}
-                  {attachments.length === 0 ? (
-                    <p className="text-sm text-gray-500">No attachments</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {attachments.map((attachment) => (
-                        <div
-                          key={attachment._id}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                        >
-                          <div className="flex items-center">
-                            <Paperclip className="w-4 h-4 text-gray-400 mr-2" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                {attachment.originalName}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {formatFileSize(attachment.size)} •{" "}
-                                {attachment.uploadedByName || "Unknown"} •{" "}
-                                {formatDate(attachment.uploadedAt)}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleDownloadAttachment(attachment)}
-                            className="text-blue-600 hover:text-blue-800 transition-colors"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Comments */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-3">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">
                     Comments
                   </h4>
                   <div className="space-y-3 mb-4">
                     {comments.length === 0 ? (
                       <p className="text-sm text-gray-500">No comments yet</p>
                     ) : (
-                      comments.map((comment) => (
-                        <div key={comment._id} className="flex space-x-3">
-                          <div className="flex-shrink-0">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <User className="w-4 h-4 text-blue-600" />
+                      comments
+                        .slice()
+                        .sort(
+                          (a, b) =>
+                            new Date(b.createdAt) - new Date(a.createdAt)
+                        )
+                        .slice(0, showAllComments ? comments.length : 3)
+                        .map((comment) => (
+                          <div key={comment._id} className="flex space-x-3">
+                            <div className="flex-shrink-0">
+                              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                <User className="w-4 h-4 text-blue-600" />
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                                <p className="text-sm text-gray-900">
+                                  {comment.content}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {comment.userName ||
+                                    comment.author?.name ||
+                                    "Unknown"}{" "}
+                                  • {formatDate(comment.createdAt)}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex-1">
-                            <div className="bg-gray-50 rounded-lg p-3">
-                              <p className="text-sm text-gray-900">
-                                {comment.content}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {comment.userName ||
-                                  comment.author?.name ||
-                                  "Unknown"}{" "}
-                                • {formatDate(comment.createdAt)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
+                        ))
                     )}
                   </div>
+                  {comments.length > 3 && (
+                    <div className="flex justify-center mb-6">
+                      <button
+                        onClick={() => setShowAllComments(!showAllComments)}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {showAllComments
+                          ? "See less"
+                          : `See more (${comments.length - 3} more)`}
+                      </button>
+                    </div>
+                  )}
                   <div className="flex space-x-3">
                     <div className="flex-shrink-0">
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -527,6 +504,70 @@ export default function TaskDetailModal({
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Attachments - folder-like grid */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold text-gray-900">
+                      Attachments{" "}
+                      {attachments.length > 0 && `(${attachments.length})`}
+                    </h4>
+                    <label className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
+                      <Upload className="w-3 h-3 mr-1" />
+                      Upload
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                        disabled={uploadingFile}
+                      />
+                    </label>
+                  </div>
+                  {uploadingFile && (
+                    <div className="flex items-center text-sm text-blue-600 mb-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                      Uploading file...
+                    </div>
+                  )}
+                  {attachments.length === 0 ? (
+                    <p className="text-sm text-gray-500">No attachments</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {attachments.map((attachment) => (
+                        <div
+                          key={attachment._id}
+                          className="group p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition-colors"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-md bg-white border border-gray-200 flex items-center justify-center text-gray-400 group-hover:text-blue-600">
+                              <Folder className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {attachment.originalName}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">
+                                {formatFileSize(attachment.size)} •{" "}
+                                {formatDate(attachment.uploadedAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex items-center justify-end gap-2">
+                            <button
+                              onClick={() =>
+                                handleDownloadAttachment(attachment)
+                              }
+                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded"
+                            >
+                              <Download className="w-4 h-4" />
+                              Download
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Error Message */}

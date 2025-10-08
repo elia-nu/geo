@@ -60,7 +60,10 @@ const TaskComments = ({
 
       const response = await fetch(`/api/tasks/${taskId}/comments`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-employee-id": currentUser?.id || "",
+        },
         body: JSON.stringify({
           content: newComment,
           userId: currentUser?.id || null,
@@ -96,7 +99,10 @@ const TaskComments = ({
         `/api/tasks/${taskId}/comments/${commentId}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-employee-id": currentUser?.id || "",
+          },
           body: JSON.stringify({
             content: editContent,
             userId: currentUser?.id || null,
@@ -136,6 +142,9 @@ const TaskComments = ({
         }`,
         {
           method: "DELETE",
+          headers: {
+            "x-employee-id": currentUser?.id || "",
+          },
         }
       );
 
