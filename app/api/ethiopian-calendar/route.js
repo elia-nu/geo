@@ -88,13 +88,35 @@ export async function GET(request) {
         });
 
       case "holidays":
-        const holidays = getHolidaysForYear(year);
+        // If month is provided, filter to that month using util helper
+        let holidays = getHolidaysForYear(year);
+        if (!Number.isNaN(month) && month >= 1 && month <= 12) {
+          try {
+            // Prefer precise month extraction to avoid client-side filtering mistakes
+            const { getHolidaysForMonth } = await import(
+              "../../utils/ethiopianCalendar"
+            );
+            holidays = getHolidaysForMonth(year, month);
+          } catch (_) {
+            // Fallback: filter the yearly list
+            holidays = holidays.filter((h) => {
+              const d = h.date instanceof Date ? h.date : new Date(h.date);
+              return (
+                d.getUTCFullYear() === year && d.getUTCMonth() + 1 === month
+              );
+            });
+          }
+        }
         return NextResponse.json({
           success: true,
           data: {
             year,
+            month: Number.isNaN(month) ? undefined : month,
             holidays: holidays.map((holiday) => ({
-              date: holiday.date.toISOString(),
+              date: (holiday.date instanceof Date
+                ? holiday.date
+                : new Date(holiday.date)
+              ).toISOString(),
               name: holiday.name,
               nameAmharic: holiday.nameAmharic,
               type: holiday.type,

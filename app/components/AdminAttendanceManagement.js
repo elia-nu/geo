@@ -822,6 +822,22 @@ function AttendanceDetailsModal({ record, onClose }) {
                   {formatTime(record.checkOutTime)}
                 </p>
               </div>
+              <div>
+                <span className="text-sm font-medium text-gray-600">
+                  Lunch Out:
+                </span>
+                <p className="text-gray-900">
+                  {formatTime(record.lunchOutTime)}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-600">
+                  Lunch In:
+                </span>
+                <p className="text-gray-900">
+                  {formatTime(record.lunchInTime)}
+                </p>
+              </div>
             </div>
           </div>
 

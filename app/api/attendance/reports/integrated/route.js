@@ -222,6 +222,17 @@ async function processIntegratedAttendance(
           startDate: leave.startDate,
           endDate: leave.endDate,
         };
+      } else if (
+        record.adminApproval?.status === "rejected" ||
+        record.adminApproval?.status === "denied"
+      ) {
+        // Admin explicitly rejected this attendance → treat as absent
+        attendanceStatus = "absent";
+        workingHours = 0;
+        payrollDeduction = 1; // Full day deduction for rejected attendance
+        absenceReason = record.adminApproval?.rejectionReason
+          ? `Attendance rejected: ${record.adminApproval.rejectionReason}`
+          : "Attendance rejected by admin";
       } else if (!record.checkInTime) {
         attendanceStatus = "absent";
         workingHours = 0;

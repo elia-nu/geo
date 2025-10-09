@@ -75,103 +75,53 @@ export default function IntegratedPayrollSystem() {
     });
   };
 
-  const getTodayString = () => new Date().toISOString().split("T")[0];
-
-  const computeWorkingHours = (checkInTime, checkOutTime, isToday) => {
-    if (!checkInTime) return { hours: 0, minutes: 0, display: "0:00" };
-    const start = new Date(checkInTime);
-    const end = checkOutTime
-      ? new Date(checkOutTime)
-      : isToday
-      ? new Date()
-      : start;
-    const diffMs = Math.max(0, end - start);
-    const totalMinutes = Math.floor(diffMs / (1000 * 60));
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    const display = `${hours}:${minutes.toString().padStart(2, "0")}`;
-    return { hours, minutes, display };
-  };
-
-  // Derive a normalized payroll status for filtering and display
-  const computePayrollStatus = (record) => {
-    if (!record) return "unknown";
-    // Explicit flags from API
-    const raw =
-      record.payrollStatus || record.status || record.attendanceStatus || "";
-    const normalized = String(raw).toLowerCase();
-    if (["on_leave", "leave", "on-leave"].includes(normalized))
-      return "on_leave";
-    if (["absent", "missing"].includes(normalized)) return "absent";
-    if (
-      ["complete", "completed", "checked-out", "checkout"].includes(normalized)
-    )
-      return "complete";
-    if (["working", "checked-in", "checkin"].includes(normalized))
-      return "working";
-
-    // Infer from fields per business rules
-    const isToday = String(record.date || "").slice(0, 10) === getTodayString();
-    const leaveApproved = !!(
-      record.leaveInfo &&
-      (record.leaveInfo.status || "approved").toLowerCase() === "approved"
-    );
-    if (leaveApproved) return "on_leave";
-    if (!record.checkInTime) return "absent";
-    if (record.checkInTime && !record.checkOutTime)
-      return isToday ? "working" : "partial";
-    const { hours } = computeWorkingHours(
-      record.checkInTime,
-      record.checkOutTime,
-      isToday
-    );
-    if (hours >= 8) return "complete";
-    return "partial";
-  };
-
   // Get status info for attendance
   const getStatusInfo = (record) => {
-    const status = computePayrollStatus(record);
-    if (status === "on_leave") {
+    if (!record) {
       return {
-        text: `On Leave${
-          record?.leaveInfo?.leaveType ? ` (${record.leaveInfo.leaveType})` : ""
-        }`,
+        text: "Unknown",
+        color: "text-gray-600",
+        bgColor: "bg-gray-100",
+        icon: AlertCircle,
+      };
+    }
+
+    if (record.leaveInfo) {
+      return {
+        text: `On Leave (${record.leaveInfo.leaveType || "Unknown"})`,
         color: "text-purple-600",
         bgColor: "bg-purple-100",
         icon: Calendar,
       };
-    }
-    if (status === "absent") {
+    } else if (record.payrollStatus === "absent") {
       return {
         text: "Absent",
         color: "text-red-600",
         bgColor: "bg-red-100",
         icon: AlertCircle,
       };
-    }
-    if (status === "complete") {
+    } else if (record.payrollStatus === "complete") {
       return {
         text: "Complete",
         color: "text-green-600",
         bgColor: "bg-green-100",
         icon: CheckCircle,
       };
-    }
-    if (status === "working") {
+    } else if (record.payrollStatus === "working") {
       return {
         text: "Working",
         color: "text-blue-600",
         bgColor: "bg-blue-100",
         icon: Clock,
       };
+    } else {
+      return {
+        text: "Unknown",
+        color: "text-gray-600",
+        bgColor: "bg-gray-100",
+        icon: AlertCircle,
+      };
     }
-    return {
-      text: "Unknown",
-      color: "text-gray-600",
-      bgColor: "bg-gray-100",
-      icon: AlertCircle,
-    };
   };
 
   // Calculate payroll
@@ -245,22 +195,7 @@ export default function IntegratedPayrollSystem() {
       if (result.success) {
         console.log("Setting attendance data:", result.data);
         // The API returns { data: { records: [...] } } structure
-        const attendanceRecordsRaw = result.data?.records || result.data || [];
-        // Enrich with normalized payrollStatus to drive filters and UI
-        const attendanceRecords = attendanceRecordsRaw.map((r) => {
-          const isToday =
-            String(r?.date || "").slice(0, 10) === getTodayString();
-          const h = computeWorkingHours(
-            r?.checkInTime,
-            r?.checkOutTime,
-            isToday
-          );
-          return {
-            ...r,
-            payrollStatus: computePayrollStatus(r),
-            workingHours: h.display,
-          };
-        });
+        const attendanceRecords = result.data?.records || result.data || [];
         console.log("Processed attendance records:", attendanceRecords);
         setAttendanceData(attendanceRecords);
         setActiveTab("attendance");
@@ -324,6 +259,7 @@ export default function IntegratedPayrollSystem() {
       "Employee Pension (7%)",
       "Employer Pension (11%)",
       "Income Tax",
+      "Deductions",
       "Transport Allowance",
       "Net Salary",
     ];
@@ -336,6 +272,7 @@ export default function IntegratedPayrollSystem() {
       (employee?.employeePension || 0).toFixed(2),
       (employee?.employerPension || 0).toFixed(2),
       (employee?.incomeTax || 0).toFixed(2),
+      (employee?.deductionAmount || 0).toFixed(2),
       (employee?.transportAllowance || 0).toFixed(2),
       (employee?.netSalary || 0).toFixed(2),
     ]);
@@ -349,6 +286,7 @@ export default function IntegratedPayrollSystem() {
       (summary?.totalEmployeePension || 0).toFixed(2),
       (summary?.totalEmployerPension || 0).toFixed(2),
       (summary?.totalIncomeTax || 0).toFixed(2),
+      (summary?.totalDeductions || 0).toFixed(2),
       (summary?.totalTransportAllowance || 0).toFixed(2),
       (summary?.totalNet || 0).toFixed(2),
     ]);
@@ -443,9 +381,9 @@ export default function IntegratedPayrollSystem() {
       {/* Main Interface */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-black flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Calculator className="w-6 h-6 text-green-600" />
-            Payroll System
+            Integrated Payroll System
           </h2>
           <div className="flex gap-2">
             <button
@@ -470,6 +408,17 @@ export default function IntegratedPayrollSystem() {
               <Activity className="w-4 h-4 inline mr-2" />
               Attendance & Leave
             </button>
+            <button
+              onClick={() => setActiveTab("reports")}
+              className={`px-4 py-2 rounded-lg font-medium ${
+                activeTab === "reports"
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+            >
+              <TrendingUp className="w-4 h-4 inline mr-2" />
+              Reports
+            </button>
           </div>
         </div>
 
@@ -478,13 +427,13 @@ export default function IntegratedPayrollSystem() {
           <div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-black mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Month
                 </label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                  className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 >
                   {Array.from({ length: 12 }, (_, i) => (
                     <option key={i + 1} value={i + 1}>
@@ -497,13 +446,13 @@ export default function IntegratedPayrollSystem() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-black mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Year
                 </label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 >
                   {Array.from({ length: 5 }, (_, i) => {
                     const year = currentYear - 2 + i;
@@ -537,7 +486,7 @@ export default function IntegratedPayrollSystem() {
               </div>
             </div>
 
-            <div className="text-sm text-black">
+            <div className="text-sm text-gray-600">
               <p>
                 <strong>Ethiopian Tax System:</strong> Progressive tax rates
                 from 0% to 35%
@@ -555,31 +504,31 @@ export default function IntegratedPayrollSystem() {
           <div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-black mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-black mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   End Date
                 </label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-black mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Status
                 </label>
                 <select
@@ -590,7 +539,7 @@ export default function IntegratedPayrollSystem() {
                       status: e.target.value,
                     }))
                   }
-                  className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="all">All Status</option>
                   <option value="complete">Complete</option>
@@ -624,7 +573,7 @@ export default function IntegratedPayrollSystem() {
             {/* Additional Filters */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-black mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Department
                 </label>
                 <select
@@ -635,7 +584,7 @@ export default function IntegratedPayrollSystem() {
                       department: e.target.value,
                     }))
                   }
-                  className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="all">All Departments</option>
                   {departments.map((dept) => (
@@ -647,11 +596,11 @@ export default function IntegratedPayrollSystem() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-black mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Search Employee
                 </label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
                     type="text"
                     placeholder="Search by name or email..."
@@ -662,7 +611,7 @@ export default function IntegratedPayrollSystem() {
                         search: e.target.value,
                       }))
                     }
-                    className="w-full pl-10 pr-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 placeholder:text-gray-600"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -685,25 +634,25 @@ export default function IntegratedPayrollSystem() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="border border-gray-200 px-4 py-3 text-left text-sm font-medium text-black">
+                      <th className="border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-700">
                         Date
                       </th>
-                      <th className="border border-gray-200 px-4 py-3 text-left text-sm font-medium text-black">
+                      <th className="border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-700">
                         Employee
                       </th>
-                      <th className="border border-gray-200 px-4 py-3 text-left text-sm font-medium text-black">
+                      <th className="border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-700">
                         Department
                       </th>
-                      <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-black">
+                      <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-700">
                         Check In
                       </th>
-                      <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-black">
+                      <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-700">
                         Check Out
                       </th>
-                      <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-black">
+                      <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-700">
                         Hours
                       </th>
-                      <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-black">
+                      <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-700">
                         Status
                       </th>
                     </tr>
@@ -775,6 +724,25 @@ export default function IntegratedPayrollSystem() {
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Reports Tab */}
+        {activeTab === "reports" && (
+          <div className="text-center py-12">
+            <TrendingUp className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Reports Coming Soon
+            </h3>
+            <p className="text-gray-500">
+              Advanced reporting features will be available here, including:
+            </p>
+            <ul className="text-sm text-gray-500 mt-4 space-y-1">
+              <li>• Payroll vs Attendance Analysis</li>
+              <li>• Department-wise Salary Reports</li>
+              <li>• Leave Impact on Payroll</li>
+              <li>• Tax and Pension Analytics</li>
+            </ul>
           </div>
         )}
 
@@ -999,6 +967,9 @@ export default function IntegratedPayrollSystem() {
                         </td>
                         <td className="border border-gray-200 px-4 py-3 text-sm text-red-600 text-right font-mono">
                           {formatCurrency(summary?.totalIncomeTax || 0)}
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-sm text-gray-900 text-right font-mono">
+                          {formatCurrency(summary?.totalDeductions || 0)}
                         </td>
                         <td className="border border-gray-200 px-4 py-3 text-sm text-gray-900 text-right font-mono">
                           {formatCurrency(
