@@ -130,11 +130,6 @@ export default function IntegratedPayrollSystem() {
     setError(null);
 
     try {
-      console.log("Calculating payroll for:", {
-        month: selectedMonth,
-        year: selectedYear,
-      });
-
       const response = await fetch("/api/payroll/calculate", {
         method: "POST",
         headers: {
@@ -146,28 +141,159 @@ export default function IntegratedPayrollSystem() {
         }),
       });
 
-      console.log("Response status:", response.status);
       const result = await response.json();
-      console.log("API result:", result);
 
       if (result.success) {
-        console.log("Setting payroll data:", result.data.payrollData);
-        console.log("Setting summary:", result.data.summary);
         setPayrollData(result.data.payrollData || []);
         setSummary(result.data.summary || null);
         setPeriod(result.data.period || null);
         setActiveTab("calculator");
-        console.log("About to show modal...");
         setShowModal(true);
-        console.log("Modal should be visible now");
       } else {
         setError(result.error || "Failed to calculate payroll");
       }
     } catch (err) {
       setError("Failed to calculate payroll");
-      console.error("Payroll calculation error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch Ethiopian holidays
+  const fetchEthiopianHolidays = async () => {
+    try {
+      const response = await fetch(
+        `/api/ethiopian-calendar?action=holidays&year=${selectedYear}`
+      );
+      const result = await response.json();
+
+      if (result.success) {
+        console.log("=== ETHIOPIAN HOLIDAYS FOR", selectedYear, "===");
+        console.log("Total holidays:", result.data.holidays.length);
+
+        result.data.holidays.forEach((holiday, index) => {
+          const date = new Date(holiday.date);
+          console.log(`${index + 1}. ${holiday.name} (${holiday.nameAmharic})`);
+          console.log(
+            `   Date: ${date.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              weekday: "long",
+            })}`
+          );
+          console.log(`   Type: ${holiday.type}`);
+          console.log(`   Is Working Day: ${holiday.isWorkingDay}`);
+          console.log("---");
+        });
+
+        console.log("=== END OF ETHIOPIAN HOLIDAYS ===");
+      }
+    } catch (err) {
+      console.error("Error fetching Ethiopian holidays:", err);
+    }
+  };
+
+  // Fetch Ethiopian holidays for selected month
+  const fetchEthiopianHolidaysForMonth = async () => {
+    try {
+      const response = await fetch(
+        `/api/ethiopian-calendar?action=holidays&year=${selectedYear}&month=${selectedMonth}`
+      );
+      const result = await response.json();
+
+      if (result.success) {
+        const monthName = new Date(
+          selectedYear,
+          selectedMonth - 1
+        ).toLocaleString("default", { month: "long" });
+        console.log(
+          `=== ETHIOPIAN HOLIDAYS FOR ${monthName.toUpperCase()} ${selectedYear} ===`
+        );
+        console.log("Total holidays this month:", result.data.holidays.length);
+
+        if (result.data.holidays.length === 0) {
+          console.log("No holidays in this month");
+        } else {
+          result.data.holidays.forEach((holiday, index) => {
+            const date = new Date(holiday.date);
+            console.log(
+              `${index + 1}. ${holiday.name} (${holiday.nameAmharic})`
+            );
+            console.log(
+              `   Date: ${date.toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                weekday: "long",
+              })}`
+            );
+            console.log(`   Type: ${holiday.type}`);
+            console.log(`   Is Working Day: ${holiday.isWorkingDay}`);
+            console.log("---");
+          });
+        }
+
+        console.log("=== END OF MONTHLY HOLIDAYS ===");
+      }
+    } catch (err) {
+      console.error("Error fetching monthly Ethiopian holidays:", err);
+    }
+  };
+
+  // Test holiday integration with payroll
+  const testHolidayIntegration = async () => {
+    try {
+      console.log("=== TESTING HOLIDAY INTEGRATION ===");
+
+      // First, get holidays for the month
+      const holidayResponse = await fetch(
+        `/api/ethiopian-calendar?action=holidays&year=${selectedYear}&month=${selectedMonth}`
+      );
+      const holidayResult = await holidayResponse.json();
+
+      if (holidayResult.success) {
+        console.log(
+          `Found ${holidayResult.data.holidays.length} holidays in ${selectedMonth}/${selectedYear}`
+        );
+        holidayResult.data.holidays.forEach((holiday) => {
+          const date = new Date(holiday.date);
+          console.log(`- ${holiday.name}: ${date.toISOString().split("T")[0]}`);
+        });
+      }
+
+      // Then test payroll calculation
+      console.log("Now testing payroll calculation...");
+      const payrollResponse = await fetch("/api/payroll/calculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          month: selectedMonth,
+          year: selectedYear,
+        }),
+      });
+
+      const payrollResult = await payrollResponse.json();
+      if (payrollResult.success) {
+        console.log("Payroll calculation successful!");
+        console.log(
+          `Working days: ${payrollResult.data.period?.workingDays || "N/A"}`
+        );
+        console.log(
+          `Holidays in month: ${
+            payrollResult.data.period?.holidaysInMonth || "N/A"
+          }`
+        );
+        console.log(
+          `Total employees: ${payrollResult.data.summary?.totalEmployees || 0}`
+        );
+      } else {
+        console.error("Payroll calculation failed:", payrollResult.error);
+      }
+
+      console.log("=== END HOLIDAY INTEGRATION TEST ===");
+    } catch (err) {
+      console.error("Error testing holiday integration:", err);
     }
   };
 
@@ -183,20 +309,14 @@ export default function IntegratedPayrollSystem() {
         includeLeaveDetails: "true",
       });
 
-      console.log("Fetching attendance data for:", { startDate, endDate });
       const url = `/api/attendance/reports/integrated?${params}`;
-      console.log("API URL:", url);
 
       const response = await fetch(url);
-      console.log("Attendance response status:", response.status);
       const result = await response.json();
-      console.log("Attendance API result:", result);
 
       if (result.success) {
-        console.log("Setting attendance data:", result.data);
         // The API returns { data: { records: [...] } } structure
         const attendanceRecords = result.data?.records || result.data || [];
-        console.log("Processed attendance records:", attendanceRecords);
         setAttendanceData(attendanceRecords);
         setActiveTab("attendance");
       } else {
@@ -204,7 +324,6 @@ export default function IntegratedPayrollSystem() {
       }
     } catch (err) {
       setError("Failed to fetch attendance data");
-      console.error("Attendance fetch error:", err);
     } finally {
       setLoading(false);
     }
@@ -365,17 +484,6 @@ export default function IntegratedPayrollSystem() {
     setError(null);
   };
 
-  // Debug current state
-  console.log("Current state:", {
-    activeTab,
-    showModal,
-    loading,
-    payrollDataLength: payrollData.length,
-    attendanceDataLength: attendanceData.length,
-    summary: summary ? "exists" : "null",
-    error,
-  });
-
   return (
     <>
       {/* Main Interface */}
@@ -408,17 +516,6 @@ export default function IntegratedPayrollSystem() {
               <Activity className="w-4 h-4 inline mr-2" />
               Attendance & Leave
             </button>
-            <button
-              onClick={() => setActiveTab("reports")}
-              className={`px-4 py-2 rounded-lg font-medium ${
-                activeTab === "reports"
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-            >
-              <TrendingUp className="w-4 h-4 inline mr-2" />
-              Reports
-            </button>
           </div>
         </div>
 
@@ -427,13 +524,13 @@ export default function IntegratedPayrollSystem() {
           <div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Month
                 </label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-black"
                 >
                   {Array.from({ length: 12 }, (_, i) => (
                     <option key={i + 1} value={i + 1}>
@@ -446,13 +543,13 @@ export default function IntegratedPayrollSystem() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Year
                 </label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-black"
                 >
                   {Array.from({ length: 5 }, (_, i) => {
                     const year = currentYear - 2 + i;
@@ -495,6 +592,10 @@ export default function IntegratedPayrollSystem() {
                 <strong>Pension Contributions:</strong> Employee 7%, Employer
                 11%
               </p>
+              <p>
+                <strong>Holiday Integration:</strong> Absences on Ethiopian
+                holidays are not counted as deductions
+              </p>
             </div>
           </div>
         )}
@@ -511,7 +612,7 @@ export default function IntegratedPayrollSystem() {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
                 />
               </div>
 
@@ -523,7 +624,7 @@ export default function IntegratedPayrollSystem() {
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
                 />
               </div>
 
@@ -539,7 +640,7 @@ export default function IntegratedPayrollSystem() {
                       status: e.target.value,
                     }))
                   }
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
                 >
                   <option value="all">All Status</option>
                   <option value="complete">Complete</option>
@@ -584,7 +685,7 @@ export default function IntegratedPayrollSystem() {
                       department: e.target.value,
                     }))
                   }
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black text-black"
                 >
                   <option value="all">All Departments</option>
                   {departments.map((dept) => (
@@ -611,7 +712,7 @@ export default function IntegratedPayrollSystem() {
                         search: e.target.value,
                       }))
                     }
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black   "
                   />
                 </div>
               </div>
@@ -726,26 +827,6 @@ export default function IntegratedPayrollSystem() {
             )}
           </div>
         )}
-
-        {/* Reports Tab */}
-        {activeTab === "reports" && (
-          <div className="text-center py-12">
-            <TrendingUp className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Reports Coming Soon
-            </h3>
-            <p className="text-gray-500">
-              Advanced reporting features will be available here, including:
-            </p>
-            <ul className="text-sm text-gray-500 mt-4 space-y-1">
-              <li>• Payroll vs Attendance Analysis</li>
-              <li>• Department-wise Salary Reports</li>
-              <li>• Leave Impact on Payroll</li>
-              <li>• Tax and Pension Analytics</li>
-            </ul>
-          </div>
-        )}
-
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {error}

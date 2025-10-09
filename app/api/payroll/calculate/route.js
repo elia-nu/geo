@@ -48,8 +48,6 @@ export async function POST(request) {
     const targetMonth = month || currentDate.getMonth() + 1;
     const targetYear = year || currentDate.getFullYear();
 
-    console.log(`Calculating payroll for ${targetMonth}/${targetYear}`);
-
     // Calculate working days for the month (UTC-safe month bounds)
     const startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1));
     const endDate = new Date(Date.UTC(targetYear, targetMonth, 0)); // Last day of the month UTC
@@ -378,9 +376,8 @@ export async function POST(request) {
         );
         const holInfo = isHoliday(dLocalCheck);
         const isHolidayDay =
-          holidayIsoSet.has(dateIso) ||
-          holInfo === true ||
-          (holInfo && (holInfo.isHoliday || holInfo.name || holInfo.type));
+          holidayIsoSet.has(dateIso) || (holInfo && holInfo.isHoliday);
+
         if (isWeekday && !isHolidayDay) {
           deductionDays += 1;
           deductionDates.push(dateIso);

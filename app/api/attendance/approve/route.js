@@ -221,7 +221,8 @@ export async function GET(request) {
         record.employee?.department ||
         record.employee?.personalDetails?.department ||
         "",
-      workLocationName: record.workLocation?.name || "Unknown Location",
+      workLocationName:
+        record.geofenceValidation?.workLocationName || "Unknown Location",
       approvalStatus: record.adminApproval?.status || "pending",
     }));
 

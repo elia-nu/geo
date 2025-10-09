@@ -135,13 +135,15 @@ export function getHolidaysForYear(year) {
       const d = midUtc.getUTCDate();
       const localDate = new Date(y, m, d);
       const h = isHoliday(localDate);
-      const isHol = h === true || (h && (h.isHoliday || h.name || h.type));
-      if (isHol) {
+
+      // Now h is either false or a holiday object
+      if (h && h.isHoliday) {
         computed.push({
           date: new Date(Date.UTC(y, m, d)),
-          name: (h && h.name) || "Holiday",
-          nameAmharic: h && h.nameAmharic,
-          type: h && h.type,
+          name: h.name || "Holiday",
+          nameAmharic: h.nameAmharic || h.name,
+          type: h.type || "national",
+          isWorkingDay: false, // Holidays are typically not working days
         });
       }
     }
@@ -218,7 +220,27 @@ export function isHoliday(date) {
   try {
     const kenat = new Kenat(date);
     const holiday = kenat.isHoliday();
-    return holiday || false;
+
+    // Kenat returns an array of holidays, or empty array if no holidays
+    if (Array.isArray(holiday) && holiday.length > 0) {
+      // Return the first holiday object with additional properties
+      const firstHoliday = holiday[0];
+      return {
+        name: firstHoliday.name,
+        nameAmharic: firstHoliday.name,
+        type:
+          firstHoliday.tags && firstHoliday.tags.includes("public")
+            ? "public"
+            : firstHoliday.tags && firstHoliday.tags.includes("religious")
+            ? "religious"
+            : "national",
+        isHoliday: true,
+        description: firstHoliday.description,
+        ethiopian: firstHoliday.ethiopian,
+      };
+    }
+
+    return false;
   } catch (error) {
     console.error("Error checking if date is holiday:", error);
     return false;
