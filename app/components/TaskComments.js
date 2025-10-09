@@ -247,6 +247,9 @@ const TaskComments = ({
               style={{ fontSize: 48 }}
             />
             <p>No comments yet. Be the first to comment!</p>
+            <p>
+              You can add a comment by clicking the "Add Comment" button above.
+            </p>
           </div>
         ) : (
           comments.map((comment) => (
