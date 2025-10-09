@@ -135,13 +135,18 @@ export function getHolidaysForYear(year) {
       const d = midUtc.getUTCDate();
       const localDate = new Date(y, m, d);
       const h = isHoliday(localDate);
-      const isHol = h === true || (h && (h.isHoliday || h.name || h.type));
+      const isHol =
+        h === true ||
+        (Array.isArray(h) && h.length > 0) ||
+        (h && (h.isHoliday || h.name || h.type));
       if (isHol) {
+        // Handle both array and object responses from isHoliday
+        const holidayData = Array.isArray(h) && h.length > 0 ? h[0] : h;
         computed.push({
           date: new Date(Date.UTC(y, m, d)),
-          name: (h && h.name) || "Holiday",
-          nameAmharic: h && h.nameAmharic,
-          type: h && h.type,
+          name: (holidayData && holidayData.name) || "Holiday",
+          nameAmharic: holidayData && holidayData.nameAmharic,
+          type: holidayData && holidayData.type,
         });
       }
     }

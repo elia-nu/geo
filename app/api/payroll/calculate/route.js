@@ -289,7 +289,12 @@ export async function POST(request) {
         t <= endDate.getTime();
         t += 24 * 60 * 60 * 1000
       ) {
-        const dateIso = new Date(t).toISOString().slice(0, 10);
+        // Fix: Get the correct date string without timezone conversion issues
+        const dateObj = new Date(t);
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+        const day = String(dateObj.getDate()).padStart(2, "0");
+        const dateIso = `${year}-${month}-${day}`;
         // Skip future dates beyond 'today'
         if (dateIso > todayIso) {
           if (
@@ -371,15 +376,14 @@ export async function POST(request) {
         const dow = dUtc.getUTCDay();
         const isWeekday = dow !== 0 && dow !== 6;
         // Cross-check: holiday from set OR direct calendar helper
-        const dLocalCheck = new Date(
-          dUtc.getUTCFullYear(),
-          dUtc.getUTCMonth(),
-          dUtc.getUTCDate()
-        );
+        // Fix: Use the original dateIso to create the correct date for holiday checking
+        const dLocalCheck = new Date(`${dateIso}T00:00:00Z`);
         const holInfo = isHoliday(dLocalCheck);
+        // Fix: Handle both array and object responses from isHoliday
         const isHolidayDay =
           holidayIsoSet.has(dateIso) ||
           holInfo === true ||
+          (Array.isArray(holInfo) && holInfo.length > 0) ||
           (holInfo && (holInfo.isHoliday || holInfo.name || holInfo.type));
         if (isWeekday && !isHolidayDay) {
           deductionDays += 1;
