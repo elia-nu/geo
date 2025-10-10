@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import EmployeeSidebar from "../components/EmployeeSidebar";
+import { useSidebarStore } from "../components/useSidebarStore";
 import EmployeeDashboard from "../components/EmployeeDashboard";
 import DailyAttendance from "../components/DailyAttendance";
 import EmployeeAttendanceHistory from "../components/EmployeeAttendanceHistory";
@@ -15,6 +16,7 @@ import EmployeeMilestones from "../components/EmployeeMilestones";
 import { MapPin, Navigation, CheckCircle, Menu, X } from "lucide-react";
 
 export default function EmployeePortal() {
+  const isCollapsed = useSidebarStore((s) => s.isCollapsed);
   const [employeeData, setEmployeeData] = useState(null);
   const [workLocations, setWorkLocations] = useState([]);
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -409,7 +411,11 @@ export default function EmployeePortal() {
       </div>
 
       {/* Main Content - offset for fixed sidebar on md+ screens */}
-      <div className="flex-1 overflow-auto md:ml-64 lg:ml-64">
+      <div
+        className={`flex-1 overflow-auto ${
+          isCollapsed ? "md:ml-16 lg:ml-16" : "md:ml-64 lg:ml-64"
+        }`}
+      >
         {/* Top bar with its own section for logout */}
         <div className="sticky top-0 z-40 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
           <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center">

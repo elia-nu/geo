@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSidebarStore } from "./useSidebarStore";
 import {
   Clock,
   Calendar,
@@ -25,7 +26,8 @@ export default function EmployeeSidebar({
   onSectionChange,
   employeeName,
 }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const isCollapsed = useSidebarStore((s) => s.isCollapsed);
+  const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const menuItems = [
@@ -156,7 +158,7 @@ export default function EmployeeSidebar({
               </div>
             )}
             <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
+              onClick={() => toggleCollapsed()}
               className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
             >
               <svg
@@ -210,7 +212,11 @@ export default function EmployeeSidebar({
               <button
                 key={item.id}
                 onClick={() => onSectionChange(item.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors duration-200 ${
+                title={isCollapsed ? item.label : undefined}
+                aria-label={isCollapsed ? item.label : undefined}
+                className={`w-full flex items-center ${
+                  isCollapsed ? "justify-center px-2" : "space-x-3 px-3"
+                } py-3 rounded-lg transition-colors duration-200 ${
                   isActive
                     ? "bg-blue-50 text-blue-700 border border-blue-200"
                     : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
@@ -219,7 +225,7 @@ export default function EmployeeSidebar({
                 <Icon
                   className={`w-5 h-5 ${
                     isActive ? "text-blue-600" : "text-gray-500"
-                  }`}
+                  } ${isCollapsed ? "mx-auto" : ""}`}
                 />
                 {!isCollapsed && (
                   <div className="text-left">

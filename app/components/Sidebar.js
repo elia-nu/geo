@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useSidebarStore } from "./useSidebarStore";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -29,11 +30,29 @@ import {
 const Sidebar = ({
   activeSection,
   onSectionChange = () => {},
-  isCollapsed,
-  onToggleCollapse,
+  isCollapsed: isCollapsedProp,
+  onToggleCollapse: onToggleCollapseProp,
 }) => {
   const router = useRouter();
   const [expandedMenus, setExpandedMenus] = useState({});
+  const isCollapsedStore = useSidebarStore((s) => s.isCollapsed);
+  const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
+  const setCollapsed = useSidebarStore((s) => s.setCollapsed);
+
+  // Prefer props (for backward compatibility), else use store
+  const isCollapsed =
+    typeof isCollapsedProp === "boolean" ? isCollapsedProp : isCollapsedStore;
+  const onToggleCollapse = () => {
+    if (typeof onToggleCollapseProp === "function") {
+      onToggleCollapseProp();
+    } else {
+      const next = !useSidebarStore.getState().isCollapsed;
+      toggleCollapsed();
+      try {
+        window.localStorage.setItem("layout:isSidebarCollapsed", String(next));
+      } catch {}
+    }
+  };
 
   // Auto-expand menus when related sections are active
   useEffect(() => {
@@ -325,7 +344,7 @@ const Sidebar = ({
         role="navigation"
         aria-label="Primary"
         className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 flex flex-col ${
-          isCollapsed ? "w-0 sm:w-16" : "w-64"
+          isCollapsed ? "w-0" : "w-64"
         } ${
           !isCollapsed ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
         }`}

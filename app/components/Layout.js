@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { useSidebarStore } from "./useSidebarStore";
 import Sidebar from "./Sidebar";
 import { Bell, Search, User, Settings } from "lucide-react";
 
@@ -10,7 +11,8 @@ const Layout = ({
   user = null,
   onLogout = null,
 }) => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const isSidebarCollapsed = useSidebarStore((s) => s.isCollapsed);
+  const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [expiringDocs, setExpiringDocs] = useState([]);
 
@@ -57,19 +59,17 @@ const Layout = ({
     try {
       const stored = window.localStorage.getItem("layout:isSidebarCollapsed");
       if (stored !== null) {
-        setIsSidebarCollapsed(stored === "true");
+        useSidebarStore.getState().setCollapsed(stored === "true");
       }
     } catch {}
   }, []);
 
   const toggleSidebar = () => {
-    setIsSidebarCollapsed((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage.setItem("layout:isSidebarCollapsed", String(next));
-      } catch {}
-      return next;
-    });
+    const next = !useSidebarStore.getState().isCollapsed;
+    toggleCollapsed();
+    try {
+      window.localStorage.setItem("layout:isSidebarCollapsed", String(next));
+    } catch {}
   };
 
   // Helper function to safely format section name
@@ -94,7 +94,7 @@ const Layout = ({
       {/* Main Content */}
       <div
         className={`transition-all duration-300 w-full ${
-          isSidebarCollapsed ? "ml-0 sm:ml-16" : "ml-64"
+          isSidebarCollapsed ? "ml-0" : "ml-64"
         }`}
       >
         {/* Top Header */}
