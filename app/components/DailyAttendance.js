@@ -352,7 +352,7 @@ export default function DailyAttendance({
     return null;
   };
 
-  // Handle attendance action (check-in or check-out)
+  // Handle attendance action (check-in / lunch-out / lunch-in / check-out)
   const handleAttendanceAction = async (action) => {
     if (!employeeId) {
       showMessage("Employee ID is required", "error");
@@ -408,16 +408,16 @@ export default function DailyAttendance({
         }
 
         try {
-          // Save photo to file system
-          const formData = new FormData();
-          formData.append("photo", photo);
-          formData.append("employeeId", employeeId);
-          formData.append("action", action);
-          formData.append("date", new Date().toISOString().split("T")[0]);
-
+          // Save photo to file system (send JSON to avoid multipart hangs)
           const photoResponse = await fetch("/api/attendance/photos", {
             method: "POST",
-            body: formData,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              photo,
+              employeeId,
+              action,
+              date: new Date().toISOString().split("T")[0],
+            }),
           });
 
           const photoResult = await photoResponse.json();
@@ -442,6 +442,7 @@ export default function DailyAttendance({
         action,
         latitude: location?.latitude,
         longitude: location?.longitude,
+        accuracy: location?.accuracy,
         notes: notes.trim(),
         photoUrl,
         faceVerified: !!photoUrl, // Set to true if photo was saved
@@ -496,7 +497,7 @@ export default function DailyAttendance({
     }
   };
 
-  // Calculate working hours display
+  // Calculate working hours display (minus 1-hour lunch break)
   const getWorkingHoursDisplay = () => {
     if (!todayRecord?.checkInTime) return "00:00";
 
@@ -505,7 +506,9 @@ export default function DailyAttendance({
       ? new Date(todayRecord.checkOutTime)
       : currentTime;
 
-    const diffMs = checkOutTime - checkInTime;
+    let diffMs = checkOutTime - checkInTime;
+    // Subtract fixed 1-hour lunch break from display, clamp to zero
+    diffMs = Math.max(0, diffMs - 60 * 60 * 1000);
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
@@ -700,6 +703,21 @@ export default function DailyAttendance({
                 </button>
               </div>
             )}
+            {/* Lunch times */}
+            <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <div className="bg-white rounded border border-gray-200 p-2">
+                <div className="text-gray-500">Lunch Out</div>
+                <div className="font-semibold text-gray-900">
+                  {formatTime(todayRecord?.lunchOutTime)}
+                </div>
+              </div>
+              <div className="bg-white rounded border border-gray-200 p-2">
+                <div className="text-gray-500">Lunch In</div>
+                <div className="font-semibold text-gray-900">
+                  {formatTime(todayRecord?.lunchInTime)}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Working Hours */}
@@ -901,7 +919,7 @@ export default function DailyAttendance({
 
       {/* Action Buttons */}
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
           {/* Check-in Button */}
           <button
             onClick={() => handleAttendanceAction("check-in")}
@@ -938,6 +956,68 @@ export default function DailyAttendance({
             )}
           </button>
 
+          {/* Lunch Out Button */}
+          <button
+            onClick={() => handleAttendanceAction("lunch-out")}
+            disabled={
+              loadingAction !== null ||
+              !todayRecord?.checkInTime ||
+              !!todayRecord?.lunchOutTime ||
+              !!todayRecord?.checkOutTime ||
+              !locationValidation?.isValid
+            }
+            className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
+              loadingAction !== null ||
+              !todayRecord?.checkInTime ||
+              !!todayRecord?.lunchOutTime ||
+              !!todayRecord?.checkOutTime ||
+              !locationValidation?.isValid
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-800"
+            }`}
+          >
+            {loadingAction === "lunch-out" ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <Timer className="w-5 h-5" />
+                <span>Lunch Out</span>
+              </>
+            )}
+          </button>
+
+          {/* Lunch In Button */}
+          <button
+            onClick={() => handleAttendanceAction("lunch-in")}
+            disabled={
+              loadingAction !== null ||
+              !todayRecord?.checkInTime ||
+              !todayRecord?.lunchOutTime ||
+              !!todayRecord?.lunchInTime ||
+              !!todayRecord?.checkOutTime ||
+              !locationValidation?.isValid
+            }
+            className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
+              loadingAction !== null ||
+              !todayRecord?.checkInTime ||
+              !todayRecord?.lunchOutTime ||
+              !!todayRecord?.lunchInTime ||
+              !!todayRecord?.checkOutTime ||
+              !locationValidation?.isValid
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-amber-600 hover:bg-amber-700 active:bg-amber-800"
+            }`}
+          >
+            {loadingAction === "lunch-in" ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <Timer className="w-5 h-5" />
+                <span>Lunch In</span>
+              </>
+            )}
+          </button>
+
           {/* Check-out Button */}
           <button
             onClick={() => handleAttendanceAction("check-out")}
@@ -945,13 +1025,11 @@ export default function DailyAttendance({
               loadingAction !== null ||
               !todayRecord?.checkInTime ||
               todayRecord?.checkOutTime ||
-              !isCameraActive ||
               !locationValidation?.isValid
             }
             className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
               loadingAction !== null ||
               !todayRecord?.checkInTime ||
-              !isCameraActive ||
               !locationValidation?.isValid
                 ? "bg-gray-400 cursor-not-allowed"
                 : todayRecord?.checkOutTime
@@ -964,17 +1042,7 @@ export default function DailyAttendance({
             ) : (
               <>
                 <XCircle className="w-5 h-5" />
-                <span>
-                  {!todayRecord?.checkInTime
-                    ? "Check In First"
-                    : !isCameraActive
-                    ? "Enable Camera First"
-                    : !locationValidation?.isValid
-                    ? "Location Not Valid"
-                    : todayRecord?.checkOutTime
-                    ? "Already Checked Out"
-                    : "Check Out"}
-                </span>
+                <span>Check Out</span>
               </>
             )}
           </button>

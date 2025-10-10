@@ -740,7 +740,7 @@ function AttendanceDetailsModal({ record, onClose }) {
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h3 className="text-xl font-semibold text-gray-800">
-            Attendance Details
+            Attendance Detailsm
           </h3>
           <button
             onClick={onClose}
@@ -778,7 +778,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                 <span className="text-sm font-medium text-gray-600">
                   Employee ID:
                 </span>
-                <p className="text-gray-900">{record.employeeId}</p>
+                <p className="text-gray-900">{record.employee?.employeeId}</p>
               </div>
             </div>
           </div>
@@ -820,6 +820,22 @@ function AttendanceDetailsModal({ record, onClose }) {
                 </span>
                 <p className="text-gray-900">
                   {formatTime(record.checkOutTime)}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-600">
+                  Lunch Out:
+                </span>
+                <p className="text-gray-900">
+                  {formatTime(record.lunchOutTime)}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-600">
+                  Lunch In:
+                </span>
+                <p className="text-gray-900">
+                  {formatTime(record.lunchInTime)}
                 </p>
               </div>
             </div>

@@ -152,9 +152,12 @@ export async function POST(request) {
       );
     }
 
-    if (!["check-in", "check-out"].includes(action)) {
+    if (!["check-in", "check-out", "lunch-out", "lunch-in"].includes(action)) {
       return NextResponse.json(
-        { error: "Action must be 'check-in' or 'check-out'" },
+        {
+          error:
+            "Action must be 'check-in', 'lunch-out', 'lunch-in', or 'check-out'",
+        },
         { status: 400 }
       );
     }
@@ -378,6 +381,97 @@ export async function POST(request) {
         message: "Check-in recorded successfully",
         data: attendanceRecord,
       });
+    } else if (action === "lunch-out") {
+      if (!attendanceRecord || !attendanceRecord.checkInTime) {
+        return NextResponse.json(
+          { error: "No check-in record found for today" },
+          { status: 400 }
+        );
+      }
+
+      if (attendanceRecord.lunchOutTime) {
+        return NextResponse.json(
+          { error: "Lunch-out already recorded for today" },
+          { status: 400 }
+        );
+      }
+
+      const lunchOutData = {
+        lunchOutTime: currentTime,
+        updatedAt: currentTime,
+      };
+
+      await db
+        .collection("daily_attendance")
+        .updateOne({ _id: attendanceRecord._id }, { $set: lunchOutData });
+
+      // Create audit log
+      await createAuditLog({
+        action: "EMPLOYEE_LUNCH_OUT",
+        entityType: "daily_attendance",
+        entityId: attendanceRecord._id.toString(),
+        userId: employeeId,
+        userEmail: employee.personalDetails?.email || employee.email || "",
+        metadata: {
+          employeeName,
+          date: today,
+          lunchOutTime: currentTime,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Lunch-out recorded successfully",
+      });
+    } else if (action === "lunch-in") {
+      if (!attendanceRecord || !attendanceRecord.checkInTime) {
+        return NextResponse.json(
+          { error: "No check-in record found for today" },
+          { status: 400 }
+        );
+      }
+
+      if (!attendanceRecord.lunchOutTime) {
+        return NextResponse.json(
+          { error: "Lunch-out must be recorded before lunch-in" },
+          { status: 400 }
+        );
+      }
+
+      if (attendanceRecord.lunchInTime) {
+        return NextResponse.json(
+          { error: "Lunch-in already recorded for today" },
+          { status: 400 }
+        );
+      }
+
+      const lunchInData = {
+        lunchInTime: currentTime,
+        updatedAt: currentTime,
+      };
+
+      await db
+        .collection("daily_attendance")
+        .updateOne({ _id: attendanceRecord._id }, { $set: lunchInData });
+
+      // Create audit log
+      await createAuditLog({
+        action: "EMPLOYEE_LUNCH_IN",
+        entityType: "daily_attendance",
+        entityId: attendanceRecord._id.toString(),
+        userId: employeeId,
+        userEmail: employee.personalDetails?.email || employee.email || "",
+        metadata: {
+          employeeName,
+          date: today,
+          lunchInTime: currentTime,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Lunch-in recorded successfully",
+      });
     } else if (action === "check-out") {
       if (!attendanceRecord || !attendanceRecord.checkInTime) {
         return NextResponse.json(
@@ -393,9 +487,10 @@ export async function POST(request) {
         );
       }
 
-      // Calculate working hours
+      // Calculate working hours (exclude fixed 1-hour lunch break)
       const checkInTime = new Date(attendanceRecord.checkInTime);
-      const workingHours = (currentTime - checkInTime) / (1000 * 60 * 60); // Convert to hours
+      const totalHours = (currentTime - checkInTime) / (1000 * 60 * 60); // Convert to hours
+      const adjustedHours = Math.max(0, totalHours - 1); // subtract 1 hour lunch, clamp to >= 0
 
       const checkOutData = {
         checkOutTime: currentTime,
@@ -407,7 +502,9 @@ export async function POST(request) {
         geofenceValidation,
         gpsValidation,
         status: "checked-out",
-        workingHours: Math.round(workingHours * 100) / 100, // Round to 2 decimal places
+        lunchOutTime: attendanceRecord.lunchOutTime || null,
+        lunchInTime: attendanceRecord.lunchInTime || null,
+        workingHours: Math.round(adjustedHours * 100) / 100, // Round to 2 decimal places
         updatedAt: currentTime,
       };
 
@@ -429,7 +526,7 @@ export async function POST(request) {
           employeeName,
           date: today,
           checkOutTime: currentTime,
-          workingHours: Math.round(workingHours * 100) / 100,
+          workingHours: Math.round(adjustedHours * 100) / 100,
           location: latitude && longitude ? "with location" : "no location",
           geofenceValidation: geofenceValidation.isValid ? "valid" : "invalid",
         },

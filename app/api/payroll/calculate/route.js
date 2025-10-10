@@ -6,6 +6,8 @@ import {
   isHoliday,
   isWorkingDay,
   getHolidaysForYear,
+  getHolidaysForMonth,
+  calculateWorkingDaysExcludingHolidays,
 } from "../../../utils/ethiopianCalendar";
 
 // Ethiopian Income Tax Calculation - Range-Based System
@@ -46,23 +48,105 @@ export async function POST(request) {
     const targetMonth = month || currentDate.getMonth() + 1;
     const targetYear = year || currentDate.getFullYear();
 
-    console.log(`Calculating payroll for ${targetMonth}/${targetYear}`);
+    // Calculate working days for the month (UTC-safe month bounds)
+    const startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1));
+    const endDate = new Date(Date.UTC(targetYear, targetMonth, 0)); // Last day of the month UTC
+    // Build holidays set for the selected month using the same source as the calendar API
+    const holidayIsoSet = new Set();
+    try {
+      const origin = new URL(request.url).origin;
+      const apiUrl = `${origin}/api/ethiopian-calendar?action=holidays&year=${targetYear}&month=${targetMonth}`;
+      const res = await fetch(apiUrl, { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        const list = json?.data?.holidays || [];
+        list.forEach((h) => {
+          try {
+            const iso = (h?.date || "").slice(0, 10);
+            if (!iso) return;
+            holidayIsoSet.add(iso);
+          } catch {}
+        });
+      }
+    } catch {}
 
-    // Calculate working days for the month
-    const startDate = new Date(targetYear, targetMonth - 1, 1);
-    const endDate = new Date(targetYear, targetMonth, 0); // Last day of the month
-    const totalWorkingDays = calculateWorkingDays(startDate, endDate);
-    const totalDaysInMonth = endDate.getDate();
-    const holidays = getHolidaysForYear(targetYear).filter(
-      (holiday) =>
-        holiday.date.getMonth() === targetMonth - 1 &&
-        holiday.date.getFullYear() === targetYear
-    );
+    // Absolute fallback: compute holidays via utils
+    if (holidayIsoSet.size === 0) {
+      const monthHolidays = getHolidaysForMonth(targetYear, targetMonth) || [];
+      monthHolidays.forEach((h) => {
+        const d = h.date instanceof Date ? h.date : new Date(h.date);
+        const iso = new Date(
+          Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+        )
+          .toISOString()
+          .slice(0, 10);
+        holidayIsoSet.add(iso);
+      });
+    }
+
+    // Compute working days for the selected month using LOCAL dates and integrated holiday check
+    const startLocalForCount = new Date(targetYear, targetMonth - 1, 1);
+    const endLocalForCount = new Date(targetYear, targetMonth, 0);
+    let totalWorkingDays = 0;
+    for (
+      let t = startLocalForCount.getTime();
+      t <= endLocalForCount.getTime();
+      t += 24 * 60 * 60 * 1000
+    ) {
+      const dLocal = new Date(t);
+      const dow = dLocal.getDay();
+      const isWeekday = dow !== 0 && dow !== 6;
+      const hol = isHoliday(dLocal);
+      const isHol =
+        hol === true || (hol && (hol.isHoliday || hol.name || hol.type));
+      if (isWeekday && !isHol) totalWorkingDays += 1;
+    }
+    const totalDaysInMonth = endDate.getUTCDate();
+    try {
+      const origin = new URL(request.url).origin;
+      const apiUrl = `${origin}/api/ethiopian-calendar?action=holidays&year=${targetYear}&month=${targetMonth}`;
+      const res = await fetch(apiUrl, { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        const list = json?.data?.holidays || [];
+        list.forEach((h) => {
+          try {
+            const iso = (h?.date || "").slice(0, 10);
+            if (!iso) return;
+            holidayIsoSet.add(iso);
+          } catch {}
+        });
+      }
+    } catch {}
+
+    // Absolute fallback: if API returned none, derive with isHoliday() day-by-day
+    if (holidayIsoSet.size === 0) {
+      const dayMs = 24 * 60 * 60 * 1000;
+      const startLocal = new Date(targetYear, targetMonth - 1, 1);
+      const endLocal = new Date(targetYear, targetMonth, 0);
+      for (let t = startLocal.getTime(); t <= endLocal.getTime(); t += dayMs) {
+        const dLocal = new Date(t);
+        const iso = new Date(
+          dLocal.getFullYear(),
+          dLocal.getMonth(),
+          dLocal.getDate()
+        )
+          .toISOString()
+          .slice(0, 10);
+        const h = isHoliday(dLocal);
+        const isHol = h === true || (h && (h.isHoliday || h.name || h.type));
+        if (isHol) holidayIsoSet.add(iso);
+      }
+    }
+    const holidays = Array.from(holidayIsoSet).map((iso) => ({
+      date: new Date(`${iso}T00:00:00Z`),
+      name: "Holiday",
+    }));
 
     console.log(
       `Working days in ${targetMonth}/${targetYear}: ${totalWorkingDays}/${totalDaysInMonth}`
     );
-    console.log(`Holidays in month: ${holidays.length}`);
+    console.log(`Holidays in month: ${holidayIsoSet.size}`);
 
     // Build employee query
     let employeeQuery = { status: "active" };
@@ -102,27 +186,48 @@ export async function POST(request) {
       .collection("daily_attendance")
       .find({
         date: {
-          $gte: startDate.toISOString().split("T")[0],
-          $lte: endDate.toISOString().split("T")[0],
+          $gte: startDate.toISOString().slice(0, 10),
+          $lte: endDate.toISOString().slice(0, 10),
         },
       })
       .toArray();
 
-    // Preload pending/denied leave requests overlapping period
+    // Preload pending/denied absence/leave requests overlapping period
     const leaveDocs = await db
       .collection("attendance_documents")
       .find({
-        type: "leave",
+        type: { $in: ["leave", "absence"] },
         status: { $in: ["pending", "denied", "rejected"] },
         $or: [
           {
-            startDate: { $lte: endDate.toISOString().split("T")[0] },
-            endDate: { $gte: startDate.toISOString().split("T")[0] },
+            startDate: { $lte: endDate.toISOString().slice(0, 10) },
+            endDate: { $gte: startDate.toISOString().slice(0, 10) },
           },
           {
             startDate: {
-              $gte: startDate.toISOString().split("T")[0],
-              $lte: endDate.toISOString().split("T")[0],
+              $gte: startDate.toISOString().slice(0, 10),
+              $lte: endDate.toISOString().slice(0, 10),
+            },
+          },
+        ],
+      })
+      .toArray();
+
+    // Preload approved absence/leave overlapping period (exclude from deductions)
+    const approvedLeaveDocs = await db
+      .collection("attendance_documents")
+      .find({
+        type: { $in: ["leave", "absence"] },
+        status: "approved",
+        $or: [
+          {
+            startDate: { $lte: endDate.toISOString().slice(0, 10) },
+            endDate: { $gte: startDate.toISOString().slice(0, 10) },
+          },
+          {
+            startDate: {
+              $gte: startDate.toISOString().slice(0, 10),
+              $lte: endDate.toISOString().slice(0, 10),
             },
           },
         ],
@@ -148,6 +253,14 @@ export async function POST(request) {
       leavesByEmp.get(empId).push(doc);
     });
 
+    const approvedLeavesByEmp = new Map(); // key: empId -> array of approved leaves
+    approvedLeaveDocs.forEach((doc) => {
+      const empId = doc.employeeId?.toString();
+      if (!empId) return;
+      if (!approvedLeavesByEmp.has(empId)) approvedLeavesByEmp.set(empId, []);
+      approvedLeavesByEmp.get(empId).push(doc);
+    });
+
     // Calculate payroll for each employee
     const payrollData = employees.map((employee) => {
       // Get salary information
@@ -162,27 +275,110 @@ export async function POST(request) {
       const empIdStr = employee._id.toString();
       const empLeaves = leavesByEmp.get(empIdStr) || [];
 
-      // Iterate through each day of month
+      // Iterate through each day of month (from joiningDate or month start, up to today)
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const joining = employee.joiningDate
+        ? new Date(`${employee.joiningDate}T00:00:00Z`)
+        : null;
+      const utcStart = startDate; // already UTC
+      const iterStartUtc = joining && joining > utcStart ? joining : utcStart;
       for (
-        let d = new Date(startDate);
-        d <= endDate;
-        d.setDate(d.getDate() + 1)
+        let t = iterStartUtc.getTime();
+        t <= endDate.getTime();
+        t += 24 * 60 * 60 * 1000
       ) {
-        const dateIso = d.toISOString().split("T")[0];
-        // Note: We deduct for any date with a pending/denied/rejected leave and no attendance,
-        // regardless of weekend/holiday status, per user requirement.
+        const dateIso = new Date(t).toISOString().slice(0, 10);
+        // Skip future dates beyond 'today'
+        if (dateIso > todayIso) {
+          if (
+            employee.name?.toLowerCase().includes("mamo elias") ||
+            empIdStr === "68e564a00d8e863db2a9b421"
+          ) {
+            console.log(
+              "[payroll][debug-day]",
+              employee.name,
+              dateIso,
+              "skip: future date"
+            );
+          }
+          continue;
+        }
         const attKey = `${empIdStr}|${dateIso}`;
         const att = attendanceByEmpDate.get(attKey);
         const hasAttendance = att && att.checkInTime;
-        if (hasAttendance) continue;
 
-        // Check if there is a pending/denied leave covering this date
+        // If there is an attendance record explicitly rejected/denied by admin,
+        // count this day as a deduction regardless of check-in/out times.
+        if (
+          att &&
+          (att.adminApproval?.status === "rejected" ||
+            att.adminApproval?.status === "denied")
+        ) {
+          if (
+            employee.name?.toLowerCase().includes("mamo elias") ||
+            empIdStr === "68e564a00d8e863db2a9b421"
+          ) {
+            console.log(
+              "[payroll][debug-day]",
+              employee.name,
+              dateIso,
+              "deduct: rejected/denied attendance"
+            );
+          }
+          deductionDays += 1;
+          deductionDates.push(dateIso);
+          continue;
+        }
+
+        if (hasAttendance) {
+          // Treat check-in without check-out as full-day absence
+          if (att && att.checkInTime && !att.checkOutTime) {
+            deductionDays += 1;
+            deductionDates.push(dateIso);
+            continue;
+          }
+          continue;
+        }
+
+        // If there is an approved leave covering this date, skip deduction
+        const hasApprovedLeave = (approvedLeavesByEmp.get(empIdStr) || []).some(
+          (lv) => {
+            const s = new Date(`${lv.startDate}T00:00:00Z`);
+            const e = new Date(`${lv.endDate}T00:00:00Z`);
+            return new Date(dateIso) >= s && new Date(dateIso) <= e;
+          }
+        );
+        if (hasApprovedLeave) {
+          continue;
+        }
+
+        // Check if there is a pending/denied/rejected leave covering this date
         const hasPendOrDeniedLeave = empLeaves.some((lv) => {
-          const s = new Date(lv.startDate);
-          const e = new Date(lv.endDate);
+          const s = new Date(`${lv.startDate}T00:00:00Z`);
+          const e = new Date(`${lv.endDate}T00:00:00Z`);
           return new Date(dateIso) >= s && new Date(dateIso) <= e;
         });
         if (hasPendOrDeniedLeave) {
+          deductionDays += 1;
+          deductionDates.push(dateIso);
+          continue;
+        }
+
+        // Otherwise, pure absence: deduct only on working non-holiday days (UTC-safe)
+        const dUtc = new Date(`${dateIso}T00:00:00Z`);
+        const dow = dUtc.getUTCDay();
+        const isWeekday = dow !== 0 && dow !== 6;
+        // Cross-check: holiday from set OR direct calendar helper
+        const dLocalCheck = new Date(
+          dUtc.getUTCFullYear(),
+          dUtc.getUTCMonth(),
+          dUtc.getUTCDate()
+        );
+        const holInfo = isHoliday(dLocalCheck);
+        const isHolidayDay =
+          holidayIsoSet.has(dateIso) || (holInfo && holInfo.isHoliday);
+
+        if (isWeekday && !isHolidayDay) {
           deductionDays += 1;
           deductionDates.push(dateIso);
         }
@@ -203,7 +399,7 @@ export async function POST(request) {
       const netSalary =
         adjustedGross - (incomeTax + employeePension) + transportAllowance;
 
-      return {
+      const result = {
         employeeId: employee._id.toString(),
         name: employee.personalDetails?.name || employee.name || "Unknown",
         position:
@@ -233,6 +429,8 @@ export async function POST(request) {
         totalDays: totalDaysInMonth,
         holidaysInMonth: holidays.length,
       };
+
+      return result;
     });
 
     // Calculate summary totals
@@ -243,6 +441,7 @@ export async function POST(request) {
         acc.totalEmployeePension += employee.employeePension;
         acc.totalEmployerPension += employee.employerPension;
         acc.totalIncomeTax += employee.incomeTax;
+        acc.totalDeductions += employee.deductionAmount || 0;
         acc.totalNet += employee.netSalary;
         return acc;
       },
@@ -253,6 +452,7 @@ export async function POST(request) {
         totalEmployeePension: 0,
         totalEmployerPension: 0,
         totalIncomeTax: 0,
+        totalDeductions: 0,
         totalNet: 0,
       }
     );
@@ -331,13 +531,13 @@ export async function GET(request) {
     // Calculate working days for the month
     const startDate = new Date(targetYear, targetMonth - 1, 1);
     const endDate = new Date(targetYear, targetMonth, 0); // Last day of the month
-    const totalWorkingDays = calculateWorkingDays(startDate, endDate);
-    const totalDaysInMonth = endDate.getDate();
-    const holidays = getHolidaysForYear(targetYear).filter(
-      (holiday) =>
-        holiday.date.getMonth() === targetMonth - 1 &&
-        holiday.date.getFullYear() === targetYear
+    const totalWorkingDays = calculateWorkingDaysExcludingHolidays(
+      startDate,
+      endDate,
+      getHolidaysForMonth(targetYear, targetMonth)
     );
+    const totalDaysInMonth = endDate.getDate();
+    const holidays = getHolidaysForMonth(targetYear, targetMonth);
 
     // Build employee query
     let employeeQuery = { status: "active" };

@@ -298,7 +298,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
             Your Requests & Documents
           </h2>
           <p className="text-gray-600 mt-1">
-            Track the status of your submitted requests
+            Track the status of your submitted documents
           </p>
         </div>
 

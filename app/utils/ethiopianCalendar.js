@@ -82,7 +82,8 @@ export function getCurrentEthiopianDate() {
 
 // Simple working day calculation (weekends only)
 export function isWorkingDay(date) {
-  const dayOfWeek = date.getDay();
+  // Use UTC day to avoid timezone shifting dates across boundaries
+  const dayOfWeek = date.getUTCDay();
   return dayOfWeek !== 0 && dayOfWeek !== 6; // Not Sunday or Saturday
 }
 
@@ -101,26 +102,145 @@ export function calculateWorkingDays(startDate, endDate) {
 }
 
 // Holiday functions using Kenat
+// Simple in-memory cache to avoid recomputing the same year's holidays
+const holidayCacheByYear = new Map();
+
 export function getHolidaysForYear(year) {
   try {
-    // Kenat provides holiday data for Ethiopian calendar
-    const holidays = [];
-    for (let month = 1; month <= 13; month++) {
-      const monthHolidays = Kenat.getHolidaysInMonth(year, month);
-      holidays.push(...monthHolidays);
+    if (holidayCacheByYear.has(year)) {
+      return holidayCacheByYear.get(year);
     }
-    return holidays;
+
+    // Use library API if available
+    if (typeof Kenat.getHolidaysInMonth === "function") {
+      const libHolidays = [];
+      for (let month = 1; month <= 13; month++) {
+        const monthHolidays = Kenat.getHolidaysInMonth(year, month) || [];
+        libHolidays.push(...monthHolidays);
+      }
+      holidayCacheByYear.set(year, libHolidays);
+      return libHolidays;
+    }
+
+    // Fallback: derive holidays by scanning each day using isHoliday()
+    const startUtc = new Date(Date.UTC(year, 0, 1));
+    const endUtc = new Date(Date.UTC(year, 11, 31));
+    const dayMs = 24 * 60 * 60 * 1000;
+    const computed = [];
+    for (let t = startUtc.getTime(); t <= endUtc.getTime(); t += dayMs) {
+      // Use mid-day local date to avoid TZ boundary issues, then normalize back to UTC
+      const midUtc = new Date(t + 12 * 60 * 60 * 1000);
+      const y = midUtc.getUTCFullYear();
+      const m = midUtc.getUTCMonth();
+      const d = midUtc.getUTCDate();
+      const localDate = new Date(y, m, d);
+      const h = isHoliday(localDate);
+
+      // Now h is either false or a holiday object
+      if (h && h.isHoliday) {
+        computed.push({
+          date: new Date(Date.UTC(y, m, d)),
+          name: h.name || "Holiday",
+          nameAmharic: h.nameAmharic || h.name,
+          type: h.type || "national",
+          isWorkingDay: false, // Holidays are typically not working days
+        });
+      }
+    }
+    holidayCacheByYear.set(year, computed);
+    return computed;
   } catch (error) {
-    console.error("Error getting holidays for year:", error);
     return [];
   }
+}
+
+// Returns an array of holiday objects for a specific Gregorian month (1-12)
+export function getHolidaysForMonth(year, month) {
+  try {
+    const all = getHolidaysForYear(year) || [];
+    return all.filter((h) => {
+      const d = h.date instanceof Date ? h.date : new Date(h.date);
+      return d.getUTCFullYear() === year && d.getUTCMonth() + 1 === month;
+    });
+  } catch {
+    return [];
+  }
+}
+
+// Calculate working days excluding holidays between two dates (inclusive)
+// holidays can be an array of {date} or a Set of ISO YYYY-MM-DD strings
+export function calculateWorkingDaysExcludingHolidays(
+  startDate,
+  endDate,
+  holidays
+) {
+  // Normalize to a Set of ISO strings
+  let holidayIso = new Set();
+  if (Array.isArray(holidays)) {
+    holidayIso = new Set(
+      holidays.map((h) => {
+        const d = h.date instanceof Date ? h.date : new Date(h.date);
+        const utc = new Date(
+          Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+        );
+        return utc.toISOString().slice(0, 10);
+      })
+    );
+  } else if (holidays instanceof Set) {
+    holidayIso = holidays;
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  let workingDays = 0;
+  const startUtc = new Date(
+    Date.UTC(
+      startDate.getUTCFullYear(),
+      startDate.getUTCMonth(),
+      startDate.getUTCDate()
+    )
+  );
+  const endUtc = new Date(
+    Date.UTC(
+      endDate.getUTCFullYear(),
+      endDate.getUTCMonth(),
+      endDate.getUTCDate()
+    )
+  );
+  for (let t = startUtc.getTime(); t <= endUtc.getTime(); t += dayMs) {
+    const d = new Date(t);
+    const dow = d.getUTCDay();
+    const iso = d.toISOString().slice(0, 10);
+    const isWeekday = dow !== 0 && dow !== 6;
+    if (isWeekday && !holidayIso.has(iso)) workingDays += 1;
+  }
+  return workingDays;
 }
 
 export function isHoliday(date) {
   try {
     const kenat = new Kenat(date);
     const holiday = kenat.isHoliday();
-    return holiday || false;
+
+    // Kenat returns an array of holidays, or empty array if no holidays
+    if (Array.isArray(holiday) && holiday.length > 0) {
+      // Return the first holiday object with additional properties
+      const firstHoliday = holiday[0];
+      return {
+        name: firstHoliday.name,
+        nameAmharic: firstHoliday.name,
+        type:
+          firstHoliday.tags && firstHoliday.tags.includes("public")
+            ? "public"
+            : firstHoliday.tags && firstHoliday.tags.includes("religious")
+            ? "religious"
+            : "national",
+        isHoliday: true,
+        description: firstHoliday.description,
+        ethiopian: firstHoliday.ethiopian,
+      };
+    }
+
+    return false;
   } catch (error) {
     console.error("Error checking if date is holiday:", error);
     return false;
