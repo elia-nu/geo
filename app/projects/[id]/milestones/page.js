@@ -10,6 +10,13 @@ import {
 } from "@mui/icons-material";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
+import {
+  showDeleteConfirmDialog,
+  handleFormSubmission,
+  showValidationErrors,
+  projectToasts,
+  validationMessages,
+} from "../../../utils/sweetAlert";
 
 const ProjectMilestonesPage = ({ params }) => {
   const { id: projectId } = use(params);
@@ -29,6 +36,88 @@ const ProjectMilestonesPage = ({ params }) => {
     status: "not_started",
     progress: 0,
   });
+
+  // Form validation state
+  const [formErrors, setFormErrors] = useState({});
+
+  // Validation function
+  const validateForm = () => {
+    const errors = {};
+
+    // Title validation
+    if (!formData.title?.trim()) {
+      errors.title = validationMessages.required("Title");
+    } else if (formData.title.trim().length < 3) {
+      errors.title = validationMessages.minLength("Title", 3);
+    } else if (formData.title.trim().length > 100) {
+      errors.title = validationMessages.maxLength("Title", 100);
+    }
+
+    // Description validation (optional but if provided, check length)
+    if (formData.description && formData.description.length > 500) {
+      errors.description = validationMessages.maxLength("Description", 500);
+    }
+
+    // Helper function to format dates for user-friendly display
+  const formatDateForDisplay = (date) => {
+    return format(new Date(date), 'MMM dd, yyyy');
+  };
+
+  // Enhanced due date validation
+  if (formData.dueDate) {
+    const dueDate = new Date(formData.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    
+    // Check if date is valid
+    if (isNaN(dueDate.getTime())) {
+      errors.dueDate = validationMessages.invalidDate;
+    } else {
+      // Check if due date is before today
+      if (dueDate < today) {
+        errors.dueDate = `Due date cannot be before today (${formatDateForDisplay(today)})`;
+      }
+      
+      // Check against project dates if project data is available
+      if (project) {
+        // Check if due date is before project start date
+        if (project.startDate) {
+          const projectStartDate = new Date(project.startDate);
+          projectStartDate.setHours(0, 0, 0, 0);
+          if (dueDate < projectStartDate) {
+            errors.dueDate = `Due date cannot be before project start date (${formatDateForDisplay(project.startDate)})`;
+          }
+        }
+        
+        // Check if due date is after project end date
+        if (project.endDate) {
+          const projectEndDate = new Date(project.endDate);
+          projectEndDate.setHours(23, 59, 59, 999); // End of day for comparison
+          if (dueDate > projectEndDate) {
+            errors.dueDate = `Due date cannot be after project end date (${formatDateForDisplay(project.endDate)})`;
+          }
+        }
+        
+        // If both start and end dates exist, show the valid range
+        if (project.startDate && project.endDate && !errors.dueDate) {
+          // This is just for reference, no error here since validation passed
+        }
+      }
+    }
+  }
+
+    // Progress validation
+    if (formData.progress < 0 || formData.progress > 100) {
+      errors.progress = "Progress must be between 0 and 100";
+    }
+
+    return errors;
+  };
+
+  // Check if form has errors
+  const hasFormErrors = (errors) => {
+    return Object.keys(errors).length > 0;
+  };
 
   // Fetch project and milestones on component mount
   useEffect(() => {
@@ -85,6 +174,15 @@ const ProjectMilestonesPage = ({ params }) => {
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
+    setCurrentMilestone(null);
+    setFormData({
+      title: "",
+      description: "",
+      dueDate: null,
+      status: "not_started",
+      progress: 0,
+    });
+    setFormErrors({});
   };
 
   const handleInputChange = (e) => {
@@ -93,6 +191,14 @@ const ProjectMilestonesPage = ({ params }) => {
       ...prev,
       [name]: name === "progress" ? Number(value) : value,
     }));
+
+    // Clear validation error for this field
+    if (formErrors[name]) {
+      setFormErrors((prev) => ({
+        ...prev,
+        [name]: undefined,
+      }));
+    }
   };
 
   const handleDateChange = (e) => {
@@ -101,10 +207,26 @@ const ProjectMilestonesPage = ({ params }) => {
       ...prev,
       dueDate: dateValue,
     }));
+
+    // Clear validation error for due date
+    if (formErrors.dueDate) {
+      setFormErrors((prev) => ({
+        ...prev,
+        dueDate: undefined,
+      }));
+    }
   };
 
   const handleSubmit = async () => {
-    try {
+    // Validate form
+    const errors = validateForm();
+    if (hasFormErrors(errors)) {
+      setFormErrors(errors);
+      showValidationErrors(Object.values(errors));
+      return;
+    }
+
+    const submitFunction = async () => {
       const payload = {
         ...formData,
         dueDate: formData.dueDate?.toISOString(),
@@ -130,21 +252,54 @@ const ProjectMilestonesPage = ({ params }) => {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        fetchProjectData();
-        handleCloseDialog();
-      } else {
-        setError(data.error || "Failed to save milestone");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save milestone");
       }
-    } catch (err) {
-      setError("Error saving milestone: " + err.message);
+
+      return await response.json();
+    };
+
+    try {
+      const result = await handleFormSubmission(submitFunction, {
+        loadingTitle: currentMilestone ? "Updating Milestone..." : "Creating Milestone...",
+        loadingText: "Please wait while we process your request",
+        successTitle: "Success!",
+        successText: currentMilestone ? "Milestone updated successfully" : "Milestone created successfully",
+      });
+
+      // Handle success
+      if (result && result.success !== false) {
+        if (currentMilestone) {
+          projectToasts.milestoneUpdated();
+        } else {
+          projectToasts.milestoneCreated();
+        }
+        await fetchProjectData();
+        handleCloseDialog();
+      }
+    } catch (error) {
+      projectToasts.milestoneError(error.message);
     }
   };
 
   const handleDeleteMilestone = async (milestoneId) => {
-    try {
+    // Find the milestone to get its title for the confirmation dialog
+    const milestone = milestones.find((m) => m._id === milestoneId);
+    const milestoneTitle = milestone ? milestone.title : "this milestone";
+
+    const confirmed = await showDeleteConfirmDialog(
+      "Delete Milestone",
+      `Are you sure you want to delete "${milestoneTitle}"? This action cannot be undone and will remove all associated data.`,
+      "Yes, delete it!",
+      "Cancel"
+    );
+
+    if (!confirmed.isConfirmed) {
+      return;
+    }
+
+    const deleteFunction = async () => {
       const response = await fetch(
         `/api/projects/${projectId}/milestones/${milestoneId}`,
         {
@@ -152,15 +307,29 @@ const ProjectMilestonesPage = ({ params }) => {
         }
       );
 
-      const data = await response.json();
-
-      if (data.success) {
-        fetchProjectData();
-      } else {
-        setError(data.error || "Failed to delete milestone");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete milestone");
       }
-    } catch (err) {
-      setError("Error deleting milestone: " + err.message);
+
+      return await response.json();
+    };
+
+    try {
+      const result = await handleFormSubmission(deleteFunction, {
+        loadingTitle: "Deleting Milestone...",
+        loadingText: "Please wait while we delete the milestone",
+        successTitle: "Deleted!",
+        successText: "Milestone deleted successfully",
+      });
+
+      // Handle success
+      if (result && result.success !== false) {
+        projectToasts.milestoneDeleted();
+        await fetchProjectData();
+      }
+    } catch (error) {
+      projectToasts.milestoneError(error.message);
     }
   };
 
@@ -458,11 +627,20 @@ const ProjectMilestonesPage = ({ params }) => {
                         type="text"
                         id="title"
                         name="title"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          formErrors.title
+                            ? "border-red-300 bg-red-50"
+                            : "border-gray-300"
+                        }`}
                         value={formData.title}
                         onChange={handleInputChange}
                         required
                       />
+                      {formErrors.title && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {formErrors.title}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -475,11 +653,20 @@ const ProjectMilestonesPage = ({ params }) => {
                       <textarea
                         id="description"
                         name="description"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          formErrors.description
+                            ? "border-red-300 bg-red-50"
+                            : "border-gray-300"
+                        }`}
                         rows={3}
                         value={formData.description}
                         onChange={handleInputChange}
                       />
+                      {formErrors.description && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {formErrors.description}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -493,7 +680,11 @@ const ProjectMilestonesPage = ({ params }) => {
                         type="date"
                         id="dueDate"
                         name="dueDate"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          formErrors.dueDate
+                            ? "border-red-300 bg-red-50"
+                            : "border-gray-300"
+                        }`}
                         value={
                           formData.dueDate
                             ? formData.dueDate.toISOString().split("T")[0]
@@ -501,6 +692,16 @@ const ProjectMilestonesPage = ({ params }) => {
                         }
                         onChange={handleDateChange}
                       />
+                      {formErrors.dueDate && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {formErrors.dueDate}
+                        </p>
+                      )}
+                      {!formErrors.dueDate && project && project.startDate && project.endDate && (
+                        <p className="mt-1 text-sm text-gray-500">
+                          Valid date range: {format(new Date(project.startDate), 'MMM dd, yyyy')} - {format(new Date(project.endDate), 'MMM dd, yyyy')}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -543,6 +744,11 @@ const ProjectMilestonesPage = ({ params }) => {
                         value={formData.progress}
                         onChange={handleInputChange}
                       />
+                      {formErrors.progress && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {formErrors.progress}
+                        </p>
+                      )}
                     </div>
 
                     <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse mt-6 -mx-4 -mb-4 sm:-mx-6 sm:-mb-4">

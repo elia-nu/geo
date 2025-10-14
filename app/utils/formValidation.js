@@ -326,6 +326,11 @@ export const validateTaskForm = (formData) => {
     errors.assignedTo = "At least one team member must be assigned";
   }
 
+  // Category validation
+  if (!formData.categoryId) {
+    errors.categoryId = "Task category is required";
+  }
+
   return errors;
 };
 

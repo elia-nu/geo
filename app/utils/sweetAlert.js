@@ -388,8 +388,8 @@ export const projectToasts = {
 // Validation error messages
 export const validationMessages = {
   required: (field) => `${field} is required`,
-  minLength: (field, min) => `${field} must be at least ${min} characters long`,
-  maxLength: (field, max) => `${field} must be less than ${max} characters`,
+  minLength: (field, length) => `${field} must be at least ${length} characters`,
+  maxLength: (field, length) => `${field} must not exceed ${length} characters`,
   invalidEmail: "Please enter a valid email address",
   invalidDate: "Please enter a valid date",
   invalidNumber: "Please enter a valid number",
@@ -397,4 +397,7 @@ export const validationMessages = {
   futureDate: "Date cannot be in the future",
   pastDate: "Date cannot be in the past",
   endDateAfterStart: "End date must be after start date",
+  dueDateBeforeToday: "Due date cannot be before today",
+  dueDateBeforeProjectStart: "Due date cannot be before project start date",
+  dueDateAfterProjectEnd: "Due date cannot be after project end date",
 };

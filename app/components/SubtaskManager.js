@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { showDeleteConfirmDialog } from "../utils/sweetAlert";
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -26,6 +27,7 @@ const SubtaskManager = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Subtask state
   const [subtasks, setSubtasks] = useState([]);
@@ -59,9 +61,179 @@ const SubtaskManager = ({
     }
   }, [task, isOpen]);
 
+  // Filter employees to only show those assigned to the parent task
+  const getAssignedEmployees = () => {
+    if (!task || !task.assignedTo || !Array.isArray(task.assignedTo)) {
+      return [];
+    }
+    
+    return employees.filter(employee => 
+      task.assignedTo.some(assignedEmp => 
+        assignedEmp._id === employee._id || assignedEmp === employee._id
+      )
+    );
+  };
+
+  const assignedEmployees = getAssignedEmployees();
+
+  // Comprehensive validation function for subtasks
+  const validateSubtaskForm = (formData, isEdit = false) => {
+    const errors = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Title validation
+    if (!formData.title || formData.title.trim().length === 0) {
+      errors.title = "Subtask title is required";
+    } else if (formData.title.trim().length < 3) {
+      errors.title = "Title must be at least 3 characters long";
+    } else if (formData.title.trim().length > 100) {
+      errors.title = "Title must not exceed 100 characters";
+    }
+
+    // Description validation
+    if (!formData.description || formData.description.trim().length === 0) {
+      errors.description = "Description is required";
+    } else if (formData.description.trim().length < 5) {
+      errors.description = "Description must be at least 5 characters long";
+    } else if (formData.description.trim().length > 500) {
+      errors.description = "Description must not exceed 500 characters";
+    }
+
+    // Assignment validation
+    if (!formData.assignedTo || formData.assignedTo.trim().length === 0) {
+      errors.assignedTo = "Please assign the subtask to an employee";
+    } else {
+      // Check if assigned employee is part of the parent task's assigned employees
+      if (task && task.assignedTo && Array.isArray(task.assignedTo)) {
+        const isAssignedToTask = task.assignedTo.some(emp => 
+          emp._id === formData.assignedTo || emp === formData.assignedTo
+        );
+        if (!isAssignedToTask) {
+          errors.assignedTo = "Subtask can only be assigned to employees who are assigned to the parent task";
+        }
+      }
+    }
+
+    // Priority validation
+    if (!formData.priority || !["low", "medium", "high", "critical"].includes(formData.priority)) {
+      errors.priority = "Please select a valid priority level";
+    }
+
+    // Start date validation (mandatory)
+    if (!formData.startDate) {
+      errors.startDate = "Start date is required for subtasks";
+    } else {
+      const startDate = new Date(formData.startDate);
+      startDate.setHours(0, 0, 0, 0);
+
+      if (isNaN(startDate.getTime())) {
+        errors.startDate = "Please enter a valid start date";
+      } else {
+        // Check if start date is not in the past (unless editing)
+        if (!isEdit && startDate < today) {
+          errors.startDate = "Start date cannot be in the past";
+        }
+
+        // Check if start date is within parent task timeline
+        if (task) {
+          if (task.startDate) {
+            const taskStart = new Date(task.startDate);
+            taskStart.setHours(0, 0, 0, 0);
+            if (startDate < taskStart) {
+              errors.startDate = `Start date cannot be before parent task start date (${taskStart.toLocaleDateString()})`;
+            }
+          }
+
+          if (task.dueDate) {
+            const taskEnd = new Date(task.dueDate);
+            taskEnd.setHours(0, 0, 0, 0);
+            if (startDate > taskEnd) {
+              errors.startDate = `Start date cannot be after parent task due date (${taskEnd.toLocaleDateString()})`;
+            }
+          }
+        }
+      }
+    }
+
+    // Due date validation (mandatory)
+    if (!formData.dueDate) {
+      errors.dueDate = "Due date is required for subtasks";
+    } else {
+      const dueDate = new Date(formData.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+
+      if (isNaN(dueDate.getTime())) {
+        errors.dueDate = "Please enter a valid due date";
+      } else {
+        // Check if due date is not in the past (unless editing)
+        if (!isEdit && dueDate < today) {
+          errors.dueDate = "Due date cannot be in the past";
+        }
+
+        // Check if due date is after start date
+        if (formData.startDate) {
+          const startDate = new Date(formData.startDate);
+          startDate.setHours(0, 0, 0, 0);
+          if (dueDate <= startDate) {
+            errors.dueDate = "Due date must be after start date";
+          }
+        }
+
+        // Check if due date is within parent task timeline
+        if (task) {
+          if (task.startDate) {
+            const taskStart = new Date(task.startDate);
+            taskStart.setHours(0, 0, 0, 0);
+            if (dueDate < taskStart) {
+              errors.dueDate = `Due date cannot be before parent task start date (${taskStart.toLocaleDateString()})`;
+            }
+          }
+
+          if (task.dueDate) {
+            const taskEnd = new Date(task.dueDate);
+            taskEnd.setHours(0, 0, 0, 0);
+            if (dueDate > taskEnd) {
+              errors.dueDate = `Due date cannot be after parent task due date (${taskEnd.toLocaleDateString()})`;
+            }
+          }
+        }
+      }
+    }
+
+    // Estimated hours validation
+    if (formData.estimatedHours !== undefined && formData.estimatedHours !== null) {
+      const hours = parseFloat(formData.estimatedHours);
+      if (isNaN(hours) || hours < 0) {
+        errors.estimatedHours = "Estimated hours must be a positive number";
+      } else if (hours > 100) {
+        errors.estimatedHours = "Estimated hours cannot exceed 100 hours for a subtask";
+      }
+    }
+
+    return errors;
+  };
+
+  // Helper function to check if there are any validation errors
+  const hasValidationErrors = (errors) => {
+    return Object.keys(errors).length > 0;
+  };
+
+  // Helper function to display validation errors
+  const showValidationErrors = (errors) => {
+    const errorMessages = Object.values(errors).join('\n');
+    setError(errorMessages);
+  };
+
   const handleAddSubtask = async () => {
-    if (!formData.title.trim()) {
-      setError("Subtask title is required");
+    setError(null);
+    setValidationErrors({});
+
+    // Perform comprehensive validation
+    const validationErrors = validateSubtaskForm(formData, false);
+    if (hasValidationErrors(validationErrors)) {
+      setValidationErrors(validationErrors);
+      showValidationErrors(validationErrors);
       return;
     }
 
@@ -179,7 +351,13 @@ const SubtaskManager = ({
   };
 
   const handleDeleteSubtask = async (subtaskId) => {
-    if (!confirm("Are you sure you want to delete this subtask?")) return;
+    const result = await showDeleteConfirmDialog(
+      "Delete Subtask",
+      "Are you sure you want to delete this subtask? This action cannot be undone.",
+      "Yes, delete it!"
+    );
+    
+    if (!result.isConfirmed) return;
 
     try {
       setLoading(true);
@@ -255,6 +433,32 @@ const SubtaskManager = ({
     await handleUpdateSubtask(subtaskId, {
       status: newStatus,
       progress: newProgress,
+    });
+  };
+
+  // Handle save edit with validation
+  const handleSaveEdit = async (subtaskId) => {
+    setError(null);
+    setValidationErrors({});
+
+    // Perform comprehensive validation for editing
+    const validationErrors = validateSubtaskForm(editData, true);
+    if (hasValidationErrors(validationErrors)) {
+      setValidationErrors(validationErrors);
+      showValidationErrors(validationErrors);
+      return;
+    }
+
+    // If validation passes, proceed with update
+    await handleUpdateSubtask(subtaskId, {
+      title: editData.title.trim(),
+      description: editData.description.trim(),
+      assignedTo: editData.assignedTo || null,
+      priority: editData.priority,
+      estimatedHours: editData.estimatedHours || 0,
+      startDate: editData.startDate || null,
+      dueDate: editData.dueDate || null,
+      status: editData.status,
     });
   };
 
@@ -383,9 +587,16 @@ const SubtaskManager = ({
                     onChange={(e) =>
                       setFormData({ ...formData, title: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                      validationErrors.title
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                     placeholder="Enter subtask title"
                   />
+                  {validationErrors.title && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.title}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -396,13 +607,20 @@ const SubtaskManager = ({
                     onChange={(e) =>
                       setFormData({ ...formData, priority: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                      validationErrors.priority
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
                     <option value="critical">Critical</option>
                   </select>
+                  {validationErrors.priority && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.priority}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -413,10 +631,14 @@ const SubtaskManager = ({
                     onChange={(e) =>
                       setFormData({ ...formData, assignedTo: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                      validationErrors.assignedTo
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   >
-                    <option value="">Unassigned</option>
-                    {employees.map((employee) => (
+                    <option value="">Select Employee</option>
+                    {assignedEmployees.map((employee) => (
                       <option key={employee._id} value={employee._id}>
                         {employee.personalDetails?.name ||
                           employee.name ||
@@ -424,6 +646,9 @@ const SubtaskManager = ({
                       </option>
                     ))}
                   </select>
+                  {validationErrors.assignedTo && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.assignedTo}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -438,9 +663,16 @@ const SubtaskManager = ({
                         estimatedHours: parseInt(e.target.value) || 0,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                      validationErrors.estimatedHours
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                     min="0"
                   />
+                  {validationErrors.estimatedHours && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.estimatedHours}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -452,8 +684,15 @@ const SubtaskManager = ({
                     onChange={(e) =>
                       setFormData({ ...formData, startDate: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                      validationErrors.startDate
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   />
+                  {validationErrors.startDate && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.startDate}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -465,8 +704,15 @@ const SubtaskManager = ({
                     onChange={(e) =>
                       setFormData({ ...formData, dueDate: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                      validationErrors.dueDate
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   />
+                  {validationErrors.dueDate && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.dueDate}</p>
+                  )}
                 </div>
               </div>
               <div className="mt-4">
@@ -478,10 +724,17 @@ const SubtaskManager = ({
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                    validationErrors.description
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
+                  }`}
                   rows="3"
                   placeholder="Enter subtask description"
                 />
+                {validationErrors.description && (
+                  <p className="text-xs text-red-600 mt-1">{validationErrors.description}</p>
+                )}
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button
@@ -562,9 +815,16 @@ const SubtaskManager = ({
                                 title: e.target.value,
                               })
                             }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                              validationErrors.title
+                                ? "border-red-500 focus:ring-red-500"
+                                : "border-gray-300 focus:ring-blue-500"
+                            }`}
                             placeholder="Enter subtask title"
                           />
+                          {validationErrors.title && (
+                            <p className="text-xs text-red-600 mt-1">{validationErrors.title}</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -578,13 +838,20 @@ const SubtaskManager = ({
                                 priority: e.target.value,
                               })
                             }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                              validationErrors.priority
+                                ? "border-red-500 focus:ring-red-500"
+                                : "border-gray-300 focus:ring-blue-500"
+                            }`}
                           >
                             <option value="low">Low</option>
                             <option value="medium">Medium</option>
                             <option value="high">High</option>
                             <option value="critical">Critical</option>
                           </select>
+                          {validationErrors.priority && (
+                            <p className="text-xs text-red-600 mt-1">{validationErrors.priority}</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -598,10 +865,14 @@ const SubtaskManager = ({
                                 assignedTo: e.target.value,
                               })
                             }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                              validationErrors.assignedTo
+                                ? "border-red-500 focus:ring-red-500"
+                                : "border-gray-300 focus:ring-blue-500"
+                            }`}
                           >
-                            <option value="">Unassigned</option>
-                            {employees.map((employee) => (
+                            <option value="">Select Employee</option>
+                            {assignedEmployees.map((employee) => (
                               <option key={employee._id} value={employee._id}>
                                 {employee.personalDetails?.name ||
                                   employee.name ||
@@ -609,6 +880,9 @@ const SubtaskManager = ({
                               </option>
                             ))}
                           </select>
+                          {validationErrors.assignedTo && (
+                            <p className="text-xs text-red-600 mt-1">{validationErrors.assignedTo}</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -623,9 +897,16 @@ const SubtaskManager = ({
                                 estimatedHours: parseInt(e.target.value) || 0,
                               })
                             }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                              validationErrors.estimatedHours
+                                ? "border-red-500 focus:ring-red-500"
+                                : "border-gray-300 focus:ring-blue-500"
+                            }`}
                             min="0"
                           />
+                          {validationErrors.estimatedHours && (
+                            <p className="text-xs text-red-600 mt-1">{validationErrors.estimatedHours}</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -640,8 +921,15 @@ const SubtaskManager = ({
                                 startDate: e.target.value,
                               })
                             }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                              validationErrors.startDate
+                                ? "border-red-500 focus:ring-red-500"
+                                : "border-gray-300 focus:ring-blue-500"
+                            }`}
                           />
+                          {validationErrors.startDate && (
+                            <p className="text-xs text-red-600 mt-1">{validationErrors.startDate}</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -656,8 +944,15 @@ const SubtaskManager = ({
                                 dueDate: e.target.value,
                               })
                             }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                              validationErrors.dueDate
+                                ? "border-red-500 focus:ring-red-500"
+                                : "border-gray-300 focus:ring-blue-500"
+                            }`}
                           />
+                          {validationErrors.dueDate && (
+                            <p className="text-xs text-red-600 mt-1">{validationErrors.dueDate}</p>
+                          )}
                         </div>
                       </div>
                       <div>
@@ -672,10 +967,17 @@ const SubtaskManager = ({
                               description: e.target.value,
                             })
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                            validationErrors.description
+                              ? "border-red-500 focus:ring-red-500"
+                              : "border-gray-300 focus:ring-blue-500"
+                          }`}
                           rows="3"
                           placeholder="Enter subtask description"
                         />
+                        {validationErrors.description && (
+                          <p className="text-xs text-red-600 mt-1">{validationErrors.description}</p>
+                        )}
                       </div>
                       <div className="flex justify-end gap-3">
                         <button
@@ -687,18 +989,7 @@ const SubtaskManager = ({
                           Cancel
                         </button>
                         <button
-                          onClick={() =>
-                            handleUpdateSubtask(subtask._id, {
-                              title: editData.title.trim(),
-                              description: editData.description.trim(),
-                              assignedTo: editData.assignedTo || null,
-                              priority: editData.priority,
-                              estimatedHours: editData.estimatedHours || 0,
-                              startDate: editData.startDate || null,
-                              dueDate: editData.dueDate || null,
-                              status: editData.status || subtask.status,
-                            })
-                          }
+                          onClick={() => handleSaveEdit(subtask._id)}
                           disabled={loading || !editData.title.trim()}
                           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                         >

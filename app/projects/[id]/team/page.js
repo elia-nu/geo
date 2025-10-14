@@ -9,6 +9,10 @@ import {
   Person as PersonIcon,
 } from "@mui/icons-material";
 import Link from "next/link";
+import {
+  showDeleteConfirmDialog,
+  projectToasts,
+} from "../../../utils/sweetAlert";
 
 const ProjectTeamPage = ({ params }) => {
   const { id: projectId } = use(params);
@@ -108,24 +112,51 @@ const ProjectTeamPage = ({ params }) => {
       if (data.success) {
         fetchProjectData();
         handleCloseDialog();
+        // Show success toast with count of assigned employees
+        const count = selectedEmployees.length;
+        if (count === 1) {
+          projectToasts.teamMemberAdded();
+        } else {
+          projectToasts.teamMemberAdded();
+        }
+        setSelectedEmployees([]); // Clear selection
       } else {
-        setError(data.error || "Failed to assign employees");
+        const errorMessage = data.error || "Failed to assign employees";
+        setError(errorMessage);
+        projectToasts.teamError(errorMessage);
       }
     } catch (err) {
-      setError("Error assigning employees: " + err.message);
+      const errorMessage = "Error assigning employees: " + err.message;
+      setError(errorMessage);
+      projectToasts.teamError(errorMessage);
     }
   };
 
   const handleRemoveEmployee = async (employeeId) => {
+    // Find employee name for confirmation dialog
+    const employee = assignedEmployees.find(emp => emp._id === employeeId);
+    const employeeName = employee?.name || "this employee";
+
+    // Show confirmation dialog
+    const result = await showDeleteConfirmDialog(
+      "Remove Team Member",
+      `Are you sure you want to remove ${employeeName} from this project? This action cannot be undone.`,
+      "Yes, remove them",
+      "Cancel"
+    );
+
+    if (!result.isConfirmed) {
+      return; // User cancelled
+    }
+
     try {
       const response = await fetch(
-        `/api/projects/${projectId}/assign-employees`,
+        `/api/projects/${projectId}/assign-employees?employeeId=${employeeId}`,
         {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ employeeId }),
         }
       );
 
@@ -133,11 +164,16 @@ const ProjectTeamPage = ({ params }) => {
 
       if (data.success) {
         fetchProjectData();
+        projectToasts.teamMemberRemoved();
       } else {
-        setError(data.error || "Failed to remove employee");
+        const errorMessage = data.error || "Failed to remove employee";
+        setError(errorMessage);
+        projectToasts.teamError(errorMessage);
       }
     } catch (err) {
-      setError("Error removing employee: " + err.message);
+      const errorMessage = "Error removing employee: " + err.message;
+      setError(errorMessage);
+      projectToasts.teamError(errorMessage);
     }
   };
 

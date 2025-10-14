@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Swal from "sweetalert2";
+import { showDeleteConfirmDialog } from "../utils/sweetAlert";
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -47,6 +48,9 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     name: "Admin User",
     email: "admin@company.com",
   });
+
+  // Add validation error state
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Filter and search states
   const [searchTerm, setSearchTerm] = useState("");
@@ -209,9 +213,170 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     })();
   }, [projectId, selectedProjectId, projects]);
 
+  // Add comprehensive validation function
+  const validateTaskForm = (formData, isEdit = false) => {
+    const errors = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+
+    // Title validation
+    if (!formData.title || formData.title.trim().length === 0) {
+      errors.title = "Title is required";
+    } else if (formData.title.trim().length < 3) {
+      errors.title = "Title must be at least 3 characters long";
+    } else if (formData.title.trim().length > 100) {
+      errors.title = "Title must not exceed 100 characters";
+    }
+
+    // Description validation
+    if (!formData.description || formData.description.trim().length === 0) {
+      errors.description = "Description is required";
+    } else if (formData.description.trim().length < 10) {
+      errors.description = "Description must be at least 10 characters long";
+    } else if (formData.description.trim().length > 1000) {
+      errors.description = "Description must not exceed 1000 characters";
+    }
+
+    // Assignment validation
+    if (!formData.assignedTo || formData.assignedTo.length === 0) {
+      errors.assignedTo = "At least one employee must be assigned to the task";
+    }
+
+    // Priority validation
+    if (!formData.priority || !["low", "medium", "high", "critical"].includes(formData.priority)) {
+      errors.priority = "Please select a valid priority level";
+    }
+
+    // Status validation
+    const validStatuses = ["pending", "in_progress", "review", "completed", "blocked", "cancelled"];
+    if (!formData.status || !validStatuses.includes(formData.status)) {
+      errors.status = "Please select a valid status";
+    }
+
+    // Start date validation
+    if (!formData.startDate) {
+      errors.startDate = "Start date is required";
+    } else {
+      const startDate = new Date(formData.startDate);
+      startDate.setHours(0, 0, 0, 0);
+
+      // Check if start date is valid
+      if (isNaN(startDate.getTime())) {
+        errors.startDate = "Please enter a valid start date";
+      } else {
+        // Check if start date is not in the past (unless editing)
+        if (!isEdit && startDate < today) {
+          errors.startDate = "Start date cannot be in the past";
+        }
+
+        // Check if start date is within project timeline
+        if (currentProject) {
+          if (currentProject.startDate) {
+            const projectStart = new Date(currentProject.startDate);
+            projectStart.setHours(0, 0, 0, 0);
+            if (startDate < projectStart) {
+              errors.startDate = `Start date cannot be before project start date (${projectStart.toLocaleDateString()})`;
+            }
+          }
+
+          if (currentProject.endDate) {
+            const projectEnd = new Date(currentProject.endDate);
+            projectEnd.setHours(0, 0, 0, 0);
+            if (startDate > projectEnd) {
+              errors.startDate = `Start date cannot be after project end date (${projectEnd.toLocaleDateString()})`;
+            }
+          }
+        }
+      }
+    }
+
+    // Due date validation
+    if (!formData.dueDate) {
+      errors.dueDate = "Due date is required";
+    } else {
+      const dueDate = new Date(formData.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+
+      // Check if due date is valid
+      if (isNaN(dueDate.getTime())) {
+        errors.dueDate = "Please enter a valid due date";
+      } else {
+        // Check if due date is not in the past (unless editing)
+        if (!isEdit && dueDate < today) {
+          errors.dueDate = "Due date cannot be in the past";
+        }
+
+        // Check if due date is after start date
+        if (formData.startDate) {
+          const startDate = new Date(formData.startDate);
+          startDate.setHours(0, 0, 0, 0);
+          if (dueDate <= startDate) {
+            errors.dueDate = "Due date must be after start date";
+          }
+        }
+
+        // Check if due date is within project timeline
+        if (currentProject) {
+          if (currentProject.startDate) {
+            const projectStart = new Date(currentProject.startDate);
+            projectStart.setHours(0, 0, 0, 0);
+            if (dueDate < projectStart) {
+              errors.dueDate = `Due date cannot be before project start date (${projectStart.toLocaleDateString()})`;
+            }
+          }
+
+          if (currentProject.endDate) {
+            const projectEnd = new Date(currentProject.endDate);
+            projectEnd.setHours(0, 0, 0, 0);
+            if (dueDate > projectEnd) {
+              errors.dueDate = `Due date cannot be after project end date (${projectEnd.toLocaleDateString()})`;
+            }
+          }
+        }
+      }
+    }
+
+    // Estimated hours validation
+    if (formData.estimatedHours !== undefined && formData.estimatedHours !== null) {
+      const hours = parseFloat(formData.estimatedHours);
+      if (isNaN(hours) || hours < 0) {
+        errors.estimatedHours = "Estimated hours must be a positive number";
+      } else if (hours > 1000) {
+        errors.estimatedHours = "Estimated hours cannot exceed 1000 hours";
+      }
+    }
+
+    // Category validation (optional but if provided should be valid)
+    if (formData.categoryId && taskCategories.length > 0) {
+      const categoryExists = taskCategories.some(cat => cat._id === formData.categoryId);
+      if (!categoryExists) {
+        errors.categoryId = "Please select a valid category";
+      }
+    }
+
+    return errors;
+  };
+
+  // Helper function to check if there are any validation errors
+  const hasValidationErrors = (errors) => {
+    return Object.keys(errors).length > 0;
+  };
+
+  // Helper function to display validation errors
+  const showValidationErrors = (errors) => {
+    const errorMessages = Object.values(errors).join('\n');
+    Swal.fire({
+      icon: "error",
+      title: "Validation Error",
+      text: errorMessages,
+      confirmButtonText: "OK"
+    });
+  };
+
   const handleCreateTask = async (e) => {
     e.preventDefault();
     setError(null);
+    setValidationErrors({});
 
     // Validate required fields
     const currentProjectId = projectId || selectedProjectId;
@@ -223,6 +388,14 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         title: "Warning",
         text: msg,
       });
+      return;
+    }
+
+    // Perform comprehensive validation
+    const validationErrors = validateTaskForm(formData, false);
+    if (hasValidationErrors(validationErrors)) {
+      setValidationErrors(validationErrors);
+      showValidationErrors(validationErrors);
       return;
     }
 
@@ -287,6 +460,15 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     if (!selectedTask) return;
 
     setError(null);
+    setValidationErrors({});
+
+    // Perform comprehensive validation for editing
+    const validationErrors = validateTaskForm(formData, true);
+    if (hasValidationErrors(validationErrors)) {
+      setValidationErrors(validationErrors);
+      showValidationErrors(validationErrors);
+      return;
+    }
 
     try {
       const payload = {
@@ -339,8 +521,13 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
   };
 
   const handleDeleteTask = async (taskId) => {
-    const proceed = window.confirm("Delete this task? This cannot be undone.");
-    if (!proceed) return;
+    const result = await showDeleteConfirmDialog(
+      "Delete Task",
+      "Are you sure you want to delete this task? This action cannot be undone and will remove all associated subtasks and data.",
+      "Yes, delete it!"
+    );
+    
+    if (!result.isConfirmed) return;
 
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
@@ -973,8 +1160,15 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                         title: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                      validationErrors.title
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   />
+                  {validationErrors.title && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.title}</p>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">
@@ -990,8 +1184,15 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                         description: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                      validationErrors.description
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   />
+                  {validationErrors.description && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.description}</p>
+                  )}
                 </div>
 
                 <div>
@@ -1006,13 +1207,20 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                         priority: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                      validationErrors.priority
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
                     <option value="critical">Critical</option>
                   </select>
+                  {validationErrors.priority && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.priority}</p>
+                  )}
                 </div>
 
                 <div>
@@ -1027,7 +1235,11 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                         status: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                      validationErrors.status
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   >
                     <option value="pending">Pending</option>
                     <option value="in_progress">In Progress</option>
@@ -1036,6 +1248,9 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                     <option value="blocked">Blocked</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
+                  {validationErrors.status && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.status}</p>
+                  )}
                 </div>
 
                 <div>
@@ -1051,8 +1266,15 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                         startDate: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                      validationErrors.startDate
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   />
+                  {validationErrors.startDate && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.startDate}</p>
+                  )}
                 </div>
 
                 <div>
@@ -1068,8 +1290,15 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                         dueDate: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                      validationErrors.dueDate
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   />
+                  {validationErrors.dueDate && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.dueDate}</p>
+                  )}
                 </div>
 
                 <div>
@@ -1087,8 +1316,15 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                         estimatedHours: parseFloat(e.target.value) || 0,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                      validationErrors.estimatedHours
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   />
+                  {validationErrors.estimatedHours && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.estimatedHours}</p>
+                  )}
                 </div>
 
                 <div>
@@ -1103,7 +1339,11 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                         categoryId: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                      validationErrors.categoryId
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   >
                     <option value="">Select Category</option>
                     {taskCategories.map((category) => (
@@ -1112,13 +1352,20 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                       </option>
                     ))}
                   </select>
+                  {validationErrors.categoryId && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.categoryId}</p>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Assign to Employees
                   </label>
-                  <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-2">
+                  <div className={`max-h-32 overflow-y-auto border rounded-lg p-2 ${
+                    validationErrors.assignedTo
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}>
                     {employees.map((employee) => (
                       <label
                         key={employee._id}
@@ -1165,6 +1412,9 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                         Selected: {formData.assignedTo.length} employee(s)
                       </p>
                     </div>
+                  )}
+                  {validationErrors.assignedTo && (
+                    <p className="text-xs text-red-600 mt-1">{validationErrors.assignedTo}</p>
                   )}
                 </div>
               </div>

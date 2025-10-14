@@ -16,6 +16,16 @@ import {
   DollarSign as CurrencyDollarIcon,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import {
+  validateForm,
+  hasFormErrors,
+} from "../utils/formValidation";
+import {
+  showValidationErrors,
+  handleFormSubmission,
+  showDeleteConfirmDialog,
+  projectToasts,
+} from "../utils/sweetAlert";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
@@ -76,6 +86,7 @@ export default function ProjectsManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showBudgetBanner, setShowBudgetBanner] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
+  const [formErrors, setFormErrors] = useState({});
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
   const [selectedProjectForStatus, setSelectedProjectForStatus] =
     useState(null);
@@ -183,6 +194,7 @@ export default function ProjectsManagement() {
     setOpenDialog(false);
     setCurrentProject(null);
     setFormData(initialFormData);
+    setFormErrors({});
   }
 
   function handleInputChange(e) {
@@ -191,12 +203,71 @@ export default function ProjectsManagement() {
       ...prev,
       [name]: value,
     }));
+    // Clear field error on change
+    if (formErrors[name]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   }
 
   async function handleSubmit(e) {
     if (e) e.preventDefault();
     setError(null);
     try {
+      // Client-side validation
+      const validationRules = {
+        name: {
+          required: true,
+          minLength: 3,
+          maxLength: 100,
+          requiredMessage: "Project name is required",
+        },
+        description: { maxLength: 500 },
+        categoryId: {
+          required: false, // Allow projects without categories
+        },
+        startDate: {
+          required: true,
+          requiredMessage: "Start date is required",
+          custom: (value) => {
+            try {
+              const start = new Date(value);
+              if (isNaN(start.getTime())) return "Invalid start date";
+              // Allow past dates for projects that may have already started
+            } catch {
+              return "Invalid start date";
+            }
+            return null;
+          },
+        },
+        endDate: {
+          required: true,
+          requiredMessage: "End date is required",
+          custom: (value, fd) => {
+            try {
+              if (!fd.startDate) return null;
+              const end = new Date(value);
+              const start = new Date(fd.startDate);
+              if (isNaN(end.getTime())) return "Invalid end date";
+              if (end <= start) return "End date must be after start date";
+            } catch {
+              return "Invalid end date";
+            }
+            return null;
+          },
+        },
+      };
+
+      const errors = validateForm(formData, validationRules);
+      if (hasFormErrors(errors)) {
+        setFormErrors(errors);
+        await showValidationErrors(errors);
+        return;
+      }
+
       const payload = {
         ...formData,
         startDate: formData.startDate
@@ -210,36 +281,81 @@ export default function ProjectsManagement() {
         ? `/api/projects/${currentProject._id}`
         : "/api/projects";
       const method = currentProject ? "PUT" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      
+      const result = await handleFormSubmission(async () => {
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        
+        // Check if response is ok before parsing JSON
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: "Network error" }));
+          throw new Error(errorData.error || `HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        return data;
+      }, {
+        loadingTitle: currentProject ? "Updating Project..." : "Creating Project...",
+        successTitle: currentProject ? "Project Updated" : "Project Created",
+        successText: currentProject ? "Project details updated successfully." : "Project created successfully.",
+        errorTitle: "Save Failed",
+        errorText: "Could not save project. Please try again.",
       });
-      const data = await res.json();
-      if (data.success) {
-        fetchProjects();
+      
+      if (result?.success) {
+        await fetchProjects();
         handleCloseDialog();
-      } else {
-        setError(data.error || "Failed to save project");
       }
     } catch (err) {
+      console.error("Error saving project:", err);
       setError("Error saving project: " + (err?.message || err));
     }
   }
 
   async function handleDeleteProject() {
     if (!selectedProjectId) return;
+    
+    // Find the project to get its name for the confirmation dialog
+    const project = projects.find((p) => p._id === selectedProjectId);
+    const projectName = project?.name || "this project";
+    
     try {
-      const res = await fetch(`/api/projects/${selectedProjectId}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (data.success) {
-        fetchProjects();
-      } else {
-        setError(data.error || "Failed to delete project");
+      // Show confirmation dialog
+      const result = await showDeleteConfirmDialog(
+        "Delete Project",
+        `Are you sure you want to delete "${projectName}"? This action cannot be undone and will remove all associated data including budgets, expenses, milestones, and tasks.`,
+        "Yes, delete it!",
+        "Cancel"
+      );
+      
+      // If user confirmed deletion
+      if (result.isConfirmed) {
+        const res = await fetch(`/api/projects/${selectedProjectId}`, {
+          method: "DELETE",
+        });
+        
+        // Check if response is ok before parsing JSON
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: "Network error" }));
+          throw new Error(errorData.error || `HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        if (data.success) {
+          // Show success toast
+          projectToasts.projectDeleted();
+          await fetchProjects();
+        } else {
+          throw new Error(data.error || "Failed to delete project");
+        }
       }
     } catch (err) {
+      console.error("Error deleting project:", err);
+      // Show error toast
+      projectToasts.projectError(err.message || "Failed to delete project");
       setError("Error deleting project: " + (err?.message || err));
     }
     handleCloseMenu();
@@ -261,17 +377,24 @@ export default function ProjectsManagement() {
     if (!selectedProjectForStatus) return;
     try {
       setError(null);
-      const res = await fetch(`/api/projects/${selectedProjectForStatus._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+      const result = await handleFormSubmission(async () => {
+        const res = await fetch(`/api/projects/${selectedProjectForStatus._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        const data = await res.json();
+        return data;
+      }, {
+        loadingTitle: "Updating Status...",
+        successTitle: "Status Updated",
+        successText: "Project status updated successfully.",
+        errorTitle: "Update Failed",
+        errorText: "Could not update status.",
       });
-      const data = await res.json();
-      if (data.success) {
-        fetchProjects();
+      if (result?.success) {
+        await fetchProjects();
         handleCloseStatusDialog();
-      } else {
-        setError(data.error || "Failed to update project status");
       }
     } catch (err) {
       setError("Error updating project status: " + (err?.message || err));
@@ -296,20 +419,27 @@ export default function ProjectsManagement() {
     if (!selectedProjectForProgress) return;
     try {
       setError(null);
-      const res = await fetch(
-        `/api/projects/${selectedProjectForProgress._id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ progress: progressValue }),
-        }
-      );
-      const data = await res.json();
-      if (data.success) {
-        fetchProjects();
+      const result = await handleFormSubmission(async () => {
+        const res = await fetch(
+          `/api/projects/${selectedProjectForProgress._id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ progress: progressValue }),
+          }
+        );
+        const data = await res.json();
+        return data;
+      }, {
+        loadingTitle: "Updating Progress...",
+        successTitle: "Progress Updated",
+        successText: "Project progress updated successfully.",
+        errorTitle: "Update Failed",
+        errorText: "Could not update progress.",
+      });
+      if (result?.success) {
+        await fetchProjects();
         handleCloseProgressDialog();
-      } else {
-        setError(data.error || "Failed to update project progress");
       }
     } catch (err) {
       setError("Error updating project progress: " + (err?.message || err));
@@ -737,7 +867,11 @@ export default function ProjectsManagement() {
                   Project Name
                 </label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 ${
+                    formErrors.name
+                      ? "border-red-500 focus:ring-red-400 focus:border-red-500"
+                      : "border-gray-300 focus:ring-blue-400 focus:border-blue-400"
+                  }`}
                   type="text"
                   id="name"
                   name="name"
@@ -746,6 +880,9 @@ export default function ProjectsManagement() {
                   placeholder="Enter project name..."
                   required
                 />
+                {formErrors.name && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.name}</p>
+                )}
               </div>
 
               <div>
@@ -756,7 +893,11 @@ export default function ProjectsManagement() {
                   Description
                 </label>
                 <textarea
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 resize-vertical"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 resize-vertical ${
+                    formErrors.description
+                      ? "border-red-500 focus:ring-red-400 focus:border-red-500"
+                      : "border-gray-300 focus:ring-blue-400 focus:border-blue-400"
+                  }`}
                   id="description"
                   name="description"
                   value={formData.description}
@@ -764,6 +905,9 @@ export default function ProjectsManagement() {
                   placeholder="Describe your project..."
                   rows={3}
                 />
+                {formErrors.description && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.description}</p>
+                )}
               </div>
 
               <div>
@@ -774,7 +918,11 @@ export default function ProjectsManagement() {
                   Category
                 </label>
                 <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 ${
+                    formErrors.categoryId
+                      ? "border-red-500 focus:ring-red-400 focus:border-red-500"
+                      : "border-gray-300 focus:ring-blue-400 focus:border-blue-400"
+                  }`}
                   id="categoryId"
                   name="categoryId"
                   value={formData.categoryId}
@@ -788,6 +936,9 @@ export default function ProjectsManagement() {
                     </option>
                   ))}
                 </select>
+                {formErrors.categoryId && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.categoryId}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -799,7 +950,11 @@ export default function ProjectsManagement() {
                     Start Date
                   </label>
                   <input
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 ${
+                      formErrors.startDate
+                        ? "border-red-500 focus:ring-red-400 focus:border-red-500"
+                        : "border-gray-300 focus:ring-blue-400 focus:border-blue-400"
+                    }`}
                     type="date"
                     id="startDate"
                     name="startDate"
@@ -807,6 +962,9 @@ export default function ProjectsManagement() {
                     onChange={handleInputChange}
                     max={formData.endDate || undefined}
                   />
+                  {formErrors.startDate && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.startDate}</p>
+                  )}
                 </div>
 
                 <div>
@@ -817,7 +975,11 @@ export default function ProjectsManagement() {
                     End Date
                   </label>
                   <input
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 ${
+                      formErrors.endDate
+                        ? "border-red-500 focus:ring-red-400 focus:border-red-500"
+                        : "border-gray-300 focus:ring-blue-400 focus:border-blue-400"
+                    }`}
                     type="date"
                     id="endDate"
                     name="endDate"
@@ -825,25 +987,28 @@ export default function ProjectsManagement() {
                     onChange={handleInputChange}
                     min={formData.startDate || undefined}
                   />
+                  {formErrors.endDate && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.endDate}</p>
+                  )}
                 </div>
               </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md font-medium transition-colors"
+                  onClick={handleCloseDialog}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"
+                  type="submit"
+                >
+                  {currentProject ? "Update" : "Create"}
+                </button>
+              </div>
             </form>
-            <div className="flex justify-end gap-3 px-6 pb-6 pt-4 border-t border-gray-200">
-              <button
-                className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md font-medium transition-colors"
-                onClick={handleCloseDialog}
-                type="button"
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"
-                onClick={handleSubmit}
-                type="submit"
-              >
-                {currentProject ? "Update" : "Create"}
-              </button>
-            </div>
           </div>
         </div>
       )}
