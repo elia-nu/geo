@@ -5,11 +5,16 @@ import Layout from "../components/Layout";
 
 const CategoryManagementPage = () => {
   const [activeSection, setActiveSection] = useState("category-management");
+  
   useEffect(() => {
     setActiveSection("category-management");
   }, []);
+
   return (
-    <Layout>
+    <Layout 
+      activeSection={activeSection}
+      onSectionChange={setActiveSection}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <CategoryManagement />
       </div>

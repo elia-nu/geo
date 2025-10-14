@@ -41,7 +41,7 @@ const TaskManagementContent = () => {
 
 const TaskManagementPage = () => {
   return (
-    <Layout>
+    <Layout activeSection="projects">
       <Suspense
         fallback={
           <div className="flex justify-center items-center h-64">

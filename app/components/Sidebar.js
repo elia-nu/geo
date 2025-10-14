@@ -38,6 +38,8 @@ const Sidebar = ({
   const isCollapsedStore = useSidebarStore((s) => s.isCollapsed);
   const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
   const setCollapsed = useSidebarStore((s) => s.setCollapsed);
+  const isHovered = useSidebarStore((s) => s.isHovered);
+  const setHovered = useSidebarStore((s) => s.setHovered);
 
   // Prefer props (for backward compatibility), else use store
   const isCollapsed =
@@ -53,6 +55,9 @@ const Sidebar = ({
       } catch {}
     }
   };
+
+  // Determine if sidebar should show expanded content (either not collapsed or hovered)
+  const showExpanded = !isCollapsed || isHovered;
 
   // Auto-expand menus when related sections are active
   useEffect(() => {
@@ -310,7 +315,7 @@ const Sidebar = ({
   ];
 
   const toggleSubmenu = (menuId) => {
-    if (isCollapsed) return;
+    if (isCollapsed && !isHovered) return;
     setExpandedMenus((prev) => ({
       ...prev,
       [menuId]: !prev[menuId],
@@ -343,23 +348,31 @@ const Sidebar = ({
       <div
         role="navigation"
         aria-label="Primary"
-        className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 flex flex-col ${
-          isCollapsed ? "w-0" : "w-64"
+        onMouseEnter={() => isCollapsed && setHovered(true)}
+        onMouseLeave={() => isCollapsed && setHovered(false)}
+        className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 ease-in-out z-50 flex flex-col ${
+          isCollapsed ? (showExpanded ? "w-64 shadow-3xl" : "w-16") : "w-64"
         } ${
-          !isCollapsed ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
+          isCollapsed && !showExpanded ? "overflow-hidden" : ""
+        } ${
+          isCollapsed && isHovered ? "shadow-3xl border-r border-slate-600" : ""
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-700">
-          {!isCollapsed && (
+        <div className={`flex items-center border-b border-slate-700 ${
+          isCollapsed && !showExpanded ? "justify-center p-2" : "justify-between p-4"
+        }`}>
+          {showExpanded && (
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <Users className="w-5 h-5 text-white" strokeWidth={2.2} />
               </div>
-              <div>
-                <h1 className="text-lg font-bold">HRM System</h1>
-                <p className="text-xs text-slate-300">Human Resources</p>
-              </div>
+              {(!isCollapsed || isHovered) && (
+                <div>
+                  <h1 className="text-lg font-bold">HRM System</h1>
+                  <p className="text-xs text-slate-300">Human Resources</p>
+                </div>
+              )}
             </div>
           )}
           <button
@@ -367,7 +380,9 @@ const Sidebar = ({
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-pressed={!isCollapsed}
             onClick={onToggleCollapse}
-            className="p-2 rounded-lg hover:bg-slate-700 transition-colors"
+            className={`p-2 rounded-lg hover:bg-slate-700 transition-colors ${
+              isCollapsed && !showExpanded ? "w-full" : ""
+            }`}
           >
             {isCollapsed ? (
               <Menu className="w-5 h-5" strokeWidth={2.2} />
@@ -416,18 +431,26 @@ const Sidebar = ({
                   aria-current={isActive ? "page" : undefined}
                   aria-expanded={item.submenu ? isExpanded : undefined}
                   aria-haspopup={item.submenu ? "true" : undefined}
-                  className={`w-full flex items-center px-3 py-2.5 rounded-lg text-left transition-all duration-200 group ${
+                  className={`w-full flex items-center rounded-lg text-left transition-all duration-200 group relative ${
+                    isCollapsed && !showExpanded 
+                      ? "px-2 py-2.5 justify-center hover:scale-105" 
+                      : "px-3 py-2.5"
+                  } ${
                     isActive
                       ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                       : "hover:bg-slate-700 text-slate-300 hover:text-white"
+                  } ${
+                    isCollapsed && !showExpanded ? "hover:shadow-lg" : ""
                   }`}
-                  title={isCollapsed ? item.label : undefined}
+                  title={isCollapsed && !showExpanded ? item.label : undefined}
                 >
                   <Icon
-                    className={`w-5 h-5 ${isCollapsed ? "mx-auto" : "mr-3"}`}
+                    className={`w-5 h-5 ${
+                      isCollapsed && !showExpanded ? "mx-auto" : "mr-3"
+                    }`}
                     strokeWidth={2.1}
                   />
-                  {!isCollapsed && (
+                  {showExpanded && (
                     <>
                       <span className="flex-1 font-medium">{item.label}</span>
                       {item.submenu && (
@@ -450,7 +473,7 @@ const Sidebar = ({
                 </button>
 
                 {/* Submenu */}
-                {item.submenu && !isCollapsed && isExpanded && (
+                {item.submenu && showExpanded && isExpanded && (
                   <div
                     className="ml-4 mt-2 space-y-1 border-l-2 border-slate-700 pl-4"
                     role="group"
@@ -520,19 +543,23 @@ const Sidebar = ({
         </nav>
 
         {/* Footer */}
-        {!isCollapsed && (
-          <div className="p-4 border-t border-slate-700 mt-auto">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-xs font-bold text-white">AD</span>
-              </div>
+        <div className={`border-t border-slate-700 mt-auto ${
+          isCollapsed && !showExpanded ? "p-2" : "p-4"
+        }`}>
+          <div className={`flex items-center ${
+            isCollapsed && !showExpanded ? "justify-center" : "space-x-3"
+          }`}>
+            <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+              <span className="text-xs font-bold text-white">AD</span>
+            </div>
+            {showExpanded && (
               <div className="flex-1">
                 <p className="text-sm font-medium">Admin User</p>
                 <p className="text-xs text-slate-400">admin@company.com</p>
               </div>
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Mobile overlay */}

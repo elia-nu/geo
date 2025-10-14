@@ -1290,6 +1290,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           departments={departments}
           tasks={tasks}
           activities={activities}
+          budgetAllocationCategories={budgetAllocationCategories}
           isEdit={false}
         />
       )}
@@ -1314,6 +1315,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           departments={departments}
           tasks={tasks}
           activities={activities}
+          budgetAllocationCategories={budgetAllocationCategories}
           isEdit={true}
         />
       )}
@@ -1329,6 +1331,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           setShowExpenseModal={setShowExpenseModal}
           setEditingExpenseId={setEditingExpenseId}
           resetExpenseForm={resetExpenseForm}
+          budgetAllocationCategories={budgetAllocationCategories}
           isEdit={!!editingExpenseId}
         />
       )}
@@ -1343,6 +1346,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             setEditingIncomeId(null);
           }}
           isEdit={!!editingIncomeId}
+          incomeCategories={incomeCategories}
         />
       )}
 
@@ -2979,6 +2983,7 @@ const BudgetModal = ({
   departments,
   tasks,
   activities,
+  budgetAllocationCategories,
   isEdit = false,
 }) => {
   const totalAllocated = budgetForm.budgetAllocations.reduce(
@@ -3573,6 +3578,7 @@ const ExpenseModal = ({
   setShowExpenseModal,
   setEditingExpenseId,
   resetExpenseForm,
+  budgetAllocationCategories,
   isEdit = false,
 }) => {
   const addTag = () => {
@@ -3885,6 +3891,7 @@ const IncomeModal = ({
   onSubmit,
   onClose,
   isEdit,
+  incomeCategories,
 }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
