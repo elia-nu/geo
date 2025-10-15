@@ -38,6 +38,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
   const [startTime, setStartTime] = useState(null);
   const [timeDescription, setTimeDescription] = useState("");
   const [showTimeDialog, setShowTimeDialog] = useState(false);
+  const [isSubmittingTime, setIsSubmittingTime] = useState(false);
 
   // File upload
   const fileInputRef = useRef(null);
@@ -45,6 +46,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
 
   // Progress update
   const [progress, setProgress] = useState(0);
+  const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
 
   useEffect(() => {
     if (task && isOpen) {
@@ -171,6 +173,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
     if (!startTime) return;
 
     try {
+      setIsSubmittingTime(true);
       const endTime = new Date();
       const duration = (endTime - startTime) / (1000 * 60 * 60); // Convert to hours
 
@@ -199,11 +202,14 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
       }
     } catch (err) {
       setError("Error logging time: " + err.message);
+    } finally {
+      setIsSubmittingTime(false);
     }
   };
 
   const handleProgressUpdate = async () => {
     try {
+      setIsUpdatingProgress(true);
       const response = await fetch(`/api/tasks/${task._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -221,6 +227,8 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
       }
     } catch (err) {
       setError("Error updating progress: " + err.message);
+    } finally {
+      setIsUpdatingProgress(false);
     }
   };
 
@@ -432,9 +440,17 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
                       </span>
                       <button
                         onClick={handleProgressUpdate}
-                        className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                        disabled={isUpdatingProgress}
+                        className={`px-3 py-1 rounded text-sm transition-colors flex items-center gap-1 ${
+                          isUpdatingProgress
+                            ? "bg-gray-400 text-white cursor-not-allowed"
+                            : "bg-blue-600 text-white hover:bg-blue-700"
+                        }`}
                       >
-                        Update
+                        {isUpdatingProgress && (
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        )}
+                        {isUpdatingProgress ? "Updating..." : "Update"}
                       </button>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
@@ -533,9 +549,17 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
-                      className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      className={`flex items-center gap-1 px-3 py-1 rounded text-sm transition-colors ${
+                        isUploading
+                          ? "bg-gray-400 text-white cursor-not-allowed"
+                          : "bg-blue-600 text-white hover:bg-blue-700"
+                      }`}
                     >
-                      <AttachFileIcon fontSize="small" />
+                      {isUploading ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <AttachFileIcon fontSize="small" />
+                      )}
                       {isUploading ? "Uploading..." : "Upload"}
                     </button>
                     <input
@@ -594,9 +618,17 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
                       <button
                         type="submit"
                         disabled={!newComment.trim() || isAddingComment}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                          isAddingComment
+                            ? "bg-gray-400 text-white cursor-not-allowed"
+                            : "bg-blue-600 text-white hover:bg-blue-700"
+                        } disabled:opacity-50`}
                       >
-                        <SendIcon fontSize="small" />
+                        {isAddingComment ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <SendIcon fontSize="small" />
+                        )}
                       </button>
                     </div>
                   </form>
@@ -682,9 +714,17 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
               </button>
               <button
                 onClick={handleSubmitTimeEntry}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSubmittingTime}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                  isSubmittingTime
+                    ? "bg-gray-400 text-white cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
               >
-                Log Time
+                {isSubmittingTime && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                )}
+                {isSubmittingTime ? "Logging..." : "Log Time"}
               </button>
             </div>
           </div>

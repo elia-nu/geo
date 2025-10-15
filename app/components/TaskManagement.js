@@ -42,6 +42,15 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Add specific loading states for different operations
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [isUpdatingTask, setIsUpdatingTask] = useState(false);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+
   // Current user context (in a real app, this would come from auth context)
   const [currentUser] = useState({
     id: "admin", // This should come from authentication
@@ -150,6 +159,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
   const fetchEmployees = async () => {
     try {
+      setLoadingEmployees(true);
       const response = await fetch("/api/employees");
       const data = await response.json();
       if (data.success) {
@@ -157,11 +167,14 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       }
     } catch (err) {
       console.error("Error fetching employees:", err);
+    } finally {
+      setLoadingEmployees(false);
     }
   };
 
   const fetchProjects = async () => {
     try {
+      setLoadingProjects(true);
       const response = await fetch("/api/projects");
       const data = await response.json();
       if (data.success) {
@@ -169,11 +182,14 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       }
     } catch (err) {
       console.error("Error fetching projects:", err);
+    } finally {
+      setLoadingProjects(false);
     }
   };
 
   const fetchTaskCategories = async () => {
     try {
+      setLoadingCategories(true);
       const response = await fetch("/api/task-categories");
       const data = await response.json();
       if (data.success) {
@@ -181,6 +197,8 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       }
     } catch (err) {
       console.error("Error fetching task categories:", err);
+    } finally {
+      setLoadingCategories(false);
     }
   };
 
@@ -346,8 +364,10 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       }
     }
 
-    // Category validation (optional but if provided should be valid)
-    if (formData.categoryId && taskCategories.length > 0) {
+    // Category validation (required)
+    if (!formData.categoryId || formData.categoryId.trim() === "") {
+      errors.categoryId = "Category is required";
+    } else if (taskCategories.length > 0) {
       const categoryExists = taskCategories.some(cat => cat._id === formData.categoryId);
       if (!categoryExists) {
         errors.categoryId = "Please select a valid category";
@@ -400,6 +420,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     }
 
     try {
+      setIsCreatingTask(true);
       const payload = {
         ...formData,
         projectId: currentProjectId,
@@ -452,6 +473,8 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         title: "Error",
         text: msg,
       });
+    } finally {
+      setIsCreatingTask(false);
     }
   };
 
@@ -471,6 +494,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     }
 
     try {
+      setIsUpdatingTask(true);
       const payload = {
         ...formData,
         updatedBy: "admin", // TODO: Get from auth context
@@ -517,6 +541,8 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         title: "Error",
         text: msg,
       });
+    } finally {
+      setIsUpdatingTask(false);
     }
   };
 
@@ -530,6 +556,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     if (!result.isConfirmed) return;
 
     try {
+      setIsDeletingTask(true);
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: "DELETE",
       });
@@ -560,12 +587,15 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         title: "Error",
         text: msg,
       });
+    } finally {
+      setIsDeletingTask(false);
     }
   };
 
   const handleProgressUpdate = async (taskId, newProgress) => {
     try {
       setError(null);
+      setIsUpdatingProgress(true);
 
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: "PUT",
@@ -605,6 +635,8 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         title: "Error",
         text: msg,
       });
+    } finally {
+      setIsUpdatingProgress(false);
     }
   };
 
@@ -1329,7 +1361,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category
+                    Category <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.categoryId}
@@ -1434,9 +1466,20 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={isCreatingTask || isUpdatingTask}
+                  className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                    isCreatingTask || isUpdatingTask
+                      ? "bg-gray-400 text-white cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
                 >
-                  {showCreateDialog ? "Create Task" : "Update Task"}
+                  {(isCreatingTask || isUpdatingTask) && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  )}
+                  {showCreateDialog 
+                    ? (isCreatingTask ? "Creating..." : "Create Task")
+                    : (isUpdatingTask ? "Updating..." : "Update Task")
+                  }
                 </button>
               </div>
             </form>
@@ -1867,9 +1910,17 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 onClick={() =>
                   handleProgressUpdate(selectedTask._id, progressUpdate)
                 }
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isUpdatingProgress}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                  isUpdatingProgress
+                    ? "bg-gray-400 text-white cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
               >
-                Update Progress
+                {isUpdatingProgress && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                )}
+                {isUpdatingProgress ? "Updating..." : "Update Progress"}
               </button>
             </div>
           </div>

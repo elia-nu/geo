@@ -23,6 +23,8 @@ const TaskDependencyManager = ({
   allTasks = [],
 }) => {
   const [loading, setLoading] = useState(false);
+  const [isAddingDependency, setIsAddingDependency] = useState(false);
+  const [isRemovingDependency, setIsRemovingDependency] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
@@ -148,7 +150,7 @@ const TaskDependencyManager = ({
     }
 
     try {
-      setLoading(true);
+      setIsAddingDependency(true);
       setError(null);
 
       const updatedDependencies = [...dependencies, newDependency];
@@ -177,13 +179,13 @@ const TaskDependencyManager = ({
       const msg = "Error adding dependency: " + err.message;
       showErrorAlert(msg);
     } finally {
-      setLoading(false);
+      setIsAddingDependency(false);
     }
   };
 
   const handleRemoveDependency = async (dependencyId) => {
     try {
-      setLoading(true);
+      setIsRemovingDependency(dependencyId);
       setError(null);
 
       const updatedDependencies = dependencies.filter(
@@ -213,7 +215,7 @@ const TaskDependencyManager = ({
       const msg = "Error removing dependency: " + err.message;
       showErrorAlert(msg);
     } finally {
-      setLoading(false);
+      setIsRemovingDependency(null);
     }
   };
 
@@ -367,10 +369,16 @@ const TaskDependencyManager = ({
               </select>
               <button
                 onClick={handleAddDependency}
-                disabled={loading || !newDependency}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                disabled={isAddingDependency || !newDependency}
+                className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                  isAddingDependency ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                }`}
               >
-                <AddIcon fontSize="small" />
+                {isAddingDependency ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <AddIcon fontSize="small" />
+                )}
               </button>
             </div>
             {availableTasks.length === 0 && (
@@ -439,10 +447,14 @@ const TaskDependencyManager = ({
                         </div>
                         <button
                           onClick={() => handleRemoveDependency(dependencyId)}
-                          disabled={loading}
-                          className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
+                          disabled={isRemovingDependency === dependencyId}
+                          className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50 flex items-center"
                         >
-                          <RemoveIcon fontSize="small" />
+                          {isRemovingDependency === dependencyId ? (
+                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <RemoveIcon fontSize="small" />
+                          )}
                         </button>
                       </div>
                     </div>

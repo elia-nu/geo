@@ -25,6 +25,9 @@ const SubtaskManager = ({
   employees = [],
 }) => {
   const [loading, setLoading] = useState(false);
+  const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
+  const [isUpdatingSubtask, setIsUpdatingSubtask] = useState(null);
+  const [isDeletingSubtask, setIsDeletingSubtask] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
@@ -238,7 +241,7 @@ const SubtaskManager = ({
     }
 
     try {
-      setLoading(true);
+      setIsCreatingSubtask(true);
       setError(null);
 
       const newSubtask = {
@@ -299,13 +302,13 @@ const SubtaskManager = ({
     } catch (err) {
       setError("Error adding subtask: " + err.message);
     } finally {
-      setLoading(false);
+      setIsCreatingSubtask(false);
     }
   };
 
   const handleUpdateSubtask = async (subtaskId, updates) => {
     try {
-      setLoading(true);
+      setIsUpdatingSubtask(subtaskId);
       setError(null);
 
       const updatedSubtasks = subtasks.map((subtask) =>
@@ -346,7 +349,7 @@ const SubtaskManager = ({
     } catch (err) {
       setError("Error updating subtask: " + err.message);
     } finally {
-      setLoading(false);
+      setIsUpdatingSubtask(null);
     }
   };
 
@@ -360,7 +363,7 @@ const SubtaskManager = ({
     if (!result.isConfirmed) return;
 
     try {
-      setLoading(true);
+      setIsDeletingSubtask(subtaskId);
       setError(null);
 
       const updatedSubtasks = subtasks.filter(
@@ -398,7 +401,7 @@ const SubtaskManager = ({
     } catch (err) {
       setError("Error deleting subtask: " + err.message);
     } finally {
-      setLoading(false);
+      setIsDeletingSubtask(null);
     }
   };
 
@@ -756,10 +759,15 @@ const SubtaskManager = ({
                 </button>
                 <button
                   onClick={handleAddSubtask}
-                  disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  disabled={isCreatingSubtask}
+                  className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                    isCreatingSubtask ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                  }`}
                 >
-                  {loading ? "Adding..." : "Add Subtask"}
+                  {isCreatingSubtask && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  )}
+                  {isCreatingSubtask ? "Adding..." : "Add Subtask"}
                 </button>
               </div>
             </div>
@@ -990,10 +998,15 @@ const SubtaskManager = ({
                         </button>
                         <button
                           onClick={() => handleSaveEdit(subtask._id)}
-                          disabled={loading || !editData.title.trim()}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                          disabled={isUpdatingSubtask === subtask._id || !editData.title.trim()}
+                          className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                            isUpdatingSubtask === subtask._id ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                          }`}
                         >
-                          {loading ? "Saving..." : "Save"}
+                          {isUpdatingSubtask === subtask._id && (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          )}
+                          {isUpdatingSubtask === subtask._id ? "Saving..." : "Save"}
                         </button>
                       </div>
                     </div>
@@ -1075,9 +1088,14 @@ const SubtaskManager = ({
                         </button>
                         <button
                           onClick={() => handleDeleteSubtask(subtask._id)}
-                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          disabled={isDeletingSubtask === subtask._id}
+                          className="text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50 flex items-center"
                         >
-                          <DeleteIcon fontSize="small" />
+                          {isDeletingSubtask === subtask._id ? (
+                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <DeleteIcon fontSize="small" />
+                          )}
                         </button>
                       </div>
                     </div>

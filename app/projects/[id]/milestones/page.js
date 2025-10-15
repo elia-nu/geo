@@ -27,6 +27,8 @@ const ProjectMilestonesPage = ({ params }) => {
   const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [currentMilestone, setCurrentMilestone] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -226,6 +228,8 @@ const ProjectMilestonesPage = ({ params }) => {
       return;
     }
 
+    setSubmitting(true);
+
     const submitFunction = async () => {
       const payload = {
         ...formData,
@@ -280,6 +284,8 @@ const ProjectMilestonesPage = ({ params }) => {
       }
     } catch (error) {
       projectToasts.milestoneError(error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -298,6 +304,8 @@ const ProjectMilestonesPage = ({ params }) => {
     if (!confirmed.isConfirmed) {
       return;
     }
+
+    setDeletingId(milestoneId);
 
     const deleteFunction = async () => {
       const response = await fetch(
@@ -330,6 +338,8 @@ const ProjectMilestonesPage = ({ params }) => {
       }
     } catch (error) {
       projectToasts.milestoneError(error.message);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -503,8 +513,23 @@ const ProjectMilestonesPage = ({ params }) => {
                 {milestones.map((milestone) => (
                   <tr
                     key={milestone._id}
-                    className="hover:bg-gray-50 transition-colors"
+                    className={`transition-colors relative ${
+                      deletingId === milestone._id
+                        ? "bg-red-50 opacity-75"
+                        : "hover:bg-gray-50"
+                    }`}
                   >
+                    {deletingId === milestone._id && (
+                      <td
+                        colSpan="5"
+                        className="absolute inset-0 bg-red-50 bg-opacity-50 flex items-center justify-center z-10"
+                      >
+                        <div className="flex items-center space-x-2 text-red-600">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                          <span className="text-sm font-medium">Deleting...</span>
+                        </div>
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">
                         {milestone.title}
@@ -560,18 +585,32 @@ const ProjectMilestonesPage = ({ params }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
                         <button
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                          className={`p-1 rounded-md transition-colors ${
+                            deletingId === milestone._id
+                              ? "text-blue-400 cursor-not-allowed"
+                              : "text-blue-600 hover:text-blue-900 hover:bg-blue-50"
+                          }`}
                           onClick={() => handleOpenDialog(milestone)}
+                          disabled={deletingId === milestone._id}
                           title="Edit milestone"
                         >
                           <EditIcon className="h-4 w-4" />
                         </button>
                         <button
-                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50 transition-colors"
+                          className={`p-1 rounded-md transition-colors ${
+                            deletingId === milestone._id
+                              ? "text-red-400 cursor-not-allowed"
+                              : "text-red-600 hover:text-red-900 hover:bg-red-50"
+                          }`}
                           onClick={() => handleDeleteMilestone(milestone._id)}
+                          disabled={deletingId === milestone._id}
                           title="Delete milestone"
                         >
-                          <DeleteIcon className="h-4 w-4" />
+                          {deletingId === milestone._id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
+                          ) : (
+                            <DeleteIcon className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -754,9 +793,23 @@ const ProjectMilestonesPage = ({ params }) => {
                     <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse mt-6 -mx-4 -mb-4 sm:-mx-6 sm:-mb-4">
                       <button
                         type="submit"
-                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+                        disabled={submitting}
+                        className={`w-full inline-flex justify-center items-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors ${
+                          submitting
+                            ? "bg-blue-400 cursor-not-allowed"
+                            : "bg-blue-600 hover:bg-blue-700"
+                        }`}
                       >
-                        {currentMilestone ? "Update" : "Add"}
+                        {submitting && (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        )}
+                        {submitting
+                          ? currentMilestone
+                            ? "Updating..."
+                            : "Adding..."
+                          : currentMilestone
+                          ? "Update"
+                          : "Add"}
                       </button>
                       <button
                         type="button"

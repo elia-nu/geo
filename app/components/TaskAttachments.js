@@ -28,6 +28,8 @@ const TaskAttachments = ({
   const [attachments, setAttachments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deletingAttachment, setDeletingAttachment] = useState(null);
+  const [updatingAttachment, setUpdatingAttachment] = useState(null);
   const [editingAttachment, setEditingAttachment] = useState(null);
   const [editDescription, setEditDescription] = useState("");
   const fileInputRef = useRef(null);
@@ -104,7 +106,7 @@ const TaskAttachments = ({
     if (!confirm("Are you sure you want to delete this attachment?")) return;
 
     try {
-      setLoading(true);
+      setDeletingAttachment(attachmentId);
 
       const response = await fetch(
         `/api/tasks/${taskId}/attachments/${attachmentId}?userId=${
@@ -130,7 +132,7 @@ const TaskAttachments = ({
       showErrorAlert &&
         showErrorAlert("Error deleting attachment: " + err.message);
     } finally {
-      setLoading(false);
+      setDeletingAttachment(null);
     }
   };
 
@@ -138,7 +140,7 @@ const TaskAttachments = ({
     if (!editDescription.trim()) return;
 
     try {
-      setLoading(true);
+      setUpdatingAttachment(attachmentId);
 
       const response = await fetch(
         `/api/tasks/${taskId}/attachments/${attachmentId}`,
@@ -169,7 +171,7 @@ const TaskAttachments = ({
       showErrorAlert &&
         showErrorAlert("Error updating attachment: " + err.message);
     } finally {
-      setLoading(false);
+      setUpdatingAttachment(null);
     }
   };
 
@@ -196,15 +198,17 @@ const TaskAttachments = ({
     const now = new Date();
     const diffInHours = (now - date) / (1000 * 60 * 60);
 
-    if (diffInHours < 1) {
-      return "Just now";
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`;
-    } else if (diffInHours < 168) {
-      return `${Math.floor(diffInHours / 24)}d ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
+    // Always show exact date and time
+    const dateOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    };
+    
+    return date.toLocaleString([], dateOptions);
   };
 
   const getFileIcon = (fileType) => {
@@ -252,9 +256,17 @@ const TaskAttachments = ({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mx-auto"
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors mx-auto ${
+            uploading
+              ? "bg-gray-400 text-white cursor-not-allowed"
+              : "bg-blue-600 text-white hover:bg-blue-700"
+          }`}
         >
-          <AttachFileIcon fontSize="small" />
+          {uploading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <AttachFileIcon fontSize="small" />
+          )}
           {uploading ? "Uploading..." : "Choose Files"}
         </button>
       </div>
@@ -307,10 +319,19 @@ const TaskAttachments = ({
                         </button>
                         <button
                           onClick={() => handleDeleteAttachment(attachment._id)}
-                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          disabled={deletingAttachment === attachment._id}
+                          className={`p-1 transition-colors ${
+                            deletingAttachment === attachment._id
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-gray-400 hover:text-red-600"
+                          }`}
                           title="Delete file"
                         >
-                          <DeleteIcon fontSize="small" />
+                          {deletingAttachment === attachment._id ? (
+                            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <DeleteIcon fontSize="small" />
+                          )}
                         </button>
                       </>
                     )}
@@ -335,10 +356,17 @@ const TaskAttachments = ({
                       </button>
                       <button
                         onClick={() => handleUpdateDescription(attachment._id)}
-                        disabled={loading}
-                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        disabled={updatingAttachment === attachment._id}
+                        className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
+                          updatingAttachment === attachment._id
+                            ? "bg-gray-400 text-white cursor-not-allowed"
+                            : "bg-blue-600 text-white hover:bg-blue-700"
+                        }`}
                       >
-                        Save
+                        {updatingAttachment === attachment._id && (
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        )}
+                        {updatingAttachment === attachment._id ? "Saving..." : "Save"}
                       </button>
                     </div>
                   </div>
