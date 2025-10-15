@@ -219,29 +219,24 @@ const Sidebar = ({
       ],
     },
     {
-      id: "projects",
-      label: "Projects",
-      icon: Briefcase,
-      path: "/hrm?section=projects",
-    },
-    {
       id: "category-management",
       label: "Category Management",
       icon: Settings,
       path: "/category-management",
     },
+    {
+      id: "projects",
+      label: "Projects",
+      icon: Briefcase,
+      path: "/hrm?section=projects",
+    },
+
     // {
     //   id: "notifications",
     //   label: "Notifications",
     //   icon: Bell,
     //   path: "/hrm?section=notifications",
     // },
-    {
-      id: "calendar",
-      label: "Calendar",
-      icon: Calendar,
-      path: "/hrm?section=calendar",
-    },
 
     /*{
       id: "project-management",
@@ -278,6 +273,12 @@ const Sidebar = ({
       label: "Budget Management",
       icon: DollarSign,
       path: "/hrm?section=budget-management",
+    },
+    {
+      id: "calendar",
+      label: "Calendar",
+      icon: Calendar,
+      path: "/hrm?section=calendar",
     },
     {
       id: "analytics",

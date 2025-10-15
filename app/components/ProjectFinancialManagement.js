@@ -1290,6 +1290,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           departments={departments}
           tasks={tasks}
           activities={activities}
+          budgetAllocationCategories={budgetAllocationCategories}
           isEdit={false}
         />
       )}
@@ -1314,6 +1315,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           departments={departments}
           tasks={tasks}
           activities={activities}
+          budgetAllocationCategories={budgetAllocationCategories}
           isEdit={true}
         />
       )}
@@ -1325,6 +1327,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           expenseFormErrors={expenseFormErrors}
           handleExpenseFormChange={handleExpenseFormChange}
           budgetData={budgetData}
+          budgetAllocationCategories={budgetAllocationCategories}
           onSubmit={editingExpenseId ? handleEditExpense : handleAddExpense}
           setShowExpenseModal={setShowExpenseModal}
           setEditingExpenseId={setEditingExpenseId}
@@ -1342,6 +1345,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             setShowIncomeModal(false);
             setEditingIncomeId(null);
           }}
+          incomeCategories={incomeCategories}
           isEdit={!!editingIncomeId}
         />
       )}
@@ -2979,6 +2983,7 @@ const BudgetModal = ({
   departments,
   tasks,
   activities,
+  budgetAllocationCategories,
   isEdit = false,
 }) => {
   const totalAllocated = budgetForm.budgetAllocations.reduce(
@@ -3569,6 +3574,7 @@ const ExpenseModal = ({
   expenseFormErrors,
   handleExpenseFormChange,
   budgetData,
+  budgetAllocationCategories,
   onSubmit,
   setShowExpenseModal,
   setEditingExpenseId,
@@ -3882,6 +3888,7 @@ const ExpenseModal = ({
 const IncomeModal = ({
   incomeForm,
   setIncomeForm,
+  incomeCategories,
   onSubmit,
   onClose,
   isEdit,
