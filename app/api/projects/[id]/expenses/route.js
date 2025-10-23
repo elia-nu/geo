@@ -49,11 +49,6 @@ export async function GET(request, { params }) {
     // Apply filters
     if (Object.keys(expenseFilter).length > 0) {
       expenses = expenses.filter((expense) => {
-        if (
-          expenseFilter.category &&
-          expense.category !== expenseFilter.category
-        )
-          return false;
         if (expenseFilter.status && expense.status !== expenseFilter.status)
           return false;
         if (expenseFilter.expenseDate) {
@@ -87,11 +82,6 @@ export async function GET(request, { params }) {
       (sum, exp) => sum + (exp.amount || 0),
       0
     );
-    const expensesByCategory = expenses.reduce((acc, exp) => {
-      const category = exp.category || "uncategorized";
-      acc[category] = (acc[category] || 0) + (exp.amount || 0);
-      return acc;
-    }, {});
 
     const expensesByStatus = expenses.reduce((acc, exp) => {
       const status = exp.status || "pending";
@@ -105,7 +95,6 @@ export async function GET(request, { params }) {
       summary: {
         totalExpenses,
         totalCount,
-        expensesByCategory,
         expensesByStatus,
       },
       pagination: {
@@ -148,6 +137,8 @@ export async function POST(request, { params }) {
       expenseDate,
       allocationId,
       vendor,
+      receiptType = "none",
+      receiptImage,
       receiptUrl,
       approvedBy,
       status = "pending",
@@ -158,6 +149,47 @@ export async function POST(request, { params }) {
     if (!title || !amount || amount <= 0) {
       return NextResponse.json(
         { error: "Title and amount (greater than 0) are required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate vendor (required)
+    if (!vendor || vendor.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Vendor name is required" },
+        { status: 400 }
+      );
+    }
+
+    if (vendor.trim().length < 2) {
+      return NextResponse.json(
+        { error: "Vendor name must be at least 2 characters long" },
+        { status: 400 }
+      );
+    }
+
+    // Validate receipt based on type
+    if (receiptType === "url") {
+      if (!receiptUrl || receiptUrl.trim().length === 0) {
+        return NextResponse.json(
+          { error: "Receipt URL is required when receipt type is URL" },
+          { status: 400 }
+        );
+      }
+    } else if (receiptType === "image") {
+      if (!receiptImage) {
+        return NextResponse.json(
+          { error: "Receipt image is required when receipt type is Image" },
+          { status: 400 }
+        );
+      }
+    }
+    // No validation needed when receiptType is "none"
+
+    // Validate allocation ID (required)
+    if (!allocationId || allocationId.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Budget allocation is required" },
         { status: 400 }
       );
     }
@@ -191,10 +223,11 @@ export async function POST(request, { params }) {
       title,
       description: description || "",
       amount: parseFloat(amount),
-      category: category || "general",
       expenseDate: expenseDate ? new Date(expenseDate) : new Date(),
       allocationId: allocationId || null,
       vendor: vendor || "",
+      receiptType: receiptType || "none",
+      receiptImage: receiptImage || null,
       receiptUrl: receiptUrl || "",
       approvedBy: approvedBy || null,
       status,

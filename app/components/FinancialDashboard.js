@@ -30,6 +30,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
   const [paymentTracking, setPaymentTracking] = useState(null);
   const [financialReports, setFinancialReports] = useState(null);
   const [selectedReportType, setSelectedReportType] = useState("overview");
+  const [incomeCategories, setIncomeCategories] = useState([]);
   const [dateRange, setDateRange] = useState({
     startDate: "",
     endDate: "",
@@ -38,6 +39,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
   useEffect(() => {
     if (projectId) {
       fetchFinancialData();
+      fetchIncomeCategories();
     }
   }, [projectId]);
 
@@ -64,6 +66,18 @@ const FinancialDashboard = ({ projectId, projectName }) => {
       setError("Error fetching financial data: " + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchIncomeCategories = async () => {
+    try {
+      const response = await fetch("/api/income-categories");
+      const data = await response.json();
+      if (data.success) {
+        setIncomeCategories(data.categories || []);
+      }
+    } catch (err) {
+      console.error("Error fetching income categories:", err);
     }
   };
 
@@ -633,101 +647,54 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                 </div>
               </div>
 
-              {/* Client Performance */}
-              {paymentTracking?.paymentsByClient &&
-                paymentTracking?.paymentsByClient?.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      Client Performance
-                    </h3>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Client
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Expected
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Collected
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Uncollected
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Collection Rate
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Status
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {paymentTracking?.paymentsByClient?.map(
-                            (client, index) => (
-                              <tr key={index}>
-                                <td className="px-6 py-4 whitespace-normal break-words">
-                                  <div>
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {client.clientName}
-                                    </div>
-                                    <div className="text-sm text-gray-500">
-                                      {client.clientEmail}
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
-                                  {formatCurrency(client.expectedAmount)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
-                                  {formatCurrency(client.totalAmount)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
-                                  {formatCurrency(client.uncollectedAmount)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-normal break-words">
-                                  <div className="flex flex-col items-center justify-center space-y-2">
-                                    <div className="w-full max-w-32 bg-gray-200 rounded-full h-2 relative overflow-hidden">
-                                      <div
-                                        className={`h-2 rounded-full ${
-                                          client.collectionRate >= 95
-                                            ? "bg-green-500"
-                                            : client.collectionRate >= 80
-                                            ? "bg-yellow-500"
-                                            : "bg-red-500"
-                                        }`}
-                                        style={{
-                                          width: `${Math.min(
-                                            100,
-                                            client.collectionRate
-                                          )}%`,
-                                        }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-xs text-gray-900 font-medium text-center">
-                                      {formatPercentage(client.collectionRate)}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-normal break-words">
-                                  <span
-                                    className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                                      client.status
-                                    )}`}
-                                  >
-                                    {client.status}
-                                  </span>
-                                </td>
-                              </tr>
-                            )
+              {/* Category Analysis */}
+              {paymentTracking?.payments && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Income Category Analysis
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Object.entries(
+                      paymentTracking.payments.reduce((acc, payment) => {
+                        // Find category name from categoryId
+                        const category = incomeCategories.find(cat => cat._id === payment.categoryId);
+                        const categoryName = category ? category.name : (payment.categoryId ? "Unknown Category" : "Uncategorized");
+                        
+                        if (!acc[categoryName]) {
+                          acc[categoryName] = {
+                            count: 0,
+                            totalAmount: 0,
+                            expectedAmount: 0,
+                          };
+                        }
+                        acc[categoryName].count += 1;
+                        acc[categoryName].totalAmount += payment.amount || 0;
+                        acc[categoryName].expectedAmount += payment.expectedAmount || payment.amount || 0;
+                        return acc;
+                      }, {})
+                    ).map(([categoryName, data]) => (
+                      <div key={categoryName} className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="text-sm font-medium text-gray-600 mb-2">
+                          {categoryName}
+                        </h4>
+                        <p className="text-xl font-bold text-gray-900">
+                          {formatCurrency(data.totalAmount)}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {data.count} payments
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Collection Rate: {formatPercentage(
+                            data.expectedAmount > 0 
+                              ? (data.totalAmount / data.expectedAmount) * 100 
+                              : 0
                           )}
-                        </tbody>
-                      </table>
-                    </div>
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
             </div>
           )}
 

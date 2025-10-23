@@ -7,6 +7,9 @@ import {
   Delete as DeleteIcon,
   ArrowBack as ArrowBackIcon,
   Person as PersonIcon,
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
 } from "@mui/icons-material";
 import Link from "next/link";
 import {
@@ -24,6 +27,11 @@ const ProjectTeamPage = ({ params }) => {
   const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
+
+  // New state for project owner management
+  const [isEditingOwner, setIsEditingOwner] = useState(false);
+  const [selectedOwner, setSelectedOwner] = useState(null);
+  const [ownerLoading, setOwnerLoading] = useState(false);
 
   // Fetch project and team data on component mount
   useEffect(() => {
@@ -87,6 +95,60 @@ const ProjectTeamPage = ({ params }) => {
     setSelectedEmployees(newValue);
   };
 
+  // New functions for owner management
+  const handleEditOwner = () => {
+    setSelectedOwner(project.ownerDetails || null);
+    setIsEditingOwner(true);
+  };
+
+  const handleCancelEditOwner = () => {
+    setSelectedOwner(null);
+    setIsEditingOwner(false);
+  };
+
+  const handleOwnerSelection = (event, newValue) => {
+    setSelectedOwner(newValue);
+  };
+
+  const handleSaveOwner = async () => {
+    try {
+      setOwnerLoading(true);
+
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ownerId: selectedOwner ? selectedOwner._id : null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the project state with new owner
+        setProject((prev) => ({
+          ...prev,
+          ownerId: selectedOwner ? selectedOwner._id : null,
+          ownerDetails: selectedOwner || null,
+        }));
+
+        setIsEditingOwner(false);
+        setSelectedOwner(null);
+
+        projectToasts.success("Project owner updated successfully!");
+      } else {
+        projectToasts.error(data.error || "Failed to update project owner");
+      }
+    } catch (err) {
+      console.error("Error updating project owner:", err);
+      projectToasts.error("Error updating project owner: " + err.message);
+    } finally {
+      setOwnerLoading(false);
+    }
+  };
+
   const handleAssignEmployees = async () => {
     if (selectedEmployees.length === 0) {
       handleCloseDialog();
@@ -134,16 +196,16 @@ const ProjectTeamPage = ({ params }) => {
 
   const handleRemoveEmployee = async (employeeId) => {
     // Find employee name for confirmation dialog
-    const employee = assignedEmployees.find(emp => emp._id === employeeId);
+    const employee = assignedEmployees.find((emp) => emp._id === employeeId);
     const employeeName = employee?.name || "this employee";
 
     // Show confirmation dialog
-    const result = await showDeleteConfirmDialog(
-      "Remove Team Member",
-      `Are you sure you want to remove ${employeeName} from this project? This action cannot be undone.`,
-      "Yes, remove them",
-      "Cancel"
-    );
+    const result = await showDeleteConfirmDialog({
+      title: "Remove Team Member",
+      text: `Do you want to remove ${employeeName} from team?`,
+      confirmButtonText: "Yes, remove them",
+      cancelButtonText: "Cancel",
+    });
 
     if (!result.isConfirmed) {
       return; // User cancelled
@@ -304,7 +366,105 @@ const ProjectTeamPage = ({ params }) => {
               {project.status || "Active"}
             </span>
           </div>
-          <p className="text-gray-600">{project.description}</p>
+          <p className="text-gray-600 mb-4">{project.description}</p>
+
+          {/* Project Owner Section */}
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-medium text-gray-900">
+                Project Owner
+              </h3>
+              {!isEditingOwner && (
+                <button
+                  onClick={handleEditOwner}
+                  className="inline-flex items-center px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <EditIcon className="w-4 h-4 mr-1" />
+                  Edit
+                </button>
+              )}
+            </div>
+
+            {isEditingOwner ? (
+              <div className="flex items-center space-x-3">
+                <div className="flex-1">
+                  <select
+                    value={selectedOwner ? selectedOwner._id : ""}
+                    onChange={(e) => {
+                      const ownerId = e.target.value;
+                      const owner = ownerId
+                        ? availableEmployees.find((emp) => emp._id === ownerId)
+                        : null;
+                      setSelectedOwner(owner);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select Project Owner</option>
+                    {availableEmployees.map((employee) => (
+                      <option key={employee._id} value={employee._id}>
+                        {employee.personalDetails?.name ||
+                          employee.name ||
+                          `${
+                            employee.personalDetails?.firstName ||
+                            employee.firstName ||
+                            ""
+                          } ${
+                            employee.personalDetails?.lastName ||
+                            employee.lastName ||
+                            ""
+                          }`.trim() ||
+                          `Employee ${employee._id.slice(-6)}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={handleSaveOwner}
+                  disabled={ownerLoading}
+                  className="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  <SaveIcon className="w-4 h-4 mr-1" />
+                  {ownerLoading ? "Saving..." : "Save"}
+                </button>
+                <button
+                  onClick={handleCancelEditOwner}
+                  disabled={ownerLoading}
+                  className="inline-flex items-center px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  <CancelIcon className="w-4 h-4 mr-1" />
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center">
+                {project.ownerDetails ? (
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <PersonIcon className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {project.ownerDetails.name}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {project.ownerDetails.email}
+                      </p>
+                      {project.ownerDetails.department && (
+                        <p className="text-sm text-gray-500">
+                          {project.ownerDetails.department}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center text-gray-500">
+                    <PersonIcon className="w-5 h-5 mr-2" />
+                    <span>No owner assigned</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -385,7 +545,9 @@ const ProjectTeamPage = ({ params }) => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                          {employee.position || "N/A"}
+                          {employee.designation ||
+                            employee.position ||
+                            "Not Assigned"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -410,7 +572,7 @@ const ProjectTeamPage = ({ params }) => {
 
         {/* Assign Employees Modal */}
         {openDialog && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50">
             <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
               <div className="mt-3">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
@@ -457,38 +619,51 @@ const ProjectTeamPage = ({ params }) => {
                           <div className="flex-shrink-0 h-8 w-8 mr-3">
                             <div className="h-8 w-8 rounded-full bg-blue-900 flex items-center justify-center text-white text-sm font-medium">
                               {(() => {
-                                const displayName = employee.personalDetails?.name || 
-                                                   employee.name || 
-                                                   employee.personalDetails?.fullName || 
-                                                   employee.fullName || 
-                                                   (employee.personalDetails?.firstName && employee.personalDetails?.lastName 
-                                                     ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}` 
-                                                     : null) ||
-                                                   (employee.firstName && employee.lastName 
-                                                     ? `${employee.firstName} ${employee.lastName}` 
-                                                     : null) ||
-                                                   `Employee ${employee._id?.slice(-6) || 'Unknown'}`;
-                                return displayName ? displayName.charAt(0).toUpperCase() : <PersonIcon className="h-4 w-4" />;
+                                const displayName =
+                                  employee.personalDetails?.name ||
+                                  employee.name ||
+                                  employee.personalDetails?.fullName ||
+                                  employee.fullName ||
+                                  (employee.personalDetails?.firstName &&
+                                  employee.personalDetails?.lastName
+                                    ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}`
+                                    : null) ||
+                                  (employee.firstName && employee.lastName
+                                    ? `${employee.firstName} ${employee.lastName}`
+                                    : null) ||
+                                  `Employee ${
+                                    employee._id?.slice(-6) || "Unknown"
+                                  }`;
+                                return displayName ? (
+                                  displayName.charAt(0).toUpperCase()
+                                ) : (
+                                  <PersonIcon className="h-4 w-4" />
+                                );
                               })()}
                             </div>
                           </div>
                           <div className="flex-1">
                             <div className="text-sm font-medium text-gray-900">
-                              {employee.personalDetails?.name || 
-                               employee.name || 
-                               employee.personalDetails?.fullName || 
-                               employee.fullName || 
-                               (employee.personalDetails?.firstName && employee.personalDetails?.lastName 
-                                 ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}` 
-                                 : null) ||
-                               (employee.firstName && employee.lastName 
-                                 ? `${employee.firstName} ${employee.lastName}` 
-                                 : null) ||
-                               `Employee ${employee._id?.slice(-6) || 'Unknown'}`}
+                              {employee.personalDetails?.name ||
+                                employee.name ||
+                                employee.personalDetails?.fullName ||
+                                employee.fullName ||
+                                (employee.personalDetails?.firstName &&
+                                employee.personalDetails?.lastName
+                                  ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}`
+                                  : null) ||
+                                (employee.firstName && employee.lastName
+                                  ? `${employee.firstName} ${employee.lastName}`
+                                  : null) ||
+                                `Employee ${
+                                  employee._id?.slice(-6) || "Unknown"
+                                }`}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {employee.position || "N/A"} •{" "}
-                              {employee.department || "N/A"}
+                              {employee.designation ||
+                                employee.position ||
+                                "Not Assigned"}{" "}
+                              • {employee.department || "Not Assigned"}
                             </div>
                           </div>
                         </div>
@@ -506,17 +681,20 @@ const ProjectTeamPage = ({ params }) => {
                             key={employee._id}
                             className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                           >
-                            {employee.personalDetails?.name || 
-                             employee.name || 
-                             employee.personalDetails?.fullName || 
-                             employee.fullName || 
-                             (employee.personalDetails?.firstName && employee.personalDetails?.lastName 
-                               ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}` 
-                               : null) ||
-                             (employee.firstName && employee.lastName 
-                               ? `${employee.firstName} ${employee.lastName}` 
-                               : null) ||
-                             `Employee ${employee._id?.slice(-6) || 'Unknown'}`}
+                            {employee.personalDetails?.name ||
+                              employee.name ||
+                              employee.personalDetails?.fullName ||
+                              employee.fullName ||
+                              (employee.personalDetails?.firstName &&
+                              employee.personalDetails?.lastName
+                                ? `${employee.personalDetails.firstName} ${employee.personalDetails.lastName}`
+                                : null) ||
+                              (employee.firstName && employee.lastName
+                                ? `${employee.firstName} ${employee.lastName}`
+                                : null) ||
+                              `Employee ${
+                                employee._id?.slice(-6) || "Unknown"
+                              }`}
                             <button
                               onClick={() =>
                                 setSelectedEmployees(

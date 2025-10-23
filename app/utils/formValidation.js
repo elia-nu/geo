@@ -132,9 +132,8 @@ export const validateExpenseForm = (formData) => {
     const amount = parseFloat(formData.amount);
     if (isNaN(amount) || amount <= 0) {
       errors.amount = "Expense amount must be a positive number";
-    } else if (amount > 10000000) {
-      errors.amount = "Expense amount is too large";
     }
+    // Removed amount limit - users can enter any expense amount
   }
 
   // Title validation
@@ -146,10 +145,7 @@ export const validateExpenseForm = (formData) => {
     errors.title = "Title must be less than 100 characters";
   }
 
-  // Category validation
-  if (!formData.category) {
-    errors.category = "Expense category is required";
-  }
+  // Category validation removed - category field is no longer required
 
   // Date validation
   if (!formData.expenseDate) {
@@ -164,9 +160,34 @@ export const validateExpenseForm = (formData) => {
     }
   }
 
-  // Receipt validation (optional but if provided, should be valid)
-  if (formData.receipt && formData.receipt.length > 100) {
-    errors.receipt = "Receipt reference must be less than 100 characters";
+  // Vendor validation (required)
+  if (!formData.vendor || formData.vendor.trim().length === 0) {
+    errors.vendor = "Vendor name is required";
+  } else if (formData.vendor.trim().length < 2) {
+    errors.vendor = "Vendor name must be at least 2 characters long";
+  } else if (formData.vendor.trim().length > 100) {
+    errors.vendor = "Vendor name must be less than 100 characters";
+  }
+
+  // Receipt validation (conditional based on receiptType)
+  const receiptType = formData.receiptType || "none";
+  
+  if (receiptType === "url") {
+    if (!formData.receiptUrl || formData.receiptUrl.trim().length === 0) {
+      errors.receiptUrl = "Receipt URL is required when receipt type is URL";
+    } else if (formData.receiptUrl.trim().length > 200) {
+      errors.receiptUrl = "Receipt URL must be less than 200 characters";
+    }
+  } else if (receiptType === "image") {
+    if (!formData.receiptImage) {
+      errors.receiptImage = "Receipt image is required when receipt type is Image";
+    }
+  }
+  // No validation needed when receiptType is "none"
+
+  // Allocation validation (required)
+  if (!formData.allocationId || formData.allocationId.trim().length === 0) {
+    errors.allocationId = "Budget allocation is required";
   }
 
   return errors;
@@ -191,16 +212,90 @@ export const validateAllocationForm = (formData) => {
     const amount = parseFloat(formData.amount);
     if (isNaN(amount) || amount <= 0) {
       errors.amount = "Allocation amount must be a positive number";
-    } else if (amount > 1000000000) {
-      errors.amount = "Allocation amount is too large";
     }
+    // Removed amount limit - users can enter any allocation amount
   }
 
-  // Allocation type validation (optional)
+  // Category validation
+  if (!formData.categoryId && !formData.category) {
+    errors.category = "Allocation category is required";
+  }
+
+  // Allocation type validation
+  if (!formData.allocationType || formData.allocationType.trim().length === 0) {
+    errors.allocationType = "Allocation type is required";
+  } else {
+    const validTypes = ["general", "department", "task", "activity", "milestone"];
+    if (!validTypes.includes(formData.allocationType)) {
+      errors.allocationType = "Invalid allocation type";
+    }
+  }
 
   // Description validation
   if (formData.description && formData.description.length > 300) {
     errors.description = "Description must be less than 300 characters";
+  }
+
+  return errors;
+};
+
+export const validateIncomeForm = (formData) => {
+  const errors = {};
+
+  // Title validation
+  if (!formData.title || formData.title.trim().length === 0) {
+    errors.title = "Income title is required";
+  } else if (formData.title.trim().length < 3) {
+    errors.title = "Title must be at least 3 characters long";
+  } else if (formData.title.trim().length > 100) {
+    errors.title = "Title must be less than 100 characters";
+  }
+
+  // Expected amount validation
+  if (!formData.expectedAmount || formData.expectedAmount <= 0) {
+    errors.expectedAmount = "Expected amount must be greater than 0";
+  }
+
+  // Amount validation (for edit mode or when status is collected)
+  if (formData.status === 'collected' && (!formData.amount || formData.amount <= 0)) {
+    errors.amount = "Amount must be greater than 0 when status is collected";
+  }
+
+  // Due date validation
+  if (!formData.dueDate) {
+    errors.dueDate = "Due date is required";
+  }
+
+  // Description validation
+  if (!formData.description || formData.description.trim().length === 0) {
+    errors.description = "Description is required";
+  } else if (formData.description.trim().length < 10) {
+    errors.description = "Description must be at least 10 characters long";
+  }
+
+  // Invoice number validation
+  if (!formData.invoiceNumber || formData.invoiceNumber.trim().length === 0) {
+    errors.invoiceNumber = "Invoice number is required";
+  }
+
+  // Payment reference validation
+  if (!formData.paymentReference || formData.paymentReference.trim().length === 0) {
+    errors.paymentReference = "Payment reference is required";
+  }
+
+  // Payment method validation
+  if (!formData.paymentMethod) {
+    errors.paymentMethod = "Payment method is required";
+  }
+
+  // Notes validation
+  if (!formData.notes || formData.notes.trim().length === 0) {
+    errors.notes = "Notes are required";
+  }
+
+  // Status validation
+  if (!formData.status) {
+    errors.status = "Status is required";
   }
 
   return errors;
@@ -393,4 +488,82 @@ export const hasFormErrors = (errors) => {
 export const getFirstError = (errors) => {
   const firstKey = Object.keys(errors)[0];
   return firstKey ? errors[firstKey] : null;
+};
+
+// Collection form validation
+export const validateCollectionForm = (formData) => {
+  const errors = {};
+
+  // Invoice number validation
+  if (!formData.invoiceNumber || formData.invoiceNumber.trim().length === 0) {
+    errors.invoiceNumber = "Invoice number is required";
+  }
+
+  // Payment reference validation
+  if (!formData.paymentReference || formData.paymentReference.trim().length === 0) {
+    errors.paymentReference = "Payment reference is required";
+  }
+
+  // Notes validation
+  if (!formData.notes || formData.notes.trim().length === 0) {
+    errors.notes = "Collection notes are required";
+  }
+
+  // Actual amount validation
+  if (!formData.actualAmount || formData.actualAmount <= 0) {
+    errors.actualAmount = "Actual amount must be greater than 0";
+  }
+
+  // Collection date validation
+  if (!formData.collectionDate) {
+    errors.collectionDate = "Collection date is required";
+  }
+
+  // Payment method validation
+  if (!formData.paymentMethod || formData.paymentMethod.trim().length === 0) {
+    errors.paymentMethod = "Payment method is required";
+  }
+
+  return errors;
+};
+
+export const validateExpectedPaymentForm = (formData) => {
+  const errors = {};
+
+  // Title validation
+  if (!formData.title || formData.title.trim().length === 0) {
+    errors.title = "Payment title is required";
+  } else if (formData.title.trim().length < 3) {
+    errors.title = "Title must be at least 3 characters long";
+  } else if (formData.title.trim().length > 100) {
+    errors.title = "Title must be less than 100 characters";
+  }
+
+  // Expected amount validation
+  if (!formData.expectedAmount || formData.expectedAmount <= 0) {
+    errors.expectedAmount = "Expected amount must be greater than 0";
+  }
+
+  // Category validation
+  if (!formData.categoryId || formData.categoryId.trim().length === 0) {
+    errors.categoryId = "Category is required";
+  }
+
+  // Due date validation
+  if (!formData.dueDate || formData.dueDate.trim().length === 0) {
+    errors.dueDate = "Due date is required";
+  } else {
+    // Validate date format and ensure it's not in the past
+    const selectedDate = new Date(formData.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    
+    if (isNaN(selectedDate.getTime())) {
+      errors.dueDate = "Please enter a valid date";
+    } else if (selectedDate < today) {
+      errors.dueDate = "Due date cannot be in the past";
+    }
+  }
+
+  return errors;
 };

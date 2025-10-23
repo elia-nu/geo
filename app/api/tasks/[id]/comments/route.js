@@ -7,7 +7,7 @@ import { createAuditLog } from "../../../../utils/audit.js";
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
 
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
@@ -23,8 +23,12 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Return comments with author details
-    const comments = task.comments || [];
+    // Return comments with author details, sorted by createdAt descending (newest first)
+    const comments = (task.comments || []).sort((a, b) => {
+      const dateA = new Date(a.createdAt || a.timestamp || 0);
+      const dateB = new Date(b.createdAt || b.timestamp || 0);
+      return dateB - dateA; // Descending order (newest first)
+    });
     const commentsWithAuthors = await Promise.all(
       comments.map(async (comment) => {
         // Determine the employee ID to look up
@@ -104,7 +108,7 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
 
     // Validate ObjectId

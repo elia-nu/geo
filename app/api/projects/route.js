@@ -19,6 +19,7 @@ export async function POST(request) {
       status = "not_started",
       assignedEmployees = [],
       milestones = [],
+      ownerId,
     } = data;
 
     // Validation
@@ -33,6 +34,30 @@ export async function POST(request) {
     const employeeObjectIds = assignedEmployees.map((id) =>
       typeof id === "string" ? new ObjectId(id) : id
     );
+
+    // Validate and convert owner ID if provided
+    let ownerObjectId = null;
+    if (ownerId) {
+      if (!ObjectId.isValid(ownerId)) {
+        return NextResponse.json(
+          { error: "Invalid owner ID" },
+          { status: 400 }
+        );
+      }
+      ownerObjectId = new ObjectId(ownerId);
+
+      // Verify owner exists in employees collection
+      const ownerExists = await db.collection("employees").findOne({
+        _id: ownerObjectId,
+      });
+
+      if (!ownerExists) {
+        return NextResponse.json(
+          { error: "Project owner not found in employees" },
+          { status: 400 }
+        );
+      }
+    }
 
     // Validate categoryId if provided
     let categoryObjectId = null;
@@ -69,6 +94,7 @@ export async function POST(request) {
       endDate: new Date(endDate),
       status,
       progress: 0,
+      ownerId: ownerObjectId,
       assignedEmployees: employeeObjectIds,
       milestones: milestones.map((milestone) => ({
         ...milestone,
@@ -149,7 +175,7 @@ export async function GET(request) {
 
     const skip = (page - 1) * limit;
 
-    // Fetch projects with lookup for employee details
+    // Fetch projects with lookup for employee details and owner
     const pipeline = [
       { $match: query },
       {
@@ -158,6 +184,14 @@ export async function GET(request) {
           localField: "assignedEmployees",
           foreignField: "_id",
           as: "assignedEmployeeDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "employees",
+          localField: "ownerId",
+          foreignField: "_id",
+          as: "ownerDetails",
         },
       },
       {
@@ -247,6 +281,98 @@ export async function GET(request) {
                   ],
                 },
               },
+            },
+          },
+          ownerDetails: {
+            $cond: {
+              if: { $gt: [{ $size: "$ownerDetails" }, 0] },
+              then: {
+                $let: {
+                  vars: { owner: { $arrayElemAt: ["$ownerDetails", 0] } },
+                  in: {
+                    _id: "$$owner._id",
+                    name: {
+                      $ifNull: [
+                        "$$owner.personalDetails.name",
+                        "$$owner.name",
+                        "$$owner.personalDetails.fullName",
+                        "$$owner.fullName",
+                        {
+                          $cond: {
+                            if: {
+                              $and: [
+                                {
+                                  $ne: [
+                                    "$$owner.personalDetails.firstName",
+                                    null,
+                                  ],
+                                },
+                                {
+                                  $ne: [
+                                    "$$owner.personalDetails.lastName",
+                                    null,
+                                  ],
+                                },
+                              ],
+                            },
+                            then: {
+                              $concat: [
+                                "$$owner.personalDetails.firstName",
+                                " ",
+                                "$$owner.personalDetails.lastName",
+                              ],
+                            },
+                            else: {
+                              $cond: {
+                                if: {
+                                  $and: [
+                                    { $ne: ["$$owner.firstName", null] },
+                                    { $ne: ["$$owner.lastName", null] },
+                                  ],
+                                },
+                                then: {
+                                  $concat: [
+                                    "$$owner.firstName",
+                                    " ",
+                                    "$$owner.lastName",
+                                  ],
+                                },
+                                else: {
+                                  $concat: [
+                                    "Owner ",
+                                    {
+                                      $substr: [
+                                        { $toString: "$$owner._id" },
+                                        -6,
+                                        -1,
+                                      ],
+                                    },
+                                  ],
+                                },
+                              },
+                            },
+                          },
+                        },
+                      ],
+                    },
+                    email: {
+                      $ifNull: [
+                        "$$owner.personalDetails.email",
+                        "$$owner.email",
+                        "",
+                      ],
+                    },
+                    department: {
+                      $ifNull: [
+                        "$$owner.department",
+                        "$$owner.personalDetails.department",
+                        "",
+                      ],
+                    },
+                  },
+                },
+              },
+              else: null,
             },
           },
         },

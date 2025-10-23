@@ -50,12 +50,16 @@ const TaskMonitoringDashboard = ({
     });
   };
 
+  // Ensure tasks and employees are arrays before processing
+  const tasksArray = Array.isArray(tasks) ? tasks : [];
+  const employeesArray = Array.isArray(employees) ? employees : [];
+
   // Calculate dashboard metrics
-  const metrics = calculateMetrics(tasks);
-  const overdueTasks = getOverdueTasks(tasks);
-  const upcomingDeadlines = getUpcomingDeadlines(tasks);
-  const dependencyIssues = getDependencyIssues(tasks);
-  const workloadDistribution = getWorkloadDistribution(tasks, employees);
+  const metrics = calculateMetrics(tasksArray);
+  const overdueTasks = getOverdueTasks(tasksArray);
+  const upcomingDeadlines = getUpcomingDeadlines(tasksArray);
+  const dependencyIssues = getDependencyIssues(tasksArray);
+  const workloadDistribution = getWorkloadDistribution(tasksArray, employeesArray);
 
   const handleRefresh = async () => {
     try {
@@ -77,27 +81,19 @@ const TaskMonitoringDashboard = ({
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-200">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <DashboardIcon className="text-blue-600" />
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-gray-900">
             Task Monitoring Dashboard
           </h2>
         </div>
         <div className="flex items-center gap-3">
-          {/*<select
-            value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="quarter">This Quarter</option>
-          </select>*/}
           <button
             onClick={handleRefresh}
             disabled={loading}
             className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            title="Refresh Dashboard"
           >
             <RefreshIcon className={loading ? "animate-spin" : ""} />
           </button>
@@ -164,12 +160,12 @@ const TaskMonitoringDashboard = ({
             ))}
           </div>
 
-          <div className="p-6">
+          <div className="p-4">
             {/* Overview View */}
             {selectedView === "overview" && (
               <div className="space-y-6">
                 {/* Key Metrics */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <MetricCard
                     title="Total Tasks"
                     value={metrics.totalTasks}
@@ -199,12 +195,12 @@ const TaskMonitoringDashboard = ({
                 </div>
 
                 {/* Priority Distribution */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-gray-50 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-base font-semibold text-gray-900 mb-3">
                       Priority Distribution
                     </h3>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {[
                         {
                           priority: "critical",
@@ -231,7 +227,7 @@ const TaskMonitoringDashboard = ({
                           key={priority}
                           className="flex items-center justify-between"
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
                             <div
                               className={`w-3 h-3 rounded-full ${color}`}
                             ></div>
@@ -248,11 +244,11 @@ const TaskMonitoringDashboard = ({
                   </div>
 
                   {/* Status Distribution */}
-                  <div className="bg-gray-50 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-base font-semibold text-gray-900 mb-3">
                       Status Distribution
                     </h3>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {[
                         {
                           status: "pending",
@@ -284,7 +280,7 @@ const TaskMonitoringDashboard = ({
                           key={status}
                           className="flex items-center justify-between"
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
                             <div
                               className={`w-3 h-3 rounded-full ${color}`}
                             ></div>
@@ -398,7 +394,7 @@ const TaskMonitoringDashboard = ({
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
                     <h3 className="text-lg font-semibold text-yellow-900 mb-4 flex items-center gap-2">
                       <WarningIcon className="text-yellow-600" />
-                      Dependency Issues11 ({dependencyIssues.length})
+                      Dependency Issues ({dependencyIssues.length})
                     </h3>
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       {dependencyIssues.map((issue) => (
@@ -424,7 +420,7 @@ const TaskMonitoringDashboard = ({
                       Tasks with Dependencies
                     </h3>
                     <div className="space-y-3 max-h-64 overflow-y-auto">
-                      {tasks
+                      {tasksArray
                         .filter(
                           (task) =>
                             task.dependencies && task.dependencies.length > 0
@@ -529,7 +525,7 @@ const TaskMonitoringDashboard = ({
                       message: issue.issue,
                       taskId: issue.taskId,
                     })),
-                    ...tasks
+                    ...tasksArray
                       .filter((task) => task.isBlocked)
                       .map((task) => ({
                         type: "blocked",
@@ -597,11 +593,11 @@ const TaskMonitoringDashboard = ({
 // Helper Components
 const MetricCard = ({ title, value, icon, trend, percentage, alert }) => (
   <div
-    className={`p-6 rounded-lg border ${
+    className={`p-4 rounded-lg border ${
       alert ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"
     }`}
   >
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center justify-between mb-3">
       <div className={`p-2 rounded-lg ${alert ? "bg-red-100" : "bg-white"}`}>
         {icon}
       </div>
@@ -622,13 +618,13 @@ const MetricCard = ({ title, value, icon, trend, percentage, alert }) => (
     </div>
     <div>
       <p
-        className={`text-2xl font-bold ${
+        className={`text-xl font-bold ${
           alert ? "text-red-900" : "text-gray-900"
         }`}
       >
         {value}
       </p>
-      <p className={`text-sm ${alert ? "text-red-700" : "text-gray-600"}`}>
+      <p className={`text-xs ${alert ? "text-red-700" : "text-gray-600"}`}>
         {title}
         {percentage && ` (${percentage}%)`}
       </p>
@@ -638,43 +634,104 @@ const MetricCard = ({ title, value, icon, trend, percentage, alert }) => (
 
 // Helper Functions
 const calculateMetrics = (tasks) => {
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((t) => t.status === "completed").length;
-  const overdueTasks = getOverdueTasks(tasks).length;
-  const inProgressTasks = tasks.filter(
+  // Ensure tasks is an array
+  const tasksArray = Array.isArray(tasks) ? tasks : [];
+  
+  const totalTasks = tasksArray.length;
+  const completedTasks = tasksArray.filter((t) => t.status === "completed").length;
+  const overdueTasks = getOverdueTasks(tasksArray).length;
+  const inProgressTasks = tasksArray.filter(
     (t) => t.status === "in_progress"
   ).length;
+  const pendingTasks = tasksArray.filter((t) => t.status === "pending").length;
+  const reviewTasks = tasksArray.filter((t) => t.status === "review").length;
+  const blockedTasks = tasksArray.filter((t) => t.status === "blocked").length;
 
-  const priorityDistribution = tasks.reduce((acc, task) => {
+  const priorityDistribution = tasksArray.reduce((acc, task) => {
     acc[task.priority] = (acc[task.priority] || 0) + 1;
     return acc;
   }, {});
 
-  const statusDistribution = tasks.reduce((acc, task) => {
+  const statusDistribution = tasksArray.reduce((acc, task) => {
     acc[task.status] = (acc[task.status] || 0) + 1;
     return acc;
   }, {});
+
+  // Calculate real trends based on task creation and completion dates
+  const now = new Date();
+  const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  // Tasks created in the last week vs previous week
+  const recentTasks = tasksArray.filter(task => 
+    task.createdAt && new Date(task.createdAt) > lastWeek
+  ).length;
+  const previousWeekTasks = tasksArray.filter(task => 
+    task.createdAt && 
+    new Date(task.createdAt) > new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000) &&
+    new Date(task.createdAt) <= lastWeek
+  ).length;
+  
+  // Tasks completed in the last week vs previous week
+  const recentCompletions = tasksArray.filter(task => 
+    task.completedAt && new Date(task.completedAt) > lastWeek
+  ).length;
+  const previousWeekCompletions = tasksArray.filter(task => 
+    task.completedAt && 
+    new Date(task.completedAt) > new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000) &&
+    new Date(task.completedAt) <= lastWeek
+  ).length;
+
+  // Calculate percentage trends
+  const tasksTrend = previousWeekTasks > 0 
+    ? Math.round(((recentTasks - previousWeekTasks) / previousWeekTasks) * 100)
+    : recentTasks > 0 ? 100 : 0;
+    
+  const completionTrend = previousWeekCompletions > 0 
+    ? Math.round(((recentCompletions - previousWeekCompletions) / previousWeekCompletions) * 100)
+    : recentCompletions > 0 ? 100 : 0;
+
+  // Overdue trend (negative is good)
+  const currentOverdue = overdueTasks;
+  const previousOverdue = tasksArray.filter(task => {
+    if (!task.dueDate) return false;
+    const dueDate = new Date(task.dueDate);
+    return dueDate < lastWeek && dueDate > new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  }).length;
+  
+  const overdueTrend = previousOverdue > 0 
+    ? Math.round(((currentOverdue - previousOverdue) / previousOverdue) * 100)
+    : currentOverdue > 0 ? 100 : 0;
+
+  // Progress trend (in_progress tasks)
+  const progressTrend = totalTasks > 0 
+    ? Math.round((inProgressTasks / totalTasks) * 100) - 50 // Baseline of 50%
+    : 0;
 
   return {
     totalTasks,
     completedTasks,
     overdueTasks,
     inProgressTasks,
+    pendingTasks,
+    reviewTasks,
+    blockedTasks,
     completionRate:
       totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
     priorityDistribution,
     statusDistribution,
-    // Mock trends - in real app, these would be calculated from historical data
-    tasksTrend: 5,
-    completionTrend: 12,
-    overdueTrend: -8,
-    progressTrend: 3,
+    // Real trends based on actual data
+    tasksTrend,
+    completionTrend,
+    overdueTrend,
+    progressTrend,
   };
 };
 
 const getOverdueTasks = (tasks) => {
+  const tasksArray = Array.isArray(tasks) ? tasks : [];
   const now = new Date();
-  return tasks.filter(
+  return tasksArray.filter(
     (task) =>
       task.dueDate &&
       new Date(task.dueDate) < now &&
@@ -683,9 +740,10 @@ const getOverdueTasks = (tasks) => {
 };
 
 const getUpcomingDeadlines = (tasks) => {
+  const tasksArray = Array.isArray(tasks) ? tasks : [];
   const now = new Date();
   const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  return tasks.filter(
+  return tasksArray.filter(
     (task) =>
       task.dueDate &&
       new Date(task.dueDate) > now &&
@@ -695,12 +753,13 @@ const getUpcomingDeadlines = (tasks) => {
 };
 
 const getDependencyIssues = (tasks) => {
+  const tasksArray = Array.isArray(tasks) ? tasks : [];
   const issues = [];
-  tasks.forEach((task) => {
+  tasksArray.forEach((task) => {
     if (task.dependencies && task.dependencies.length > 0) {
       // Check if any dependencies are incomplete
       const incompleteDeps = task.dependencies.filter((depId) => {
-        const depTask = tasks.find((t) => t._id === depId);
+        const depTask = tasksArray.find((t) => t._id === depId);
         return depTask && depTask.status !== "completed";
       });
 
@@ -717,9 +776,12 @@ const getDependencyIssues = (tasks) => {
 };
 
 const getWorkloadDistribution = (tasks, employees) => {
-  return employees
+  const tasksArray = Array.isArray(tasks) ? tasks : [];
+  const employeesArray = Array.isArray(employees) ? employees : [];
+  
+  return employeesArray
     .map((employee) => {
-      const taskCount = tasks.filter(
+      const taskCount = tasksArray.filter(
         (task) => task.assignedTo && task.assignedTo.includes(employee._id)
       ).length;
 

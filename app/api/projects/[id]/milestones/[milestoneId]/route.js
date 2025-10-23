@@ -216,6 +216,28 @@ export async function DELETE(request, { params }) {
       );
     }
 
+    // Check if milestone has budget allocations tied to it
+    const budgetAllocations = project.budget?.allocations || project.budgetAllocations || [];
+    const milestoneAllocations = budgetAllocations.filter(
+      (allocation) => allocation.milestoneId && allocation.milestoneId.toString() === milestoneId
+    );
+
+    if (milestoneAllocations.length > 0) {
+      const allocationNames = milestoneAllocations.map(allocation => allocation.name || 'Unnamed Allocation').join(', ');
+      return NextResponse.json(
+        { 
+          error: `Cannot delete milestone "${milestone.title}" because it has budget allocations tied to it: ${allocationNames}. Please remove or reassign these budget allocations before deleting the milestone.`,
+          hasBudgetAllocations: true,
+          allocations: milestoneAllocations.map(allocation => ({
+            id: allocation._id,
+            name: allocation.name || 'Unnamed Allocation',
+            amount: allocation.amount || 0
+          }))
+        },
+        { status: 400 }
+      );
+    }
+
     // Remove the milestone
     const result = await db.collection("projects").updateOne(
       { _id: new ObjectId(id) },

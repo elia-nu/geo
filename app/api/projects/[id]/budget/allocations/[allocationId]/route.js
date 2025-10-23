@@ -22,14 +22,11 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Update the specific allocation within the project's budget
-    const result = await db.collection("projects").updateOne(
+    // First, try to update budget.allocations
+    let result = await db.collection("projects").updateOne(
       {
         _id: new ObjectId(projectId),
-        $or: [
-          { "budget.allocations._id": new ObjectId(allocationId) },
-          { "budgetAllocations._id": new ObjectId(allocationId) },
-        ],
+        "budget.allocations._id": new ObjectId(allocationId),
       },
       {
         $set: {
@@ -43,20 +40,33 @@ export async function PUT(request, { params }) {
           "budget.allocations.$.activityId": updateData.activityId,
           "budget.allocations.$.milestoneId": updateData.milestoneId,
           "budget.allocations.$.updatedAt": new Date(),
-          // Also update budgetAllocations for consistency
-          "budgetAllocations.$.name": updateData.name,
-          "budgetAllocations.$.description": updateData.description,
-          "budgetAllocations.$.category": updateData.category,
-          "budgetAllocations.$.amount":
-            updateData.budgetedAmount || updateData.amount,
-          "budgetAllocations.$.departmentId": updateData.departmentId,
-          "budgetAllocations.$.taskId": updateData.taskId,
-          "budgetAllocations.$.activityId": updateData.activityId,
-          "budgetAllocations.$.milestoneId": updateData.milestoneId,
-          "budgetAllocations.$.updatedAt": new Date(),
         },
       }
     );
+
+    // If not found in budget.allocations, try budgetAllocations
+    if (result.matchedCount === 0) {
+      result = await db.collection("projects").updateOne(
+        {
+          _id: new ObjectId(projectId),
+          "budgetAllocations._id": new ObjectId(allocationId),
+        },
+        {
+          $set: {
+            "budgetAllocations.$.name": updateData.name,
+            "budgetAllocations.$.description": updateData.description,
+            "budgetAllocations.$.category": updateData.category,
+            "budgetAllocations.$.amount":
+              updateData.budgetedAmount || updateData.amount,
+            "budgetAllocations.$.departmentId": updateData.departmentId,
+            "budgetAllocations.$.taskId": updateData.taskId,
+            "budgetAllocations.$.activityId": updateData.activityId,
+            "budgetAllocations.$.milestoneId": updateData.milestoneId,
+            "budgetAllocations.$.updatedAt": new Date(),
+          },
+        }
+      );
+    }
 
     if (result.matchedCount === 0) {
       return NextResponse.json(
@@ -85,24 +95,34 @@ export async function PUT(request, { params }) {
         const utilization =
           budgetedAmount > 0 ? (spentAmount / budgetedAmount) * 100 : 0;
 
-        // Update both locations for consistency
-        await db.collection("projects").updateOne(
-          {
-            _id: new ObjectId(projectId),
-            $or: [
-              { "budget.allocations._id": new ObjectId(allocationId) },
-              { "budgetAllocations._id": new ObjectId(allocationId) },
-            ],
-          },
-          {
-            $set: {
-              "budget.allocations.$.remainingAmount": remainingAmount,
-              "budget.allocations.$.utilization": utilization,
-              "budgetAllocations.$.remainingAmount": remainingAmount,
-              "budgetAllocations.$.utilization": utilization,
+        // Update the remaining amount and utilization in the correct array
+        if (updatedProject?.budget?.allocations) {
+          await db.collection("projects").updateOne(
+            {
+              _id: new ObjectId(projectId),
+              "budget.allocations._id": new ObjectId(allocationId),
             },
-          }
-        );
+            {
+              $set: {
+                "budget.allocations.$.remainingAmount": remainingAmount,
+                "budget.allocations.$.utilization": utilization,
+              },
+            }
+          );
+        } else if (updatedProject?.budgetAllocations) {
+          await db.collection("projects").updateOne(
+            {
+              _id: new ObjectId(projectId),
+              "budgetAllocations._id": new ObjectId(allocationId),
+            },
+            {
+              $set: {
+                "budgetAllocations.$.remainingAmount": remainingAmount,
+                "budgetAllocations.$.utilization": utilization,
+              },
+            }
+          );
+        }
       }
     }
 

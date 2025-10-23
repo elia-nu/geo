@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
-    const clientName = searchParams.get("clientName");
+    const categoryId = searchParams.get("categoryId");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const includeOverdue = searchParams.get("includeOverdue") === "true";
@@ -39,10 +39,8 @@ export async function GET(request, { params }) {
     if (status) {
       payments = payments.filter((p) => p.status === status);
     }
-    if (clientName) {
-      payments = payments.filter((p) =>
-        p.clientName?.toLowerCase().includes(clientName.toLowerCase())
-      );
+    if (categoryId) {
+      payments = payments.filter((p) => p.categoryId === categoryId);
     }
     if (startDate || endDate) {
       payments = payments.filter((p) => {
@@ -97,50 +95,32 @@ export async function GET(request, { params }) {
       return acc;
     }, {});
 
-    const paymentsByClient = payments.reduce((acc, p) => {
-      const client = p.clientName || "Unknown Client";
-      if (!acc[client]) {
-        acc[client] = {
-          clientName: client,
-          clientEmail: p.clientEmail,
+    // Calculate payments by category for analytics
+    const paymentsByCategory = payments.reduce((acc, p) => {
+      const categoryId = p.categoryId || "uncategorized";
+      if (!acc[categoryId]) {
+        acc[categoryId] = {
+          categoryId: categoryId,
           count: 0,
           totalAmount: 0,
           expectedAmount: 0,
           uncollectedAmount: 0,
           collectionRate: 0,
-          status: "good",
-          payments: [],
         };
       }
-      acc[client].count += 1;
-      acc[client].totalAmount += p.amount || 0;
-      acc[client].expectedAmount += p.expectedAmount || p.amount || 0;
-      acc[client].uncollectedAmount += p.uncollectedAmount || 0;
-      acc[client].payments.push(p);
+      acc[categoryId].count += 1;
+      acc[categoryId].totalAmount += p.amount || 0;
+      acc[categoryId].expectedAmount += p.expectedAmount || p.amount || 0;
+      acc[categoryId].uncollectedAmount += p.uncollectedAmount || 0;
       return acc;
     }, {});
 
-    // Calculate client performance
-    Object.values(paymentsByClient).forEach((client) => {
-      client.collectionRate =
-        client.expectedAmount > 0
-          ? (client.totalAmount / client.expectedAmount) * 100
+    // Calculate collection rates for each category
+    Object.values(paymentsByCategory).forEach((category) => {
+      category.collectionRate =
+        category.expectedAmount > 0
+          ? (category.totalAmount / category.expectedAmount) * 100
           : 100;
-      const overduePayments = client.payments.filter((p) => p.isOverdue).length;
-      const overdueAmount = client.payments
-        .filter((p) => p.isOverdue)
-        .reduce((sum, p) => sum + (p.amount || 0), 0);
-
-      if (overduePayments > 0 || client.collectionRate < 60) {
-        client.status = "high_risk";
-      } else if (overduePayments > 0 || client.collectionRate < 80) {
-        client.status = "medium_risk";
-      } else {
-        client.status = "good";
-      }
-
-      client.overdueCount = overduePayments;
-      client.overdueAmount = overdueAmount;
     });
 
     // Risk analysis
@@ -206,7 +186,7 @@ export async function GET(request, { params }) {
           totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0,
       },
       paymentsByStatus,
-      paymentsByClient: Object.values(paymentsByClient),
+      paymentsByCategory: Object.values(paymentsByCategory),
       riskAnalysis,
       collectionForecast,
       payments: payments.map((p) => ({

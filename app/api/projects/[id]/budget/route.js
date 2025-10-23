@@ -295,6 +295,40 @@ export async function POST(request, { params }) {
       );
     }
 
+    // Validate budget allocations
+    for (let i = 0; i < budgetAllocations.length; i++) {
+      const allocation = budgetAllocations[i];
+      
+      // Validate required fields for each allocation
+      if (!allocation.name || allocation.name.trim() === "") {
+        return NextResponse.json(
+          { error: `Allocation ${i + 1}: Title is required` },
+          { status: 400 }
+        );
+      }
+      
+      if (!allocation.category || allocation.category.trim() === "") {
+        return NextResponse.json(
+          { error: `Allocation ${i + 1}: Category is required` },
+          { status: 400 }
+        );
+      }
+      
+      if (!allocation.amount || allocation.amount <= 0) {
+        return NextResponse.json(
+          { error: `Allocation ${i + 1}: Amount must be greater than 0` },
+          { status: 400 }
+        );
+      }
+      
+      if (!allocation.allocationType || allocation.allocationType.trim() === "") {
+        return NextResponse.json(
+          { error: `Allocation ${i + 1}: Allocation type is required` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Validate allocations don't exceed total budget
     const totalAllocated = budgetAllocations.reduce(
       (sum, allocation) => sum + (allocation.amount || 0),
@@ -487,20 +521,16 @@ export async function PUT(request, { params }) {
       }
     }
 
-    if (approvedBy !== undefined) {
-      if (existingProject.budget) {
-        updateData["budget.approvedBy"] = approvedBy;
-      } else {
-        updateData.budget.approvedBy = approvedBy;
-      }
-    }
-
-    if (approvalDate !== undefined) {
-      if (existingProject.budget) {
-        updateData["budget.approvalDate"] = new Date(approvalDate);
-      } else {
-        updateData.budget.approvalDate = new Date(approvalDate);
-      }
+    // Set approval information - always update with current user and today's date when budget is updated
+    const currentUser = approvedBy || "admin"; // Replace with actual user from session when auth is implemented
+    const currentDate = new Date();
+    
+    if (existingProject.budget) {
+      updateData["budget.approvedBy"] = currentUser;
+      updateData["budget.approvalDate"] = currentDate;
+    } else {
+      updateData.budget.approvedBy = currentUser;
+      updateData.budget.approvalDate = currentDate;
     }
 
     // Handle budget allocations update

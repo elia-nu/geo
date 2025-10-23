@@ -16,6 +16,7 @@ import {
   showValidationErrors,
   projectToasts,
   validationMessages,
+  showBudgetAllocationError,
 } from "../../../utils/sweetAlert";
 
 const ProjectMilestonesPage = ({ params }) => {
@@ -61,52 +62,58 @@ const ProjectMilestonesPage = ({ params }) => {
     }
 
     // Helper function to format dates for user-friendly display
-  const formatDateForDisplay = (date) => {
-    return format(new Date(date), 'MMM dd, yyyy');
-  };
+    const formatDateForDisplay = (date) => {
+      return format(new Date(date), "MMM dd, yyyy");
+    };
 
-  // Enhanced due date validation
-  if (formData.dueDate) {
-    const dueDate = new Date(formData.dueDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
-    
-    // Check if date is valid
-    if (isNaN(dueDate.getTime())) {
-      errors.dueDate = validationMessages.invalidDate;
-    } else {
-      // Check if due date is before today
-      if (dueDate < today) {
-        errors.dueDate = `Due date cannot be before today (${formatDateForDisplay(today)})`;
-      }
-      
-      // Check against project dates if project data is available
-      if (project) {
-        // Check if due date is before project start date
-        if (project.startDate) {
-          const projectStartDate = new Date(project.startDate);
-          projectStartDate.setHours(0, 0, 0, 0);
-          if (dueDate < projectStartDate) {
-            errors.dueDate = `Due date cannot be before project start date (${formatDateForDisplay(project.startDate)})`;
-          }
+    // Enhanced due date validation
+    if (formData.dueDate) {
+      const dueDate = new Date(formData.dueDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+
+      // Check if date is valid
+      if (isNaN(dueDate.getTime())) {
+        errors.dueDate = validationMessages.invalidDate;
+      } else {
+        // Check if due date is before today
+        if (dueDate < today) {
+          errors.dueDate = `Due date cannot be before today (${formatDateForDisplay(
+            today
+          )})`;
         }
-        
-        // Check if due date is after project end date
-        if (project.endDate) {
-          const projectEndDate = new Date(project.endDate);
-          projectEndDate.setHours(23, 59, 59, 999); // End of day for comparison
-          if (dueDate > projectEndDate) {
-            errors.dueDate = `Due date cannot be after project end date (${formatDateForDisplay(project.endDate)})`;
+
+        // Check against project dates if project data is available
+        if (project) {
+          // Check if due date is before project start date
+          if (project.startDate) {
+            const projectStartDate = new Date(project.startDate);
+            projectStartDate.setHours(0, 0, 0, 0);
+            if (dueDate < projectStartDate) {
+              errors.dueDate = `Due date cannot be before project start date (${formatDateForDisplay(
+                project.startDate
+              )})`;
+            }
           }
-        }
-        
-        // If both start and end dates exist, show the valid range
-        if (project.startDate && project.endDate && !errors.dueDate) {
-          // This is just for reference, no error here since validation passed
+
+          // Check if due date is after project end date
+          if (project.endDate) {
+            const projectEndDate = new Date(project.endDate);
+            projectEndDate.setHours(23, 59, 59, 999); // End of day for comparison
+            if (dueDate > projectEndDate) {
+              errors.dueDate = `Due date cannot be after project end date (${formatDateForDisplay(
+                project.endDate
+              )})`;
+            }
+          }
+
+          // If both start and end dates exist, show the valid range
+          if (project.startDate && project.endDate && !errors.dueDate) {
+            // This is just for reference, no error here since validation passed
+          }
         }
       }
     }
-  }
 
     // Progress validation
     if (formData.progress < 0 || formData.progress > 100) {
@@ -266,10 +273,14 @@ const ProjectMilestonesPage = ({ params }) => {
 
     try {
       const result = await handleFormSubmission(submitFunction, {
-        loadingTitle: currentMilestone ? "Updating Milestone..." : "Creating Milestone...",
+        loadingTitle: currentMilestone
+          ? "Updating Milestone..."
+          : "Creating Milestone...",
         loadingText: "Please wait while we process your request",
         successTitle: "Success!",
-        successText: currentMilestone ? "Milestone updated successfully" : "Milestone created successfully",
+        successText: currentMilestone
+          ? "Milestone updated successfully"
+          : "Milestone created successfully",
       });
 
       // Handle success
@@ -317,6 +328,24 @@ const ProjectMilestonesPage = ({ params }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
+
+        // Handle budget allocation validation error specifically
+        if (errorData.hasBudgetAllocations) {
+          // Show custom budget allocation error dialog
+          const result = await showBudgetAllocationError(
+            milestone.title,
+            errorData.allocations || []
+          );
+
+          // If user clicks "Go to Budget Management", navigate there
+          if (result.isConfirmed) {
+            window.location.href = `/project-budget/${projectId}`;
+          }
+
+          // Return early to prevent further processing
+          return { success: false, budgetError: true };
+        }
+
         throw new Error(errorData.error || "Failed to delete milestone");
       }
 
@@ -331,12 +360,13 @@ const ProjectMilestonesPage = ({ params }) => {
         successText: "Milestone deleted successfully",
       });
 
-      // Handle success
-      if (result && result.success !== false) {
+      // Handle success (but not budget errors)
+      if (result && result.success !== false && !result.budgetError) {
         projectToasts.milestoneDeleted();
         await fetchProjectData();
       }
     } catch (error) {
+      console.error("Error deleting milestone:", error);
       projectToasts.milestoneError(error.message);
     } finally {
       setDeletingId(null);
@@ -526,7 +556,9 @@ const ProjectMilestonesPage = ({ params }) => {
                       >
                         <div className="flex items-center space-x-2 text-red-600">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                          <span className="text-sm font-medium">Deleting...</span>
+                          <span className="text-sm font-medium">
+                            Deleting...
+                          </span>
                         </div>
                       </td>
                     )}
@@ -736,11 +768,20 @@ const ProjectMilestonesPage = ({ params }) => {
                           {formErrors.dueDate}
                         </p>
                       )}
-                      {!formErrors.dueDate && project && project.startDate && project.endDate && (
-                        <p className="mt-1 text-sm text-gray-500">
-                          Valid date range: {format(new Date(project.startDate), 'MMM dd, yyyy')} - {format(new Date(project.endDate), 'MMM dd, yyyy')}
-                        </p>
-                      )}
+                      {!formErrors.dueDate &&
+                        project &&
+                        project.startDate &&
+                        project.endDate && (
+                          <p className="mt-1 text-sm text-gray-500">
+                            Valid date range:{" "}
+                            {format(
+                              new Date(project.startDate),
+                              "MMM dd, yyyy"
+                            )}{" "}
+                            -{" "}
+                            {format(new Date(project.endDate), "MMM dd, yyyy")}
+                          </p>
+                        )}
                     </div>
 
                     <div>

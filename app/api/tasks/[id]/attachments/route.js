@@ -10,7 +10,7 @@ import { existsSync } from "fs";
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
 
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
@@ -26,8 +26,12 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Get attachments with uploadedByName populated and consistent structure
-    const attachments = task.attachments || [];
+    // Get attachments with uploadedByName populated and consistent structure, sorted by uploadedAt descending (newest first)
+    const attachments = (task.attachments || []).sort((a, b) => {
+      const dateA = new Date(a.uploadedAt || a.createdAt || 0);
+      const dateB = new Date(b.uploadedAt || b.createdAt || 0);
+      return dateB - dateA; // Descending order (newest first)
+    });
     const attachmentsWithNames = await Promise.all(
       attachments.map(async (attachment) => {
         let employeeName = attachment.uploadedByName || "Unknown";
@@ -100,7 +104,7 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const db = await getDb();
-    const { id } = params;
+    const { id } = await params;
 
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {

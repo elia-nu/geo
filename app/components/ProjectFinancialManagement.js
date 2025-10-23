@@ -18,6 +18,8 @@ import {
   UserIcon,
   BuildingOfficeIcon,
   TagIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import FinancialDashboard from "./FinancialDashboard";
 import EntityManagement from "./EntityManagement";
@@ -25,6 +27,9 @@ import {
   validateBudgetForm,
   validateExpenseForm,
   validateAllocationForm,
+  validateIncomeForm,
+  validateCollectionForm,
+  validateExpectedPaymentForm,
   hasFormErrors,
 } from "../utils/formValidation";
 import {
@@ -70,6 +75,12 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Loading states for specific operations
+  const [incomeLoading, setIncomeLoading] = useState(false);
+  const [expenseLoading, setExpenseLoading] = useState(false);
+  const [collectionLoading, setCollectionLoading] = useState(false);
+  const [budgetLoading, setBudgetLoading] = useState(false);
+
   // Data states
   const [budgetData, setBudgetData] = useState(null);
   const [expenses, setExpenses] = useState([]);
@@ -81,6 +92,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [showEditBudgetModal, setShowEditBudgetModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showIncomeModal, setShowIncomeModal] = useState(false);
+  const [showCollectionModal, setShowCollectionModal] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [editingAllocationId, setEditingAllocationId] = useState(null);
   const [currentItem, setCurrentItem] = useState(null);
@@ -105,6 +117,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     expenseDate: new Date().toISOString().split("T")[0],
     allocationId: "",
     vendor: "",
+    receiptType: "none", // none, image, url
+    receiptImage: null,
     receiptUrl: "",
     status: "pending",
     tags: [],
@@ -114,6 +128,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [budgetFormErrors, setBudgetFormErrors] = useState({});
   const [expenseFormErrors, setExpenseFormErrors] = useState({});
   const [allocationFormErrors, setAllocationFormErrors] = useState({});
+  const [collectionFormErrors, setCollectionFormErrors] = useState({});
+  const [expectedPaymentFormErrors, setExpectedPaymentFormErrors] = useState({});
 
   const [incomeForm, setIncomeForm] = useState({
     title: "",
@@ -135,11 +151,24 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [expectedPaymentForm, setExpectedPaymentForm] = useState({
     title: "",
     expectedAmount: "",
-    clientName: "",
+    categoryId: "",
     dueDate: "",
     description: "",
     notes: "",
     status: "pending",
+  });
+
+  // Collection form state for confirming payment collection
+  const [collectionForm, setCollectionForm] = useState({
+    id: "",
+    title: "",
+    expectedAmount: "",
+    actualAmount: "",
+    collectionDate: new Date().toISOString().split("T")[0],
+    paymentMethod: "bank_transfer",
+    paymentReference: "",
+    invoiceNumber: "",
+    notes: "",
   });
 
   const [editingIncomeId, setEditingIncomeId] = useState(null);
@@ -159,8 +188,6 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     activityId: "",
     milestoneId: "",
     priority: "medium",
-    startDate: "",
-    endDate: "",
     tags: [],
   });
 
@@ -285,18 +312,23 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     setBudgetFormErrors({});
 
     const submitFunction = async () => {
-      const response = await fetch(`/api/projects/${projectId}/budget`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(budgetForm),
-      });
+      setBudgetLoading(true);
+      try {
+        const response = await fetch(`/api/projects/${projectId}/budget`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(budgetForm),
+        });
 
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || "Failed to create budget");
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to create budget");
+        }
+
+        return data;
+      } finally {
+        setBudgetLoading(false);
       }
-
-      return data;
     };
 
     try {
@@ -320,23 +352,54 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleEditBudget = async () => {
+    // Validate form data
+    const errors = validateBudgetForm(budgetForm);
+    if (hasFormErrors(errors)) {
+      setBudgetFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
+
+    // Clear any existing errors
+    setBudgetFormErrors({});
+
+    const submitFunction = async () => {
+      setBudgetLoading(true);
+      try {
+        const response = await fetch(`/api/projects/${projectId}/budget`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(budgetForm),
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to update budget");
+        }
+
+        return data;
+      } finally {
+        setBudgetLoading(false);
+      }
+    };
+
     try {
-      const response = await fetch(`/api/projects/${projectId}/budget`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(budgetForm),
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Updating Budget...",
+        loadingText: "Please wait while we update your project budget",
+        successTitle: "Budget Updated!",
+        successText: "Project budget has been updated successfully",
+        errorTitle: "Update Error",
+        errorText: "Failed to update budget. Please try again.",
       });
 
-      const data = await response.json();
-      if (data.success) {
-        setShowEditBudgetModal(false);
-        fetchFinancialData();
-        resetBudgetForm();
-      } else {
-        setError(data.error);
-      }
-    } catch (err) {
-      setError("Failed to update budget: " + err.message);
+      // Update UI on success
+      setShowEditBudgetModal(false);
+      fetchFinancialData();
+      resetBudgetForm();
+    } catch (error) {
+      console.error("Error updating budget:", error);
+      // Error handling is done by handleFormSubmission
     }
   };
 
@@ -368,7 +431,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     // Clear any existing errors
     setExpenseFormErrors({});
 
-    const submitFunction = async () => {
+    setExpenseLoading(true);
+    try {
       const response = await fetch(`/api/projects/${projectId}/expenses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -383,30 +447,28 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         throw new Error(data.error || "Failed to add expense");
       }
 
-      return data;
-    };
-
-    try {
-      await handleFormSubmission(submitFunction, {
-        loadingTitle: "Adding Expense...",
-        loadingText: "Please wait while we add your expense",
-        successTitle: "Expense Added!",
-        successText: "Expense has been added successfully",
-        errorTitle: "Expense Error",
-        errorText: "Failed to add expense. Please try again.",
-      });
-
       // Update UI on success
       setShowExpenseModal(false);
       fetchFinancialData();
       resetExpenseForm();
+      projectToasts.expenseAdded();
     } catch (error) {
       console.error("Error adding expense:", error);
-      // Error handling is done by handleFormSubmission
+      projectToasts.expenseError("Failed to add expense. Please try again.");
+    } finally {
+      setExpenseLoading(false);
     }
   };
 
   const handleAddIncome = async () => {
+    // Validate form data
+    const errors = validateIncomeForm(incomeForm);
+    if (hasFormErrors(errors)) {
+      showValidationErrors(errors);
+      return;
+    }
+
+    setIncomeLoading(true);
     try {
       const response = await fetch(`/api/projects/${projectId}/income`, {
         method: "POST",
@@ -419,20 +481,32 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         setShowIncomeModal(false);
         fetchFinancialData();
         resetIncomeForm();
+        projectToasts.incomeAdded();
       } else {
-        setError(data.error);
+        projectToasts.incomeError(data.error || "Failed to add income");
       }
     } catch (err) {
-      setError("Failed to add income: " + err.message);
+      projectToasts.incomeError("Failed to add income: " + err.message);
+    } finally {
+      setIncomeLoading(false);
     }
   };
 
   const handleAddExpectedPayment = async () => {
+    // Validate form data
+    const errors = validateExpectedPaymentForm(expectedPaymentForm);
+    setExpectedPaymentFormErrors(errors);
+
+    if (hasFormErrors(errors)) {
+      showValidationErrors(errors);
+      return;
+    }
+
     try {
       const payload = {
         title: expectedPaymentForm.title,
         expectedAmount: expectedPaymentForm.expectedAmount,
-        clientName: expectedPaymentForm.clientName,
+        categoryId: expectedPaymentForm.categoryId,
         dueDate: expectedPaymentForm.dueDate,
         description: expectedPaymentForm.description,
         notes: expectedPaymentForm.notes,
@@ -451,12 +525,14 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         setExpectedPaymentForm({
           title: "",
           expectedAmount: "",
-          clientName: "",
+          categoryId: "",
           dueDate: "",
           description: "",
           notes: "",
           status: "pending",
         });
+        setExpectedPaymentFormErrors({});
+        projectToasts.incomeAdded();
       } else {
         setError(data.error);
       }
@@ -478,11 +554,13 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         ? new Date(inc.dueDate).toISOString().split("T")[0]
         : "",
       paymentMethod: inc.paymentMethod || "bank_transfer",
-      clientName: inc.clientName || "",
       invoiceNumber: inc.invoiceNumber || "",
       status: inc.status || "pending",
       paymentReference: inc.paymentReference || "",
       notes: inc.notes || "",
+      receiptType: inc.receiptType || "none",
+      receiptImage: inc.receiptImage || null,
+      receiptUrl: inc.receiptUrl || "",
     });
     setEditingIncomeId(inc._id);
     setShowIncomeModal(true);
@@ -493,12 +571,12 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       title: expense.title || "",
       description: expense.description || "",
       amount: expense.amount || "",
-      category: expense.category || "general",
-      categoryId: expense.categoryId || "",
       expenseDate:
         expense.expenseDate || new Date().toISOString().split("T")[0],
       allocationId: expense.allocationId || "",
       vendor: expense.vendor || "",
+      receiptType: expense.receiptType || "none",
+      receiptImage: expense.receiptImage || null,
       receiptUrl: expense.receiptUrl || "",
       status: expense.status || "pending",
       tags: expense.tags || [],
@@ -509,6 +587,15 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
   const handleEditIncome = async () => {
     if (!editingIncomeId) return;
+
+    // Validate form data
+    const errors = validateIncomeForm(incomeForm);
+    if (hasFormErrors(errors)) {
+      showValidationErrors(errors);
+      return;
+    }
+
+    setIncomeLoading(true);
     try {
       const response = await fetch(
         `/api/projects/${projectId}/income/${editingIncomeId}`,
@@ -525,12 +612,96 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         setEditingIncomeId(null);
         fetchFinancialData();
         resetIncomeForm();
+        projectToasts.incomeUpdated();
       } else {
-        setError(data.error);
+        projectToasts.incomeError(data.error || "Failed to update income");
       }
     } catch (err) {
-      setError("Failed to update income: " + err.message);
+      projectToasts.incomeError("Failed to update income: " + err.message);
+    } finally {
+      setIncomeLoading(false);
     }
+  };
+
+  // Handle payment collection
+  const handleCollectPayment = (incomeItem) => {
+    setCollectionForm({
+      id: incomeItem._id,
+      title: incomeItem.title,
+      expectedAmount: incomeItem.expectedAmount || incomeItem.amount || "",
+      actualAmount: incomeItem.expectedAmount || incomeItem.amount || "",
+      collectionDate: new Date().toISOString().split("T")[0],
+      paymentMethod: incomeItem.paymentMethod || "bank_transfer",
+      paymentReference: incomeItem.paymentReference || "",
+      invoiceNumber: incomeItem.invoiceNumber || "",
+      notes: "",
+    });
+    setShowCollectionModal(true);
+  };
+
+  // Handle collection confirmation
+  const handleConfirmCollection = async () => {
+    // Validate the collection form
+    const errors = validateCollectionForm(collectionForm);
+    setCollectionFormErrors(errors);
+
+    // If there are validation errors, don't proceed
+    if (hasFormErrors(errors)) {
+      projectToasts.collectionError("Please fill in all required fields");
+      return;
+    }
+
+    setCollectionLoading(true);
+    try {
+      const updateData = {
+        status: "collected",
+        amount: parseFloat(collectionForm.actualAmount),
+        receivedDate: collectionForm.collectionDate,
+        paymentMethod: collectionForm.paymentMethod,
+        paymentReference: collectionForm.paymentReference,
+        invoiceNumber: collectionForm.invoiceNumber,
+        notes: collectionForm.notes,
+      };
+
+      const response = await fetch(
+        `/api/projects/${projectId}/income/${collectionForm.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updateData),
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        setShowCollectionModal(false);
+        fetchFinancialData();
+        resetCollectionForm();
+        setCollectionFormErrors({});
+        projectToasts.collectionConfirmed();
+      } else {
+        projectToasts.collectionError(data.error || "Failed to collect payment");
+      }
+    } catch (err) {
+      projectToasts.collectionError("Failed to collect payment: " + err.message);
+    } finally {
+      setCollectionLoading(false);
+    }
+  };
+
+  // Reset collection form
+  const resetCollectionForm = () => {
+    setCollectionForm({
+      id: "",
+      title: "",
+      expectedAmount: "",
+      actualAmount: "",
+      collectionDate: new Date().toISOString().split("T")[0],
+      paymentMethod: "bank_transfer",
+      paymentReference: "",
+      invoiceNumber: "",
+      notes: "",
+    });
   };
 
   const handleEditExpense = async () => {
@@ -547,7 +718,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     // Clear any existing errors
     setExpenseFormErrors({});
 
-    const submitFunction = async () => {
+    setExpenseLoading(true);
+    try {
       const response = await fetch(
         `/api/projects/${projectId}/expenses/${editingExpenseId}`,
         {
@@ -565,27 +737,17 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         throw new Error(data.error || "Failed to update expense");
       }
 
-      return data;
-    };
-
-    try {
-      await handleFormSubmission(submitFunction, {
-        loadingTitle: "Updating Expense...",
-        loadingText: "Please wait while we update your expense",
-        successTitle: "Expense Updated!",
-        successText: "Expense has been updated successfully",
-        errorTitle: "Expense Error",
-        errorText: "Failed to update expense. Please try again.",
-      });
-
       // Update UI on success
       setShowExpenseModal(false);
       setEditingExpenseId(null);
       fetchFinancialData();
       resetExpenseForm();
+      projectToasts.expenseUpdated();
     } catch (error) {
       console.error("Error updating expense:", error);
-      // Error handling is done by handleFormSubmission
+      projectToasts.expenseError("Failed to update expense. Please try again.");
+    } finally {
+      setExpenseLoading(false);
     }
   };
 
@@ -599,7 +761,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
     if (!confirmed) return;
 
-    const submitFunction = async () => {
+    setExpenseLoading(true);
+    try {
       const response = await fetch(
         `/api/projects/${projectId}/expenses/${expenseId}`,
         {
@@ -612,28 +775,19 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         throw new Error(data.error || "Failed to delete expense");
       }
 
-      return data;
-    };
-
-    try {
-      await handleFormSubmission(submitFunction, {
-        loadingTitle: "Deleting Expense...",
-        loadingText: "Please wait while we delete the expense",
-        successTitle: "Expense Deleted!",
-        successText: "Expense has been deleted successfully",
-        errorTitle: "Delete Error",
-        errorText: "Failed to delete expense. Please try again.",
-      });
-
       // Update UI on success
       fetchFinancialData();
+      projectToasts.expenseDeleted();
     } catch (error) {
       console.error("Error deleting expense:", error);
-      // Error handling is done by handleFormSubmission
+      projectToasts.expenseError("Failed to delete expense. Please try again.");
+    } finally {
+      setExpenseLoading(false);
     }
   };
 
   const handleDeleteIncome = async (incomeId) => {
+    setIncomeLoading(true);
     try {
       const response = await fetch(
         `/api/projects/${projectId}/income/${incomeId}`,
@@ -642,11 +796,14 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       const data = await response.json();
       if (data.success) {
         fetchFinancialData();
+        projectToasts.incomeDeleted();
       } else {
-        setError(data.error);
+        projectToasts.incomeError(data.error || "Failed to delete income");
       }
     } catch (err) {
-      setError("Failed to delete income: " + err.message);
+      projectToasts.incomeError("Failed to delete income: " + err.message);
+    } finally {
+      setIncomeLoading(false);
     }
   };
 
@@ -667,8 +824,14 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       await handleUpdateAllocation();
     } else {
       // Add new allocation (existing logic for budget creation)
+      // Map categoryId to category name
+      const selectedCategory = budgetAllocationCategories.find(
+        cat => cat._id === allocationForm.categoryId
+      );
+
       const newAllocation = {
         ...allocationForm,
+        category: selectedCategory ? selectedCategory.name : allocationForm.category || "general",
         amount: parseFloat(allocationForm.amount),
         _id: Date.now().toString(), // Temporary ID for UI
       };
@@ -685,37 +848,40 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleUpdateAllocation = async () => {
-    try {
-      const inferredType =
-        allocationForm.allocationType ||
-        (allocationForm.departmentId
-          ? "department"
-          : allocationForm.taskId
+    const inferredType =
+      allocationForm.allocationType ||
+      (allocationForm.departmentId
+        ? "department"
+        : allocationForm.taskId
           ? "task"
           : allocationForm.activityId
-          ? "activity"
-          : allocationForm.milestoneId
-          ? "milestone"
-          : "");
+            ? "activity"
+            : allocationForm.milestoneId
+              ? "milestone"
+              : "");
 
-      const body = {
-        name: allocationForm.name,
-        description: allocationForm.description,
-        category: allocationForm.category,
-        budgetedAmount: parseFloat(allocationForm.amount),
-        startDate: allocationForm.startDate || "",
-        endDate: allocationForm.endDate || "",
-        allocationType: inferredType,
-      };
+    // Map categoryId to category name
+    const selectedCategory = budgetAllocationCategories.find(
+      cat => cat._id === allocationForm.categoryId
+    );
 
-      if (inferredType === "department")
-        body.departmentId = allocationForm.departmentId || "";
-      if (inferredType === "task") body.taskId = allocationForm.taskId || "";
-      if (inferredType === "activity")
-        body.activityId = allocationForm.activityId || "";
-      if (inferredType === "milestone")
-        body.milestoneId = allocationForm.milestoneId || "";
+    const body = {
+      name: allocationForm.name,
+      description: allocationForm.description,
+      category: selectedCategory ? selectedCategory.name : allocationForm.category || "general",
+      budgetedAmount: parseFloat(allocationForm.amount),
+      allocationType: inferredType,
+    };
 
+    if (inferredType === "department")
+      body.departmentId = allocationForm.departmentId || "";
+    if (inferredType === "task") body.taskId = allocationForm.taskId || "";
+    if (inferredType === "activity")
+      body.activityId = allocationForm.activityId || "";
+    if (inferredType === "milestone")
+      body.milestoneId = allocationForm.milestoneId || "";
+
+    const submitFunction = async () => {
       const response = await fetch(
         `/api/projects/${projectId}/budget/allocations/${editingAllocationId}`,
         {
@@ -726,17 +892,32 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       );
 
       const data = await response.json();
-      if (data.success) {
-        setShowAllocationModal(false);
-        setShowAllocationEditModal(false);
-        setEditingAllocationId(null);
-        resetAllocationForm();
-        fetchFinancialData(); // Refresh the budget data
-      } else {
-        setError(data.error);
+      if (!data.success) {
+        throw new Error(data.error || "Failed to update allocation");
       }
-    } catch (err) {
-      setError("Failed to update allocation: " + err.message);
+
+      return data;
+    };
+
+    try {
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Updating Allocation...",
+        loadingText: "Please wait while we update the budget allocation",
+        successTitle: "Allocation Updated!",
+        successText: "Budget allocation has been updated successfully",
+        errorTitle: "Update Error",
+        errorText: "Failed to update allocation. Please try again.",
+      });
+
+      // Update UI on success
+      setShowAllocationModal(false);
+      setShowAllocationEditModal(false);
+      setEditingAllocationId(null);
+      resetAllocationForm();
+      fetchFinancialData(); // Refresh the budget data
+    } catch (error) {
+      console.error("Error updating allocation:", error);
+      // Error handling is done by handleFormSubmission
     }
   };
 
@@ -763,12 +944,12 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           (allocation.departmentId
             ? "department"
             : allocation.taskId
-            ? "task"
-            : allocation.activityId
-            ? "activity"
-            : allocation.milestoneId
-            ? "milestone"
-            : "general"),
+              ? "task"
+              : allocation.activityId
+                ? "activity"
+                : allocation.milestoneId
+                  ? "milestone"
+                  : "general"),
       });
 
       // Store the allocation ID for updating
@@ -780,11 +961,17 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleDeleteAllocation = async (allocationId) => {
-    if (!confirm("Are you sure you want to delete this allocation?")) {
+    const confirmed = await showDeleteConfirmDialog({
+      title: "Delete Budget Allocation",
+      text: "Are you sure you want to delete this budget allocation? This action cannot be undone.",
+      confirmButtonText: "Yes, delete it!",
+    });
+
+    if (!confirmed) {
       return;
     }
 
-    try {
+    const submitFunction = async () => {
       const response = await fetch(
         `/api/projects/${projectId}/budget/allocations/${allocationId}`,
         {
@@ -793,13 +980,28 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       );
 
       const data = await response.json();
-      if (data.success) {
-        fetchFinancialData(); // Refresh the budget data
-      } else {
-        setError(data.error);
+      if (!data.success) {
+        throw new Error(data.error || "Failed to delete allocation");
       }
-    } catch (err) {
-      setError("Failed to delete allocation: " + err.message);
+
+      return data;
+    };
+
+    try {
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Deleting Allocation...",
+        loadingText: "Please wait while we delete the budget allocation",
+        successTitle: "Allocation Deleted!",
+        successText: "Budget allocation has been deleted successfully",
+        errorTitle: "Delete Error",
+        errorText: "Failed to delete allocation. Please try again.",
+      });
+
+      // Refresh the budget data on success
+      fetchFinancialData();
+    } catch (error) {
+      console.error("Error deleting allocation:", error);
+      // Error handling is done by handleFormSubmission
     }
   };
 
@@ -866,11 +1068,11 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       title: "",
       description: "",
       amount: "",
-      category: "general",
-      categoryId: "",
       expenseDate: new Date().toISOString().split("T")[0],
       allocationId: "",
       vendor: "",
+      receiptType: "none", // none, image, url
+      receiptImage: null,
       receiptUrl: "",
       status: "pending",
       tags: [],
@@ -887,12 +1089,14 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       receivedDate: new Date().toISOString().split("T")[0],
       dueDate: "",
       paymentMethod: "bank_transfer",
-      clientName: "",
-      clientEmail: "",
+      categoryId: "",
       invoiceNumber: "",
       status: "pending",
       paymentReference: "",
       notes: "",
+      receiptType: "none", // none, image, url
+      receiptImage: null,
+      receiptUrl: "",
     });
   };
 
@@ -909,8 +1113,6 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       activityId: "",
       milestoneId: "",
       priority: "medium",
-      startDate: "",
-      endDate: "",
       tags: [],
     });
     setAllocationFormErrors({});
@@ -956,7 +1158,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
             {!budgetData ? (
               <button
-                onClick={() => setShowBudgetModal(true)}
+                onClick={() => {
+                  resetBudgetForm();
+                  setShowBudgetModal(true);
+                }}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
               >
                 <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -975,7 +1180,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             )}
 
             <button
-              onClick={() => setShowExpenseModal(true)}
+              onClick={() => {
+                resetExpenseForm();
+                setShowExpenseModal(true);
+              }}
               className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -993,7 +1201,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             </button>*/}
 
             <button
-              onClick={() => setShowExpectedPaymentModal(true)}
+              onClick={() => {
+                resetCollectionForm();
+                setShowExpectedPaymentModal(true);
+              }}
               className="bg-purple-600 hover:bg-purple-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1053,11 +1264,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 transition-colors whitespace-normal break-words flex-shrink-0 ${
-                activeTab === tab.id
+              className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 transition-colors whitespace-normal break-words flex-shrink-0 ${activeTab === tab.id
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
             >
               <tab.icon className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden sm:inline">{tab.name}</span>
@@ -1069,7 +1279,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
       {/* Expected Payment Modal */}
       {showExpectedPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-xl">
             <div className="p-4 sm:p-6 border-b border-gray-200">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900">
@@ -1090,9 +1300,17 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                       title: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expectedPaymentFormErrors.title
+                      ? "border-red-300 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   placeholder="e.g., Phase 1 Payment"
                 />
+                {expectedPaymentFormErrors.title && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {expectedPaymentFormErrors.title}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
@@ -1108,30 +1326,51 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                       expectedAmount: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expectedPaymentFormErrors.expectedAmount
+                      ? "border-red-300 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
+                    }`}
                   placeholder="0.00"
                 />
+                {expectedPaymentFormErrors.expectedAmount && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {expectedPaymentFormErrors.expectedAmount}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Client Name
+                  Category *
                 </label>
-                <input
-                  type="text"
-                  value={expectedPaymentForm.clientName}
+                <select
+                  value={expectedPaymentForm.categoryId}
                   onChange={(e) =>
                     setExpectedPaymentForm((p) => ({
                       ...p,
-                      clientName: e.target.value,
+                      categoryId: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="Client name"
-                />
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expectedPaymentFormErrors.categoryId
+                      ? "border-red-300 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
+                    }`}
+                >
+                  <option value="">Select a category</option>
+                  {incomeCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                {expectedPaymentFormErrors.categoryId && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {expectedPaymentFormErrors.categoryId}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Due Date
+                  Due Date *
                 </label>
                 <input
                   type="date"
@@ -1142,8 +1381,16 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                       dueDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expectedPaymentFormErrors.dueDate
+                      ? "border-red-300 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
+                    }`}
                 />
+                {expectedPaymentFormErrors.dueDate && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {expectedPaymentFormErrors.dueDate}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
@@ -1191,7 +1438,9 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                 onClick={handleAddExpectedPayment}
                 disabled={
                   !expectedPaymentForm.title ||
-                  !expectedPaymentForm.expectedAmount
+                  !expectedPaymentForm.expectedAmount ||
+                  !expectedPaymentForm.categoryId ||
+                  !expectedPaymentForm.dueDate
                 }
                 className="px-4 py-2 text-sm sm:text-base text-white rounded-md bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -1230,7 +1479,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             formatCurrency={formatCurrency}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
-            onCreateBudget={() => setShowBudgetModal(true)}
+            onCreateBudget={() => {
+              resetBudgetForm();
+              setShowBudgetModal(true);
+            }}
             handleEditAllocation={handleEditAllocation}
             handleDeleteAllocation={handleDeleteAllocation}
           />
@@ -1256,6 +1508,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             formatDate={formatDate}
             onEditIncome={handleOpenEditIncome}
             onDeleteIncome={handleDeleteIncome}
+            onCollectPayment={handleCollectPayment}
           />
         )}
 
@@ -1292,6 +1545,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           activities={activities}
           budgetAllocationCategories={budgetAllocationCategories}
           isEdit={false}
+          loading={budgetLoading}
         />
       )}
 
@@ -1317,6 +1571,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           activities={activities}
           budgetAllocationCategories={budgetAllocationCategories}
           isEdit={true}
+          loading={budgetLoading}
         />
       )}
 
@@ -1333,6 +1588,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           resetExpenseForm={resetExpenseForm}
           budgetAllocationCategories={budgetAllocationCategories}
           isEdit={!!editingExpenseId}
+          loading={expenseLoading}
         />
       )}
 
@@ -1347,11 +1603,27 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           }}
           isEdit={!!editingIncomeId}
           incomeCategories={incomeCategories}
+          loading={incomeLoading}
+        />
+      )}
+
+      {showCollectionModal && (
+        <CollectionModal
+          collectionForm={collectionForm}
+          setCollectionForm={setCollectionForm}
+          onConfirm={handleConfirmCollection}
+          onClose={() => {
+            setShowCollectionModal(false);
+            resetCollectionForm();
+          }}
+          formatCurrency={formatCurrency}
+          collectionFormErrors={collectionFormErrors}
+          loading={collectionLoading}
         />
       )}
 
       {showAllocationEditModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-2 sm:p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b border-gray-200">
               <h4 className="text-base sm:text-lg font-semibold text-gray-900">
@@ -1432,40 +1704,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={allocationForm.startDate || ""}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
-                        ...prev,
-                        startDate: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={allocationForm.endDate || ""}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
-                        ...prev,
-                        endDate: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              </div>
+
 
               {/* Allocation type display and targeted selector */}
               <div>
@@ -1681,6 +1920,12 @@ const OverviewTab = ({
   getStatusColor,
   formatDate,
 }) => {
+  // Helper function to get allocation name from allocationId
+  const getAllocationName = (allocationId) => {
+    if (!allocationId || !budgetData?.allocations) return "No allocation";
+    const allocation = budgetData.allocations.find(alloc => alloc._id === allocationId);
+    return allocation ? (allocation.name || allocation.category || "Unknown allocation") : "No allocation";
+  };
   const summary = financialReports?.financialSummary || {};
   const totalBudget = summary.totalBudget || 0;
   const totalExpenses = summary.totalExpenses || 0;
@@ -1781,8 +2026,8 @@ const OverviewTab = ({
                 budgetUtilization > 100
                   ? "overrun"
                   : budgetUtilization > 90
-                  ? "warning"
-                  : "normal"
+                    ? "warning"
+                    : "normal"
               )}`}
             >
               {budgetUtilization.toFixed(1)}%
@@ -1790,13 +2035,12 @@ const OverviewTab = ({
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 mb-2">
             <div
-              className={`h-2 sm:h-3 rounded-full transition-all duration-300 ${
-                budgetUtilization > 100
+              className={`h-2 sm:h-3 rounded-full transition-all duration-300 ${budgetUtilization > 100
                   ? "bg-red-500"
                   : budgetUtilization > 90
-                  ? "bg-yellow-500"
-                  : "bg-blue-500"
-              }`}
+                    ? "bg-yellow-500"
+                    : "bg-blue-500"
+                }`}
               style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
             ></div>
           </div>
@@ -1836,13 +2080,12 @@ const OverviewTab = ({
             {budgetData.alerts.map((alert, index) => (
               <div
                 key={index}
-                className={`p-3 sm:p-4 rounded-lg border-l-4 ${
-                  alert.severity === "high"
+                className={`p-3 sm:p-4 rounded-lg border-l-4 ${alert.severity === "high"
                     ? "bg-red-50 border-red-400"
                     : alert.severity === "medium"
-                    ? "bg-yellow-50 border-yellow-400"
-                    : "bg-blue-50 border-blue-400"
-                }`}
+                      ? "bg-yellow-50 border-yellow-400"
+                      : "bg-blue-50 border-blue-400"
+                  }`}
               >
                 <div className="flex items-start gap-2 sm:gap-3">
                   <div className="flex-shrink-0">
@@ -1856,36 +2099,33 @@ const OverviewTab = ({
                   </div>
                   <div className="flex-1">
                     <p
-                      className={`text-xs sm:text-sm font-medium ${
-                        alert.severity === "high"
+                      className={`text-xs sm:text-sm font-medium ${alert.severity === "high"
                           ? "text-red-800"
                           : alert.severity === "medium"
-                          ? "text-yellow-800"
-                          : "text-blue-800"
-                      }`}
+                            ? "text-yellow-800"
+                            : "text-blue-800"
+                        }`}
                     >
                       {alert.type.replace("_", " ").toUpperCase()}
                     </p>
                     <p
-                      className={`text-xs sm:text-sm ${
-                        alert.severity === "high"
+                      className={`text-xs sm:text-sm ${alert.severity === "high"
                           ? "text-red-700"
                           : alert.severity === "medium"
-                          ? "text-yellow-700"
-                          : "text-blue-700"
-                      }`}
+                            ? "text-yellow-700"
+                            : "text-blue-700"
+                        }`}
                     >
                       {alert.message}
                     </p>
                     {alert.amount && (
                       <p
-                        className={`text-xs mt-1 font-medium ${
-                          alert.severity === "high"
+                        className={`text-xs mt-1 font-medium ${alert.severity === "high"
                             ? "text-red-600"
                             : alert.severity === "medium"
-                            ? "text-yellow-600"
-                            : "text-blue-600"
-                        }`}
+                              ? "text-yellow-600"
+                              : "text-blue-600"
+                          }`}
                       >
                         Amount: {formatCurrency(Math.abs(alert.amount))}
                       </p>
@@ -1932,13 +2172,12 @@ const OverviewTab = ({
                 </div>
                 <div className="w-full sm:w-24 bg-gray-200 rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full ${
-                      allocation.utilization > 100
+                    className={`h-2 rounded-full ${allocation.utilization > 100
                         ? "bg-red-500"
                         : allocation.utilization > 90
-                        ? "bg-yellow-500"
-                        : "bg-blue-500"
-                    }`}
+                          ? "bg-yellow-500"
+                          : "bg-blue-500"
+                      }`}
                     style={{
                       width: `${Math.min(allocation.utilization || 0, 100)}%`,
                     }}
@@ -1973,7 +2212,7 @@ const OverviewTab = ({
                     {expense.title}
                   </h4>
                   <p className="text-xs sm:text-sm text-gray-600">
-                    {expense.category} • {formatDate(expense.expenseDate)}
+                    {getAllocationName(expense.allocationId)} • {formatDate(expense.expenseDate)}
                   </p>
                 </div>
                 <div className="text-left sm:text-right">
@@ -2173,13 +2412,12 @@ const BudgetTab = ({
                       <div className="flex items-center">
                         <div className="w-12 sm:w-16 bg-gray-200 rounded-full h-2 mr-1 sm:mr-2">
                           <div
-                            className={`h-2 rounded-full ${
-                              allocation.utilization > 100
+                            className={`h-2 rounded-full ${allocation.utilization > 100
                                 ? "bg-red-500"
                                 : allocation.utilization > 90
-                                ? "bg-yellow-500"
-                                : "bg-blue-500"
-                            }`}
+                                  ? "bg-yellow-500"
+                                  : "bg-blue-500"
+                              }`}
                             style={{
                               width: `${Math.min(
                                 allocation.utilization || 0,
@@ -2241,6 +2479,13 @@ const ExpensesTab = ({
   onEditExpense,
   onDeleteExpense,
 }) => {
+  // Helper function to get allocation name from allocationId
+  const getAllocationName = (allocationId) => {
+    if (!allocationId || !budgetData?.allocations) return "No allocation";
+    const allocation = budgetData.allocations.find(alloc => alloc._id === allocationId);
+    return allocation ? (allocation.name || allocation.category || "Unknown allocation") : "No allocation";
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Expenses Summary */}
@@ -2299,13 +2544,16 @@ const ExpensesTab = ({
                   Amount
                 </th>
                 <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Category
+                  Allocation
                 </th>
                 <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Date
                 </th>
                 <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Vendor
+                </th>
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Receipt
                 </th>
                 <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -2316,6 +2564,7 @@ const ExpensesTab = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {/* Render each expense as a table row with responsive design */}
               {expenses.map((expense) => (
                 <tr key={expense._id}>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
@@ -2332,8 +2581,8 @@ const ExpensesTab = ({
                     {formatCurrency(expense.amount)}
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {expense.category}
+                    <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {getAllocationName(expense.allocationId)}
                     </span>
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
@@ -2341,6 +2590,31 @@ const ExpensesTab = ({
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                     {expense.vendor || "Not specified"}
+                  </td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                    {expense.receiptType === "image" && expense.receiptImage && (
+                      <button
+                        onClick={() => window.open(expense.receiptImage, '_blank')}
+                        className="text-blue-600 hover:text-blue-900 text-xs"
+                        title="View Receipt Image"
+                      >
+                        <DocumentTextIcon className="w-4 h-4 inline mr-1" />
+                        Image
+                      </button>
+                    )}
+                    {expense.receiptType === "url" && expense.receiptUrl && (
+                      <button
+                        onClick={() => window.open(expense.receiptUrl, '_blank')}
+                        className="text-blue-600 hover:text-blue-900 text-xs"
+                        title="View Receipt URL"
+                      >
+                        <DocumentTextIcon className="w-4 h-4 inline mr-1" />
+                        Link
+                      </button>
+                    )}
+                    {expense.receiptType === "none" && (
+                      <span className="text-gray-400 text-xs">No receipt</span>
+                    )}
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                     <span
@@ -2387,16 +2661,100 @@ const IncomeTab = ({
   formatDate,
   onEditIncome,
   onDeleteIncome,
+  onCollectPayment,
 }) => {
+  // State for filters
+  const [filters, setFilters] = useState({
+    search: '',
+    status: '',
+    paymentMethod: '',
+    dateFrom: '',
+    dateTo: ''
+  });
+
+  // State for sorting
+  const [sortConfig, setSortConfig] = useState({
+    key: 'receivedDate',
+    direction: 'desc'
+  });
+
+  // Filter income data
+  const filteredIncome = income.filter(inc => {
+    const matchesSearch = !filters.search ||
+      inc.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
+      inc.invoiceNumber?.toLowerCase().includes(filters.search.toLowerCase()) ||
+      inc.description?.toLowerCase().includes(filters.search.toLowerCase());
+
+    const matchesStatus = !filters.status || inc.status === filters.status;
+
+    const matchesPaymentMethod = !filters.paymentMethod || inc.paymentMethod === filters.paymentMethod;
+
+    const matchesDateFrom = !filters.dateFrom ||
+      (inc.receivedDate && new Date(inc.receivedDate) >= new Date(filters.dateFrom));
+
+    const matchesDateTo = !filters.dateTo ||
+      (inc.receivedDate && new Date(inc.receivedDate) <= new Date(filters.dateTo));
+
+    return matchesSearch && matchesStatus && matchesPaymentMethod && matchesDateFrom && matchesDateTo;
+  });
+
+  // Sort income data
+  const sortedIncome = [...filteredIncome].sort((a, b) => {
+    let aValue = a[sortConfig.key];
+    let bValue = b[sortConfig.key];
+
+    // Handle different data types
+    if (sortConfig.key === 'amount' || sortConfig.key === 'expectedAmount') {
+      aValue = parseFloat(aValue) || 0;
+      bValue = parseFloat(bValue) || 0;
+    } else if (sortConfig.key === 'receivedDate' || sortConfig.key === 'dueDate') {
+      aValue = aValue ? new Date(aValue) : new Date(0);
+      bValue = bValue ? new Date(bValue) : new Date(0);
+    } else {
+      aValue = String(aValue || '').toLowerCase();
+      bValue = String(bValue || '').toLowerCase();
+    }
+
+    if (aValue < bValue) {
+      return sortConfig.direction === 'asc' ? -1 : 1;
+    }
+    if (aValue > bValue) {
+      return sortConfig.direction === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+
+  // Handle sort
+  const handleSort = (key) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  // Get unique payment methods for filter dropdown
+  const paymentMethods = [...new Set(income.map(inc => inc.paymentMethod).filter(Boolean))];
+
+  // Clear filters
+  const clearFilters = () => {
+    setFilters({
+      search: '',
+      status: '',
+      paymentMethod: '',
+      dateFrom: '',
+      dateTo: ''
+    });
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Income Summary */}
+      {/* Income Summary - Updated to use filtered data */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
           <p className="text-xs sm:text-sm text-gray-600">Total Income</p>
           <p className="text-lg sm:text-xl font-bold text-green-600">
             {formatCurrency(
-              income.reduce((sum, inc) => sum + (inc.amount || 0), 0)
+              filteredIncome.reduce((sum, inc) => sum + (inc.amount || 0), 0)
             )}
           </p>
         </div>
@@ -2404,7 +2762,7 @@ const IncomeTab = ({
           <p className="text-xs sm:text-sm text-gray-600">Collected</p>
           <p className="text-lg sm:text-xl font-bold text-green-600">
             {formatCurrency(
-              income
+              filteredIncome
                 .filter((inc) => inc.status === "collected")
                 .reduce((sum, inc) => sum + (inc.amount || 0), 0)
             )}
@@ -2414,17 +2772,108 @@ const IncomeTab = ({
           <p className="text-xs sm:text-sm text-gray-600">Pending</p>
           <p className="text-lg sm:text-xl font-bold text-yellow-600">
             {formatCurrency(
-              income
+              filteredIncome
                 .filter((inc) => inc.status === "pending")
                 .reduce((sum, inc) => sum + (inc.amount || 0), 0)
             )}
           </p>
         </div>
         <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Total Count</p>
+          <p className="text-xs sm:text-sm text-gray-600">Filtered Count</p>
           <p className="text-lg sm:text-xl font-bold text-gray-900">
-            {income.length}
+            {filteredIncome.length} / {income.length}
           </p>
+        </div>
+      </div>
+
+      {/* Filter Controls */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="flex flex-wrap gap-4 items-end">
+          {/* Search */}
+          <div className="flex-1 min-w-64">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Search
+            </label>
+            <input
+              type="text"
+              placeholder="Search by title, invoice, or description..."
+              value={filters.search}
+              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          {/* Status Filter */}
+          <div className="min-w-32">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="collected">Collected</option>
+              <option value="overdue">Overdue</option>
+            </select>
+          </div>
+
+          {/* Payment Method Filter */}
+          <div className="min-w-40">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Payment Method
+            </label>
+            <select
+              value={filters.paymentMethod}
+              onChange={(e) => setFilters(prev => ({ ...prev, paymentMethod: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="">All Methods</option>
+              {paymentMethods.map(method => (
+                <option key={method} value={method}>
+                  {method?.replace('_', ' ')}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date From */}
+          <div className="min-w-36">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date From
+            </label>
+            <input
+              type="date"
+              value={filters.dateFrom}
+              onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          {/* Date To */}
+          <div className="min-w-36">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date To
+            </label>
+            <input
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          {/* Clear Filters Button */}
+          <div>
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
+            >
+              Clear Filters
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2439,23 +2888,86 @@ const IncomeTab = ({
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Income
+                <th
+                  className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('title')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Income</span>
+                    {sortConfig.key === 'title' && (
+                      sortConfig.direction === 'asc' ?
+                        <ChevronUpIcon className="w-4 h-4" /> :
+                        <ChevronDownIcon className="w-4 h-4" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('expectedAmount')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Expected Amount</span>
+                    {sortConfig.key === 'expectedAmount' && (
+                      sortConfig.direction === 'asc' ?
+                        <ChevronUpIcon className="w-4 h-4" /> :
+                        <ChevronDownIcon className="w-4 h-4" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('amount')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Received Amount</span>
+                    {sortConfig.key === 'amount' && (
+                      sortConfig.direction === 'asc' ?
+                        <ChevronUpIcon className="w-4 h-4" /> :
+                        <ChevronDownIcon className="w-4 h-4" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('paymentMethod')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Payment Method</span>
+                    {sortConfig.key === 'paymentMethod' && (
+                      sortConfig.direction === 'asc' ?
+                        <ChevronUpIcon className="w-4 h-4" /> :
+                        <ChevronDownIcon className="w-4 h-4" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('receivedDate')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Date</span>
+                    {sortConfig.key === 'receivedDate' && (
+                      sortConfig.direction === 'asc' ?
+                        <ChevronUpIcon className="w-4 h-4" /> :
+                        <ChevronDownIcon className="w-4 h-4" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Status</span>
+                    {sortConfig.key === 'status' && (
+                      sortConfig.direction === 'asc' ?
+                        <ChevronUpIcon className="w-4 h-4" /> :
+                        <ChevronDownIcon className="w-4 h-4" />
+                    )}
+                  </div>
                 </th>
                 <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Client
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Method
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  Receipt
                 </th>
                 <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -2463,68 +2975,105 @@ const IncomeTab = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {income.map((inc) => (
-                <tr key={inc._id}>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <div className="text-xs sm:text-sm font-medium text-gray-900">
-                      {inc.title}
-                    </div>
-                    {inc.invoiceNumber && (
-                      <div className="text-xs sm:text-sm text-gray-500">
-                        Invoice: {inc.invoiceNumber}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600">
-                    {formatCurrency(inc.amount)}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <div className="text-xs sm:text-sm text-gray-900">
-                      {inc.clientName || "Not specified"}
-                    </div>
-                    {inc.clientEmail && (
-                      <div className="text-xs sm:text-sm text-gray-500">
-                        {inc.clientEmail}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {inc.paymentMethod?.replace("_", " ")}
-                    </span>
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                    {formatDate(inc.receivedDate)}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
-                        inc.status
-                      )}`}
-                    >
-                      {inc.status}
-                    </span>
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                      <button
-                        onClick={() => onEditIncome && onEditIncome(inc)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </button>
-                      <button
-                        onClick={() =>
-                          onDeleteIncome && onDeleteIncome(inc._id)
-                        }
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </button>
-                    </div>
+              {sortedIncome.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                    {income.length === 0 ? 'No income records found' : 'No income records match your filters'}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                /* Render filtered and sorted income records with interactive features */
+                sortedIncome.map((inc) => (
+                  <tr key={inc._id}>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                      <div className="text-xs sm:text-sm font-medium text-gray-900">
+                        {inc.title}
+                      </div>
+                      {inc.invoiceNumber && (
+                        <div className="text-xs sm:text-sm text-gray-500">
+                          Invoice: {inc.invoiceNumber}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-blue-600">
+                      {formatCurrency(inc.expectedAmount || 0)}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600">
+                      {formatCurrency(inc.amount || 0)}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {inc.paymentMethod?.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                      {formatDate(inc.receivedDate)}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
+                          inc.status
+                        )}`}
+                      >
+                        {inc.status}
+                      </span>
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                      {inc.receiptType === "image" && inc.receiptImage && (
+                        <button
+                          onClick={() => window.open(inc.receiptImage, '_blank')}
+                          className="text-blue-600 hover:text-blue-900 text-xs"
+                          title="View Receipt Image"
+                        >
+                          <DocumentTextIcon className="w-4 h-4 inline mr-1" />
+                          Image
+                        </button>
+                      )}
+                      {inc.receiptType === "url" && inc.receiptUrl && (
+                        <button
+                          onClick={() => window.open(inc.receiptUrl, '_blank')}
+                          className="text-blue-600 hover:text-blue-900 text-xs"
+                          title="View Receipt URL"
+                        >
+                          <DocumentTextIcon className="w-4 h-4 inline mr-1" />
+                          Link
+                        </button>
+                      )}
+                      {inc.receiptType === "none" && (
+                        <span className="text-gray-400 text-xs">No receipt</span>
+                      )}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
+                      <div className="flex items-center space-x-1 sm:space-x-2">
+                        {inc.status === "pending" && (
+                          <button
+                            onClick={() => onCollectPayment && onCollectPayment(inc)}
+                            className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-2 py-1 rounded text-xs font-medium"
+                            title="Collect Payment"
+                          >
+                            <CheckCircleIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                            Collect
+                          </button>
+                        )}
+                        <button
+                          onClick={() => onEditIncome && onEditIncome(inc)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </button>
+                        <button
+                          onClick={() =>
+                            onDeleteIncome && onDeleteIncome(inc._id)
+                          }
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -2619,11 +3168,10 @@ const ReportsTab = ({
               key={report.id}
               onClick={() => generateReport(report.id)}
               disabled={loading}
-              className={`p-4 text-left border rounded-lg transition-colors ${
-                reportType === report.id
+              className={`p-4 text-left border rounded-lg transition-colors ${reportType === report.id
                   ? "border-blue-500 bg-blue-50 text-blue-900"
                   : "border-gray-200 hover:border-gray-300"
-              } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <div className="font-medium">{report.name}</div>
               <div className="text-sm text-gray-600">{report.description}</div>
@@ -2691,13 +3239,12 @@ const ReportsTab = ({
                   </p>
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                     <div
-                      className={`h-2 rounded-full ${
-                        reportData.financialSummary.budgetUtilization > 100
+                      className={`h-2 rounded-full ${reportData.financialSummary.budgetUtilization > 100
                           ? "bg-red-500"
                           : reportData.financialSummary.budgetUtilization > 90
-                          ? "bg-yellow-500"
-                          : "bg-blue-500"
-                      }`}
+                            ? "bg-yellow-500"
+                            : "bg-blue-500"
+                        }`}
                       style={{
                         width: `${Math.min(
                           reportData.financialSummary.budgetUtilization || 0,
@@ -2710,11 +3257,10 @@ const ReportsTab = ({
                 <div className="p-4 border border-gray-200 rounded-lg">
                   <p className="text-sm text-gray-600">Profit/Loss</p>
                   <p
-                    className={`text-xl font-bold ${
-                      reportData.financialSummary.profitLoss >= 0
+                    className={`text-xl font-bold ${reportData.financialSummary.profitLoss >= 0
                         ? "text-green-600"
                         : "text-red-600"
-                    }`}
+                      }`}
                   >
                     {formatCurrency(reportData.financialSummary.profitLoss)}
                   </p>
@@ -2767,48 +3313,44 @@ const ReportsTab = ({
                     {reportData.alerts.map((alert, index) => (
                       <div
                         key={index}
-                        className={`p-3 rounded-lg border-l-4 ${
-                          alert.severity === "high"
+                        className={`p-3 rounded-lg border-l-4 ${alert.severity === "high"
                             ? "bg-red-50 border-red-400"
                             : alert.severity === "medium"
-                            ? "bg-yellow-50 border-yellow-400"
-                            : "bg-blue-50 border-blue-400"
-                        }`}
+                              ? "bg-yellow-50 border-yellow-400"
+                              : "bg-blue-50 border-blue-400"
+                          }`}
                       >
                         <div className="flex justify-between items-start">
                           <div>
                             <p
-                              className={`font-medium text-sm ${
-                                alert.severity === "high"
+                              className={`font-medium text-sm ${alert.severity === "high"
                                   ? "text-red-800"
                                   : alert.severity === "medium"
-                                  ? "text-yellow-800"
-                                  : "text-blue-800"
-                              }`}
+                                    ? "text-yellow-800"
+                                    : "text-blue-800"
+                                }`}
                             >
                               {alert.type.replace(/_/g, " ").toUpperCase()}
                             </p>
                             <p
-                              className={`text-sm ${
-                                alert.severity === "high"
+                              className={`text-sm ${alert.severity === "high"
                                   ? "text-red-700"
                                   : alert.severity === "medium"
-                                  ? "text-yellow-700"
-                                  : "text-blue-700"
-                              }`}
+                                    ? "text-yellow-700"
+                                    : "text-blue-700"
+                                }`}
                             >
                               {alert.message}
                             </p>
                           </div>
                           {alert.amount && (
                             <span
-                              className={`text-sm font-medium ${
-                                alert.severity === "high"
+                              className={`text-sm font-medium ${alert.severity === "high"
                                   ? "text-red-600"
                                   : alert.severity === "medium"
-                                  ? "text-yellow-600"
-                                  : "text-blue-600"
-                              }`}
+                                    ? "text-yellow-600"
+                                    : "text-blue-600"
+                                }`}
                             >
                               {formatCurrency(Math.abs(alert.amount))}
                             </span>
@@ -2870,13 +3412,12 @@ const ReportsTab = ({
                             <div className="flex items-center">
                               <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                 <div
-                                  className={`h-2 rounded-full ${
-                                    allocation.utilization > 100
+                                  className={`h-2 rounded-full ${allocation.utilization > 100
                                       ? "bg-red-500"
                                       : allocation.utilization > 90
-                                      ? "bg-yellow-500"
-                                      : "bg-blue-500"
-                                  }`}
+                                        ? "bg-yellow-500"
+                                        : "bg-blue-500"
+                                    }`}
                                   style={{
                                     width: `${Math.min(
                                       allocation.utilization,
@@ -2985,6 +3526,7 @@ const BudgetModal = ({
   activities,
   budgetAllocationCategories,
   isEdit = false,
+  loading = false,
 }) => {
   const totalAllocated = budgetForm.budgetAllocations.reduce(
     (sum, alloc) => sum + (alloc.amount || 0),
@@ -2994,7 +3536,7 @@ const BudgetModal = ({
     parseFloat(budgetForm.totalAmount || 0) - totalAllocated;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         <div className="p-3 sm:p-6 border-b border-gray-200">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
@@ -3016,11 +3558,10 @@ const BudgetModal = ({
                 onChange={(e) =>
                   handleBudgetFormChange("totalAmount", e.target.value)
                 }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                  budgetFormErrors.totalAmount
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${budgetFormErrors.totalAmount
                     ? "border-red-500 focus:ring-red-500"
                     : "border-gray-300 focus:ring-blue-500"
-                }`}
+                  }`}
                 placeholder="0.00"
                 required
               />
@@ -3040,11 +3581,10 @@ const BudgetModal = ({
                 onChange={(e) =>
                   handleBudgetFormChange("currency", e.target.value)
                 }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                  budgetFormErrors.currency
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${budgetFormErrors.currency
                     ? "border-red-500 focus:ring-red-500"
                     : "border-gray-300 focus:ring-blue-500"
-                }`}
+                  }`}
               >
                 <option value="ETB">ETB - Ethiopian Birr</option>
               </select>
@@ -3066,11 +3606,10 @@ const BudgetModal = ({
                 handleBudgetFormChange("description", e.target.value)
               }
               rows={3}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                budgetFormErrors.description
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${budgetFormErrors.description
                   ? "border-red-500 focus:ring-red-500"
                   : "border-gray-300 focus:ring-blue-500"
-              }`}
+                }`}
               placeholder="Budget description..."
             />
             {budgetFormErrors.description && (
@@ -3091,11 +3630,10 @@ const BudgetModal = ({
                 onChange={(e) =>
                   handleBudgetFormChange("approvedBy", e.target.value)
                 }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  budgetFormErrors.approvedBy
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${budgetFormErrors.approvedBy
                     ? "border-red-500 focus:ring-red-500"
                     : "border-gray-300 focus:ring-blue-500"
-                }`}
+                  }`}
                 placeholder="Approver name"
               />
               {budgetFormErrors.approvedBy && (
@@ -3115,11 +3653,10 @@ const BudgetModal = ({
                 onChange={(e) =>
                   handleBudgetFormChange("approvalDate", e.target.value)
                 }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  budgetFormErrors.approvalDate
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${budgetFormErrors.approvalDate
                     ? "border-red-500 focus:ring-red-500"
                     : "border-gray-300 focus:ring-blue-500"
-                }`}
+                  }`}
               />
               {budgetFormErrors.approvalDate && (
                 <p className="text-xs text-red-600 mt-1">
@@ -3136,7 +3673,10 @@ const BudgetModal = ({
                 Budget Allocations
               </h4>
               <button
-                onClick={() => setShowAllocationModal(true)}
+                onClick={() => {
+                  resetAllocationForm();
+                  setShowAllocationModal(true);
+                }}
                 className="px-3 py-1 text-xs sm:text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 self-start sm:self-auto"
               >
                 Add Allocation
@@ -3198,9 +3738,8 @@ const BudgetModal = ({
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span>Remaining:</span>
                   <span
-                    className={`font-semibold ${
-                      remainingBudget < 0 ? "text-red-600" : "text-green-600"
-                    }`}
+                    className={`font-semibold ${remainingBudget < 0 ? "text-red-600" : "text-green-600"
+                      }`}
                   >
                     ${remainingBudget.toFixed(2)}
                   </span>
@@ -3219,17 +3758,23 @@ const BudgetModal = ({
           </button>
           <button
             onClick={handleCreateBudget}
-            disabled={!budgetForm.totalAmount}
-            className="px-4 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
+            disabled={!budgetForm.totalAmount || loading}
+            className="px-4 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2 flex items-center gap-2"
           >
-            {isEdit ? "Update Budget" : "Create Budget"}
+            {loading && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            )}
+            {loading
+              ? (isEdit ? "Updating..." : "Creating...")
+              : (isEdit ? "Update Budget" : "Create Budget")
+            }
           </button>
         </div>
       </div>
 
       {/* Allocation Modal */}
       {showAllocationModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-2 sm:p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b border-gray-200">
               <h4 className="text-base sm:text-lg font-semibold text-gray-900">
@@ -3248,11 +3793,10 @@ const BudgetModal = ({
                   onChange={(e) =>
                     handleAllocationFormChange("name", e.target.value)
                   }
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                    allocationFormErrors.name
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${allocationFormErrors.name
                       ? "border-red-500 focus:ring-red-500"
                       : "border-gray-300 focus:ring-blue-500"
-                  }`}
+                    }`}
                   placeholder="e.g., Development Team"
                   required
                 />
@@ -3297,11 +3841,10 @@ const BudgetModal = ({
                   onChange={(e) =>
                     handleAllocationFormChange("amount", e.target.value)
                   }
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                    allocationFormErrors.amount
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${allocationFormErrors.amount
                       ? "border-red-500 focus:ring-red-500"
                       : "border-gray-300 focus:ring-blue-500"
-                  }`}
+                    }`}
                   placeholder="0.00"
                   required
                 />
@@ -3314,20 +3857,19 @@ const BudgetModal = ({
 
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Allocation Type (Optional)
+                  Allocation Type *
                 </label>
                 <select
                   value={allocationForm.allocationType}
                   onChange={(e) =>
                     handleAllocationFormChange("allocationType", e.target.value)
                   }
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                    allocationFormErrors.allocationType
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${allocationFormErrors.allocationType
                       ? "border-red-500 focus:ring-red-500"
                       : "border-gray-300 focus:ring-blue-500"
-                  }`}
+                    }`}
                 >
-                  <option value="">Select Type (Optional)</option>
+                  <option value="">Select Allocation Type</option>
                   <option value="general">General</option>
                   <option value="department">Department</option>
                   <option value="task">Task</option>
@@ -3488,39 +4030,6 @@ const BudgetModal = ({
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={allocationForm.startDate}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
-                        ...prev,
-                        startDate: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={allocationForm.endDate}
-                  onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      endDate: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
               </div>
 
               <div>
@@ -3580,6 +4089,7 @@ const ExpenseModal = ({
   resetExpenseForm,
   budgetAllocationCategories,
   isEdit = false,
+  loading = false,
 }) => {
   const addTag = () => {
     setExpenseForm((prev) => ({
@@ -3603,7 +4113,7 @@ const ExpenseModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-4 sm:p-6 border-b border-gray-200">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
@@ -3623,11 +4133,10 @@ const ExpenseModal = ({
                 onChange={(e) =>
                   handleExpenseFormChange("title", e.target.value)
                 }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  expenseFormErrors.title
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.title
                     ? "border-red-500 focus:ring-red-500"
                     : "border-gray-300 focus:ring-blue-500"
-                }`}
+                  }`}
                 placeholder="e.g., Office Supplies"
                 required
               />
@@ -3649,11 +4158,10 @@ const ExpenseModal = ({
                 onChange={(e) =>
                   handleExpenseFormChange("amount", e.target.value)
                 }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  expenseFormErrors.amount
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.amount
                     ? "border-red-500 focus:ring-red-500"
                     : "border-gray-300 focus:ring-blue-500"
-                }`}
+                  }`}
                 placeholder="0.00"
                 required
               />
@@ -3664,34 +4172,7 @@ const ExpenseModal = ({
               )}
             </div>
 
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <select
-                value={expenseForm.categoryId}
-                onChange={(e) =>
-                  handleExpenseFormChange("categoryId", e.target.value)
-                }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  expenseFormErrors.categoryId
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-              >
-                <option value="">Select Category</option>
-                {budgetAllocationCategories.map((category) => (
-                  <option key={category._id} value={category._id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-              {expenseFormErrors.category && (
-                <p className="text-xs text-red-600 mt-1">
-                  {expenseFormErrors.category}
-                </p>
-              )}
-            </div>
+
 
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
@@ -3703,11 +4184,10 @@ const ExpenseModal = ({
                 onChange={(e) =>
                   handleExpenseFormChange("expenseDate", e.target.value)
                 }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  expenseFormErrors.expenseDate
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.expenseDate
                     ? "border-red-500 focus:ring-red-500"
                     : "border-gray-300 focus:ring-blue-500"
-                }`}
+                  }`}
               />
               {expenseFormErrors.expenseDate && (
                 <p className="text-xs text-red-600 mt-1">
@@ -3718,19 +4198,20 @@ const ExpenseModal = ({
 
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Budget Allocation
+                Budget Allocation *
               </label>
               <select
                 value={expenseForm.allocationId}
                 onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    allocationId: e.target.value,
-                  }))
+                  handleExpenseFormChange("allocationId", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.allocationId
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                  }`}
+                required
               >
-                <option value="">No specific allocation</option>
+                <option value="">Select an allocation</option>
                 {budgetData?.allocations?.map((allocation) => (
                   <option key={allocation._id} value={allocation._id}>
                     {allocation.name || allocation.category} ($
@@ -3738,24 +4219,35 @@ const ExpenseModal = ({
                   </option>
                 ))}
               </select>
+              {expenseFormErrors.allocationId && (
+                <p className="text-xs text-red-600 mt-1">
+                  {expenseFormErrors.allocationId}
+                </p>
+              )}
             </div>
 
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Vendor
+                Vendor *
               </label>
               <input
                 type="text"
                 value={expenseForm.vendor}
                 onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    vendor: e.target.value,
-                  }))
+                  handleExpenseFormChange("vendor", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.vendor
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                  }`}
                 placeholder="Vendor name"
+                required
               />
+              {expenseFormErrors.vendor && (
+                <p className="text-xs text-red-600 mt-1">
+                  {expenseFormErrors.vendor}
+                </p>
+              )}
             </div>
 
             <div>
@@ -3779,23 +4271,90 @@ const ExpenseModal = ({
               </select>
             </div>
 
+            {/* Receipt Type Selector */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Receipt URL
+                Receipt Type
               </label>
-              <input
-                type="url"
-                value={expenseForm.receiptUrl}
-                onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    receiptUrl: e.target.value,
-                  }))
-                }
+              <select
+                value={expenseForm.receiptType}
+                onChange={(e) => handleExpenseFormChange('receiptType', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="https://..."
-              />
+              >
+                <option value="none">No Receipt</option>
+                <option value="image">Upload Image</option>
+                <option value="url">Receipt Link/URL</option>
+              </select>
             </div>
+
+            {/* Receipt Image Upload */}
+            {expenseForm.receiptType === 'image' && (
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Receipt Image
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        handleExpenseFormChange('receiptImage', event.target.result);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+                {expenseForm.receiptImage && (
+                  <div className="mt-2">
+                    <img
+                      src={expenseForm.receiptImage}
+                      alt="Receipt preview"
+                      className="max-w-full h-32 object-contain border rounded"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Receipt URL */}
+            {expenseForm.receiptType === 'url' && (
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Receipt URL *
+                </label>
+                <input
+                  type="url"
+                  value={expenseForm.receiptUrl}
+                  onChange={(e) => handleExpenseFormChange('receiptUrl', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.receiptUrl
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
+                    }`}
+                  placeholder="https://example.com/receipt.pdf"
+                />
+                {expenseForm.receiptUrl && (
+                  <div className="mt-2">
+                    <a
+                      href={expenseForm.receiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 text-xs"
+                    >
+                      View Receipt Link →
+                    </a>
+                  </div>
+                )}
+                {expenseFormErrors.receiptUrl && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {expenseFormErrors.receiptUrl}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="sm:col-span-2">
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
@@ -3807,11 +4366,10 @@ const ExpenseModal = ({
                   handleExpenseFormChange("description", e.target.value)
                 }
                 rows={3}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  expenseFormErrors.description
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.description
                     ? "border-red-500 focus:ring-red-500"
                     : "border-gray-300 focus:ring-blue-500"
-                }`}
+                  }`}
                 placeholder="Expense description..."
               />
               {expenseFormErrors.description && (
@@ -3873,10 +4431,13 @@ const ExpenseModal = ({
           </button>
           <button
             onClick={onSubmit}
-            disabled={!expenseForm.title || !expenseForm.amount}
-            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
+            disabled={!expenseForm.title || !expenseForm.amount || loading}
+            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2 flex items-center justify-center gap-2"
           >
-            {isEdit ? "Update Expense" : "Add Expense"}
+            {loading && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            )}
+            {loading ? "Processing..." : (isEdit ? "Update Expense" : "Add Expense")}
           </button>
         </div>
       </div>
@@ -3892,18 +4453,59 @@ const IncomeModal = ({
   onClose,
   isEdit,
   incomeCategories,
+  loading = false,
 }) => {
+  // Function to check if all required fields are filled for automatic status setting
+  const checkAndUpdateStatus = (updatedForm) => {
+    const requiredFields = [
+      'title',
+      'expectedAmount',
+      'dueDate',
+      'description',
+      'invoiceNumber',
+      'paymentReference',
+      'paymentMethod'
+    ];
+
+    const allFieldsFilled = requiredFields.every(field =>
+      updatedForm[field] && updatedForm[field].toString().trim() !== ''
+    );
+
+    if (allFieldsFilled && !isEdit) {
+      // Automatically set status to collected and amount to expected amount
+      return {
+        ...updatedForm,
+        status: 'collected',
+        amount: updatedForm.expectedAmount
+      };
+    }
+
+    return updatedForm;
+  };
+
+  const handleFieldChange = (field, value) => {
+    const updatedForm = { ...incomeForm, [field]: value };
+    const finalForm = checkAndUpdateStatus(updatedForm);
+    setIncomeForm(finalForm);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-4 sm:p-6 border-b border-gray-200">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             {isEdit ? "Edit Income/Payment" : "Add New Income/Payment"}
           </h3>
+          {!isEdit && (
+            <p className="text-sm text-blue-600 mt-1">
+              Fill all required fields to automatically set status to "Collected" and copy expected amount to amount
+            </p>
+          )}
         </div>
 
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            {/* Title */}
             <div className="sm:col-span-2">
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Income Title *
@@ -3911,110 +4513,117 @@ const IncomeModal = ({
               <input
                 type="text"
                 value={incomeForm.title}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({ ...prev, title: e.target.value }))
-                }
+                onChange={(e) => handleFieldChange('title', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="e.g., Project Payment - Phase 1"
                 required
               />
             </div>
 
+            {/* Expected Amount */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Amount
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={incomeForm.amount}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({ ...prev, amount: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="0.00"
-                required={isEdit}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <select
-                value={incomeForm.categoryId}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    categoryId: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                <option value="">Select Category</option>
-                {incomeCategories.map((category) => (
-                  <option key={category._id} value={category._id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Expected Amount
+                Expected Amount *
               </label>
               <input
                 type="number"
                 step="0.01"
                 value={incomeForm.expectedAmount}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    expectedAmount: e.target.value,
-                  }))
-                }
+                onChange={(e) => handleFieldChange('expectedAmount', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="0.00"
-                required={isEdit}
+                required
               />
             </div>
 
+            {/* Amount (Auto-filled when all fields are complete) */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Client Name
+                Amount {!isEdit && <span className="text-xs text-gray-500">(Auto-filled)</span>}
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={incomeForm.amount}
+                onChange={(e) => handleFieldChange('amount', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                placeholder="0.00"
+                readOnly={!isEdit && incomeForm.status === 'collected'}
+              />
+            </div>
+
+            {/* Due Date */}
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                Due Date *
+              </label>
+              <input
+                type="date"
+                value={incomeForm.dueDate}
+                onChange={(e) => handleFieldChange('dueDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                required
+              />
+            </div>
+
+            {/* Status (Auto-set when all fields are complete) */}
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                Status {!isEdit && <span className="text-xs text-gray-500">(Auto-set)</span>}
+              </label>
+              <select
+                value={incomeForm.status}
+                onChange={(e) => handleFieldChange('status', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                disabled={!isEdit && incomeForm.status === 'collected'}
+              >
+                <option value="pending">Pending</option>
+                <option value="collected">Collected</option>
+                <option value="overdue">Overdue</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+
+            {/* Invoice Number */}
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                Invoice Number *
               </label>
               <input
                 type="text"
-                value={incomeForm.clientName}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    clientName: e.target.value,
-                  }))
-                }
+                value={incomeForm.invoiceNumber}
+                onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="Client name"
-                required={isEdit}
+                placeholder="INV-001"
+                required
               />
             </div>
 
-            {/* Client Email removed per requirement */}
-
+            {/* Payment Reference */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Payment Method
+                Payment Reference *
+              </label>
+              <input
+                type="text"
+                value={incomeForm.paymentReference}
+                onChange={(e) => handleFieldChange('paymentReference', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                placeholder="Transaction ID or reference"
+                required
+              />
+            </div>
+
+            {/* Payment Method */}
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                Payment Method *
               </label>
               <select
                 value={incomeForm.paymentMethod}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    paymentMethod: e.target.value,
-                  }))
-                }
+                onChange={(e) => handleFieldChange('paymentMethod', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                required={isEdit}
+                required
               >
                 <option value="bank_transfer">Bank Transfer</option>
                 <option value="credit_card">Credit Card</option>
@@ -4026,25 +4635,104 @@ const IncomeModal = ({
               </select>
             </div>
 
+            {/* Receipt Type */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Status
+                Receipt Type
               </label>
               <select
-                value={incomeForm.status}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({ ...prev, status: e.target.value }))
-                }
+                value={incomeForm.receiptType}
+                onChange={(e) => handleFieldChange('receiptType', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                required={isEdit}
               >
-                <option value="pending">Pending</option>
-                <option value="collected">Collected</option>
-                <option value="overdue">Overdue</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="none">No Receipt</option>
+                <option value="image">Upload Image</option>
+                <option value="url">Receipt URL</option>
               </select>
             </div>
 
+            {/* Receipt Image Upload */}
+            {incomeForm.receiptType === 'image' && (
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Receipt Image
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      // Convert to base64 for storage
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        handleFieldChange('receiptImage', event.target.result);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+                {incomeForm.receiptImage && (
+                  <div className="mt-2">
+                    <img
+                      src={incomeForm.receiptImage}
+                      alt="Receipt preview"
+                      className="max-w-full h-32 object-contain border rounded"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Receipt URL */}
+            {incomeForm.receiptType === 'url' && (
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  Receipt URL
+                </label>
+                <input
+                  type="url"
+                  value={incomeForm.receiptUrl}
+                  onChange={(e) => handleFieldChange('receiptUrl', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="https://example.com/receipt.pdf"
+                />
+                {incomeForm.receiptUrl && (
+                  <div className="mt-2">
+                    <a
+                      href={incomeForm.receiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 text-sm"
+                    >
+                      View Receipt →
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Category */}
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <select
+                value={incomeForm.categoryId}
+                onChange={(e) => handleFieldChange('categoryId', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              >
+                <option value="">Select Category</option>
+                {incomeCategories.map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Received Date */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Received Date
@@ -4052,106 +4740,57 @@ const IncomeModal = ({
               <input
                 type="date"
                 value={incomeForm.receivedDate}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    receivedDate: e.target.value,
-                  }))
-                }
+                onChange={(e) => handleFieldChange('receivedDate', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                required={isEdit}
               />
             </div>
 
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Due Date
-              </label>
-              <input
-                type="date"
-                value={incomeForm.dueDate}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    dueDate: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                required={isEdit}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Invoice Number
-              </label>
-              <input
-                type="text"
-                value={incomeForm.invoiceNumber}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    invoiceNumber: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="INV-001"
-                required={isEdit}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Payment Reference
-              </label>
-              <input
-                type="text"
-                value={incomeForm.paymentReference}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    paymentReference: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="Transaction ID or reference"
-                required={isEdit}
-              />
-            </div>
-
+            {/* Description */}
             <div className="sm:col-span-2">
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Description
+                Description *
               </label>
               <textarea
                 value={incomeForm.description}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
+                onChange={(e) => handleFieldChange('description', e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Income description..."
+                required
               />
             </div>
 
+            {/* Notes */}
             <div className="sm:col-span-2">
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Notes
+                Notes *
               </label>
               <textarea
                 value={incomeForm.notes}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({ ...prev, notes: e.target.value }))
-                }
+                onChange={(e) => handleFieldChange('notes', e.target.value)}
                 rows={2}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Additional notes..."
+                required
               />
             </div>
           </div>
+
+          {/* Status indicator */}
+          {!isEdit && incomeForm.status === 'collected' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <CheckCircleIcon className="h-5 w-5 text-green-400" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-green-800">
+                    All required fields completed! Status automatically set to "Collected" and amount copied from expected amount.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row sm:justify-end gap-3 p-4 sm:p-6 border-t border-gray-200">
@@ -4164,28 +4803,221 @@ const IncomeModal = ({
           <button
             onClick={onSubmit}
             disabled={
-              isEdit
-                ? !incomeForm.title ||
-                  !incomeForm.amount ||
-                  !incomeForm.expectedAmount ||
-                  !incomeForm.clientName ||
-                  !incomeForm.paymentMethod ||
-                  !incomeForm.status ||
-                  !incomeForm.receivedDate ||
-                  !incomeForm.dueDate ||
-                  !incomeForm.invoiceNumber ||
-                  !incomeForm.paymentReference
-                : !incomeForm.title ||
-                  (!incomeForm.amount && !incomeForm.expectedAmount)
+              loading ||
+              !incomeForm.title ||
+              !incomeForm.expectedAmount ||
+              !incomeForm.dueDate ||
+              !incomeForm.description ||
+              !incomeForm.invoiceNumber ||
+              !incomeForm.paymentReference ||
+              !incomeForm.paymentMethod ||
+              !incomeForm.notes
             }
-            className={`w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2 ${
-              isEdit
+            className={`w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2 flex items-center justify-center gap-2 ${isEdit
                 ? "bg-blue-600 hover:bg-blue-700"
                 : "bg-green-600 hover:bg-green-700"
-            }`}
+              }`}
           >
-            {isEdit ? "Save Changes" : "Add Income"}
+            {loading && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            )}
+            {loading ? "Processing..." : isEdit ? "Save Changes" : "Add Income"}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Collection Modal Component
+const CollectionModal = ({
+  collectionForm,
+  setCollectionForm,
+  onConfirm,
+  onClose,
+  formatCurrency,
+  collectionFormErrors = {},
+  loading = false,
+}) => {
+  const handleFieldChange = (field, value) => {
+    setCollectionForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Confirm Payment Collection
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {/* Payment Info */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 mb-2">{collectionForm.title}</h4>
+              <p className="text-sm text-gray-600">
+                Expected Amount: {formatCurrency(collectionForm.expectedAmount)}
+              </p>
+            </div>
+
+            {/* Actual Amount */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Actual Amount Collected *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={collectionForm.actualAmount}
+                onChange={(e) => handleFieldChange('actualAmount', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.actualAmount ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                placeholder="Enter collected amount"
+                required
+              />
+              {collectionFormErrors.actualAmount && (
+                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.actualAmount}</p>
+              )}
+            </div>
+
+            {/* Collection Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Collection Date *
+              </label>
+              <input
+                type="date"
+                value={collectionForm.collectionDate}
+                onChange={(e) => handleFieldChange('collectionDate', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.collectionDate ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                required
+              />
+              {collectionFormErrors.collectionDate && (
+                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.collectionDate}</p>
+              )}
+            </div>
+
+            {/* Payment Method */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Payment Method *
+              </label>
+              <select
+                value={collectionForm.paymentMethod}
+                onChange={(e) => handleFieldChange('paymentMethod', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.paymentMethod ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                required
+              >
+                <option value="">Select payment method</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="cash">Cash</option>
+                <option value="check">Check</option>
+                <option value="credit_card">Credit Card</option>
+                <option value="mobile_payment">Mobile Payment</option>
+                <option value="other">Other</option>
+              </select>
+              {collectionFormErrors.paymentMethod && (
+                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.paymentMethod}</p>
+              )}
+            </div>
+
+            {/* Payment Reference */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Payment Reference *
+              </label>
+              <input
+                type="text"
+                value={collectionForm.paymentReference}
+                onChange={(e) => handleFieldChange('paymentReference', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.paymentReference ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                placeholder="Transaction ID, check number, etc."
+                required
+              />
+              {collectionFormErrors.paymentReference && (
+                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.paymentReference}</p>
+              )}
+            </div>
+
+            {/* Invoice Number */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Invoice Number *
+              </label>
+              <input
+                type="text"
+                value={collectionForm.invoiceNumber}
+                onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.invoiceNumber ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                placeholder="Invoice number for this payment"
+                required
+              />
+              {collectionFormErrors.invoiceNumber && (
+                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.invoiceNumber}</p>
+              )}
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Collection Notes *
+              </label>
+              <textarea
+                value={collectionForm.notes}
+                onChange={(e) => handleFieldChange('notes', e.target.value)}
+                rows={3}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.notes ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                placeholder="Any additional notes about the collection..."
+                required
+              />
+              {collectionFormErrors.notes && (
+                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.notes}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={loading || !collectionForm.actualAmount || !collectionForm.collectionDate}
+              className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors flex items-center justify-center gap-2 ${loading || !collectionForm.actualAmount || !collectionForm.collectionDate
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700'
+                }`}
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <CheckCircleIcon className="w-4 h-4" />
+              )}
+              {loading ? "Processing..." : "Confirm Collection"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

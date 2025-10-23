@@ -35,17 +35,17 @@ const TaskDependencyManager = ({
 
   const showSuccessAlert = (message) => {
     Swal.fire({
-      icon: 'success',
-      title: 'Success',
-      text: message
+      icon: "success",
+      title: "Success",
+      text: message,
     });
   };
 
   const showErrorAlert = (message) => {
     Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: message
+      icon: "error",
+      title: "Error",
+      text: message,
     });
   };
 
@@ -283,7 +283,7 @@ const TaskDependencyManager = ({
   if (!isOpen || !task) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -371,7 +371,9 @@ const TaskDependencyManager = ({
                 onClick={handleAddDependency}
                 disabled={isAddingDependency || !newDependency}
                 className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
-                  isAddingDependency ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                  isAddingDependency
+                    ? "bg-blue-400"
+                    : "bg-blue-600 hover:bg-blue-700"
                 }`}
               >
                 {isAddingDependency ? (

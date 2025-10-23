@@ -88,10 +88,11 @@ export async function PUT(request, { params }) {
       title,
       description,
       amount,
-      category,
       expenseDate,
       allocationId,
       vendor,
+      receiptType,
+      receiptImage,
       receiptUrl,
       approvedBy,
       status,
@@ -114,31 +115,83 @@ export async function PUT(request, { params }) {
       }
       updateData[`expenses.${expenseIndex}.amount`] = parseFloat(amount);
     }
-    if (category !== undefined)
-      updateData[`expenses.${expenseIndex}.category`] = category;
+
     if (expenseDate !== undefined)
       updateData[`expenses.${expenseIndex}.expenseDate`] = new Date(
         expenseDate
       );
     if (allocationId !== undefined) {
-      // Validate allocation if provided
-      if (allocationId) {
-        const allocation = project.budgetAllocations?.find(
-          (alloc) => alloc._id.toString() === allocationId
+      // Validate allocation (required)
+      if (!allocationId || allocationId.trim().length === 0) {
+        return NextResponse.json(
+          { error: "Budget allocation is required" },
+          { status: 400 }
         );
-        if (!allocation) {
-          return NextResponse.json(
-            { error: "Invalid allocation ID" },
-            { status: 400 }
-          );
-        }
+      }
+      
+      const allocation = project.budgetAllocations?.find(
+        (alloc) => alloc._id.toString() === allocationId
+      );
+      if (!allocation) {
+        return NextResponse.json(
+          { error: "Invalid allocation ID" },
+          { status: 400 }
+        );
       }
       updateData[`expenses.${expenseIndex}.allocationId`] = allocationId;
     }
-    if (vendor !== undefined)
-      updateData[`expenses.${expenseIndex}.vendor`] = vendor;
-    if (receiptUrl !== undefined)
-      updateData[`expenses.${expenseIndex}.receiptUrl`] = receiptUrl;
+    if (vendor !== undefined) {
+      // Validate vendor if provided
+      if (vendor && vendor.trim().length > 0) {
+        if (vendor.trim().length < 2) {
+          return NextResponse.json(
+            { error: "Vendor name must be at least 2 characters long" },
+            { status: 400 }
+          );
+        }
+        updateData[`expenses.${expenseIndex}.vendor`] = vendor.trim();
+      } else {
+        return NextResponse.json(
+          { error: "Vendor name is required" },
+          { status: 400 }
+        );
+      }
+    }
+    // Handle receipt type and related fields
+    if (receiptType !== undefined) {
+      updateData[`expenses.${expenseIndex}.receiptType`] = receiptType;
+      
+      // Validate based on receipt type
+      if (receiptType === "url") {
+        if (!receiptUrl || receiptUrl.trim().length === 0) {
+          return NextResponse.json(
+            { error: "Receipt URL is required when receipt type is URL" },
+            { status: 400 }
+          );
+        }
+        updateData[`expenses.${expenseIndex}.receiptUrl`] = receiptUrl.trim();
+        updateData[`expenses.${expenseIndex}.receiptImage`] = null;
+      } else if (receiptType === "image") {
+        if (!receiptImage) {
+          return NextResponse.json(
+            { error: "Receipt image is required when receipt type is Image" },
+            { status: 400 }
+          );
+        }
+        updateData[`expenses.${expenseIndex}.receiptImage`] = receiptImage;
+        updateData[`expenses.${expenseIndex}.receiptUrl`] = "";
+      } else {
+        // receiptType is "none"
+        updateData[`expenses.${expenseIndex}.receiptUrl`] = "";
+        updateData[`expenses.${expenseIndex}.receiptImage`] = null;
+      }
+    } else if (receiptUrl !== undefined) {
+      // Legacy support: if only receiptUrl is provided without receiptType
+      updateData[`expenses.${expenseIndex}.receiptUrl`] = receiptUrl.trim();
+    } else if (receiptImage !== undefined) {
+      // Legacy support: if only receiptImage is provided without receiptType
+      updateData[`expenses.${expenseIndex}.receiptImage`] = receiptImage;
+    }
     if (approvedBy !== undefined)
       updateData[`expenses.${expenseIndex}.approvedBy`] = approvedBy;
     if (status !== undefined)

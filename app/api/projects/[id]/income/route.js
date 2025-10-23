@@ -3,6 +3,105 @@ import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
 
+// Function to check and update overdue payments
+async function checkAndUpdateOverduePayments(db, projectId) {
+  try {
+    const project = await db.collection("projects").findOne({
+      _id: new ObjectId(projectId),
+    });
+
+    if (!project || !project.income) {
+      return { updated: 0, overduePayments: [] };
+    }
+
+    const currentDate = new Date();
+    let hasUpdates = false;
+    const overduePayments = [];
+
+    // Check each income record for overdue status
+    const updatedIncome = project.income.map((income) => {
+      // Skip if already collected or no due date
+      if (income.status === "collected" || !income.dueDate) {
+        return income;
+      }
+
+      const dueDate = new Date(income.dueDate);
+      const isOverdue = dueDate < currentDate;
+
+      // If payment is overdue and not already marked as overdue
+      if (isOverdue && income.status !== "overdue") {
+        hasUpdates = true;
+        const daysPastDue = Math.ceil(
+          (currentDate - dueDate) / (1000 * 60 * 60 * 24)
+        );
+
+        const updatedIncome = {
+          ...income,
+          status: "overdue",
+          isOverdue: true,
+          daysPastDue: daysPastDue,
+          uncollectedAmount: income.expectedAmount || income.amount || 0,
+          riskLevel: daysPastDue > 30 ? "high" : "medium",
+          updatedAt: currentDate,
+        };
+
+        overduePayments.push(updatedIncome);
+        return updatedIncome;
+      }
+
+      // Update existing overdue payments with current days past due
+      if (isOverdue && income.status === "overdue") {
+        const daysPastDue = Math.ceil(
+          (currentDate - dueDate) / (1000 * 60 * 60 * 24)
+        );
+        const updatedIncome = {
+          ...income,
+          daysPastDue: daysPastDue,
+          riskLevel: daysPastDue > 30 ? "high" : "medium",
+          updatedAt: currentDate,
+        };
+        overduePayments.push(updatedIncome);
+        return updatedIncome;
+      }
+
+      return income;
+    });
+
+    // Update the project if there are changes
+    if (hasUpdates) {
+      await db.collection("projects").updateOne(
+        { _id: new ObjectId(projectId) },
+        {
+          $set: {
+            income: updatedIncome,
+            updatedAt: currentDate,
+          },
+        }
+      );
+
+      // Create audit log for overdue updates
+      await createAuditLog(db, "income_overdue_update", "system", projectId, {
+        overdueCount: overduePayments.filter((p) => p.status === "overdue")
+          .length,
+        totalOverdueAmount: overduePayments.reduce(
+          (sum, p) => sum + (p.uncollectedAmount || 0),
+          0
+        ),
+      });
+    }
+
+    return {
+      updated: hasUpdates
+        ? overduePayments.filter((p) => p.status === "overdue").length
+        : 0,
+      overduePayments: overduePayments,
+    };
+  } catch (error) {
+    console.error("Error checking overdue payments:", error);
+    return { updated: 0, overduePayments: [] };
+  }
+}
+
 // Get project income/payments
 export async function GET(request, { params }) {
   try {
@@ -33,6 +132,14 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
+    // Check and update overdue payments before fetching data
+    await checkAndUpdateOverduePayments(db, id);
+
+    // Fetch updated project data
+    const updatedProject = await db.collection("projects").findOne({
+      _id: new ObjectId(id),
+    });
+
     // Build filter for income
     let incomeFilter = {};
     if (status) incomeFilter.status = status;
@@ -43,8 +150,8 @@ export async function GET(request, { params }) {
       if (endDate) incomeFilter.receivedDate.$lte = new Date(endDate);
     }
 
-    // Filter income from the project
-    let income = project.income || [];
+    // Filter income from the updated project
+    let income = updatedProject.income || [];
 
     // Apply filters
     if (Object.keys(incomeFilter).length > 0) {
@@ -158,11 +265,14 @@ export async function POST(request, { params }) {
       receivedDate,
       dueDate,
       paymentMethod,
-      clientName,
       invoiceNumber,
       status = "pending",
       paymentReference,
       notes,
+      receiptType = "none",
+      receiptImage,
+      receiptUrl,
+      categoryId,
     } = data;
 
     // Validation: allow creating records with expectedAmount first (amount optional)
@@ -220,12 +330,14 @@ export async function POST(request, { params }) {
           : null,
       dueDate: dueDate ? new Date(dueDate) : null,
       paymentMethod: paymentMethod || "bank_transfer",
-      clientName: clientName || "",
-
       invoiceNumber: invoiceNumber || "",
+      receiptType: receiptType || "none",
+      receiptImage: receiptImage || "",
+      receiptUrl: receiptUrl || "",
       status: paymentStatus,
       paymentReference: paymentReference || "",
       notes: notes || "",
+      categoryId: categoryId || null,
       // Enhanced tracking
       isOverdue: dueDate
         ? new Date(dueDate) < new Date() && paymentStatus !== "collected"
@@ -286,8 +398,8 @@ export async function POST(request, { params }) {
         projectName: existingProject.name,
         incomeTitle: title,
         amount,
-        clientName,
         status,
+        receiptType,
       },
     });
 
@@ -306,6 +418,52 @@ export async function POST(request, { params }) {
 }
 
 // Update project income (bulk operations)
+// Manual overdue payment check endpoint
+export async function PATCH(request, { params }) {
+  try {
+    const db = await getDb();
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get("action");
+
+    // Validate ObjectId
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { error: "Invalid project ID" },
+        { status: 400 }
+      );
+    }
+
+    if (action === "check-overdue") {
+      const result = await checkAndUpdateOverduePayments(db, id);
+
+      return NextResponse.json({
+        success: true,
+        message: `Updated ${result.updated} overdue payments`,
+        overduePayments: result.overduePayments,
+        summary: {
+          totalOverdue: result.overduePayments.length,
+          totalOverdueAmount: result.overduePayments.reduce(
+            (sum, p) => sum + (p.uncollectedAmount || 0),
+            0
+          ),
+        },
+      });
+    }
+
+    return NextResponse.json(
+      { error: "Invalid action. Use ?action=check-overdue" },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error("Error in manual overdue check:", error);
+    return NextResponse.json(
+      { error: "Failed to check overdue payments" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(request, { params }) {
   try {
     const db = await getDb();

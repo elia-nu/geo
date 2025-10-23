@@ -103,12 +103,14 @@ export const showConfirmDialog = (
   });
 };
 
-export const showDeleteConfirmDialog = (
-  title = "Delete Item",
-  text = "Are you sure you want to delete this item? This action cannot be undone.",
-  confirmButtonText = "Yes, delete it!",
-  cancelButtonText = "Cancel"
-) => {
+export const showDeleteConfirmDialog = (options = {}) => {
+  const {
+    title = "Delete Item",
+    text = "Are you sure you want to delete this item? This action cannot be undone.",
+    confirmButtonText = "Yes, delete it!",
+    cancelButtonText = "Cancel"
+  } = options;
+
   return Swal.fire({
     title: title,
     text: text,
@@ -285,6 +287,37 @@ export const projectToasts = {
       message || "Failed to process expense request"
     ),
 
+  // Income related
+  incomeAdded: () =>
+    showSuccessToast("Income Added!", "Income has been added successfully"),
+  incomeUpdated: () =>
+    showSuccessToast(
+      "Income Updated!",
+      "Income has been updated successfully"
+    ),
+  incomeDeleted: () =>
+    showSuccessToast(
+      "Income Deleted!",
+      "Income has been deleted successfully"
+    ),
+  incomeError: (message) =>
+    showErrorToast(
+      "Income Error",
+      message || "Failed to process income request"
+    ),
+
+  // Collection related
+  collectionConfirmed: () =>
+    showSuccessToast(
+      "Collection Confirmed!",
+      "Income collection has been confirmed successfully"
+    ),
+  collectionError: (message) =>
+    showErrorToast(
+      "Collection Error",
+      message || "Failed to process collection request"
+    ),
+
   // Allocation related
   allocationAdded: () =>
     showSuccessToast(
@@ -385,11 +418,82 @@ export const projectToasts = {
     showErrorToast("Team Error", message || "Failed to process team request"),
 };
 
+// Custom error dialog for budget allocation conflicts
+export const showBudgetAllocationError = (milestoneTitle, allocations) => {
+  const allocationsHtml = allocations
+    .map(
+      (alloc) => `
+      <div style="
+        background: #f8f9fa; 
+        border-left: 4px solid #dc3545; 
+        padding: 12px; 
+        margin: 8px 0; 
+        border-radius: 4px;
+        text-align: left;
+      ">
+        <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">
+          ${alloc.name || 'Unnamed Allocation'}
+        </div>
+        <div style="color: #6c757d; font-size: 14px;">
+          Amount: <span style="font-weight: 500; color: #28a745;">$${alloc.amount?.toLocaleString() || '0'}</span>
+        </div>
+      </div>
+    `
+    )
+    .join("");
+
+  return Swal.fire({
+    icon: "error",
+    title: "Cannot Delete Milestone",
+    html: `
+      <div style="text-align: left; margin: 20px 0;">
+        <p style="margin-bottom: 16px; color: #495057; font-size: 16px;">
+          The milestone <strong>"${milestoneTitle}"</strong> cannot be deleted because it has budget allocations tied to it.
+        </p>
+        
+        <div style="margin: 20px 0;">
+          <h4 style="color: #dc3545; margin-bottom: 12px; font-size: 16px;">
+            📊 Active Budget Allocations:
+          </h4>
+          ${allocationsHtml}
+        </div>
+        
+        <div style="
+          background: #e3f2fd; 
+          border: 1px solid #2196f3; 
+          border-radius: 8px; 
+          padding: 16px; 
+          margin-top: 20px;
+        ">
+          <div style="color: #1976d2; font-weight: 600; margin-bottom: 8px;">
+            💡 What you need to do:
+          </div>
+          <ol style="margin: 0; padding-left: 20px; color: #424242;">
+            <li style="margin-bottom: 8px;">Go to the <strong>Budget Management</strong> section</li>
+            <li style="margin-bottom: 8px;">Remove or reassign these budget allocations</li>
+            <li>Then try deleting the milestone again</li>
+          </ol>
+        </div>
+      </div>
+    `,
+    confirmButtonText: "Go to Budget Management",
+    showCancelButton: true,
+    cancelButtonText: "Cancel",
+    confirmButtonColor: "#2196f3",
+    cancelButtonColor: "#6c757d",
+    width: "600px",
+    customClass: {
+      popup: "budget-error-popup",
+      htmlContainer: "budget-error-content"
+    }
+  });
+};
+
 // Validation error messages
 export const validationMessages = {
-  required: (field) => `${field} is required`,
-  minLength: (field, length) => `${field} must be at least ${length} characters`,
-  maxLength: (field, length) => `${field} must not exceed ${length} characters`,
+  required: "This field is required",
+  minLength: (min) => `Minimum ${min} characters required`,
+  maxLength: (max) => `Maximum ${max} characters allowed`,
   invalidEmail: "Please enter a valid email address",
   invalidDate: "Please enter a valid date",
   invalidNumber: "Please enter a valid number",

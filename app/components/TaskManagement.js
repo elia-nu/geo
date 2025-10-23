@@ -28,9 +28,11 @@ import {
 import TaskCommunicationPanel from "./TaskCommunicationPanel";
 import TaskAssignmentManager from "./TaskAssignmentManager";
 import TaskMonitoringDashboard from "./TaskMonitoringDashboard";
+import CollapsibleDashboard from "./CollapsibleDashboard";
 import SubtaskManager from "./SubtaskManager";
 import TaskDependencyManager from "./TaskDependencyManager";
 import Link from "next/link";
+import { BarChart3 } from "lucide-react";
 
 const TaskManagement = ({ projectId, milestoneId = null }) => {
   const [tasks, setTasks] = useState([]);
@@ -77,7 +79,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
   // New dialog states
   const [showAssignmentManager, setShowAssignmentManager] = useState(false);
-  const [showMonitoringDashboard, setShowMonitoringDashboard] = useState(false);
+
   const [showSubtaskManager, setShowSubtaskManager] = useState(false);
   const [showDependencyManager, setShowDependencyManager] = useState(false);
 
@@ -811,25 +813,31 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
             </div>
           )}
         </div>
-        <button
-          onClick={() => setShowCreateDialog(true)}
-          disabled={!projectId && !selectedProjectId}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            !projectId && !selectedProjectId
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-gray-900 text-white hover:bg-gray-800"
-          }`}
-        >
-          <AddIcon />
-          Create Task
-        </button>
-        <button
-          onClick={() => setShowMonitoringDashboard(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-        >
-          <TimelineIcon fontSize="small" />
-          Monitoring Dashboard
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Dashboard Link */}
+          {(projectId || selectedProjectId) && (
+            <Link
+              href={`/task-monitoring?projectId=${projectId || selectedProjectId}`}
+              className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Dashboard
+            </Link>
+          )}
+          <button
+            onClick={() => setShowCreateDialog(true)}
+            disabled={!projectId && !selectedProjectId}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              !projectId && !selectedProjectId
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gray-900 text-white hover:bg-gray-800"
+            }`}
+          >
+            <AddIcon />
+            Create Task
+          </button>
+        </div>
+
       </div>
 
       {/* Filters and Search */}
@@ -889,6 +897,17 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
           {error}
         </div>
+      )}
+
+      {/* Collapsible Task Monitoring Dashboard */}
+      {(projectId || selectedProjectId) && (
+        <CollapsibleDashboard
+          projectId={projectId || selectedProjectId}
+          tasks={tasks}
+          employees={employees}
+          teams={[]} // TODO: Add teams data
+          onRefresh={fetchTasks}
+        />
       )}
 
       {/* Tasks Grid */}
@@ -1150,13 +1169,6 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
           </p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => setShowMonitoringDashboard(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-            >
-              <TimelineIcon fontSize="small" />
-              Monitoring Dashboard
-            </button>
-            <button
               onClick={() => setShowCreateDialog(true)}
               className="px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
             >
@@ -1165,6 +1177,8 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
           </div>
         </div>
       )}
+
+
 
       {/* Create/Edit Task Dialog */}
       {(showCreateDialog || showEditDialog) && (
@@ -1945,18 +1959,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         />
       )}
 
-      {/* Task Monitoring Dashboard */}
-      {showMonitoringDashboard && (
-        <div className=" pt-10">
-          <TaskMonitoringDashboard
-            projectId={selectedProjectId}
-            tasks={tasks}
-            employees={employees}
-            teams={[]} // TODO: Add teams data
-            onRefresh={fetchTasks}
-          />
-        </div>
-      )}
+
 
       {/* Subtask Manager */}
       {showSubtaskManager && (

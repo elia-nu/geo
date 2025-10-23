@@ -94,8 +94,7 @@ export async function PUT(request, { params }) {
       receivedDate,
       dueDate,
       paymentMethod,
-      clientName,
-      clientEmail,
+      categoryId,
       invoiceNumber,
       status,
       paymentReference,
@@ -128,10 +127,8 @@ export async function PUT(request, { params }) {
         : null;
     if (paymentMethod !== undefined)
       updateData[`income.${incomeIndex}.paymentMethod`] = paymentMethod;
-    if (clientName !== undefined)
-      updateData[`income.${incomeIndex}.clientName`] = clientName;
-    if (clientEmail !== undefined)
-      updateData[`income.${incomeIndex}.clientEmail`] = clientEmail;
+    if (categoryId !== undefined)
+      updateData[`income.${incomeIndex}.categoryId`] = categoryId;
     if (invoiceNumber !== undefined)
       updateData[`income.${incomeIndex}.invoiceNumber`] = invoiceNumber;
     if (status !== undefined)

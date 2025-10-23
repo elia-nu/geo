@@ -69,10 +69,11 @@ const SubtaskManager = ({
     if (!task || !task.assignedTo || !Array.isArray(task.assignedTo)) {
       return [];
     }
-    
-    return employees.filter(employee => 
-      task.assignedTo.some(assignedEmp => 
-        assignedEmp._id === employee._id || assignedEmp === employee._id
+
+    return employees.filter((employee) =>
+      task.assignedTo.some(
+        (assignedEmp) =>
+          assignedEmp._id === employee._id || assignedEmp === employee._id
       )
     );
   };
@@ -109,17 +110,22 @@ const SubtaskManager = ({
     } else {
       // Check if assigned employee is part of the parent task's assigned employees
       if (task && task.assignedTo && Array.isArray(task.assignedTo)) {
-        const isAssignedToTask = task.assignedTo.some(emp => 
-          emp._id === formData.assignedTo || emp === formData.assignedTo
+        const isAssignedToTask = task.assignedTo.some(
+          (emp) =>
+            emp._id === formData.assignedTo || emp === formData.assignedTo
         );
         if (!isAssignedToTask) {
-          errors.assignedTo = "Subtask can only be assigned to employees who are assigned to the parent task";
+          errors.assignedTo =
+            "Subtask can only be assigned to employees who are assigned to the parent task";
         }
       }
     }
 
     // Priority validation
-    if (!formData.priority || !["low", "medium", "high", "critical"].includes(formData.priority)) {
+    if (
+      !formData.priority ||
+      !["low", "medium", "high", "critical"].includes(formData.priority)
+    ) {
       errors.priority = "Please select a valid priority level";
     }
 
@@ -205,12 +211,16 @@ const SubtaskManager = ({
     }
 
     // Estimated hours validation
-    if (formData.estimatedHours !== undefined && formData.estimatedHours !== null) {
+    if (
+      formData.estimatedHours !== undefined &&
+      formData.estimatedHours !== null
+    ) {
       const hours = parseFloat(formData.estimatedHours);
       if (isNaN(hours) || hours < 0) {
         errors.estimatedHours = "Estimated hours must be a positive number";
       } else if (hours > 100) {
-        errors.estimatedHours = "Estimated hours cannot exceed 100 hours for a subtask";
+        errors.estimatedHours =
+          "Estimated hours cannot exceed 100 hours for a subtask";
       }
     }
 
@@ -224,7 +234,7 @@ const SubtaskManager = ({
 
   // Helper function to display validation errors
   const showValidationErrors = (errors) => {
-    const errorMessages = Object.values(errors).join('\n');
+    const errorMessages = Object.values(errors).join("\n");
     setError(errorMessages);
   };
 
@@ -359,7 +369,7 @@ const SubtaskManager = ({
       "Are you sure you want to delete this subtask? This action cannot be undone.",
       "Yes, delete it!"
     );
-    
+
     if (!result.isConfirmed) return;
 
     try {
@@ -511,7 +521,7 @@ const SubtaskManager = ({
   if (!isOpen || !task) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -598,7 +608,9 @@ const SubtaskManager = ({
                     placeholder="Enter subtask title"
                   />
                   {validationErrors.title && (
-                    <p className="text-xs text-red-600 mt-1">{validationErrors.title}</p>
+                    <p className="text-xs text-red-600 mt-1">
+                      {validationErrors.title}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -622,7 +634,9 @@ const SubtaskManager = ({
                     <option value="critical">Critical</option>
                   </select>
                   {validationErrors.priority && (
-                    <p className="text-xs text-red-600 mt-1">{validationErrors.priority}</p>
+                    <p className="text-xs text-red-600 mt-1">
+                      {validationErrors.priority}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -650,7 +664,9 @@ const SubtaskManager = ({
                     ))}
                   </select>
                   {validationErrors.assignedTo && (
-                    <p className="text-xs text-red-600 mt-1">{validationErrors.assignedTo}</p>
+                    <p className="text-xs text-red-600 mt-1">
+                      {validationErrors.assignedTo}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -674,7 +690,9 @@ const SubtaskManager = ({
                     min="0"
                   />
                   {validationErrors.estimatedHours && (
-                    <p className="text-xs text-red-600 mt-1">{validationErrors.estimatedHours}</p>
+                    <p className="text-xs text-red-600 mt-1">
+                      {validationErrors.estimatedHours}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -694,7 +712,9 @@ const SubtaskManager = ({
                     }`}
                   />
                   {validationErrors.startDate && (
-                    <p className="text-xs text-red-600 mt-1">{validationErrors.startDate}</p>
+                    <p className="text-xs text-red-600 mt-1">
+                      {validationErrors.startDate}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -714,7 +734,9 @@ const SubtaskManager = ({
                     }`}
                   />
                   {validationErrors.dueDate && (
-                    <p className="text-xs text-red-600 mt-1">{validationErrors.dueDate}</p>
+                    <p className="text-xs text-red-600 mt-1">
+                      {validationErrors.dueDate}
+                    </p>
                   )}
                 </div>
               </div>
@@ -736,7 +758,9 @@ const SubtaskManager = ({
                   placeholder="Enter subtask description"
                 />
                 {validationErrors.description && (
-                  <p className="text-xs text-red-600 mt-1">{validationErrors.description}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {validationErrors.description}
+                  </p>
                 )}
               </div>
               <div className="flex justify-end gap-3 mt-6">
@@ -761,7 +785,9 @@ const SubtaskManager = ({
                   onClick={handleAddSubtask}
                   disabled={isCreatingSubtask}
                   className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
-                    isCreatingSubtask ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                    isCreatingSubtask
+                      ? "bg-blue-400"
+                      : "bg-blue-600 hover:bg-blue-700"
                   }`}
                 >
                   {isCreatingSubtask && (
@@ -831,7 +857,9 @@ const SubtaskManager = ({
                             placeholder="Enter subtask title"
                           />
                           {validationErrors.title && (
-                            <p className="text-xs text-red-600 mt-1">{validationErrors.title}</p>
+                            <p className="text-xs text-red-600 mt-1">
+                              {validationErrors.title}
+                            </p>
                           )}
                         </div>
                         <div>
@@ -858,7 +886,9 @@ const SubtaskManager = ({
                             <option value="critical">Critical</option>
                           </select>
                           {validationErrors.priority && (
-                            <p className="text-xs text-red-600 mt-1">{validationErrors.priority}</p>
+                            <p className="text-xs text-red-600 mt-1">
+                              {validationErrors.priority}
+                            </p>
                           )}
                         </div>
                         <div>
@@ -889,7 +919,9 @@ const SubtaskManager = ({
                             ))}
                           </select>
                           {validationErrors.assignedTo && (
-                            <p className="text-xs text-red-600 mt-1">{validationErrors.assignedTo}</p>
+                            <p className="text-xs text-red-600 mt-1">
+                              {validationErrors.assignedTo}
+                            </p>
                           )}
                         </div>
                         <div>
@@ -913,7 +945,9 @@ const SubtaskManager = ({
                             min="0"
                           />
                           {validationErrors.estimatedHours && (
-                            <p className="text-xs text-red-600 mt-1">{validationErrors.estimatedHours}</p>
+                            <p className="text-xs text-red-600 mt-1">
+                              {validationErrors.estimatedHours}
+                            </p>
                           )}
                         </div>
                         <div>
@@ -936,7 +970,9 @@ const SubtaskManager = ({
                             }`}
                           />
                           {validationErrors.startDate && (
-                            <p className="text-xs text-red-600 mt-1">{validationErrors.startDate}</p>
+                            <p className="text-xs text-red-600 mt-1">
+                              {validationErrors.startDate}
+                            </p>
                           )}
                         </div>
                         <div>
@@ -959,7 +995,9 @@ const SubtaskManager = ({
                             }`}
                           />
                           {validationErrors.dueDate && (
-                            <p className="text-xs text-red-600 mt-1">{validationErrors.dueDate}</p>
+                            <p className="text-xs text-red-600 mt-1">
+                              {validationErrors.dueDate}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -984,7 +1022,9 @@ const SubtaskManager = ({
                           placeholder="Enter subtask description"
                         />
                         {validationErrors.description && (
-                          <p className="text-xs text-red-600 mt-1">{validationErrors.description}</p>
+                          <p className="text-xs text-red-600 mt-1">
+                            {validationErrors.description}
+                          </p>
                         )}
                       </div>
                       <div className="flex justify-end gap-3">
@@ -998,15 +1038,22 @@ const SubtaskManager = ({
                         </button>
                         <button
                           onClick={() => handleSaveEdit(subtask._id)}
-                          disabled={isUpdatingSubtask === subtask._id || !editData.title.trim()}
+                          disabled={
+                            isUpdatingSubtask === subtask._id ||
+                            !editData.title.trim()
+                          }
                           className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
-                            isUpdatingSubtask === subtask._id ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                            isUpdatingSubtask === subtask._id
+                              ? "bg-blue-400"
+                              : "bg-blue-600 hover:bg-blue-700"
                           }`}
                         >
                           {isUpdatingSubtask === subtask._id && (
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                           )}
-                          {isUpdatingSubtask === subtask._id ? "Saving..." : "Save"}
+                          {isUpdatingSubtask === subtask._id
+                            ? "Saving..."
+                            : "Save"}
                         </button>
                       </div>
                     </div>

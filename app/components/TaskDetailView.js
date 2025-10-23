@@ -267,7 +267,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
   if (!isOpen || !task) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden flex">
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
@@ -675,7 +675,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
 
       {/* Time Entry Dialog */}
       {showTimeDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">Log Time Entry</h3>
             <div className="space-y-4">

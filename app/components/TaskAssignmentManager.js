@@ -68,25 +68,25 @@ const TaskAssignmentManager = ({
         setAssignedTo([...assignedTo, newAssignee]);
         setNewAssignee("");
         Swal.fire({
-          icon: 'success',
-          title: 'Success',
-          text: 'Assignee added successfully'
+          icon: "success",
+          title: "Success",
+          text: "Assignee added successfully",
         });
         if (onUpdate) onUpdate();
       } else {
         const msg = data.error || "Failed to add assignee";
         Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: msg
+          icon: "error",
+          title: "Error",
+          text: msg,
         });
       }
     } catch (err) {
       const msg = "Error adding assignee: " + err.message;
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: msg
+        icon: "error",
+        title: "Error",
+        text: msg,
       });
     } finally {
       setLoading(false);
@@ -111,25 +111,25 @@ const TaskAssignmentManager = ({
       if (data.success) {
         setAssignedTo(assignedTo.filter((id) => id !== assigneeId));
         Swal.fire({
-          icon: 'success',
-          title: 'Success',
-          text: 'Assignee removed successfully'
+          icon: "success",
+          title: "Success",
+          text: "Assignee removed successfully",
         });
         if (onUpdate) onUpdate();
       } else {
         const msg = data.error || "Failed to remove assignee";
         Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: msg
+          icon: "error",
+          title: "Error",
+          text: msg,
         });
       }
     } catch (err) {
       const msg = "Error removing assignee: " + err.message;
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: msg
+        icon: "error",
+        title: "Error",
+        text: msg,
       });
     } finally {
       setLoading(false);
@@ -158,25 +158,25 @@ const TaskAssignmentManager = ({
         setAssignedTeams([...assignedTeams, newTeam]);
         setNewTeam("");
         Swal.fire({
-          icon: 'success',
-          title: 'Success',
-          text: 'Team assigned successfully'
+          icon: "success",
+          title: "Success",
+          text: "Team assigned successfully",
         });
         if (onUpdate) onUpdate();
       } else {
         const msg = data.error || "Failed to assign team";
         Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: msg
+          icon: "error",
+          title: "Error",
+          text: msg,
         });
       }
     } catch (err) {
       const msg = "Error assigning team: " + err.message;
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: msg
+        icon: "error",
+        title: "Error",
+        text: msg,
       });
     } finally {
       setLoading(false);
@@ -201,25 +201,25 @@ const TaskAssignmentManager = ({
       if (data.success) {
         setAssignedTeams(assignedTeams.filter((id) => id !== teamId));
         Swal.fire({
-          icon: 'success',
-          title: 'Success',
-          text: 'Team removed successfully'
+          icon: "success",
+          title: "Success",
+          text: "Team removed successfully",
         });
         if (onUpdate) onUpdate();
       } else {
         const msg = data.error || "Failed to remove team";
         Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: msg
+          icon: "error",
+          title: "Error",
+          text: msg,
         });
       }
     } catch (err) {
       const msg = "Error removing team: " + err.message;
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: msg
+        icon: "error",
+        title: "Error",
+        text: msg,
       });
     } finally {
       setLoading(false);
@@ -270,7 +270,7 @@ const TaskAssignmentManager = ({
   if (!isOpen || !task) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
