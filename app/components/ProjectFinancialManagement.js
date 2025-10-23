@@ -1582,6 +1582,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           expenseFormErrors={expenseFormErrors}
           handleExpenseFormChange={handleExpenseFormChange}
           budgetData={budgetData}
+          budgetAllocationCategories={budgetAllocationCategories}
           onSubmit={editingExpenseId ? handleEditExpense : handleAddExpense}
           setShowExpenseModal={setShowExpenseModal}
           setEditingExpenseId={setEditingExpenseId}
@@ -1601,6 +1602,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             setShowIncomeModal(false);
             setEditingIncomeId(null);
           }}
+          incomeCategories={incomeCategories}
           isEdit={!!editingIncomeId}
           incomeCategories={incomeCategories}
           loading={incomeLoading}
@@ -4083,6 +4085,7 @@ const ExpenseModal = ({
   expenseFormErrors,
   handleExpenseFormChange,
   budgetData,
+  budgetAllocationCategories,
   onSubmit,
   setShowExpenseModal,
   setEditingExpenseId,
@@ -4449,6 +4452,7 @@ const ExpenseModal = ({
 const IncomeModal = ({
   incomeForm,
   setIncomeForm,
+  incomeCategories,
   onSubmit,
   onClose,
   isEdit,
