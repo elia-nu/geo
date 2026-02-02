@@ -964,6 +964,7 @@ export default function DailyAttendance({
               !todayRecord?.checkInTime ||
               !!todayRecord?.lunchOutTime ||
               !!todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
             }
             className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
@@ -971,6 +972,7 @@ export default function DailyAttendance({
               !todayRecord?.checkInTime ||
               !!todayRecord?.lunchOutTime ||
               !!todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-800"
@@ -981,7 +983,13 @@ export default function DailyAttendance({
             ) : (
               <>
                 <Timer className="w-5 h-5" />
-                <span>Lunch Out</span>
+                <span>
+                  {!isCameraActive
+                    ? "Enable Camera First"
+                    : !locationValidation?.isValid
+                    ? "Location Not Valid"
+                    : "Lunch Out"}
+                </span>
               </>
             )}
           </button>
@@ -995,6 +1003,7 @@ export default function DailyAttendance({
               !todayRecord?.lunchOutTime ||
               !!todayRecord?.lunchInTime ||
               !!todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
             }
             className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
@@ -1003,6 +1012,7 @@ export default function DailyAttendance({
               !todayRecord?.lunchOutTime ||
               !!todayRecord?.lunchInTime ||
               !!todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-amber-600 hover:bg-amber-700 active:bg-amber-800"
@@ -1013,7 +1023,13 @@ export default function DailyAttendance({
             ) : (
               <>
                 <Timer className="w-5 h-5" />
-                <span>Lunch In</span>
+                <span>
+                  {!isCameraActive
+                    ? "Enable Camera First"
+                    : !locationValidation?.isValid
+                    ? "Location Not Valid"
+                    : "Lunch In"}
+                </span>
               </>
             )}
           </button>
@@ -1025,14 +1041,15 @@ export default function DailyAttendance({
               loadingAction !== null ||
               !todayRecord?.checkInTime ||
               todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
             }
             className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
               loadingAction !== null ||
               !todayRecord?.checkInTime ||
+              todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
-                ? "bg-gray-400 cursor-not-allowed"
-                : todayRecord?.checkOutTime
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-red-600 hover:bg-red-700 active:bg-red-800"
             }`}
@@ -1042,7 +1059,15 @@ export default function DailyAttendance({
             ) : (
               <>
                 <XCircle className="w-5 h-5" />
-                <span>Check Out</span>
+                <span>
+                  {todayRecord?.checkOutTime
+                    ? "Already Checked Out"
+                    : !isCameraActive
+                    ? "Enable Camera First"
+                    : !locationValidation?.isValid
+                    ? "Location Not Valid"
+                    : "Check Out"}
+                </span>
               </>
             )}
           </button>

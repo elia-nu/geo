@@ -62,11 +62,19 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Add updated timestamp
+    // Prepare update data - merge personalDetails to preserve existing fields
     const updateData = {
       ...body,
       updatedAt: new Date(),
     };
+
+    // If personalDetails is being updated, merge it with existing data to preserve other fields
+    if (body.personalDetails) {
+      updateData.personalDetails = {
+        ...(currentEmployee.personalDetails || {}),
+        ...body.personalDetails,
+      };
+    }
 
     const result = await db
       .collection("employees")

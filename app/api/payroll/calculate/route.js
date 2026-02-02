@@ -87,7 +87,11 @@ export async function POST(request) {
     // Compute working days for the selected month using LOCAL dates and integrated holiday check
     const startLocalForCount = new Date(targetYear, targetMonth - 1, 1);
     const endLocalForCount = new Date(targetYear, targetMonth, 0);
-    let totalWorkingDays = 0;
+    let totalWorkingDays = 0; // working days in the full month
+    let workingDaysSoFar = 0; // working days from the 1st up to (and including) today
+    const todayLocalForCount = new Date();
+    todayLocalForCount.setHours(0, 0, 0, 0);
+
     for (
       let t = startLocalForCount.getTime();
       t <= endLocalForCount.getTime();
@@ -99,7 +103,13 @@ export async function POST(request) {
       const hol = isHoliday(dLocal);
       const isHol =
         hol === true || (hol && (hol.isHoliday || hol.name || hol.type));
-      if (isWeekday && !isHol) totalWorkingDays += 1;
+
+      if (isWeekday && !isHol) {
+        totalWorkingDays += 1;
+        if (dLocal <= todayLocalForCount) {
+          workingDaysSoFar += 1;
+        }
+      }
     }
     const totalDaysInMonth = endDate.getUTCDate();
     try {
@@ -169,10 +179,13 @@ export async function POST(request) {
           summary: {
             totalEmployees: 0,
             totalGross: 0,
+            totalSalary: 0,
             totalEmployeePension: 0,
             totalEmployerPension: 0,
             totalIncomeTax: 0,
             totalTransportAllowance: 0,
+            totalTelephoneAllowance: 0,
+            totalPosAllowance: 0,
             totalNet: 0,
           },
           period: { month: targetMonth, year: targetYear },
@@ -267,7 +280,15 @@ export async function POST(request) {
       const grossSalary = parseFloat(
         employee.grossSalary || employee.baseSalary || 0
       );
-      const transportAllowance = parseFloat(employee.transportAllowance || 0);
+      const transportAllowance = parseFloat(
+        employee.transportAllowance ?? employee.personalDetails?.transportAllowance ?? 0
+      );
+      const telephoneAllowance = parseFloat(
+        employee.telephoneAllowance ?? employee.personalDetails?.telephoneAllowance ?? 0
+      );
+      const posAllowance = parseFloat(
+        employee.posAllowance ?? employee.personalDetails?.posAllowance ?? 0
+      );
 
       // Compute deduction days based on pending/denied leave with no attendance
       let deductionDays = 0;
@@ -384,20 +405,26 @@ export async function POST(request) {
         }
       }
 
-      // Apply deduction from gross based on working day rate
-      const dailyRate =
-        totalWorkingDays > 0 ? grossSalary / totalWorkingDays : 0;
-      const deductionAmount = dailyRate * deductionDays;
-      const adjustedGross = Math.max(0, grossSalary - deductionAmount);
+      // Salary = (Basic Salary / 30) * No. of working days (use same "so far" days as UI column)
+      const noOfWorkingDays = Math.max(
+        0,
+        (workingDaysSoFar || 0) - (deductionDays || 0)
+      );
+      const salary =
+        (grossSalary / 30) * noOfWorkingDays;
 
-      // Calculate deductions and contributions on adjusted gross
-      const employeePension = adjustedGross * 0.07; // 7% employee contribution
-      const employerPension = adjustedGross * 0.11; // 11% employer contribution
-      const incomeTax = calculateIncomeTax(adjustedGross);
+      // Calculate deductions and contributions from Basic Salary (grossSalary)
+      const employeePension = grossSalary * 0.07; // 7% employee contribution
+      const employerPension = grossSalary * 0.11; // 11% employer contribution
+      // Income tax is calculated from Taxable Income (Salary + overtime; overtime is 0 on backend)
+      const taxableIncome = salary;
+      const incomeTax = calculateIncomeTax(taxableIncome);
 
-      // Calculate net salary
+      // Net salary from Salary (all allowances added to net)
+      const totalAllowances =
+        transportAllowance + telephoneAllowance + posAllowance;
       const netSalary =
-        adjustedGross - (incomeTax + employeePension) + transportAllowance;
+        salary - (incomeTax + employeePension) + totalAllowances;
 
       const result = {
         employeeId: employee._id.toString(),
@@ -410,12 +437,14 @@ export async function POST(request) {
           employee.personalDetails?.department ||
           employee.department ||
           "Unknown",
-        grossSalary,
-        adjustedGross,
+        grossSalary, // displayed as "Basic Salary"
+        salary,
+        taxableIncome,
         deductionDays,
-        deductionAmount,
         deductionDates,
         transportAllowance,
+        telephoneAllowance,
+        posAllowance,
         employeePension,
         employerPension,
         incomeTax,
@@ -425,7 +454,9 @@ export async function POST(request) {
         joiningDate:
           employee.joiningDate || employee.personalDetails?.joiningDate,
         // Ethiopian calendar info
-        workingDays: totalWorkingDays,
+        // For per-employee stats and the \"No. of Working Days\" column, we show
+        // working days only up to *today* so future days are not counted as worked.
+        workingDays: workingDaysSoFar,
         totalDays: totalDaysInMonth,
         holidaysInMonth: holidays.length,
       };
@@ -433,11 +464,14 @@ export async function POST(request) {
       return result;
     });
 
-    // Calculate summary totals
+    // Calculate summary totals (totalGross = sum of Basic Salary; totalSalary = sum of Salary)
     const summary = payrollData.reduce(
       (acc, employee) => {
         acc.totalGross += employee.grossSalary;
+        acc.totalSalary += employee.salary ?? 0;
         acc.totalTransportAllowance += employee.transportAllowance;
+        acc.totalTelephoneAllowance += employee.telephoneAllowance;
+        acc.totalPosAllowance += employee.posAllowance;
         acc.totalEmployeePension += employee.employeePension;
         acc.totalEmployerPension += employee.employerPension;
         acc.totalIncomeTax += employee.incomeTax;
@@ -448,7 +482,10 @@ export async function POST(request) {
       {
         totalEmployees: payrollData.length,
         totalGross: 0,
+        totalSalary: 0,
         totalTransportAllowance: 0,
+        totalTelephoneAllowance: 0,
+        totalPosAllowance: 0,
         totalEmployeePension: 0,
         totalEmployerPension: 0,
         totalIncomeTax: 0,
@@ -460,8 +497,13 @@ export async function POST(request) {
     // Round all amounts to 2 decimal places
     payrollData.forEach((employee) => {
       employee.grossSalary = Math.round(employee.grossSalary * 100) / 100;
+      employee.salary = Math.round((employee.salary ?? 0) * 100) / 100;
       employee.transportAllowance =
         Math.round(employee.transportAllowance * 100) / 100;
+      employee.telephoneAllowance =
+        Math.round(employee.telephoneAllowance * 100) / 100;
+      employee.posAllowance =
+        Math.round(employee.posAllowance * 100) / 100;
       employee.employeePension =
         Math.round(employee.employeePension * 100) / 100;
       employee.employerPension =
@@ -491,7 +533,7 @@ export async function POST(request) {
         period: { month: targetMonth, year: targetYear },
         calculatedAt: new Date().toISOString(),
         // Ethiopian calendar info
-        workingDays: totalWorkingDays,
+        workingDays: workingDaysSoFar,
         totalDays: totalDaysInMonth,
         holidays: holidays.map((holiday) => ({
           date: holiday.date.toISOString(),
@@ -563,6 +605,8 @@ export async function GET(request) {
             totalEmployerPension: 0,
             totalIncomeTax: 0,
             totalTransportAllowance: 0,
+            totalTelephoneAllowance: 0,
+            totalPosAllowance: 0,
             totalNet: 0,
           },
           period: { month: targetMonth, year: targetYear },
@@ -575,12 +619,22 @@ export async function GET(request) {
       const grossSalary = parseFloat(
         employee.grossSalary || employee.baseSalary || 0
       );
-      const transportAllowance = parseFloat(employee.transportAllowance || 0);
+      const transportAllowance = parseFloat(
+        employee.transportAllowance ?? employee.personalDetails?.transportAllowance ?? 0
+      );
+      const telephoneAllowance = parseFloat(
+        employee.telephoneAllowance ?? employee.personalDetails?.telephoneAllowance ?? 0
+      );
+      const posAllowance = parseFloat(
+        employee.posAllowance ?? employee.personalDetails?.posAllowance ?? 0
+      );
       const employeePension = grossSalary * 0.07;
       const employerPension = grossSalary * 0.11;
       const incomeTax = calculateIncomeTax(grossSalary);
+      const totalAllowances =
+        transportAllowance + telephoneAllowance + posAllowance;
       const netSalary =
-        grossSalary - (incomeTax + employeePension) + transportAllowance;
+        grossSalary - (incomeTax + employeePension) + totalAllowances;
 
       return {
         employeeId: employee._id.toString(),
@@ -595,6 +649,8 @@ export async function GET(request) {
           "Unknown",
         grossSalary: Math.round(grossSalary * 100) / 100,
         transportAllowance: Math.round(transportAllowance * 100) / 100,
+        telephoneAllowance: Math.round(telephoneAllowance * 100) / 100,
+        posAllowance: Math.round(posAllowance * 100) / 100,
         employeePension: Math.round(employeePension * 100) / 100,
         employerPension: Math.round(employerPension * 100) / 100,
         incomeTax: Math.round(incomeTax * 100) / 100,
@@ -603,7 +659,7 @@ export async function GET(request) {
         joiningDate:
           employee.joiningDate || employee.personalDetails?.joiningDate,
         // Ethiopian calendar info
-        workingDays: totalWorkingDays,
+        workingDays: workingDaysSoFar,
         totalDays: totalDaysInMonth,
         holidaysInMonth: holidays.length,
       };
@@ -614,6 +670,8 @@ export async function GET(request) {
       (acc, employee) => {
         acc.totalGross += employee.grossSalary;
         acc.totalTransportAllowance += employee.transportAllowance;
+        acc.totalTelephoneAllowance += employee.telephoneAllowance;
+        acc.totalPosAllowance += employee.posAllowance;
         acc.totalEmployeePension += employee.employeePension;
         acc.totalEmployerPension += employee.employerPension;
         acc.totalIncomeTax += employee.incomeTax;
@@ -624,6 +682,8 @@ export async function GET(request) {
         totalEmployees: payrollData.length,
         totalGross: 0,
         totalTransportAllowance: 0,
+        totalTelephoneAllowance: 0,
+        totalPosAllowance: 0,
         totalEmployeePension: 0,
         totalEmployerPension: 0,
         totalIncomeTax: 0,
@@ -646,7 +706,7 @@ export async function GET(request) {
         period: { month: targetMonth, year: targetYear },
         calculatedAt: new Date().toISOString(),
         // Ethiopian calendar info
-        workingDays: totalWorkingDays,
+        workingDays: workingDaysSoFar,
         totalDays: totalDaysInMonth,
         holidays: holidays.map((holiday) => ({
           date: holiday.date.toISOString(),

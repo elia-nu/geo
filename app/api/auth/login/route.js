@@ -3,6 +3,7 @@ import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { createAuditLog } from "../../../utils/audit";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
@@ -42,6 +43,16 @@ export async function POST(request) {
     console.log("employee", employee);
 
     if (!employee) {
+      await createAuditLog({
+        action: "LOGIN_FAILURE",
+        entityType: "auth",
+        entityId: null,
+        userId: null,
+        userEmail: identifier || null,
+        metadata: { reason: "employee_not_found", identifier },
+        ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null,
+        userAgent: request.headers.get("user-agent") || null,
+      });
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 404 }
@@ -52,6 +63,16 @@ export async function POST(request) {
     const hasPassword = employee.password || employee.personalDetails?.password;
 
     if (!hasPassword) {
+      await createAuditLog({
+        action: "LOGIN_FAILURE",
+        entityType: "auth",
+        entityId: employee._id.toString(),
+        userId: employee._id.toString(),
+        userEmail: employee.personalDetails?.email || employee.email || null,
+        metadata: { reason: "no_password_set" },
+        ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null,
+        userAgent: request.headers.get("user-agent") || null,
+      });
       return NextResponse.json(
         {
           error:
@@ -65,6 +86,16 @@ export async function POST(request) {
     const isValidPassword = await bcrypt.compare(password, hasPassword);
 
     if (!isValidPassword) {
+      await createAuditLog({
+        action: "LOGIN_FAILURE",
+        entityType: "auth",
+        entityId: employee._id.toString(),
+        userId: employee._id.toString(),
+        userEmail: employee.personalDetails?.email || employee.email || null,
+        metadata: { reason: "invalid_password" },
+        ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null,
+        userAgent: request.headers.get("user-agent") || null,
+      });
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
 
@@ -77,6 +108,16 @@ export async function POST(request) {
       employee.workLocation || employee.personalDetails?.workLocation;
 
     if (!hasWorkLocations && !hasOldLocation) {
+      await createAuditLog({
+        action: "LOGIN_FAILURE",
+        entityType: "auth",
+        entityId: employee._id.toString(),
+        userId: employee._id.toString(),
+        userEmail: employee.personalDetails?.email || employee.email || null,
+        metadata: { reason: "no_work_locations" },
+        ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null,
+        userAgent: request.headers.get("user-agent") || null,
+      });
       return NextResponse.json(
         { error: "No work locations assigned. Please contact administrator." },
         { status: 403 }
@@ -110,6 +151,20 @@ export async function POST(request) {
       JWT_SECRET,
       { expiresIn: "24h" }
     );
+
+    await createAuditLog({
+      action: "LOGIN_SUCCESS",
+      entityType: "auth",
+      entityId: employee._id.toString(),
+      userId: employee._id.toString(),
+      userEmail: employee.personalDetails?.email || employee.email || null,
+      metadata: {
+        role: userRole ? userRole.role : "EMPLOYEE",
+        department: employee.personalDetails?.department || employee.department || null,
+      },
+      ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null,
+      userAgent: request.headers.get("user-agent") || null,
+    });
 
     return NextResponse.json({
       success: true,

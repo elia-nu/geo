@@ -13,7 +13,7 @@ import EmployeeRequestStatus from "../components/EmployeeRequestStatus";
 import EmployeeProjects from "../components/EmployeeProjects";
 import EmployeeTasks from "../components/EmployeeTasks";
 import EmployeeMilestones from "../components/EmployeeMilestones";
-import { MapPin, Navigation, CheckCircle, Menu, X } from "lucide-react";
+import { MapPin, Navigation, CheckCircle, Menu, X, Bell } from "lucide-react";
 
 export default function EmployeePortal() {
   const isCollapsed = useSidebarStore((s) => s.isCollapsed);
@@ -21,6 +21,9 @@ export default function EmployeePortal() {
   const [workLocations, setWorkLocations] = useState([]);
   const [activeSection, setActiveSection] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Check for URL parameters to set initial section
   useEffect(() => {
@@ -80,6 +83,17 @@ export default function EmployeePortal() {
 
       // Always fetch fresh data from database to ensure we have the latest
       await fetchLatestEmployeeData(employeeId);
+
+      // Fetch notifications
+      if (employeeId) {
+        await fetchNotifications(employeeId);
+        // Poll for new notifications every 30 seconds
+        const interval = setInterval(() => {
+          fetchNotifications(employeeId);
+        }, 30000);
+        // Store interval ID for cleanup
+        window.notificationInterval = interval;
+      }
 
       setLoading(false);
     } catch (error) {
@@ -187,6 +201,93 @@ export default function EmployeePortal() {
     handleSectionChange(section);
     setMobileMenuOpen(false);
   };
+
+  const fetchNotifications = async (employeeId) => {
+    try {
+      const response = await fetch(
+        `/api/notifications/employee?employeeId=${employeeId}&status=all&limit=20`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
+  const markAsRead = async (notificationIds) => {
+    if (!employeeData?._id) return;
+    try {
+      const response = await fetch("/api/notifications/employee", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employeeData._id,
+          notificationIds: Array.isArray(notificationIds)
+            ? notificationIds
+            : [notificationIds],
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await fetchNotifications(employeeData._id);
+      }
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    if (!employeeData?._id) return;
+    try {
+      const response = await fetch("/api/notifications/employee", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employeeData._id,
+          markAllAsRead: true,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await fetchNotifications(employeeData._id);
+      }
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    }
+  };
+
+  // Close notifications dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showNotifications &&
+        !event.target.closest(".notification-dropdown") &&
+        !event.target.closest("button[title='Notifications']")
+      ) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showNotifications]);
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (window.notificationInterval) {
+        clearInterval(window.notificationInterval);
+      }
+    };
+  }, []);
 
   const renderActiveSection = () => {
     if (!employeeData) return null;
@@ -418,7 +519,7 @@ export default function EmployeePortal() {
       >
         {/* Top bar with its own section for logout */}
         <div className="sticky top-0 z-40 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
-          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -428,9 +529,106 @@ export default function EmployeePortal() {
               <Menu className="w-5 h-5" />
               <span className="text-sm font-medium">Menu</span>
             </button>
+
+            {/* Notification Bell */}
+            {employeeData?._id && (
+              <div className="relative ml-auto">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  title="Notifications"
+                >
+                  <Bell className="w-6 h-6 text-gray-700" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notifications Dropdown */}
+                {showNotifications && (
+                  <div className="notification-dropdown absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col">
+                    <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                      <h3 className="font-semibold text-gray-900">
+                        Notifications
+                      </h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    <div className="overflow-y-auto max-h-80">
+                      {notifications.length > 0 ? (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification._id}
+                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                              !notification.isRead ? "bg-blue-50" : ""
+                            }`}
+                            onClick={() => {
+                              if (!notification.isRead) {
+                                markAsRead(notification._id);
+                              }
+                              if (notification.actionUrl) {
+                                window.location.href = notification.actionUrl;
+                              }
+                              setShowNotifications(false);
+                            }}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={`w-2 h-2 rounded-full mt-2 ${
+                                  !notification.isRead
+                                    ? "bg-blue-600"
+                                    : "bg-transparent"
+                                }`}
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900 text-sm">
+                                  {notification.title}
+                                </p>
+                                <p className="text-xs text-gray-600 mt-1">
+                                  {notification.message}
+                                </p>
+                                {notification.task && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Task: {notification.task.title}
+                                  </p>
+                                )}
+                                {notification.project && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Project: {notification.project.name}
+                                  </p>
+                                )}
+                                <p className="text-xs text-gray-400 mt-2">
+                                  {new Date(
+                                    notification.createdAt
+                                  ).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-8 text-center text-gray-500">
+                          <Bell className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                          <p>No notifications</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <button
               onClick={handleLogout}
-              className="ml-auto px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow hover:from-blue-700 hover:to-purple-700 transition-all text-sm font-medium"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow hover:from-blue-700 hover:to-purple-700 transition-all text-sm font-medium"
             >
               Logout
             </button>

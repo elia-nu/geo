@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../utils/audit.js";
+import { sendTaskAssignmentEmail } from "../../utils/email.js";
 
 // Create a new task
 export async function POST(request) {
@@ -191,6 +192,54 @@ export async function POST(request) {
         $set: { updatedAt: new Date() },
       }
     );
+
+    // Send email notifications to assigned employees
+    if (assignedToObjectIds.length > 0) {
+      console.log(`📧 Preparing to send emails to ${assignedToObjectIds.length} assigned employees`);
+      
+      const assignedEmployees = await db
+        .collection("employees")
+        .find({ _id: { $in: assignedToObjectIds } })
+        .toArray();
+
+      console.log(`📧 Found ${assignedEmployees.length} employees to notify`);
+
+      // Send emails asynchronously (don't wait for them)
+      for (const employee of assignedEmployees) {
+        try {
+          const emailSent = await sendTaskAssignmentEmail(employee, task, project);
+          if (emailSent) {
+            console.log(`✅ Email sent to employee ${employee._id}`);
+          } else {
+            console.log(`⚠️ Email failed for employee ${employee._id}`);
+          }
+        } catch (error) {
+          console.error(
+            `❌ Error sending email to employee ${employee._id}:`,
+            error
+          );
+        }
+      }
+
+      // Create notifications in database
+      if (assignedEmployees.length > 0) {
+        const notifications = assignedEmployees.map((employee) => ({
+          _id: new ObjectId(),
+          userId: employee._id,
+          taskId: result.insertedId,
+          projectId: new ObjectId(projectId),
+          type: "task_assignment",
+          title: `New Task Assigned: ${task.title}`,
+          message: `You have been assigned to task "${task.title}" in project "${project.name}"`,
+          actionUrl: `/employee-portal?section=tasks`,
+          isRead: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }));
+
+        await db.collection("notifications").insertMany(notifications);
+      }
+    }
 
     // Create audit log
     await createAuditLog({

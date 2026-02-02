@@ -17,7 +17,7 @@ export async function POST(request) {
     const data = await request.json();
 
     const {
-      reportType, // "daily", "weekly", "monthly"
+      reportType, // "daily", "weekly", "monthly", "random"
       startDate,
       endDate,
       employeeId, // optional filter
@@ -35,9 +35,9 @@ export async function POST(request) {
       );
     }
 
-    if (!["daily", "weekly", "monthly"].includes(reportType)) {
+    if (!["daily", "weekly", "monthly", "random"].includes(reportType)) {
       return NextResponse.json(
-        { error: "Report type must be 'daily', 'weekly', or 'monthly'" },
+        { error: "Report type must be 'daily', 'weekly', 'monthly', or 'random'" },
         { status: 400 }
       );
     }
@@ -135,6 +135,9 @@ export async function POST(request) {
           startDate,
           endDate
         );
+        break;
+      case "random":
+        reportData = generateRandomReport(processedRecords, startDate, endDate);
         break;
     }
 
@@ -355,6 +358,59 @@ function generateMonthlyReport(records, startDate, endDate) {
         activeDays: 1,
       },
     ],
+    records,
+  };
+}
+
+function generateRandomReport(records, startDate, endDate) {
+  const employees = new Set();
+  const departments = new Set();
+  let totalCheckIns = 0;
+  let totalCheckOuts = 0;
+  let totalWorkingHours = 0;
+  let totalFaceVerified = 0;
+  let totalLocationVerified = 0;
+
+  records.forEach((record) => {
+    employees.add(record.employeeId);
+    if (record.department) departments.add(record.department);
+
+    totalCheckIns++;
+
+    if (record.checkOutTime) {
+      totalCheckOuts++;
+    }
+
+    if (record.workingHours) {
+      totalWorkingHours += record.workingHours;
+    }
+
+    if (record.faceVerified) {
+      totalFaceVerified++;
+    }
+
+    if (record.checkInLocation) {
+      totalLocationVerified++;
+    }
+  });
+
+  return {
+    type: "random",
+    period: { startDate, endDate },
+    summary: {
+      totalRecords: records.length,
+      uniqueEmployees: employees.size,
+      uniqueDepartments: departments.size,
+      totalCheckIns,
+      totalCheckOuts,
+      totalWorkingHours: Math.round(totalWorkingHours * 100) / 100,
+      totalFaceVerified,
+      totalLocationVerified,
+      averageWorkingHours:
+        records.length > 0
+          ? Math.round((totalWorkingHours / records.length) * 100) / 100
+          : 0,
+    },
     records,
   };
 }

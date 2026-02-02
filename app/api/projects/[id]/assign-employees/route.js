@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
+import { sendProjectAssignmentEmail } from "../../../../utils/email.js";
 
 // Assign employees to a project
 export async function POST(request, { params }) {
@@ -44,6 +45,14 @@ export async function POST(request, { params }) {
       );
     }
 
+    // Get currently assigned employees to find newly assigned ones
+    const existingAssignedIds = (project.assignedEmployees || []).map((id) =>
+      id.toString()
+    );
+    const newlyAssignedEmployees = employees.filter(
+      (emp) => !existingAssignedIds.includes(emp._id.toString())
+    );
+
     // Add employees to the project
     const result = await db.collection("projects").updateOne(
       { _id: new ObjectId(id) },
@@ -55,6 +64,35 @@ export async function POST(request, { params }) {
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Send email notifications to newly assigned employees
+    if (newlyAssignedEmployees.length > 0) {
+      // Send emails asynchronously (don't wait for them)
+      newlyAssignedEmployees.forEach((employee) => {
+        sendProjectAssignmentEmail(employee, project).catch((error) => {
+          console.error(
+            `Failed to send project assignment email to ${employee._id}:`,
+            error
+          );
+        });
+      });
+
+      // Create notifications in database
+      const notifications = newlyAssignedEmployees.map((employee) => ({
+        _id: new ObjectId(),
+        userId: employee._id,
+        projectId: new ObjectId(id),
+        type: "project_assignment",
+        title: `New Project Assignment: ${project.name}`,
+        message: `You have been assigned to project "${project.name}"`,
+        actionUrl: `/employee-portal?section=projects`,
+        isRead: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+
+      await db.collection("notifications").insertMany(notifications);
     }
 
     // Create audit log

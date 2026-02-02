@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../utils/audit.js";
+import { sendTaskAssignmentEmail } from "../../../utils/email.js";
 
 // Get a specific task
 export async function GET(request, { params }) {
@@ -217,8 +218,46 @@ export async function PUT(request, { params }) {
     if (estimatedHours !== undefined)
       updateData.estimatedHours = estimatedHours;
     if (actualHours !== undefined) updateData.actualHours = actualHours;
-    if (progress !== undefined)
-      updateData.progress = Math.min(100, Math.max(0, progress));
+    if (progress !== undefined) {
+      const newProgress = Math.min(100, Math.max(0, progress));
+      const oldProgress = existingTask.progress || 0;
+      
+      // Track progress change in audit log if it changed
+      if (newProgress !== oldProgress) {
+        // Create progress audit entry
+        const progressAudit = {
+          _id: new ObjectId(),
+          taskId: new ObjectId(id),
+          taskTitle: existingTask.title,
+          previousProgress: oldProgress,
+          newProgress: newProgress,
+          updatedBy: updatedBy
+            ? typeof updatedBy === "string" && ObjectId.isValid(updatedBy)
+              ? new ObjectId(updatedBy)
+              : updatedBy
+            : null,
+          updatedAt: new Date(),
+        };
+
+        // Get employee details for audit
+        if (progressAudit.updatedBy) {
+          const employee = await db
+            .collection("employees")
+            .findOne({ _id: progressAudit.updatedBy });
+          if (employee) {
+            progressAudit.updatedByName =
+              employee.personalDetails?.name || employee.name || "Unknown";
+            progressAudit.updatedByEmail =
+              employee.personalDetails?.email || employee.email || "";
+          }
+        }
+
+        // Insert into progress audits collection
+        await db.collection("taskProgressAudits").insertOne(progressAudit);
+      }
+
+      updateData.progress = newProgress;
+    }
     if (tags !== undefined) updateData.tags = tags;
     if (category !== undefined) updateData.category = category; // Keep for backward compatibility
     if (isBlocked !== undefined) updateData.isBlocked = isBlocked;
@@ -227,9 +266,10 @@ export async function PUT(request, { params }) {
       updateData.requiresApproval = requiresApproval;
 
     // Handle assigned employees
+    let newlyAssignedEmployees = [];
     if (assignedTo !== undefined) {
       if (Array.isArray(assignedTo)) {
-        updateData.assignedTo = assignedTo
+        const newAssignedTo = assignedTo
           .map((id) => {
             if (typeof id === "string") {
               if (ObjectId.isValid(id)) {
@@ -242,6 +282,25 @@ export async function PUT(request, { params }) {
             return id;
           })
           .filter((id) => id !== null);
+
+        // Find newly assigned employees (those not in existing task)
+        const existingAssignedIds = (existingTask.assignedTo || []).map((id) =>
+          id.toString()
+        );
+        const newAssignedIds = newAssignedTo
+          .map((id) => id.toString())
+          .filter((id) => !existingAssignedIds.includes(id));
+
+        if (newAssignedIds.length > 0) {
+          newlyAssignedEmployees = await db
+            .collection("employees")
+            .find({
+              _id: { $in: newAssignedIds.map((id) => new ObjectId(id)) },
+            })
+            .toArray();
+        }
+
+        updateData.assignedTo = newAssignedTo;
       } else {
         updateData.assignedTo = [];
       }
@@ -343,6 +402,55 @@ export async function PUT(request, { params }) {
         $push: { activityLog: activityEntry },
       }
     );
+
+    // Send email notifications to newly assigned employees
+    if (newlyAssignedEmployees.length > 0) {
+      console.log(`📧 Preparing to send emails to ${newlyAssignedEmployees.length} newly assigned employees`);
+      
+      // Fetch project details for email
+      const project = await db
+        .collection("projects")
+        .findOne({ _id: existingTask.projectId });
+
+      // Get updated task data
+      const updatedTask = await db.collection("tasks").findOne({
+        _id: new ObjectId(id),
+      });
+
+      // Send emails asynchronously (don't wait for them)
+      for (const employee of newlyAssignedEmployees) {
+        try {
+          const emailSent = await sendTaskAssignmentEmail(employee, updatedTask, project);
+          if (emailSent) {
+            console.log(`✅ Email sent to employee ${employee._id}`);
+          } else {
+            console.log(`⚠️ Email failed for employee ${employee._id}`);
+          }
+        } catch (error) {
+          console.error(
+            `❌ Error sending email to employee ${employee._id}:`,
+            error
+          );
+        }
+      }
+
+      // Create notifications in database
+      const notifications = newlyAssignedEmployees.map((employee) => ({
+        _id: new ObjectId(),
+        userId: employee._id,
+        taskId: new ObjectId(id),
+        projectId: existingTask.projectId,
+        type: "task_assignment",
+        title: `New Task Assigned: ${updatedTask.title}`,
+        message: `You have been assigned to task "${updatedTask.title}" in project "${project?.name || "N/A"}"`,
+        actionUrl: `/employee-portal?section=tasks`,
+        isRead: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+
+      await db.collection("notifications").insertMany(notifications);
+    }
 
     // Resolve any active alerts tied to this task when it is completed
     if (status === "completed") {

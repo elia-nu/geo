@@ -46,6 +46,8 @@ export default function EmployeeDatabase() {
       contactNumber: "",
       emergencyContactNumber: "",
       email: "",
+      employeeType: "",
+      contractExpiryDate: "",
     },
     employmentHistory: [],
     certifications: [],
@@ -392,6 +394,18 @@ export default function EmployeeDatabase() {
 
     if (!employee.designation?.trim()) {
       errors.designation = "Designation is required";
+    }
+
+    const employeeType = employee.personalDetails?.employeeType || employee.employeeType;
+    if (!employeeType) {
+      errors.employeeType = "Employee type is required";
+    }
+
+    if (employeeType === "Contractual") {
+      const contractExpiryDate = employee.personalDetails?.contractExpiryDate || employee.contractExpiryDate;
+      if (!contractExpiryDate) {
+        errors.contractExpiryDate = "Contract expiry date is required for contractual employees";
+      }
     }
 
     // Check for duplicate email
@@ -1207,6 +1221,72 @@ export default function EmployeeDatabase() {
                         </p>
                       )}
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Employee Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={newEmployee.personalDetails.employeeType}
+                        onChange={(e) =>
+                          setNewEmployee({
+                            ...newEmployee,
+                            personalDetails: {
+                              ...newEmployee.personalDetails,
+                              employeeType: e.target.value,
+                              // Clear contract expiry date if not contractual
+                              contractExpiryDate: e.target.value === "Contractual" ? newEmployee.personalDetails.contractExpiryDate : "",
+                            },
+                          })
+                        }
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+                          formErrors.employeeType
+                            ? "border-red-300 focus:ring-red-500"
+                            : "border-gray-300 focus:ring-green-500"
+                        }`}
+                      >
+                        <option value="">Select Employee Type</option>
+                        <option value="Full Time">Full Time</option>
+                        <option value="Part Time">Part Time</option>
+                        <option value="Contractual">Contractual</option>
+                        <option value="Freelance">Freelance</option>
+                      </select>
+                      {formErrors.employeeType && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {formErrors.employeeType}
+                        </p>
+                      )}
+                    </div>
+                    {newEmployee.personalDetails.employeeType === "Contractual" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Contract Expiry Date <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={newEmployee.personalDetails.contractExpiryDate}
+                          onChange={(e) =>
+                            setNewEmployee({
+                              ...newEmployee,
+                              personalDetails: {
+                                ...newEmployee.personalDetails,
+                                contractExpiryDate: e.target.value,
+                              },
+                            })
+                          }
+                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+                            formErrors.contractExpiryDate
+                              ? "border-red-300 focus:ring-red-500"
+                              : "border-gray-300 focus:ring-green-500"
+                          }`}
+                          min={new Date().toISOString().split("T")[0]}
+                        />
+                        {formErrors.contractExpiryDate && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {formErrors.contractExpiryDate}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     {/* Work Location removed - set later via settings */}
                   </div>
                 </div>
@@ -1422,7 +1502,9 @@ export default function EmployeeDatabase() {
                     !newEmployee.personalDetails.name ||
                     !newEmployee.personalDetails.email ||
                     !newEmployee.department ||
-                    !newEmployee.designation
+                    !newEmployee.designation ||
+                    !newEmployee.personalDetails.employeeType ||
+                    (newEmployee.personalDetails.employeeType === "Contractual" && !newEmployee.personalDetails.contractExpiryDate)
                   }
                   className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-lg"
                 >

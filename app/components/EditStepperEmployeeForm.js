@@ -87,6 +87,11 @@ export default function EditStepperEmployeeForm({
     emergencyContactName: "",
     emergencyContactNumber: "",
     address: "",
+    employeeType: "",
+    contractExpiryDate: "",
+    transportAllowance: "",
+    telephoneAllowance: "",
+    posAllowance: "",
   });
 
   const [employmentHistory, setEmploymentHistory] = useState([]);
@@ -210,6 +215,11 @@ export default function EditStepperEmployeeForm({
         emergencyContactName: getEmployeeData(emp, "emergencyContactName"),
         emergencyContactNumber: getEmployeeData(emp, "emergencyContactNumber"),
         address: getEmployeeData(emp, "address"),
+        employeeType: emp.employeeType || getEmployeeData(emp, "employeeType") || "",
+        contractExpiryDate: emp.contractExpiryDate || getEmployeeData(emp, "contractExpiryDate") || "",
+        transportAllowance: emp.transportAllowance ?? getEmployeeData(emp, "transportAllowance") ?? "",
+        telephoneAllowance: emp.telephoneAllowance ?? getEmployeeData(emp, "telephoneAllowance") ?? "",
+        posAllowance: emp.posAllowance ?? getEmployeeData(emp, "posAllowance") ?? "",
       });
 
       // Employment History - from separate collection
@@ -351,6 +361,12 @@ export default function EditStepperEmployeeForm({
         }
         if (!personalDetails.joiningDate.trim()) {
           errors.joiningDate = "Joining date is required";
+        }
+        if (!personalDetails.employeeType) {
+          errors.employeeType = "Employee type is required";
+        }
+        if (personalDetails.employeeType === "Contractual" && !personalDetails.contractExpiryDate) {
+          errors.contractExpiryDate = "Contract expiry date is required for contractual employees";
         }
         break;
       case 2:
@@ -495,6 +511,11 @@ export default function EditStepperEmployeeForm({
       emergencyContactName: "",
       emergencyContactNumber: "",
       address: "",
+      employeeType: "",
+      contractExpiryDate: "",
+      transportAllowance: "",
+      telephoneAllowance: "",
+      posAllowance: "",
     });
     setEmploymentHistory([]);
     setCertifications([]);
@@ -813,6 +834,68 @@ export default function EditStepperEmployeeForm({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Employee Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={personalDetails.employeeType}
+                  onChange={(e) =>
+                    setPersonalDetails({
+                      ...personalDetails,
+                      employeeType: e.target.value,
+                      // Clear contract expiry date if not contractual
+                      contractExpiryDate: e.target.value === "Contractual" ? personalDetails.contractExpiryDate : "",
+                    })
+                  }
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 ${
+                    formErrors.employeeType
+                      ? "border-red-300 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
+                  }`}
+                >
+                  <option value="">Select Employee Type</option>
+                  <option value="Full Time">Full Time</option>
+                  <option value="Part Time">Part Time</option>
+                  <option value="Contractual">Contractual</option>
+                  <option value="Freelance">Freelance</option>
+                </select>
+                {formErrors.employeeType && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {formErrors.employeeType}
+                  </p>
+                )}
+              </div>
+
+              {personalDetails.employeeType === "Contractual" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Contract Expiry Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={personalDetails.contractExpiryDate}
+                    onChange={(e) =>
+                      setPersonalDetails({
+                        ...personalDetails,
+                        contractExpiryDate: e.target.value,
+                      })
+                    }
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 ${
+                      formErrors.contractExpiryDate
+                        ? "border-red-300 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
+                    min={new Date().toISOString().split("T")[0]}
+                  />
+                  {formErrors.contractExpiryDate && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {formErrors.contractExpiryDate}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Emergency Contact Name
                 </label>
                 <input
@@ -844,6 +927,66 @@ export default function EditStepperEmployeeForm({
                   }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
                   placeholder="Enter emergency contact number"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Transport Allowance (ETB)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={personalDetails.transportAllowance}
+                  onChange={(e) =>
+                    setPersonalDetails({
+                      ...personalDetails,
+                      transportAllowance: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  placeholder="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Telephone Allowance (ETB)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={personalDetails.telephoneAllowance}
+                  onChange={(e) =>
+                    setPersonalDetails({
+                      ...personalDetails,
+                      telephoneAllowance: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  placeholder="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  POS Allowance (ETB)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={personalDetails.posAllowance}
+                  onChange={(e) =>
+                    setPersonalDetails({
+                      ...personalDetails,
+                      posAllowance: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  placeholder="0"
                 />
               </div>
 

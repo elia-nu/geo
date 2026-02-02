@@ -37,15 +37,16 @@ export default function AllAttendance() {
       if (filters.employeeId) params.append("employeeId", filters.employeeId);
       if (filters.startDate) params.append("startDate", filters.startDate);
       if (filters.endDate) params.append("endDate", filters.endDate);
+      params.append("collection", "daily_attendance"); // Use daily_attendance collection for enriched data
 
-      const res = await fetch(`/api/attendance/daily?${params.toString()}`);
+      const res = await fetch(`/api/attendance?${params.toString()}`);
       const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!res.ok) {
         showMessage(json.error || "Failed to load attendance", "error");
         setRecords([]);
         return;
       }
-      setRecords(json.data || []);
+      setRecords(json || []);
     } catch (e) {
       console.error(e);
       showMessage("Failed to load attendance", "error");

@@ -42,6 +42,7 @@
     "recharts": "^3.2.1",
     "sweetalert2": "^11.24.0",
     "uuid": "^11.1.0",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

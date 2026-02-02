@@ -162,6 +162,78 @@ export default function EmployeeTasks({ employeeId }) {
     fetchTasks();
   };
 
+  const handleStatusUpdate = async (taskId, newStatus) => {
+    try {
+      const token = localStorage.getItem("employeeToken");
+      const employeeData = JSON.parse(localStorage.getItem("employeeData") || "{}");
+      
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          updatedBy: employeeId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchTasks();
+        // Show success message
+        const statusLabels = {
+          pending: "Pending",
+          in_progress: "In Progress",
+          review: "Review",
+          completed: "Completed",
+          blocked: "Blocked",
+          cancelled: "Cancelled",
+        };
+        // You can add a toast notification here if you have a toast library
+        console.log(`Task status updated to ${statusLabels[newStatus]}`);
+      } else {
+        setError(data.error || "Failed to update task status");
+      }
+    } catch (err) {
+      console.error("Error updating task status:", err);
+      setError("Error updating task status: " + err.message);
+    }
+  };
+
+  const handleProgressUpdate = async (taskId, newProgress) => {
+    try {
+      const token = localStorage.getItem("employeeToken");
+      const employeeData = JSON.parse(localStorage.getItem("employeeData") || "{}");
+      
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          progress: Math.min(100, Math.max(0, newProgress)),
+          updatedBy: employeeId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchTasks();
+        console.log(`Task progress updated to ${newProgress}%`);
+      } else {
+        setError(data.error || "Failed to update task progress");
+      }
+    } catch (err) {
+      console.error("Error updating task progress:", err);
+      setError("Error updating task progress: " + err.message);
+    }
+  };
+
   const filteredAndSortedTasks = tasks
     .filter((task) => {
       if (filter === "overdue") {
@@ -350,12 +422,34 @@ export default function EmployeeTasks({ employeeId }) {
                 </div>
               </div>
 
-              {/* Progress Bar */}
+              {/* Progress Bar with Update */}
               {task.progress !== undefined && (
                 <div className="mb-4">
                   <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
                     <span>Progress</span>
-                    <span>{task.progress}%</span>
+                    <div className="flex items-center gap-2">
+                      <span>{task.progress}%</span>
+                      <button
+                        onClick={() => {
+                          const newProgress = prompt(
+                            "Enter new progress (0-100):",
+                            task.progress
+                          );
+                          if (
+                            newProgress !== null &&
+                            !isNaN(newProgress) &&
+                            newProgress >= 0 &&
+                            newProgress <= 100
+                          ) {
+                            handleProgressUpdate(task._id, parseInt(newProgress));
+                          }
+                        }}
+                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                        title="Update Progress"
+                      >
+                        Update
+                      </button>
+                    </div>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
@@ -365,6 +459,25 @@ export default function EmployeeTasks({ employeeId }) {
                   </div>
                 </div>
               )}
+
+              {/* Status Update */}
+              <div className="mb-4 flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Status:
+                </label>
+                <select
+                  value={task.status}
+                  onChange={(e) => handleStatusUpdate(task._id, e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="review">Review</option>
+                  <option value="completed">Completed</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
 
               {/* Task Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">

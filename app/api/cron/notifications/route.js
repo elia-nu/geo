@@ -15,11 +15,11 @@ export async function POST(request) {
 
       // Schedule to run daily at 9:00 AM
       cronJob = cron.schedule("0 9 * * *", async () => {
-        console.log("Running scheduled document expiry notifications...");
+        console.log("Running scheduled notifications...");
 
         try {
-          // Call the email notification endpoint
-          const response = await fetch(
+          // Call the document expiry notification endpoint
+          const docResponse = await fetch(
             `${
               process.env.NEXTAUTH_URL || "http://localhost:3000"
             }/api/notifications/email`,
@@ -31,11 +31,31 @@ export async function POST(request) {
             }
           );
 
-          if (response.ok) {
-            const result = await response.json();
-            console.log("Scheduled notifications sent:", result);
+          if (docResponse.ok) {
+            const docResult = await docResponse.json();
+            console.log("Document expiry notifications sent:", docResult);
           } else {
-            console.error("Failed to send scheduled notifications");
+            console.error("Failed to send document expiry notifications");
+          }
+
+          // Call the contract expiry notification endpoint
+          const contractResponse = await fetch(
+            `${
+              process.env.NEXTAUTH_URL || "http://localhost:3000"
+            }/api/notifications/contract-expiry`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (contractResponse.ok) {
+            const contractResult = await contractResponse.json();
+            console.log("Contract expiry notifications sent:", contractResult);
+          } else {
+            console.error("Failed to send contract expiry notifications");
           }
         } catch (error) {
           console.error("Error in scheduled notification task:", error);

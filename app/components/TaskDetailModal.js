@@ -45,10 +45,13 @@ export default function TaskDetailModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showAllComments, setShowAllComments] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressUpdateTimeout, setProgressUpdateTimeout] = useState(null);
 
   useEffect(() => {
     if (isOpen && task) {
       fetchTaskDetails();
+      setProgress(task.progress || 0);
     }
   }, [isOpen, task]);
 
@@ -78,6 +81,7 @@ export default function TaskDetailModal({
       if (data.success) {
         setComments(data.task.comments || []);
         setAttachments(data.task.attachments || []);
+        setProgress(data.task.progress || 0);
       } else {
         setError(data.error || "Failed to load task details");
       }
@@ -286,6 +290,55 @@ export default function TaskDetailModal({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const handleProgressChange = async (newProgress) => {
+    const progressValue = Math.min(100, Math.max(0, parseInt(newProgress)));
+    setProgress(progressValue);
+
+    // Clear existing timeout
+    if (progressUpdateTimeout) {
+      clearTimeout(progressUpdateTimeout);
+    }
+
+    // Debounce: Only update after user stops dragging (500ms delay)
+    const timeout = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem("employeeToken");
+        if (!token) {
+          setError("Authentication required");
+          return;
+        }
+
+        const response = await fetch(`/api/tasks/${task._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            progress: progressValue,
+            updatedBy: employeeId,
+          }),
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          if (onUpdate) onUpdate();
+        } else {
+          setError(data.error || "Failed to update progress");
+          // Revert progress on error
+          setProgress(task.progress || 0);
+        }
+      } catch (err) {
+        console.error("Error updating progress:", err);
+        setError("Error updating progress: " + err.message);
+        // Revert progress on error
+        setProgress(task.progress || 0);
+      }
+    }, 500);
+
+    setProgressUpdateTimeout(timeout);
+  };
+
   if (!isOpen || !task) return null;
 
   return (
@@ -391,21 +444,35 @@ export default function TaskDetailModal({
                   </div>
                 </div>
 
-                {/* Progress Bar */}
-                {task.progress !== undefined && (
-                  <div>
-                    <div className="flex items-center justify-between text-sm text-gray-700 mb-2">
-                      <span>Progress</span>
-                      <span>{task.progress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                {/* Progress Bar with Slider */}
+                <div>
+                  <div className="flex items-center justify-between text-sm text-gray-700 mb-3">
+                    <span className="font-medium">Progress</span>
+                    <span className="font-semibold text-blue-600">{progress}%</span>
+                  </div>
+                  <div className="relative h-3 mb-1">
+                    {/* Progress Bar Background */}
+                    <div className="w-full bg-gray-200 rounded-full h-3 absolute top-0 left-0">
                       <div
-                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                        style={{ width: `${task.progress}%` }}
+                        className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
                       ></div>
                     </div>
+                    {/* Draggable Slider */}
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={progress}
+                      onChange={(e) => handleProgressChange(e.target.value)}
+                      className="w-full h-3 bg-transparent appearance-none cursor-pointer slider absolute top-0 left-0 z-10"
+                    />
                   </div>
-                )}
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>0%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
 
                 {/* Tags */}
                 {task.tags && task.tags.length > 0 && (

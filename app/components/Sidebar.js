@@ -64,11 +64,36 @@ const Sidebar = ({
       activeSection === "attendance-daily" ||
       activeSection === "attendance-documents" ||
       activeSection === "attendance-legacy" ||
-      activeSection === "payroll-integration"
+      activeSection === "payroll-integration" ||
+      activeSection === "employee-master-report" ||
+      activeSection === "employee-reports" ||
+      activeSection === "employee-allocation-report" ||
+      activeSection === "employee-lifecycle-report" ||
+      activeSection === "organizational-structure-report" ||
+      activeSection === "role-permission-audit-report" ||
+      activeSection === "department-performance-report" ||
+      activeSection === "attendance-daily-summary-report" ||
+      activeSection === "attendance-exceptions-report" ||
+      activeSection === "employee-attendance-history-report" ||
+      activeSection === "attendance-trend-productivity-report" ||
+      activeSection === "document-inventory-report" ||
+      activeSection === "document-expiry-compliance-report" ||
+      activeSection === "document-access-audit-report" ||
+      activeSection === "document-stats" ||
+      activeSection === "site-location-master-report" ||
+      activeSection === "site-attendance-compliance-report" ||
+      activeSection === "workforce-distribution-report" ||
+      activeSection === "leave-reports" ||
+      activeSection === "payroll-reports" ||
+      activeSection === "project-reports" ||
+      activeSection === "executive-reports" ||
+      activeSection === "completed-activities" ||
+      activeSection === "workflow-bottlenecks" ||
+      activeSection === "user-activity-security"
     ) {
       setExpandedMenus((prev) => ({
         ...prev,
-        attendance: true,
+        analytics: true,
       }));
     }
 
@@ -93,11 +118,13 @@ const Sidebar = ({
       activeSection === "project-alerts" ||
       activeSection === "project-reports" ||
       activeSection === "project-budget" ||
-      activeSection === "project-finances"
+      activeSection === "project-finances" ||
+      activeSection === "project-categories" ||
+      activeSection === "budget-management"
     ) {
       setExpandedMenus((prev) => ({
         ...prev,
-        "project-management": true,
+        project: true,
       }));
     }
   }, [activeSection]);
@@ -140,6 +167,11 @@ const Sidebar = ({
           id: "employee-location",
           label: "Employee Location",
           path: "/hrm?section=employee-location",
+        },
+        {
+          id: "contracts",
+          label: "Contracts",
+          path: "/hrm?section=contracts",
         },
       ],
     },
@@ -219,16 +251,27 @@ const Sidebar = ({
       ],
     },
     {
-      id: "category-management",
-      label: "Category Management",
-      icon: Settings,
-      path: "/category-management",
-    },
-    {
-      id: "projects",
-      label: "Projects",
+      id: "project",
+      label: "Project",
       icon: Briefcase,
-      path: "/hrm?section=projects",
+
+      submenu: [
+        {
+          id: "projects",
+          label: "Projects",
+          path: "/hrm?section=projects",
+        },
+        {
+          id: "category-management",
+          label: "Category Management",
+          path: "/hrm?section=project-categories",
+        },
+        {
+          id: "budget-management",
+          label: "Budget Management",
+          path: "/hrm?section=budget-management",
+        },
+      ],
     },
 
     // {
@@ -269,12 +312,6 @@ const Sidebar = ({
       ],
     },*/
     {
-      id: "budget-management",
-      label: "Budget Management",
-      icon: DollarSign,
-      path: "/hrm?section=budget-management",
-    },
-    {
       id: "calendar",
       label: "Calendar",
       icon: Calendar,
@@ -285,6 +322,121 @@ const Sidebar = ({
       label: "Analytics & Reports",
       icon: BarChart3,
       submenu: [
+        {
+          id: "employee-master-report",
+          label: "Employee Master Report",
+          path: "/hrm?section=employee-master-report",
+        },
+        {
+          id: "employee-allocation-report",
+          label: "Employee Allocation Report",
+          path: "/hrm?section=employee-allocation-report",
+        },
+        {
+          id: "employee-lifecycle-report",
+          label: "Employee Lifecycle Report",
+          path: "/hrm?section=employee-lifecycle-report",
+        },
+        {
+          id: "organizational-structure-report",
+          label: "Organizational Structure Report",
+          path: "/hrm?section=organizational-structure-report",
+        },
+        {
+          id: "role-permission-audit-report",
+          label: "Role & Permission Audit Report",
+          path: "/hrm?section=role-permission-audit-report",
+        },
+        {
+          id: "department-performance-report",
+          label: "Department Performance Summary",
+          path: "/hrm?section=department-performance-report",
+        },
+        {
+          id: "attendance-daily-summary-report",
+          label: "Daily Attendance Summary Report",
+          path: "/hrm?section=attendance-daily-summary-report",
+        },
+        {
+          id: "attendance-exceptions-report",
+          label: "Attendance Exception & Violation Report",
+          path: "/hrm?section=attendance-exceptions-report",
+        },
+        {
+          id: "employee-attendance-history-report",
+          label: "Employee Attendance History Report",
+          path: "/hrm?section=employee-attendance-history-report",
+        },
+        {
+          id: "attendance-trend-productivity-report",
+          label: "Attendance Trend & Productivity Report",
+          path: "/hrm?section=attendance-trend-productivity-report",
+        },
+        {
+          id: "document-inventory-report",
+          label: "Document Inventory Report",
+          path: "/hrm?section=document-inventory-report",
+        },
+        {
+          id: "document-expiry-compliance-report",
+          label: "Document Expiry & Compliance Report",
+          path: "/hrm?section=document-expiry-compliance-report",
+        },
+        {
+          id: "document-access-audit-report",
+          label: "Document Access & Activity Audit",
+          path: "/hrm?section=document-access-audit-report",
+        },
+        {
+          id: "site-location-master-report",
+          label: "Site Location Master Report",
+          path: "/hrm?section=site-location-master-report",
+        },
+        {
+          id: "site-attendance-compliance-report",
+          label: "Site Attendance Compliance Report",
+          path: "/hrm?section=site-attendance-compliance-report",
+        },
+        {
+          id: "workforce-distribution-report",
+          label: "Workforce Distribution by Site",
+          path: "/hrm?section=workforce-distribution-site-report",
+        },
+        {
+          id: "leave-reports",
+          label: "Leave Management Reports",
+          path: "/hrm?section=leave-reports",
+        },
+        {
+          id: "payroll-reports",
+          label: "Payroll Management Reports",
+          path: "/hrm?section=payroll-reports",
+        },
+        {
+          id: "project-reports",
+          label: "Project Management Reports",
+          path: "/hrm?section=project-reports",
+        },
+        {
+          id: "executive-reports",
+          label: "Cross-System & Executive Reports",
+          path: "/hrm?section=executive-reports",
+        },
+        {
+          id: "completed-activities",
+          label: "Completed Activities (Master Audit)",
+          path: "/hrm?section=executive-reports&tab=completed-activities",
+        },
+        {
+          id: "workflow-bottlenecks",
+          label: "Workflow Bottleneck & SLA Breach",
+          path: "/hrm?section=executive-reports&tab=workflow-bottlenecks",
+        },
+        {
+          id: "user-activity-security",
+          label: "User Activity & Security Audit",
+          path: "/hrm?section=executive-reports&tab=user-activity-security",
+        },
         {
           id: "employee-stats",
           label: "Employee Statistics",

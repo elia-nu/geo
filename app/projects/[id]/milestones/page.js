@@ -416,7 +416,14 @@ const ProjectMilestonesPage = ({ params }) => {
         {/* Modal */}
         {openDialog && (
           <div className="fixed inset-0 z-[9999] overflow-y-auto">
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm transition-opacity"
+              onClick={handleCloseDialog}
+              aria-hidden="true"
+            ></div>
+
+            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0 relative z-10">
               <span
                 className="hidden sm:inline-block sm:align-middle sm:h-screen"
                 aria-hidden="true"
@@ -424,7 +431,7 @@ const ProjectMilestonesPage = ({ params }) => {
                 &#8203;
               </span>
 
-              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative z-10">
                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-medium text-gray-900">

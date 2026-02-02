@@ -10,6 +10,10 @@ import AttendanceReporting from "../../components/AttendanceReporting";
 import ManagerLeaveApproval from "../../components/ManagerLeaveApproval";
 import LeaveBalance from "../../components/LeaveBalance";
 import AdminLeaveBalanceManagement from "../../components/AdminLeaveBalanceManagement";
+import LeaveManagementReports from "../../components/LeaveManagementReports";
+import PayrollManagementReports from "../../components/PayrollManagementReports";
+import ProjectManagementReports from "../../components/ProjectManagementReports";
+import CrossSystemExecutiveReports from "../../components/CrossSystemExecutiveReports";
 
 export default function ProtectedHRMDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -189,14 +193,13 @@ export default function ProtectedHRMDashboard() {
           </div>
         );
       case "leave-reports":
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Leave Reports</h2>
-            <p className="text-gray-600">
-              Leave reports and analytics coming soon...
-            </p>
-          </div>
-        );
+        return <LeaveManagementReports />;
+      case "payroll-reports":
+        return <PayrollManagementReports />;
+      case "project-reports":
+        return <ProjectManagementReports />;
+      case "executive-reports":
+        return <CrossSystemExecutiveReports />;
       default:
         return <Dashboard onSectionChange={handleSectionChange} />;
     }

@@ -23,6 +23,28 @@ import DocumentReports from "../components/DocumentReports";
 import AdminAttendanceManagement from "../components/AdminAttendanceManagement";
 import DesignationsManagement from "../components/DesignationsManagement";
 import AllAttendance from "../components/AllAttendance";
+import CategoryManagement from "../components/CategoryManagement";
+import ContractsManagement from "../components/ContractsManagement";
+import EmployeeMasterReport from "../components/EmployeeMasterReport";
+import EmployeeAllocationReport from "../components/EmployeeAllocationReport";
+import EmployeeLifecycleReport from "../components/EmployeeLifecycleReport";
+import OrganizationalStructureReport from "../components/OrganizationalStructureReport";
+import RolePermissionAuditReport from "../components/RolePermissionAuditReport";
+import DepartmentPerformanceReport from "../components/DepartmentPerformanceReport";
+import DocumentInventoryReport from "../components/DocumentInventoryReport";
+import DocumentExpiryComplianceReport from "../components/DocumentExpiryComplianceReport";
+import DocumentAccessAuditReport from "../components/DocumentAccessAuditReport";
+import SiteLocationMasterReport from "../components/SiteLocationMasterReport";
+import SiteAttendanceComplianceReport from "../components/SiteAttendanceComplianceReport";
+import WorkForceDistributionReport from "../components/WorkforceDistributionReport";
+import DailyAttendanceSummaryReport from "../components/DailyAttendanceSummaryReport";
+import AttendanceExceptionViolationReport from "../components/AttendanceExceptionViolationReport";
+import EmployeeAttendanceHistoryReport from "../components/EmployeeAttendanceHistoryReport";
+import AttendanceTrendProductivityReport from "../components/AttendanceTrendProductivityReport";
+import LeaveManagementReports from "../components/LeaveManagementReports";
+import PayrollManagementReports from "../components/PayrollManagementReports";
+import ProjectManagementReports from "../components/ProjectManagementReports";
+import CrossSystemExecutiveReports from "../components/CrossSystemExecutiveReports";
 
 export default function HRMDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -38,10 +60,13 @@ export default function HRMDashboard() {
     checkAuthentication();
   }, []);
 
-  // Sync active section from route query (?section=...)
+  // Sync active section from route query (?section=... and ?tab=... for executive reports)
   useEffect(() => {
     const section = searchParams?.get("section");
-    if (section) {
+    const tab = searchParams?.get("tab");
+    if (section === "executive-reports" && tab) {
+      setActiveSection(tab);
+    } else if (section) {
       setActiveSection(section);
     }
   }, [searchParams]);
@@ -158,6 +183,23 @@ export default function HRMDashboard() {
         return <DepartmentAnalytics />;
       case "document-stats":
         return <DocumentReports />;
+      case "document-inventory-report":
+        return <DocumentInventoryReport />;
+      case "document-expiry-compliance-report":
+        return <DocumentExpiryComplianceReport />;
+      case "document-access-audit-report":
+        return <DocumentAccessAuditReport />;
+      case "site-location-master-report":
+        return <SiteLocationMasterReport />;
+      case "site-attendance-compliance-report":
+        return <SiteAttendanceComplianceReport />;
+      case "workforce-distribution-report":
+      case "workforce-distribution-site-report":
+        return <WorkForceDistributionReport />;
+      case "document-inventory-report":
+        return <DocumentInventoryReport />;
+      case "document-expiry-compliance-report":
+        return <DocumentExpiryComplianceReport />;
       case "departments":
         return <DepartmentsManagement />;
       case "designations":
@@ -197,8 +239,12 @@ export default function HRMDashboard() {
         return <WorkLocationsManagement />;
       case "projects":
         return <ProjectsManagement />;
+      case "project-categories":
+        return <CategoryManagement />;
       case "budget-management":
         return <BudgetManagement />;
+      case "contracts":
+        return <ContractsManagement />;
       case "attendance-reports":
         return (
           <div className="bg-white rounded-lg shadow p-6">
@@ -276,13 +322,45 @@ export default function HRMDashboard() {
           </div>
         );
       case "leave-reports":
+        return <LeaveManagementReports />;
+      case "payroll-reports":
+        return <PayrollManagementReports />;
+      case "project-reports":
+        return <ProjectManagementReports />;
+      case "executive-reports":
+      case "completed-activities":
+      case "workflow-bottlenecks":
+      case "user-activity-security":
         return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-gray-600">
-              Leave reports and analytics coming soon...
-            </p>
-          </div>
+          <CrossSystemExecutiveReports
+            initialTab={
+              activeSection === "executive-reports"
+                ? searchParams?.get("tab") || undefined
+                : activeSection
+            }
+          />
         );
+      case "employee-master-report":
+      case "employee-reports":
+        return <EmployeeMasterReport />;
+      case "employee-allocation-report":
+        return <EmployeeAllocationReport />;
+      case "employee-lifecycle-report":
+        return <EmployeeLifecycleReport />;
+      case "organizational-structure-report":
+        return <OrganizationalStructureReport />;
+      case "role-permission-audit-report":
+        return <RolePermissionAuditReport />;
+      case "department-performance-report":
+        return <DepartmentPerformanceReport />;
+      case "attendance-daily-summary-report":
+        return <DailyAttendanceSummaryReport />;
+      case "attendance-exceptions-report":
+        return <AttendanceExceptionViolationReport />;
+      case "employee-attendance-history-report":
+        return <EmployeeAttendanceHistoryReport />;
+      case "attendance-trend-productivity-report":
+        return <AttendanceTrendProductivityReport />;
       default:
         return <Dashboard onSectionChange={handleSectionChange} />;
     }
