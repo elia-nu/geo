@@ -266,7 +266,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
           {/* Header */}
           <div className="flex justify-between items-start p-6 border-b border-gray-200">
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2 className="text-2xl font-bold text-black mb-2">
                 {taskData?.title || task.title}
               </h2>
               <div className="flex items-center gap-3 mb-3">
@@ -304,7 +304,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
               <div className="space-y-6">
                 {/* Task Info */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3">
+                  <h3 className="font-semibold text-black mb-3">
                     Task Information
                   </h3>
                   <div className="space-y-3">
@@ -409,7 +409,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
 
                 {/* Progress */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3">Progress</h3>
+                  <h3 className="font-semibold text-black mb-3">Progress</h3>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-gray-600 w-16">
@@ -449,7 +449,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
                 {/* Subtasks */}
                 {taskData?.subtasks && taskData.subtasks.length > 0 && (
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">
+                    <h3 className="font-semibold text-black mb-3">
                       Subtasks
                     </h3>
                     <div className="space-y-2">
@@ -492,7 +492,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
                 {taskData?.dependentTasks &&
                   taskData.dependentTasks.length > 0 && (
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-3">
+                      <h3 className="font-semibold text-black mb-3">
                         Dependencies
                       </h3>
                       <div className="space-y-2">
@@ -527,7 +527,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
                 {/* Attachments */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-semibold text-gray-900">
+                    <h3 className="font-semibold text-black">
                       Attachments ({attachments.length})
                     </h3>
                     <button
@@ -577,7 +577,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
 
                 {/* Comments */}
                 <div className="bg-gray-50 rounded-lg p-4 flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-3">
+                  <h3 className="font-semibold text-black mb-3">
                     Comments ({comments.length})
                   </h3>
 
@@ -614,7 +614,7 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-sm text-gray-900">
+                              <span className="font-medium text-sm text-black">
                                 {comment.userName}
                               </span>
                               <span className="text-xs text-gray-500">

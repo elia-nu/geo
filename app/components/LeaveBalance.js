@@ -219,7 +219,7 @@ export default function LeaveBalance({
     return (
       <div className="text-center py-12 text-gray-500">
         <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <h3 className="text-lg font-medium text-black mb-2">
           No leave balance found
         </h3>
         <p className="text-gray-600">
@@ -238,7 +238,7 @@ export default function LeaveBalance({
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Leave Balance</h1>
+          <h1 className="text-2xl font-bold text-black">Leave Balance</h1>
           <p className="text-gray-600 mt-1">
             Real-time leave accruals and balances for {employeeName}
           </p>
@@ -342,7 +342,7 @@ export default function LeaveBalance({
               <p className="text-sm font-medium text-gray-600">
                 Years of Service
               </p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-black">
                 {leaveBalance.yearsOfService || 0}
               </p>
             </div>
@@ -358,7 +358,7 @@ export default function LeaveBalance({
               <p className="text-sm font-medium text-gray-600">
                 Total Available
               </p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-black">
                 {leaveBalance.balances
                   ? Object.values(leaveBalance.balances).reduce(
                       (sum, balance) => sum + (balance.available || 0),
@@ -377,7 +377,7 @@ export default function LeaveBalance({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Used</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-black">
                 {leaveBalance.balances
                   ? Object.values(leaveBalance.balances).reduce(
                       (sum, balance) => sum + (balance.used || 0),
@@ -396,7 +396,7 @@ export default function LeaveBalance({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-black">
                 {leaveBalance.balances
                   ? Object.values(leaveBalance.balances).reduce(
                       (sum, balance) => sum + (balance.pending || 0),
@@ -459,7 +459,7 @@ export default function LeaveBalance({
                           <Icon className="w-5 h-5" />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900 capitalize">
+                          <h3 className="font-semibold text-black capitalize">
                             {balance.description}
                           </h3>
                           <p className="text-sm text-gray-600">
@@ -595,7 +595,7 @@ export default function LeaveBalance({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <p className="text-sm font-medium text-gray-600">Employment Date</p>
-            <p className="text-lg text-gray-900">
+            <p className="text-lg text-black">
               {leaveBalance.employmentDate
                 ? new Date(leaveBalance.employmentDate).toLocaleDateString()
                 : "Not available"}
@@ -606,14 +606,14 @@ export default function LeaveBalance({
             <p className="text-sm font-medium text-gray-600">
               Years of Service
             </p>
-            <p className="text-lg text-gray-900">
+            <p className="text-lg text-black">
               {leaveBalance.yearsOfService || 0} years
             </p>
           </div>
 
           <div>
             <p className="text-sm font-medium text-gray-600">Last Calculated</p>
-            <p className="text-lg text-gray-900">
+            <p className="text-lg text-black">
               {leaveBalance.lastCalculated
                 ? new Date(leaveBalance.lastCalculated).toLocaleString()
                 : "Not available"}
@@ -622,7 +622,7 @@ export default function LeaveBalance({
 
           <div>
             <p className="text-sm font-medium text-gray-600">Balance Status</p>
-            <p className="text-lg text-gray-900">
+            <p className="text-lg text-black">
               {leaveBalance.balances &&
               Object.values(leaveBalance.balances).some((b) => b.available > 0)
                 ? "Active"
@@ -650,7 +650,7 @@ export default function LeaveBalance({
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                 >
                   <div>
-                    <p className="font-medium text-gray-900 capitalize">
+                    <p className="font-medium text-black capitalize">
                       {adjustment.leaveType} Leave
                     </p>
                     <p className="text-sm text-gray-600">{adjustment.reason}</p>

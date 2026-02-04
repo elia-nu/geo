@@ -98,7 +98,7 @@ export default function DailyAttendancePage() {
                   <select
                     value={selectedEmployee}
                     onChange={(e) => setSelectedEmployee(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                   >
                     <option value="">Select an employee...</option>
                     {employees.map((emp) => (
@@ -126,7 +126,7 @@ export default function DailyAttendancePage() {
               ) : (
                 <div className="bg-white rounded-xl shadow-lg p-12 text-center">
                   <Clock className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  <h3 className="text-xl font-semibold text-black mb-2">
                     Welcome to Daily Attendance
                   </h3>
                   <p className="text-gray-600 mb-6">

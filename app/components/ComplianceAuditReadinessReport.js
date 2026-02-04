@@ -52,7 +52,7 @@ export default function ComplianceAuditReadinessReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <Shield className="w-5 h-5 text-indigo-600" />
             Compliance & Audit Readiness Report
           </h2>
@@ -77,7 +77,7 @@ export default function ComplianceAuditReadinessReport() {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -86,7 +86,7 @@ export default function ComplianceAuditReadinessReport() {
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
       </div>
@@ -132,7 +132,7 @@ export default function ComplianceAuditReadinessReport() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b">Attendance Verification Logs</h3>
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b">Attendance Verification Logs</h3>
               <div className="overflow-x-auto max-h-48 overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
@@ -146,8 +146,8 @@ export default function ComplianceAuditReadinessReport() {
                     {attendanceVerificationLogs.slice(0, 15).map((e, i) => (
                       <tr key={i}>
                         <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2">{e.userEmail ?? e.userId ?? "—"}</td>
-                        <td className="px-3 py-2 capitalize">{e.action ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.userEmail ?? e.userId ?? "—"}</td>
+                        <td className="px-3 py-2 capitalize text-black">{e.action ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -155,7 +155,7 @@ export default function ComplianceAuditReadinessReport() {
               </div>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b">Document Access Records</h3>
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b">Document Access Records</h3>
               <div className="overflow-x-auto max-h-48 overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
@@ -169,8 +169,8 @@ export default function ComplianceAuditReadinessReport() {
                     {documentAccessRecords.slice(0, 15).map((e, i) => (
                       <tr key={i}>
                         <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2">{e.userEmail ?? e.userId ?? "—"}</td>
-                        <td className="px-3 py-2">{e.action ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.userEmail ?? e.userId ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.action ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -181,7 +181,7 @@ export default function ComplianceAuditReadinessReport() {
 
           {(leaveApprovals.length > 0 || leaveApprovalDocuments.length > 0) && (
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b">Leave Approvals</h3>
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b">Leave Approvals</h3>
               <div className="overflow-x-auto max-h-48 overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
@@ -195,15 +195,15 @@ export default function ComplianceAuditReadinessReport() {
                     {leaveApprovalDocuments.slice(0, 15).map((e, i) => (
                       <tr key={i}>
                         <td className="px-3 py-2 text-gray-700">{e.updatedAt ? new Date(e.updatedAt).toLocaleString() : e.submittedAt ? new Date(e.submittedAt).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2">{e.leaveType ?? e.employeeId ?? "—"}</td>
-                        <td className="px-3 py-2 capitalize">{e.status ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.leaveType ?? e.employeeId ?? "—"}</td>
+                        <td className="px-3 py-2 capitalize text-black">{e.status ?? "—"}</td>
                       </tr>
                     ))}
                     {leaveApprovals.slice(0, 10).map((e, i) => (
                       <tr key={`a-${i}`}>
                         <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2">{e.userEmail ?? e.userId ?? "—"}</td>
-                        <td className="px-3 py-2 capitalize">{e.action ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.userEmail ?? e.userId ?? "—"}</td>
+                        <td className="px-3 py-2 capitalize text-black">{e.action ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -19,13 +19,13 @@ export default function UnauthorizedPage() {
         </div>
 
         {/* Title */}
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Access Denied</h1>
+        <h1 className="text-3xl font-bold text-black mb-4">Access Denied</h1>
 
         {/* Message */}
         <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
           <div className="flex items-center justify-center mb-4">
             <AlertTriangle className="w-8 h-8 text-red-500 mr-3" />
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-black">
               Insufficient Permissions
             </h2>
           </div>

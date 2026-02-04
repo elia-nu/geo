@@ -157,7 +157,7 @@ export default function LeaveBalanceDashboard() {
     return (
       <div className="text-center py-12 text-gray-500">
         <BarChart3 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <h3 className="text-lg font-medium text-black mb-2">
           No dashboard data available
         </h3>
         <p className="text-gray-600">
@@ -175,7 +175,7 @@ export default function LeaveBalanceDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-black">
             Leave Balance Dashboard
           </h1>
           <p className="text-gray-600 mt-1">
@@ -252,7 +252,7 @@ export default function LeaveBalanceDashboard() {
               <p className="text-sm font-medium text-gray-600">
                 Total Employees
               </p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-black">
                 {dashboardData.totalEmployees}
               </p>
             </div>
@@ -403,7 +403,7 @@ export default function LeaveBalanceDashboard() {
                       <Icon className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 capitalize">
+                      <h3 className="font-semibold text-black capitalize">
                         {leaveType} Leave
                       </h3>
                       <p className="text-sm text-gray-600">
@@ -486,7 +486,7 @@ export default function LeaveBalanceDashboard() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-black">
                           {notification.title}
                         </p>
                         <p className="text-sm text-gray-600">

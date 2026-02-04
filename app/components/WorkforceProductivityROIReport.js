@@ -51,7 +51,7 @@ export default function WorkforceProductivityROIReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-emerald-600" />
             Workforce Productivity & ROI Report
           </h2>
@@ -75,7 +75,7 @@ export default function WorkforceProductivityROIReport() {
           <select
             value={filters.month}
             onChange={(e) => setFilters({ ...filters, month: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
               <option key={m} value={m}>{new Date(2000, m - 1, 1).toLocaleString("default", { month: "long" })}</option>
@@ -88,7 +88,7 @@ export default function WorkforceProductivityROIReport() {
             type="number"
             value={filters.year}
             onChange={(e) => setFilters({ ...filters, year: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
             min="2020"
             max="2030"
           />
@@ -136,7 +136,7 @@ export default function WorkforceProductivityROIReport() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <Users className="w-4 h-4 text-blue-600" />
                 Attendance vs Output
               </h3>
@@ -145,7 +145,7 @@ export default function WorkforceProductivityROIReport() {
               <p className="text-lg font-bold text-emerald-600">Output: {attendanceVsOutput.outputRate ?? 0}%</p>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-amber-600" />
                 Payroll Cost vs Project Progress
               </h3>
@@ -155,7 +155,7 @@ export default function WorkforceProductivityROIReport() {
               <p className="text-sm text-gray-700">Avg progress: {payrollCostVsProjectProgress.avgProjectProgress ?? 0}%</p>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-rose-600" />
                 Leave Impact vs Delivery
               </h3>

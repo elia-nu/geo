@@ -245,7 +245,7 @@ export default function AdminAttendanceManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-black">
             Attendance Management
           </h1>
           <p className="text-gray-600 mt-1">
@@ -395,7 +395,7 @@ export default function AdminAttendanceManagement() {
                         <User className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-black">
                           {record.employeeName}
                         </div>
                         <div className="text-sm text-gray-600">
@@ -413,7 +413,7 @@ export default function AdminAttendanceManagement() {
                         </span>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-black">
                           {formatDate(record.date)}
                         </div>
                         <div className="text-xs text-gray-500">
@@ -433,7 +433,7 @@ export default function AdminAttendanceManagement() {
                           Check-in
                         </span>
                       </div>
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {formatTime(record.checkInTime)}
                       </div>
                     </div>
@@ -444,7 +444,7 @@ export default function AdminAttendanceManagement() {
                           Check-out
                         </span>
                       </div>
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {formatTime(record.checkOutTime)}
                       </div>
                     </div>
@@ -455,7 +455,7 @@ export default function AdminAttendanceManagement() {
                           Hours
                         </span>
                       </div>
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {workingHours ? `${workingHours}h` : "N/A"}
                       </div>
                     </div>
@@ -466,7 +466,7 @@ export default function AdminAttendanceManagement() {
                           Location
                         </span>
                       </div>
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {record.workLocationName}
                       </div>
                     </div>
@@ -528,7 +528,7 @@ export default function AdminAttendanceManagement() {
         ) : (
           <div className="text-center py-12 text-gray-500">
             <Clock className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-lg font-medium text-black mb-2">
               No attendance records found
             </h3>
             <p className="text-gray-600">
@@ -760,25 +760,25 @@ function AttendanceDetailsModal({ record, onClose }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <span className="text-sm font-medium text-gray-600">Name:</span>
-                <p className="text-gray-900">{record.employeeName}</p>
+                <p className="text-black">{record.employeeName}</p>
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-600">
                   Email:
                 </span>
-                <p className="text-gray-900">{record.employeeEmail || "N/A"}</p>
+                <p className="text-black">{record.employeeEmail || "N/A"}</p>
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-600">
                   Department:
                 </span>
-                <p className="text-gray-900">{record.department || "N/A"}</p>
+                <p className="text-black">{record.department || "N/A"}</p>
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-600">
                   Employee ID:
                 </span>
-                <p className="text-gray-900">{record.employee?.employeeId}</p>
+                <p className="text-black">{record.employee?.employeeId}</p>
               </div>
             </div>
           </div>
@@ -792,13 +792,13 @@ function AttendanceDetailsModal({ record, onClose }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <span className="text-sm font-medium text-gray-600">Date:</span>
-                <p className="text-gray-900">{formatDate(record.date)}</p>
+                <p className="text-black">{formatDate(record.date)}</p>
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-600">
                   Working Hours:
                 </span>
-                <p className="text-gray-900">
+                <p className="text-black">
                   {calculateWorkingHours(
                     record.checkInTime,
                     record.checkOutTime
@@ -810,7 +810,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                 <span className="text-sm font-medium text-gray-600">
                   Check-in Time:
                 </span>
-                <p className="text-gray-900">
+                <p className="text-black">
                   {formatTime(record.checkInTime)}
                 </p>
               </div>
@@ -818,7 +818,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                 <span className="text-sm font-medium text-gray-600">
                   Check-out Time:
                 </span>
-                <p className="text-gray-900">
+                <p className="text-black">
                   {formatTime(record.checkOutTime)}
                 </p>
               </div>
@@ -826,7 +826,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                 <span className="text-sm font-medium text-gray-600">
                   Lunch Out:
                 </span>
-                <p className="text-gray-900">
+                <p className="text-black">
                   {formatTime(record.lunchOutTime)}
                 </p>
               </div>
@@ -834,7 +834,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                 <span className="text-sm font-medium text-gray-600">
                   Lunch In:
                 </span>
-                <p className="text-gray-900">
+                <p className="text-black">
                   {formatTime(record.lunchInTime)}
                 </p>
               </div>
@@ -852,13 +852,13 @@ function AttendanceDetailsModal({ record, onClose }) {
                 <span className="text-sm font-medium text-gray-600">
                   Work Location:
                 </span>
-                <p className="text-gray-900">{record.workLocationName}</p>
+                <p className="text-black">{record.workLocationName}</p>
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-600">
                   Location Verified:
                 </span>
-                <p className="text-gray-900">
+                <p className="text-black">
                   {record.checkInLocation ? "Yes" : "No"}
                 </p>
               </div>
@@ -868,7 +868,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                     <span className="text-sm font-medium text-gray-600">
                       Check-in Coordinates:
                     </span>
-                    <p className="text-gray-900 font-mono text-sm">
+                    <p className="text-black font-mono text-sm">
                       {record.checkInLocation.latitude?.toFixed(6)},{" "}
                       {record.checkInLocation.longitude?.toFixed(6)}
                     </p>
@@ -877,7 +877,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                     <span className="text-sm font-medium text-gray-600">
                       Check-out Coordinates:
                     </span>
-                    <p className="text-gray-900 font-mono text-sm">
+                    <p className="text-black font-mono text-sm">
                       {record.checkOutLocation
                         ? `${record.checkOutLocation.latitude?.toFixed(
                             6
@@ -901,7 +901,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                 <span className="text-sm font-medium text-gray-600">
                   Face Verified:
                 </span>
-                <p className="text-gray-900">
+                <p className="text-black">
                   {record.faceVerified ? "Yes" : "No"}
                 </p>
               </div>
@@ -909,7 +909,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                 <span className="text-sm font-medium text-gray-600">
                   Photo Available:
                 </span>
-                <p className="text-gray-900">
+                <p className="text-black">
                   {record.checkInPhoto ? "Yes" : "No"}
                 </p>
               </div>
@@ -958,7 +958,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                   <span className="text-sm font-medium text-gray-600">
                     Check-in Notes:
                   </span>
-                  <p className="text-gray-900">{record.checkInNotes}</p>
+                  <p className="text-black">{record.checkInNotes}</p>
                 </div>
               )}
               {record.checkOutNotes && (
@@ -966,7 +966,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                   <span className="text-sm font-medium text-gray-600">
                     Check-out Notes:
                   </span>
-                  <p className="text-gray-900">{record.checkOutNotes}</p>
+                  <p className="text-black">{record.checkOutNotes}</p>
                 </div>
               )}
             </div>
@@ -984,7 +984,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                   <span className="text-sm font-medium text-gray-600">
                     Status:
                   </span>
-                  <p className="text-gray-900 capitalize">
+                  <p className="text-black capitalize">
                     {record.adminApproval.status}
                   </p>
                 </div>
@@ -992,7 +992,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                   <span className="text-sm font-medium text-gray-600">
                     Reviewed At:
                   </span>
-                  <p className="text-gray-900">
+                  <p className="text-black">
                     {formatTime(record.adminApproval.reviewedAt)}
                   </p>
                 </div>
@@ -1001,7 +1001,7 @@ function AttendanceDetailsModal({ record, onClose }) {
                     <span className="text-sm font-medium text-gray-600">
                       Admin Notes:
                     </span>
-                    <p className="text-gray-900">
+                    <p className="text-black">
                       {record.adminApproval.adminNotes}
                     </p>
                   </div>

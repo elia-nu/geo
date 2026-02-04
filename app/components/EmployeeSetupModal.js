@@ -604,7 +604,7 @@ export default function EmployeeSetupModal({
               className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
                 setupType === "password"
                   ? "border-b-2 border-purple-600 text-purple-600 bg-white"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  : "text-gray-600 hover:text-black hover:bg-gray-100"
               }`}
             >
               <div className="flex items-center justify-center space-x-2">
@@ -617,7 +617,7 @@ export default function EmployeeSetupModal({
               className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
                 setupType === "location"
                   ? "border-b-2 border-purple-600 text-purple-600 bg-white"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  : "text-gray-600 hover:text-black hover:bg-gray-100"
               }`}
             >
               <div className="flex items-center justify-center space-x-2">
@@ -630,7 +630,7 @@ export default function EmployeeSetupModal({
               className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
                 setupType === "salary"
                   ? "border-b-2 border-purple-600 text-purple-600 bg-white"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  : "text-gray-600 hover:text-black hover:bg-gray-100"
               }`}
             >
               <div className="flex items-center justify-center space-x-2">
@@ -658,7 +658,7 @@ export default function EmployeeSetupModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   New Password <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -671,12 +671,12 @@ export default function EmployeeSetupModal({
                     })
                   }
                   placeholder="Enter password (min. 6 characters)"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   Confirm Password <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -689,7 +689,7 @@ export default function EmployeeSetupModal({
                     })
                   }
                   placeholder="Re-enter password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
                 />
               </div>
             </div>
@@ -710,7 +710,7 @@ export default function EmployeeSetupModal({
               {/* Current Assigned Locations */}
               {employeeWorkLocations.length > 0 && (
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                  <h4 className="text-sm font-semibold text-black mb-3">
                     Currently Assigned Locations ({employeeWorkLocations.length}
                     )
                   </h4>
@@ -726,7 +726,7 @@ export default function EmployeeSetupModal({
                             strokeWidth={2.2}
                           />
                           <div>
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-black">
                               {location.name}
                             </p>
                             <p className="text-xs text-gray-500">
@@ -752,7 +752,7 @@ export default function EmployeeSetupModal({
 
               {/* Available Locations */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                <h4 className="text-sm font-semibold text-black mb-3">
                   Available Work Locations
                 </h4>
                 {workLocations.length === 0 ? (
@@ -778,7 +778,7 @@ export default function EmployeeSetupModal({
                           className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                         />
                         <div className="ml-3 flex-1">
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-black">
                             {location.name}
                           </p>
                           <p className="text-sm text-gray-500">
@@ -817,7 +817,7 @@ export default function EmployeeSetupModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   Gross Salary (ETB) <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -832,13 +832,13 @@ export default function EmployeeSetupModal({
                     })
                   }
                   placeholder="e.g. 15000"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                  <label className="block text-sm font-medium text-black mb-2">
                     Transport Allowance (ETB)
                   </label>
                   <input
@@ -853,12 +853,12 @@ export default function EmployeeSetupModal({
                       })
                     }
                     placeholder="e.g. 1000"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                  <label className="block text-sm font-medium text-black mb-2">
                     Telephone Allowance (ETB)
                   </label>
                   <input
@@ -873,12 +873,12 @@ export default function EmployeeSetupModal({
                       })
                     }
                     placeholder="e.g. 500"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                  <label className="block text-sm font-medium text-black mb-2">
                     POS Allowance (ETB)
                   </label>
                   <input
@@ -893,7 +893,7 @@ export default function EmployeeSetupModal({
                       })
                     }
                     placeholder="e.g. 300"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
                   />
                 </div>
               </div>

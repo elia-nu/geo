@@ -68,7 +68,7 @@ export default function ProjectMasterSummaryReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-blue-600" />
             Project Master Summary Report
           </h2>
@@ -102,7 +102,7 @@ export default function ProjectMasterSummaryReport() {
             value={filters.projectId}
             onChange={(e) => setFilters({ ...filters, projectId: e.target.value })}
             placeholder="Optional"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -110,7 +110,7 @@ export default function ProjectMasterSummaryReport() {
           <select
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           >
             <option value="">All</option>
             <option value="active">Active</option>
@@ -138,7 +138,7 @@ export default function ProjectMasterSummaryReport() {
             </div>
             {(summary.byStatus || []).map((s) => (
               <div key={s.status} className="bg-gray-50 rounded-lg p-4">
-                <div className="font-medium text-gray-900 capitalize">{s.status}</div>
+                <div className="font-medium text-black capitalize">{s.status}</div>
                 <p className="text-2xl font-bold text-gray-700">{s.count}</p>
               </div>
             ))}
@@ -160,8 +160,8 @@ export default function ProjectMasterSummaryReport() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {rows.map((r) => (
                     <tr key={r.projectId}>
-                      <td className="px-3 py-2 text-gray-900 font-medium">{r.projectName}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 text-black font-medium">{r.projectName}</td>
+                      <td className="px-3 py-2 text-black">
                         <span className={`capitalize px-2 py-0.5 rounded text-xs font-medium ${
                           r.status === "completed" ? "bg-green-100 text-green-800" :
                           r.status === "delayed" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
@@ -169,10 +169,10 @@ export default function ProjectMasterSummaryReport() {
                           {r.status}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-right">{r.budgetUtilization}%</td>
-                      <td className="px-3 py-2 text-right">{r.workforceCount}</td>
-                      <td className="px-3 py-2 text-right">{r.progress}%</td>
-                      <td className="px-3 py-2">{r.timelineVarianceNote || "—"}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.budgetUtilization}%</td>
+                      <td className="px-3 py-2 text-right text-black">{r.workforceCount}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.progress}%</td>
+                      <td className="px-3 py-2 text-black">{r.timelineVarianceNote || "—"}</td>
                     </tr>
                   ))}
                 </tbody>

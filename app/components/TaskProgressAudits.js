@@ -135,7 +135,7 @@ const TaskProgressAudits = ({ projectId = null }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900">
+          <h2 className="text-2xl font-semibold text-black">
             Task Progress Audits
           </h2>
           <p className="text-gray-600 text-sm mt-1">
@@ -281,10 +281,10 @@ const TaskProgressAudits = ({ projectId = null }) => {
               ) : (
                 audits.map((audit) => (
                   <tr key={audit._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                       {formatDateTime(audit.updatedAt)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 text-sm text-black">
                       <div className="flex items-center gap-2">
                         <AssignmentIcon className="w-4 h-4 text-gray-400" />
                         <span className="font-medium">
@@ -292,7 +292,7 @@ const TaskProgressAudits = ({ projectId = null }) => {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                       <div className="flex items-center gap-2">
                         <PersonIcon className="w-4 h-4 text-gray-400" />
                         <span>

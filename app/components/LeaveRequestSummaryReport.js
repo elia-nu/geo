@@ -124,7 +124,7 @@ export default function LeaveRequestSummaryReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <FileText className="w-5 h-5 text-blue-600" />
             Leave Request Summary Report
           </h2>
@@ -171,7 +171,7 @@ export default function LeaveRequestSummaryReport() {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -180,7 +180,7 @@ export default function LeaveRequestSummaryReport() {
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -190,7 +190,7 @@ export default function LeaveRequestSummaryReport() {
             value={filters.department}
             onChange={(e) => setFilters({ ...filters, department: e.target.value })}
             placeholder="Optional"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -200,7 +200,7 @@ export default function LeaveRequestSummaryReport() {
             value={filters.projectId}
             onChange={(e) => setFilters({ ...filters, projectId: e.target.value })}
             placeholder="Optional"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -210,7 +210,7 @@ export default function LeaveRequestSummaryReport() {
             value={filters.locationId}
             onChange={(e) => setFilters({ ...filters, locationId: e.target.value })}
             placeholder="Optional"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
       </div>
@@ -237,7 +237,7 @@ export default function LeaveRequestSummaryReport() {
                 <FileText className="w-5 h-5 text-blue-600" />
                 <span className="font-medium text-blue-900">Total Requests</span>
               </div>
-              <p className="text-2xl font-bold text-blue-600">
+              <p className="text-2xl font-bold text-black">
                 {summary.totalRequests ?? reportData.totalRecords ?? 0}
               </p>
             </div>
@@ -245,7 +245,7 @@ export default function LeaveRequestSummaryReport() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-blue-600" />
                 By Type (annual, sick, emergency, etc.)
               </h3>
@@ -260,10 +260,10 @@ export default function LeaveRequestSummaryReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {byType.map((r) => (
                       <tr key={r.type}>
-                        <td className="px-3 py-2 text-gray-900 capitalize">{r.type}</td>
-                        <td className="px-3 py-2 text-right">{r.count}</td>
+                        <td className="px-3 py-2 text-black capitalize">{r.type}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.count}</td>
                       </tr>
-                    ))}
+                    ))}   
                     {byType.length === 0 && (
                       <tr>
                         <td colSpan={2} className="px-3 py-4 text-center text-gray-500">No data</td>
@@ -275,7 +275,7 @@ export default function LeaveRequestSummaryReport() {
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-emerald-600" />
                 By Status (approved / rejected / pending)
               </h3>
@@ -290,8 +290,8 @@ export default function LeaveRequestSummaryReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {byStatus.map((r) => (
                       <tr key={r.status}>
-                        <td className="px-3 py-2 text-gray-900 capitalize">{r.status}</td>
-                        <td className="px-3 py-2 text-right">{r.count}</td>
+                        <td className="px-3 py-2 text-black capitalize">{r.status}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.count}</td>
                       </tr>
                     ))}
                     {byStatus.length === 0 && (
@@ -307,7 +307,7 @@ export default function LeaveRequestSummaryReport() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-indigo-600" />
                 By Department
               </h3>
@@ -322,8 +322,8 @@ export default function LeaveRequestSummaryReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {byDepartment.map((r) => (
                       <tr key={r.key || r.department}>
-                        <td className="px-3 py-2 text-gray-900">{r.department ?? r.name ?? r.key}</td>
-                        <td className="px-3 py-2 text-right">{r.total}</td>
+                        <td className="px-3 py-2 text-black">{r.department ?? r.name ?? r.key}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.total}</td>
                       </tr>
                     ))}
                     {byDepartment.length === 0 && (
@@ -337,7 +337,7 @@ export default function LeaveRequestSummaryReport() {
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <Briefcase className="w-4 h-4 text-amber-600" />
                 By Project
               </h3>
@@ -352,8 +352,8 @@ export default function LeaveRequestSummaryReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {byProject.map((r) => (
                       <tr key={r.key || r.projectId}>
-                        <td className="px-3 py-2 text-gray-900">{r.projectName ?? r.name ?? r.key}</td>
-                        <td className="px-3 py-2 text-right">{r.total}</td>
+                        <td className="px-3 py-2 text-black">{r.projectName ?? r.name ?? r.key}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.total}</td>
                       </tr>
                     ))}
                     {byProject.length === 0 && (
@@ -367,7 +367,7 @@ export default function LeaveRequestSummaryReport() {
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-rose-600" />
                 By Site / Location
               </h3>
@@ -382,8 +382,8 @@ export default function LeaveRequestSummaryReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {bySite.map((r) => (
                       <tr key={r.key || r.siteId}>
-                        <td className="px-3 py-2 text-gray-900">{r.siteName ?? r.name ?? r.key}</td>
-                        <td className="px-3 py-2 text-right">{r.total}</td>
+                        <td className="px-3 py-2 text-black">{r.siteName ?? r.name ?? r.key}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.total}</td>
                       </tr>
                     ))}
                     {bySite.length === 0 && (

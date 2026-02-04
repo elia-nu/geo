@@ -23,13 +23,31 @@ export default function SiteAttendanceComplianceReport() {
   });
 
   const handleGenerateReport = async () => {
+    // If no dates selected, default to full current year
+    let effectiveStart = filters.startDate;
+    let effectiveEnd = filters.endDate;
+    if (!filters.startDate && !filters.endDate) {
+      const now = new Date();
+      const year = now.getFullYear();
+      const start = new Date(year, 0, 1);
+      const end = new Date(year, 11, 31);
+      const toStr = (d) => d.toISOString().slice(0, 10);
+      effectiveStart = toStr(start);
+      effectiveEnd = toStr(end);
+      setFilters((prev) => ({
+        ...prev,
+        startDate: effectiveStart,
+        endDate: effectiveEnd,
+      }));
+    }
+
     setLoading(true);
     setMessage("");
     try {
       const authToken = localStorage.getItem("authToken");
       const params = new URLSearchParams();
-      if (filters.startDate) params.set("startDate", filters.startDate);
-      if (filters.endDate) params.set("endDate", filters.endDate);
+      if (effectiveStart) params.set("startDate", effectiveStart);
+      if (effectiveEnd) params.set("endDate", effectiveEnd);
       if (filters.locationId) params.set("locationId", filters.locationId);
       if (filters.department) params.set("department", filters.department);
 
@@ -138,7 +156,7 @@ export default function SiteAttendanceComplianceReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <Activity className="w-8 h-8 text-blue-600" />
                 <span>Site Attendance Compliance Report</span>
               </h1>
@@ -331,14 +349,14 @@ export default function SiteAttendanceComplianceReport() {
                   {reportData.sites?.map((s, idx) => (
                     <tr key={s.id || idx}>
                       <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-black">
                           {s.name}
                         </div>
                         <div className="text-xs text-gray-500">
                           {s.address || "—"}
                         </div>
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {s.totalChecks || 0}
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">
@@ -349,7 +367,7 @@ export default function SiteAttendanceComplianceReport() {
                       <td className="px-4 py-2 whitespace-nowrap text-red-700 font-medium">
                         {s.nonCompliant || 0}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {s.uniqueEmployees || 0}
                       </td>
                     </tr>

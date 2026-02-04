@@ -2,31 +2,45 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Activity, Shield, TrendingUp, BarChart3 } from "lucide-react";
-import SystemOperationalHealthReport from "./SystemOperationalHealthReport";
-import ComplianceAuditReadinessReport from "./ComplianceAuditReadinessReport";
-import WorkforceProductivityROIReport from "./WorkforceProductivityROIReport";
-import ExecutivePerformanceDashboardReport from "./ExecutivePerformanceDashboardReport";
+import { ClipboardList, AlertTriangle, UserCheck } from "lucide-react";
+import CompletedActivitiesMasterAuditReport from "./CompletedActivitiesMasterAuditReport";
+import WorkflowBottleneckSLAReport from "./WorkflowBottleneckSLAReport";
+import UserActivitySecurityAuditReport from "./UserActivitySecurityAuditReport";
 
 const TAB_IDS = [
-  "system-health",
-  "compliance-audit",
-  "workforce-productivity-roi",
-  "executive-dashboard",
+  "completed-activities",
+  "workflow-bottlenecks",
+  "user-activity-security",
 ];
 
 const TABS = [
-  { id: "system-health", label: "System Operational Health", icon: Activity, component: SystemOperationalHealthReport },
-  { id: "compliance-audit", label: "Compliance & Audit Readiness", icon: Shield, component: ComplianceAuditReadinessReport },
-  { id: "workforce-productivity-roi", label: "Workforce Productivity & ROI", icon: TrendingUp, component: WorkforceProductivityROIReport },
-  { id: "executive-dashboard", label: "Executive Performance Dashboard", icon: BarChart3, component: ExecutivePerformanceDashboardReport },
+  {
+    id: "completed-activities",
+    label: "Completed Activities (Master Audit)",
+    icon: ClipboardList,
+    component: CompletedActivitiesMasterAuditReport,
+  },
+  {
+    id: "workflow-bottlenecks",
+    label: "Workflow Bottleneck & SLA Breach",
+    icon: AlertTriangle,
+    component: WorkflowBottleneckSLAReport,
+  },
+  {
+    id: "user-activity-security",
+    label: "User Activity & Security Audit",
+    icon: UserCheck,
+    component: UserActivitySecurityAuditReport,
+  },
 ];
 
-export default function CrossSystemExecutiveReports({ initialTab }) {
+export default function UniversalSystemReports({ initialTab }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams?.get("tab") || initialTab;
-  const validTab = TAB_IDS.includes(tabFromUrl) ? tabFromUrl : "system-health";
+  const validTab = TAB_IDS.includes(tabFromUrl)
+    ? tabFromUrl
+    : "completed-activities";
   const [activeTab, setActiveTab] = useState(validTab);
   const ActiveComponent = TABS.find((t) => t.id === activeTab)?.component;
 
@@ -38,7 +52,7 @@ export default function CrossSystemExecutiveReports({ initialTab }) {
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
     const params = new URLSearchParams();
-    params.set("section", "executive-reports");
+    params.set("section", "universal-system-reports");
     params.set("tab", tabId);
     router.replace(`/hrm?${params.toString()}`, { scroll: false });
   };
@@ -48,10 +62,11 @@ export default function CrossSystemExecutiveReports({ initialTab }) {
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h1 className="text-2xl font-bold text-black mb-1">
-            Cross-System & Executive Reports (Admin-Level Intelligence)
+            Universal System Reports (All Modules Combined)
           </h1>
           <p className="text-gray-600 mb-6">
-            9.1–9.4 Executive Reports: System health, compliance readiness, workforce productivity & ROI, and executive performance dashboard.
+            10.1 Completed Activities (Master Audit) • 10.2 Workflow Bottleneck
+            &amp; SLA Breach • 10.3 User Activity &amp; Security Audit
           </p>
 
           <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-6">
@@ -80,3 +95,4 @@ export default function CrossSystemExecutiveReports({ initialTab }) {
     </div>
   );
 }
+

@@ -68,7 +68,7 @@ export default function ProjectCostBudgetPerformanceReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-emerald-600" />
             Project Cost & Budget Performance Report
           </h2>
@@ -101,7 +101,7 @@ export default function ProjectCostBudgetPerformanceReport() {
           value={filters.projectId}
           onChange={(e) => setFilters({ ...filters, projectId: e.target.value })}
           placeholder="Optional"
-          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
         />
       </div>
 
@@ -155,14 +155,14 @@ export default function ProjectCostBudgetPerformanceReport() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {rows.map((r) => (
                     <tr key={r.projectId}>
-                      <td className="px-3 py-2 text-gray-900 font-medium">{r.projectName}</td>
-                      <td className="px-3 py-2 text-right">{r.totalBudget}</td>
-                      <td className="px-3 py-2 text-right">{r.totalExpenses}</td>
-                      <td className="px-3 py-2 text-right">{r.actualPayrollCost}</td>
-                      <td className="px-3 py-2 text-right">{r.budgetUtilization}%</td>
-                      <td className="px-3 py-2 text-right">{r.dailyBurnRate}</td>
-                      <td className="px-3 py-2 text-right">{r.forecastedOverrun}</td>
-                      <td className="px-3 py-2">{r.budgetVsActualNote}</td>
+                      <td className="px-3 py-2 text-black font-medium">{r.projectName}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.totalBudget}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.totalExpenses}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.actualPayrollCost}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.budgetUtilization}%</td>
+                      <td className="px-3 py-2 text-right text-black">{r.dailyBurnRate}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.forecastedOverrun}</td>
+                      <td className="px-3 py-2 text-black">{r.budgetVsActualNote}</td>
                     </tr>
                   ))}
                 </tbody>

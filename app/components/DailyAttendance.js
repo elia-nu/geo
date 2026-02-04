@@ -649,7 +649,7 @@ export default function DailyAttendance({
               <Clock className="w-5 h-5 text-green-600" />
               <span className="font-medium text-gray-700">Check-in</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-black">
               {formatTime(todayRecord?.checkInTime)}
             </div>
             {todayRecord?.checkInLocation && (
@@ -680,7 +680,7 @@ export default function DailyAttendance({
               <Clock className="w-5 h-5 text-red-600" />
               <span className="font-medium text-gray-700">Check-out</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-black">
               {formatTime(todayRecord?.checkOutTime)}
             </div>
             {todayRecord?.checkOutLocation && (
@@ -707,13 +707,13 @@ export default function DailyAttendance({
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
               <div className="bg-white rounded border border-gray-200 p-2">
                 <div className="text-gray-500">Lunch Out</div>
-                <div className="font-semibold text-gray-900">
+                <div className="font-semibold text-black">
                   {formatTime(todayRecord?.lunchOutTime)}
                 </div>
               </div>
               <div className="bg-white rounded border border-gray-200 p-2">
                 <div className="text-gray-500">Lunch In</div>
-                <div className="font-semibold text-gray-900">
+                <div className="font-semibold text-black">
                   {formatTime(todayRecord?.lunchInTime)}
                 </div>
               </div>
@@ -726,7 +726,7 @@ export default function DailyAttendance({
               <Timer className="w-5 h-5 text-blue-600" />
               <span className="font-medium text-gray-700">Working Hours</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-black">
               {getWorkingHoursDisplay()}
             </div>
             {todayRecord?.checkInTime && !todayRecord?.checkOutTime && (
@@ -908,7 +908,7 @@ export default function DailyAttendance({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Add any notes about your attendance (e.g., late arrival reason, early departure request, etc.)"
-          className="w-full p-3 border border-gray-300 rounded-lg resize-none text-gray-900 placeholder-gray-500"
+          className="w-full p-3 border border-gray-300 rounded-lg resize-none text-black placeholder-gray-500"
           rows={3}
           maxLength={500}
         />

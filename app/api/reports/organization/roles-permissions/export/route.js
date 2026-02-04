@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import { getCurrentUser, checkPermission } from "../../../../middleware/auth";
 import { createAuditLog } from "../../../../../utils/audit";
 
-// Export Role & Permission Audit Report
+// Export Role Audit Report
 export async function POST(request) {
   try {
     const data = await request.json();
@@ -24,7 +24,6 @@ export async function POST(request) {
       format = "excel", // excel, csv
       roles = [],
       summary = {},
-      permissionConflicts = [],
     } = data;
 
     // Validate data
@@ -40,11 +39,11 @@ export async function POST(request) {
       await createAuditLog({
         action: "EXPORT",
         entityType: "report",
-        entityId: "roles_permissions_audit",
+        entityId: "role_audit",
         userId: user.userId,
         userEmail: user.email,
         metadata: {
-          reportType: "roles_permissions_audit",
+          reportType: "role_audit",
           format,
           recordCount: roles.length,
         },
@@ -58,9 +57,9 @@ export async function POST(request) {
       switch (format.toLowerCase()) {
         case "excel":
         case "xlsx":
-          return generateExcelExport(roles, summary, permissionConflicts);
+          return generateExcelExport(roles, summary);
         case "csv":
-          return generateCSVExport(roles, summary, permissionConflicts);
+          return generateCSVExport(roles, summary);
         default:
           return NextResponse.json(
             { error: "Unsupported export format. Use: excel or csv" },
@@ -92,13 +91,13 @@ export async function POST(request) {
 }
 
 // Generate Excel export
-function generateExcelExport(roles, summary, permissionConflicts) {
+function generateExcelExport(roles, summary) {
   try {
     const workbook = XLSX.utils.book_new();
 
     // Summary Sheet
     const summaryData = [
-      ["ROLE & PERMISSION AUDIT REPORT"],
+      ["ROLE AUDIT REPORT"],
       [],
       ["Generated on", new Date().toLocaleString()],
       [],
@@ -111,7 +110,6 @@ function generateExcelExport(roles, summary, permissionConflicts) {
       ["Roles with Excessive Permissions", summary?.rolesWithExcessivePermissions || 0],
       ["Roles with Missing Permissions", summary?.rolesWithMissingPermissions || 0],
       ["Users with Multiple Roles", summary?.usersWithMultipleRoles || 0],
-      ["Permission Conflicts", summary?.permissionConflicts || 0],
       [],
       ["By Role"],
       ["Role", "Users", "Permissions", "Excessive", "Missing"],
@@ -141,7 +139,6 @@ function generateExcelExport(roles, summary, permissionConflicts) {
       "Actual Permissions",
       "Excessive Permissions",
       "Missing Permissions",
-      "Has Conflicts",
     ];
 
     const rolesRows = [rolesHeaders];
@@ -155,7 +152,6 @@ function generateExcelExport(roles, summary, permissionConflicts) {
         (role.actualPermissions || []).join("; "),
         (role.excessivePermissions || []).join("; "),
         (role.missingPermissions || []).join("; "),
-        role.hasConflicts ? "Yes" : "No",
       ]);
     });
 
@@ -184,8 +180,6 @@ function generateExcelExport(roles, summary, permissionConflicts) {
       "Department",
       "Assigned At",
       "Assigned By",
-      "Has Multiple Roles",
-      "Conflicting Roles",
     ];
 
     const usersRows = [usersHeaders];
@@ -193,12 +187,6 @@ function generateExcelExport(roles, summary, permissionConflicts) {
     roles.forEach((role) => {
       const assignedUsers = role.assignedUsers || [];
       assignedUsers.forEach((user) => {
-        const conflicts = role.hasConflicts
-          ? (role.conflicts || [])
-              .map((c) => c.role)
-              .join(", ")
-          : "";
-        
         usersRows.push([
           role.role || "",
           user.userId || "",
@@ -209,8 +197,6 @@ function generateExcelExport(roles, summary, permissionConflicts) {
             ? new Date(user.assignedAt).toLocaleDateString()
             : "",
           user.assignedBy || "",
-          role.hasConflicts ? "Yes" : "No",
-          conflicts,
         ]);
       });
     });
@@ -226,41 +212,9 @@ function generateExcelExport(roles, summary, permissionConflicts) {
       { wch: 20 }, // Department
       { wch: 15 }, // Assigned At
       { wch: 20 }, // Assigned By
-      { wch: 18 }, // Has Multiple Roles
-      { wch: 30 }, // Conflicting Roles
     ];
 
     XLSX.utils.book_append_sheet(workbook, usersSheet, "Assigned Users");
-
-    // Permission Conflicts Sheet
-    if (permissionConflicts && permissionConflicts.length > 0) {
-      const conflictsHeaders = [
-        "Permission",
-        "Assigned To Roles",
-        "Conflict Level",
-      ];
-
-      const conflictsRows = [conflictsHeaders];
-
-      permissionConflicts.forEach((conflict) => {
-        conflictsRows.push([
-          conflict.permission || "",
-          (conflict.assignedToRoles || []).join(", "),
-          conflict.conflictLevel || "low",
-        ]);
-      });
-
-      const conflictsSheet = XLSX.utils.aoa_to_sheet(conflictsRows);
-
-      // Set column widths
-      conflictsSheet["!cols"] = [
-        { wch: 40 }, // Permission
-        { wch: 40 }, // Assigned To Roles
-        { wch: 15 }, // Conflict Level
-      ];
-
-      XLSX.utils.book_append_sheet(workbook, conflictsSheet, "Permission Conflicts");
-    }
 
     // Convert to buffer
     const excelBuffer = XLSX.write(workbook, {
@@ -268,7 +222,7 @@ function generateExcelExport(roles, summary, permissionConflicts) {
       bookType: "xlsx",
     });
 
-    const fileName = `roles_permissions_audit_report_${new Date()
+    const fileName = `role_audit_report_${new Date()
       .toISOString()
       .split("T")[0]}.xlsx`;
 
@@ -287,7 +241,7 @@ function generateExcelExport(roles, summary, permissionConflicts) {
 }
 
 // Generate CSV export
-function generateCSVExport(roles, summary, permissionConflicts) {
+function generateCSVExport(roles, summary) {
   try {
     // Main roles export
     const headers = [
@@ -298,7 +252,6 @@ function generateCSVExport(roles, summary, permissionConflicts) {
       "Actual Permissions",
       "Excessive Permissions",
       "Missing Permissions",
-      "Has Conflicts",
     ];
 
     const csvRows = [headers.join(",")];
@@ -322,12 +275,11 @@ function generateCSVExport(roles, summary, permissionConflicts) {
         escapeCSV((role.actualPermissions || []).join("; ")),
         escapeCSV((role.excessivePermissions || []).join("; ")),
         escapeCSV((role.missingPermissions || []).join("; ")),
-        escapeCSV(role.hasConflicts ? "Yes" : "No"),
       ].join(","));
     });
 
     const csvContent = csvRows.join("\n");
-    const fileName = `roles_permissions_audit_report_${new Date()
+    const fileName = `role_audit_report_${new Date()
       .toISOString()
       .split("T")[0]}.csv`;
 

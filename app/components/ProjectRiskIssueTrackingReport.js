@@ -77,7 +77,7 @@ export default function ProjectRiskIssueTrackingReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-red-600" />
             Project Risk & Issue Tracking Report
           </h2>
@@ -111,7 +111,7 @@ export default function ProjectRiskIssueTrackingReport() {
             value={filters.projectId}
             onChange={(e) => setFilters({ ...filters, projectId: e.target.value })}
             placeholder="Optional"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -119,7 +119,7 @@ export default function ProjectRiskIssueTrackingReport() {
           <select
             value={filters.type}
             onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           >
             <option value="">All</option>
             <option value="delay">Delays</option>
@@ -140,7 +140,7 @@ export default function ProjectRiskIssueTrackingReport() {
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-gray-50 rounded-lg p-4">
-              <div className="font-medium text-gray-900">Total Alerts</div>
+              <div className="font-medium text-black">Total Alerts</div>
               <p className="text-2xl font-bold text-gray-700">{summary.totalAlerts ?? 0}</p>
             </div>
             <div className="bg-amber-50 rounded-lg p-4">
@@ -175,7 +175,7 @@ export default function ProjectRiskIssueTrackingReport() {
 
           {sections.map(({ id, title, icon: Icon, items, color }) => (
             <div key={id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
                 <Icon className="w-4 h-4 text-gray-600" />
                 {title} ({items.length})
               </h3>
@@ -186,7 +186,7 @@ export default function ProjectRiskIssueTrackingReport() {
                   {items.map((item, i) => (
                     <li key={item.alertId || i} className="px-4 py-3 flex flex-col gap-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-900">{item.projectName}</span>
+                        <span className="font-medium text-black">{item.projectName}</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${
                           item.priority === "high" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
                         }`}>

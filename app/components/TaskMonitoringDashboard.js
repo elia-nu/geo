@@ -80,7 +80,7 @@ const TaskMonitoringDashboard = ({
       <div className="flex items-center justify-between p-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <DashboardIcon className="text-blue-600" />
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-black">
             Task Monitoring Dashboard
           </h2>
         </div>
@@ -201,7 +201,7 @@ const TaskMonitoringDashboard = ({
                 {/* Priority Distribution */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="bg-gray-50 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    <h3 className="text-lg font-semibold text-black mb-4">
                       Priority Distribution
                     </h3>
                     <div className="space-y-3">
@@ -249,7 +249,7 @@ const TaskMonitoringDashboard = ({
 
                   {/* Status Distribution */}
                   <div className="bg-gray-50 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    <h3 className="text-lg font-semibold text-black mb-4">
                       Status Distribution
                     </h3>
                     <div className="space-y-3">
@@ -319,7 +319,7 @@ const TaskMonitoringDashboard = ({
                           className="bg-white rounded-lg p-3 border border-red-200"
                         >
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-gray-900 text-sm">
+                            <h4 className="font-medium text-black text-sm">
                               {task.title}
                             </h4>
                             <span className="text-xs text-red-600 font-medium">
@@ -360,7 +360,7 @@ const TaskMonitoringDashboard = ({
                           className="bg-white rounded-lg p-3 border border-orange-200"
                         >
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-gray-900 text-sm">
+                            <h4 className="font-medium text-black text-sm">
                               {task.title}
                             </h4>
                             <span className="text-xs text-orange-600 font-medium">
@@ -406,7 +406,7 @@ const TaskMonitoringDashboard = ({
                           key={issue.taskId}
                           className="bg-white rounded-lg p-3 border border-yellow-200"
                         >
-                          <h4 className="font-medium text-gray-900 text-sm mb-2">
+                          <h4 className="font-medium text-black text-sm mb-2">
                             {issue.taskTitle}
                           </h4>
                           <p className="text-xs text-yellow-800">
@@ -434,7 +434,7 @@ const TaskMonitoringDashboard = ({
                             key={task._id}
                             className="bg-white rounded-lg p-3 border border-blue-200"
                           >
-                            <h4 className="font-medium text-gray-900 text-sm mb-2">
+                            <h4 className="font-medium text-black text-sm mb-2">
                               {task.title}
                             </h4>
                             <div className="flex items-center gap-2 text-xs text-gray-600">
@@ -460,7 +460,7 @@ const TaskMonitoringDashboard = ({
             {selectedView === "workload" && (
               <div className="space-y-6">
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h3 className="text-lg font-semibold text-black mb-4">
                     Workload Distribution
                   </h3>
                   <div className="space-y-4">
@@ -472,7 +472,7 @@ const TaskMonitoringDashboard = ({
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <PersonIcon className="text-gray-400" />
-                            <span className="font-medium text-gray-900">
+                            <span className="font-medium text-black">
                               {employee.name}
                             </span>
                           </div>
@@ -623,7 +623,7 @@ const MetricCard = ({ title, value, icon, trend, percentage, alert }) => (
     <div>
       <p
         className={`text-2xl font-bold ${
-          alert ? "text-red-900" : "text-gray-900"
+          alert ? "text-red-900" : "text-black"
         }`}
       >
         {value}

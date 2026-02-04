@@ -32,42 +32,85 @@ export async function GET(request) {
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const startDate = startParam ? toDate(startParam) : startOfMonth;
     const endDate = endParam ? toDate(endParam) : endOfMonth;
-    const dateQuery = { timestamp: { $gte: startDate, $lte: endDate } };
+    const auditDateQuery = { timestamp: { $gte: startDate, $lte: endDate } };
 
-    const auditLogs = await db.collection("audit_logs").find(dateQuery).sort({ timestamp: -1 }).limit(3000).toArray();
+    const auditLogs = await db
+      .collection("audit_logs")
+      .find(auditDateQuery)
+      .sort({ timestamp: -1 })
+      .limit(3000)
+      .toArray();
 
-    const attendanceVerificationLogs = auditLogs.filter(
-      (e) => e.entityType === "attendance" && (e.action === "VIEW" || e.action === "APPROVE" || e.action === "REJECT" || e.action === "VERIFY")
-    ).slice(0, 100).map((e) => ({
-      timestamp: e.timestamp,
-      userId: e.userId,
-      userEmail: e.userEmail,
-      action: e.action,
-      entityId: e.entityId,
-      metadata: e.metadata,
-    }));
+    // Attendance verification: any audit touching daily_attendance (view/approve/reject/verify)
+    const attendanceVerificationLogs = auditLogs
+      .filter(
+        (e) =>
+          (e.entityType === "attendance" ||
+            e.entityType === "daily_attendance") &&
+          ["VIEW", "APPROVE", "REJECT", "VERIFY", "APPROVE_ATTENDANCE", "REJECT_ATTENDANCE"].includes(
+            e.action || ""
+          )
+      )
+      .slice(0, 100)
+      .map((e) => ({
+        timestamp: e.timestamp,
+        userId: e.userId,
+        userEmail: e.userEmail,
+        action: e.action,
+        entityId: e.entityId,
+        metadata: e.metadata,
+      }));
 
-    const payrollApprovalTrails = auditLogs.filter(
-      (e) => (e.entityType === "payroll" || e.entityType === "report") && (e.action === "VIEW" || e.action === "EXPORT" || (e.entityId || "").includes("payroll"))
-    ).slice(0, 100).map((e) => ({
-      timestamp: e.timestamp,
-      userId: e.userId,
-      userEmail: e.userEmail,
-      action: e.action,
-      entityId: e.entityId,
-      metadata: e.metadata,
-    }));
+    // Payroll approval trails: any audit touching payroll entities or payroll reports
+    const payrollApprovalTrails = auditLogs
+      .filter((e) => {
+        const type = e.entityType || "";
+        const id = e.entityId || "";
+        const action = e.action || "";
+        return (
+          type === "payroll" ||
+          (type === "report" && id.includes("payroll")) ||
+          (type === "report" &&
+            (id === "payroll_summary" ||
+              id === "payroll_variance" ||
+              id === "payroll_reconciliation")) ||
+          (type === "payroll_run" &&
+            ["CREATE", "APPROVE", "FINALIZE", "EXPORT"].includes(action))
+        );
+      })
+      .slice(0, 100)
+      .map((e) => ({
+        timestamp: e.timestamp,
+        userId: e.userId,
+        userEmail: e.userEmail,
+        action: e.action,
+        entityId: e.entityId,
+        metadata: e.metadata,
+      }));
 
-    const leaveApprovals = auditLogs.filter(
-      (e) => e.entityType === "leave" || ((e.entityType === "report" || e.entityType === "attendance_documents") && (e.entityId || "").includes("leave"))
-    ).slice(0, 100).map((e) => ({
-      timestamp: e.timestamp,
-      userId: e.userId,
-      userEmail: e.userEmail,
-      action: e.action,
-      entityId: e.entityId,
-      metadata: e.metadata,
-    }));
+    // Leave approvals: dedicated leave_request audits plus any leave-related reports
+    const leaveApprovals = auditLogs
+      .filter((e) => {
+        const type = e.entityType || "";
+        const id = e.entityId || "";
+        const action = e.action || "";
+        return (
+          type === "leave_request" ||
+          type === "leave" ||
+          ((type === "report" || type === "attendance_document") &&
+            id.includes("leave")) ||
+          action.startsWith("LEAVE_REQUEST_")
+        );
+      })
+      .slice(0, 100)
+      .map((e) => ({
+        timestamp: e.timestamp,
+        userId: e.userId,
+        userEmail: e.userEmail,
+        action: e.action,
+        entityId: e.entityId,
+        metadata: e.metadata,
+      }));
 
     const leaveDocs = await db.collection("attendance_documents").find({
       type: "leave",
@@ -78,16 +121,30 @@ export async function GET(request) {
       ],
     }).sort({ updatedAt: -1 }).limit(100).toArray();
 
-    const documentAccessRecords = auditLogs.filter(
-      (e) => e.entityType === "document" && ["DOCUMENT_VIEW", "DOCUMENT_DOWNLOAD", "DOCUMENT_UPDATE", "DOCUMENT_DELETE", "VIEW", "EXPORT"].includes(e.action)
-    ).slice(0, 100).map((e) => ({
-      timestamp: e.timestamp,
-      userId: e.userId,
-      userEmail: e.userEmail,
-      action: e.action,
-      entityId: e.entityId,
-      metadata: e.metadata,
-    }));
+    const documentAccessRecords = auditLogs
+      .filter(
+        (e) =>
+          (e.entityType === "document" ||
+            e.entityType === "policy_document" ||
+            e.entityType === "attachment") &&
+          [
+            "DOCUMENT_VIEW",
+            "DOCUMENT_DOWNLOAD",
+            "DOCUMENT_UPDATE",
+            "DOCUMENT_DELETE",
+            "VIEW",
+            "EXPORT",
+          ].includes(e.action || "")
+      )
+      .slice(0, 100)
+      .map((e) => ({
+        timestamp: e.timestamp,
+        userId: e.userId,
+        userEmail: e.userEmail,
+        action: e.action,
+        entityId: e.entityId,
+        metadata: e.metadata,
+      }));
 
     await createAuditLog({
       action: "VIEW",

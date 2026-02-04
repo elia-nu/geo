@@ -204,7 +204,7 @@ export default function LeaveCalendar() {
           <div className="flex justify-between items-start mb-1">
             <span
               className={`text-sm font-medium ${
-                isToday ? "text-blue-600" : "text-gray-900"
+                isToday ? "text-blue-600" : "text-black"
               }`}
             >
               {day}
@@ -276,7 +276,7 @@ export default function LeaveCalendar() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Leave Calendar</h1>
+          <h1 className="text-2xl font-bold text-black">Leave Calendar</h1>
           <p className="text-gray-600 mt-1">
             View and manage leave requests in calendar format
           </p>
@@ -467,7 +467,7 @@ export default function LeaveCalendar() {
                     </label>
                     <div className="flex items-center space-x-2">
                       <User className="w-4 h-4 text-gray-500" />
-                      <span className="text-gray-900">
+                      <span className="text-black">
                         {selectedRequest.employeeName}
                       </span>
                     </div>
@@ -490,7 +490,7 @@ export default function LeaveCalendar() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Duration
                     </label>
-                    <span className="text-gray-900">
+                    <span className="text-black">
                       {new Date(selectedRequest.startDate).toLocaleDateString()}{" "}
                       - {new Date(selectedRequest.endDate).toLocaleDateString()}
                     </span>
@@ -514,7 +514,7 @@ export default function LeaveCalendar() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Reason
                       </label>
-                      <p className="text-gray-900 text-sm">
+                      <p className="text-black text-sm">
                         {selectedRequest.reason}
                       </p>
                     </div>

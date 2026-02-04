@@ -142,7 +142,7 @@ export default function DocumentAccessAuditReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <Activity className="w-8 h-8 text-blue-600" />
                 <span>Document Access & Activity Audit</span>
               </h1>
@@ -353,7 +353,7 @@ export default function DocumentAccessAuditReport() {
         {/* Activity table */}
         {reportData ? (
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-3">
+            <h2 className="text-xl font-bold text-black mb-3">
               Activity Events
             </h2>
             {reportData.events && reportData.events.length > 0 ? (
@@ -388,14 +388,14 @@ export default function DocumentAccessAuditReport() {
                         : "";
                       return (
                         <tr key={ev.id}>
-                          <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                          <td className="px-4 py-2 whitespace-nowrap text-black">
                             {ts}
                           </td>
-                          <td className="px-4 py-2 whitespace-nowrap capitalize text-gray-900">
+                          <td className="px-4 py-2 whitespace-nowrap capitalize text-black">
                             {ev.action}
                           </td>
                           <td className="px-4 py-2">
-                            <div className="text-gray-900">
+                            <div className="text-black">
                               {ev.documentTitle || "Unknown document"}
                             </div>
                             <div className="text-xs text-gray-500">
@@ -403,7 +403,7 @@ export default function DocumentAccessAuditReport() {
                             </div>
                           </td>
                           <td className="px-4 py-2">
-                            <div className="text-gray-900">
+                            <div className="text-black">
                               {ev.ownerName}
                             </div>
                             <div className="text-xs text-gray-500">
@@ -411,7 +411,7 @@ export default function DocumentAccessAuditReport() {
                             </div>
                           </td>
                           <td className="px-4 py-2">
-                            <div className="text-gray-900">
+                            <div className="text-black">
                               {ev.actorEmail || ev.actorId || "Unknown"}
                             </div>
                             <div className="text-xs text-gray-500">
@@ -419,7 +419,7 @@ export default function DocumentAccessAuditReport() {
                             </div>
                           </td>
                           <td className="px-4 py-2">
-                            <div className="text-gray-900">{ev.ip}</div>
+                            <div className="text-black">{ev.ip}</div>
                             <div className="text-xs text-gray-500 truncate max-w-xs">
                               {ev.device || ev.userAgent}
                             </div>

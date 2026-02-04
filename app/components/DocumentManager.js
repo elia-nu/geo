@@ -480,10 +480,10 @@ export default function DocumentManager() {
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-black">
               Document Management
             </h2>
-            <p className="text-gray-900 mt-1">
+            <p className="text-black mt-1">
               Upload, manage, and track document expiry dates
             </p>
           </div>
@@ -592,7 +592,7 @@ export default function DocumentManager() {
                 <tr key={document._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-black">
                         {document.title}
                       </div>
                       <div className="text-sm text-gray-500">
@@ -600,16 +600,16 @@ export default function DocumentManager() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                     {getEmployeeName(document.employeeId)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                     {document.documentType}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                     {new Date(document.uploadDate).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                     {document.expiryDate
                       ? new Date(document.expiryDate).toLocaleDateString()
                       : "No Expiry"}
@@ -680,7 +680,7 @@ export default function DocumentManager() {
           <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[95vh] overflow-y-auto">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">
+                <h3 className="text-xl font-semibold text-black">
                   {viewingDocument.title}
                 </h3>
                 <p className="text-sm text-gray-600">
@@ -747,29 +747,29 @@ export default function DocumentManager() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="bg-gray-50 rounded p-3">
                 <div className="text-gray-500">Original File</div>
-                <div className="text-gray-900">
+                <div className="text-black">
                   {viewingDocument.originalName}
                 </div>
               </div>
               <div className="bg-gray-50 rounded p-3">
                 <div className="text-gray-500">Size</div>
-                <div className="text-gray-900">
+                <div className="text-black">
                   {getReadableSize(viewingDocument.fileSize)}
                 </div>
               </div>
               <div className="bg-gray-50 rounded p-3">
                 <div className="text-gray-500">MIME Type</div>
-                <div className="text-gray-900">{viewingDocument.mimeType}</div>
+                <div className="text-black">{viewingDocument.mimeType}</div>
               </div>
               <div className="bg-gray-50 rounded p-3">
                 <div className="text-gray-500">Upload Date</div>
-                <div className="text-gray-900">
+                <div className="text-black">
                   {new Date(viewingDocument.uploadDate).toLocaleString()}
                 </div>
               </div>
               <div className="bg-gray-50 rounded p-3">
                 <div className="text-gray-500">Expiry Date</div>
-                <div className="text-gray-900">
+                <div className="text-black">
                   {viewingDocument.expiryDate
                     ? new Date(viewingDocument.expiryDate).toLocaleDateString()
                     : "No Expiry"}
@@ -777,7 +777,7 @@ export default function DocumentManager() {
               </div>
               <div className="bg-gray-50 rounded p-3">
                 <div className="text-gray-500">Status</div>
-                <div className="text-gray-900">
+                <div className="text-black">
                   {getDocumentStatus(viewingDocument.expiryDate)}
                 </div>
               </div>

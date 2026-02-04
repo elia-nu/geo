@@ -31,14 +31,20 @@ export async function GET(request) {
     const locationId = searchParams.get("locationId");
     const department = scanNull(searchParams.get("department"));
 
-    // Default to last 30 days if not specified
+    // Default to full current year if no date range is provided
     const now = new Date();
-    let startDate = startDateParam
-      ? new Date(startDateParam)
-      : new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
-    let endDate = endDateParam
-      ? new Date(endDateParam)
-      : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const thisYear = now.getFullYear();
+    const parsedStart = startDateParam ? new Date(startDateParam) : null;
+    const parsedEnd = endDateParam ? new Date(endDateParam) : null;
+
+    let startDate =
+      parsedStart && !isNaN(parsedStart.getTime())
+        ? parsedStart
+        : new Date(thisYear, 0, 1); // Jan 1 of current year
+    let endDate =
+      parsedEnd && !isNaN(parsedEnd.getTime())
+        ? parsedEnd
+        : new Date(thisYear, 11, 31); // Dec 31 of current year
 
     const startStr = startDate.toISOString().slice(0, 10);
     const endStr = endDate.toISOString().slice(0, 10);
@@ -70,21 +76,52 @@ export async function GET(request) {
     const filterLocId =
       locationId && ObjectId.isValid(locationId) ? locationId : null;
 
-    // Build department info map for employees if needed
-    let deptByEmpId = new Map();
-    if (department) {
-      const emps = await db.collection("employees").find({}).toArray();
-      deptByEmpId = new Map(
-        emps.map((e) => [
-          e._id.toString(),
-          e.personalDetails?.department || e.department || "Unassigned",
-        ])
-      );
-    }
+    // Load employees once for department filtering and absence mapping
+    const emps = await db.collection("employees").find({}).toArray();
+    const deptByEmpId = new Map(
+      emps.map((e) => [
+        e._id.toString(),
+        e.personalDetails?.department || e.department || "Unassigned",
+      ])
+    );
+    const workLocationsByEmpId = new Map(
+      emps.map((e) => [
+        e._id.toString(),
+        Array.isArray(e.workLocations)
+          ? e.workLocations.map((id) =>
+              typeof id === "string" ? id : id?.toString()
+            )
+          : [],
+      ])
+    );
 
     const siteMap = new Map();
 
+    // Helper to get or create a site entry
+    const getSiteEntry = (locId, locName, baseLoc) => {
+      const key = locId || `name:${locName}`;
+      if (!siteMap.has(key)) {
+        siteMap.set(key, {
+          id: locId,
+          name: locName,
+          address: baseLoc?.address || "",
+          latitude: baseLoc?.latitude ?? null,
+          longitude: baseLoc?.longitude ?? null,
+          radius: baseLoc?.radius ?? null,
+          status: baseLoc?.status || "active",
+          totalChecks: 0,
+          compliant: 0,
+          nonCompliant: 0,
+          employees: new Set(),
+        });
+      }
+      return siteMap.get(key);
+    };
+
+    // 1) Attendance-based compliance/violations from admin approval status,
+    //    with site mapping from geofenceValidation (current data model).
     for (const rec of attendance) {
+      const approvalStatus = rec.adminApproval?.status || "pending";
       const gv = rec.geofenceValidation || {};
 
       let locId = null;
@@ -116,27 +153,13 @@ export async function GET(request) {
         if (empDept !== department) continue;
       }
 
-      const key = locId || `name:${locName}`;
-      if (!siteMap.has(key)) {
-        siteMap.set(key, {
-          id: locId,
-          name: locName,
-          address: baseLoc?.address || "",
-          latitude: baseLoc?.latitude ?? null,
-          longitude: baseLoc?.longitude ?? null,
-          radius: baseLoc?.radius ?? null,
-          status: baseLoc?.status || "active",
-          totalChecks: 0,
-          compliant: 0,
-          nonCompliant: 0,
-          employees: new Set(),
-        });
-      }
-
-      const entry = siteMap.get(key);
+      const entry = getSiteEntry(locId, locName, baseLoc);
       entry.totalChecks += 1;
 
-      if (gv && gv.isValid) {
+      // Compliance comes from approved attendances only.
+      // Violations are all attendances that are not approved
+      // (rejected or still unapproved/pending).
+      if (approvalStatus === "approved") {
         entry.compliant += 1;
       } else {
         entry.nonCompliant += 1;
@@ -148,6 +171,12 @@ export async function GET(request) {
           : String(rec.employeeId || "");
       if (empKey) entry.employees.add(empKey);
     }
+
+    // 2) (Disabled) Absence-based and outside-geofence violations
+    // Per latest requirement, violations for this report must come
+    // ONLY from unapproved/rejected attendances, so we do not add
+    // extra violations from absence documents or separate
+    // attendance_violations here.
 
     const sites = [...siteMap.values()].map((s) => {
       const total = s.totalChecks || 0;

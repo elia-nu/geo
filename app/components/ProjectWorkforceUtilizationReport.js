@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { Download, RefreshCw, Users, Briefcase, MapPin, UserCircle, Layers } from "lucide-react";
+import {
+  Download,
+  RefreshCw,
+  Users,
+  Briefcase,
+  MapPin,
+  UserCircle,
+  Milestone,
+} from "lucide-react";
 
 export default function ProjectWorkforceUtilizationReport() {
   const [loading, setLoading] = useState(false);
@@ -69,12 +77,12 @@ export default function ProjectWorkforceUtilizationReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <Users className="w-5 h-5 text-indigo-600" />
             Project Workforce Utilization Report
           </h2>
           <p className="text-sm text-gray-600 mt-0.5">
-            Employee-hours per project, site, role, phase.
+            Employee-hours per project, site, role, and milestone/phase.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -103,7 +111,7 @@ export default function ProjectWorkforceUtilizationReport() {
             value={filters.projectId}
             onChange={(e) => setFilters({ ...filters, projectId: e.target.value })}
             placeholder="Optional"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -112,7 +120,7 @@ export default function ProjectWorkforceUtilizationReport() {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -121,7 +129,7 @@ export default function ProjectWorkforceUtilizationReport() {
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
       </div>
@@ -144,7 +152,7 @@ export default function ProjectWorkforceUtilizationReport() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <Briefcase className="w-4 h-4 text-blue-600" />
                 By Project
               </h3>
@@ -160,9 +168,9 @@ export default function ProjectWorkforceUtilizationReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {byProject.map((r) => (
                       <tr key={r.projectId}>
-                        <td className="px-3 py-2 text-gray-900">{r.projectName}</td>
-                        <td className="px-3 py-2 text-right">{r.employeeHours}</td>
-                        <td className="px-3 py-2 text-right">{r.taskCount}</td>
+                        <td className="px-3 py-2 text-black">{r.projectName}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.employeeHours}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.taskCount}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -170,7 +178,7 @@ export default function ProjectWorkforceUtilizationReport() {
               </div>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-rose-600" />
                 By Site
               </h3>
@@ -186,9 +194,9 @@ export default function ProjectWorkforceUtilizationReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {bySite.map((r) => (
                       <tr key={r.siteId}>
-                        <td className="px-3 py-2 text-gray-900">{r.siteName}</td>
-                        <td className="px-3 py-2 text-right">{r.employeeHours}</td>
-                        <td className="px-3 py-2 text-right">{r.taskCount}</td>
+                        <td className="px-3 py-2 text-black">{r.siteName}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.employeeHours}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.taskCount}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -196,7 +204,7 @@ export default function ProjectWorkforceUtilizationReport() {
               </div>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <UserCircle className="w-4 h-4 text-amber-600" />
                 By Role
               </h3>
@@ -204,17 +212,27 @@ export default function ProjectWorkforceUtilizationReport() {
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Role</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Hours</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Tasks</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">
+                        Role
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">
+                        Hours
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">
+                        Tasks
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {byRole.map((r) => (
                       <tr key={r.role}>
-                        <td className="px-3 py-2 text-gray-900">{r.role}</td>
-                        <td className="px-3 py-2 text-right">{r.employeeHours}</td>
-                        <td className="px-3 py-2 text-right">{r.taskCount}</td>
+                        <td className="px-3 py-2 text-black">{r.role}</td>
+                        <td className="px-3 py-2 text-right text-black">
+                          {r.employeeHours}
+                        </td>
+                        <td className="px-3 py-2 text-right text-black">
+                          {r.taskCount}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -222,25 +240,37 @@ export default function ProjectWorkforceUtilizationReport() {
               </div>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-emerald-600" />
-                By Phase
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
+                <Milestone className="w-4 h-4 text-emerald-600" />
+                By Milestone / Phase
               </h3>
               <div className="overflow-x-auto max-h-64 overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Phase</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Hours</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Tasks</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">
+                        Milestone / Phase
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">
+                        Hours
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">
+                        Tasks
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {byPhase.map((r) => (
                       <tr key={r.phaseId}>
-                        <td className="px-3 py-2 text-gray-900">{r.phaseName}</td>
-                        <td className="px-3 py-2 text-right">{r.employeeHours}</td>
-                        <td className="px-3 py-2 text-right">{r.taskCount}</td>
+                        <td className="px-3 py-2 text-black">
+                          {r.phaseName}
+                        </td>
+                        <td className="px-3 py-2 text-right text-black">
+                          {r.employeeHours}
+                        </td>
+                        <td className="px-3 py-2 text-right text-black">
+                          {r.taskCount}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

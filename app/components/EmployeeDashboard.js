@@ -259,7 +259,7 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
               {showNotifications && (
                 <div className="notification-dropdown absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col">
                   <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-                    <h3 className="font-semibold text-gray-900">
+                    <h3 className="font-semibold text-black">
                       Notifications
                     </h3>
                     {unreadCount > 0 && (
@@ -298,7 +298,7 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
                               }`}
                             />
                             <div className="flex-1">
-                              <p className="font-medium text-gray-900 text-sm">
+                              <p className="font-medium text-black text-sm">
                                 {notification.title}
                               </p>
                               <p className="text-xs text-gray-600 mt-1">
@@ -504,7 +504,7 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
               >
                 <div className="flex items-center space-x-4">
                   <div className="text-center">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-black">
                       {formatDate(record.date)}
                     </div>
                     <div className="text-xs text-gray-500">
@@ -534,7 +534,7 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-medium text-gray-900">
+                  <div className="text-sm font-medium text-black">
                     {record.workingHours ? `${record.workingHours}h` : "N/A"}
                   </div>
                   <div className="text-xs text-gray-500">

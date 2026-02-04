@@ -288,7 +288,7 @@ export default function AttendanceManagement() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by name, email, or department..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
               />
             </div>
           </div>
@@ -301,7 +301,7 @@ export default function AttendanceManagement() {
             <select
               value={selectedEmployee}
               onChange={(e) => setSelectedEmployee(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
             >
               <option value="">All Employees</option>
               {employees.map((emp) => (
@@ -323,7 +323,7 @@ export default function AttendanceManagement() {
               onChange={(e) =>
                 setDateRange((prev) => ({ ...prev, startDate: e.target.value }))
               }
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
             />
           </div>
 
@@ -337,7 +337,7 @@ export default function AttendanceManagement() {
               onChange={(e) =>
                 setDateRange((prev) => ({ ...prev, endDate: e.target.value }))
               }
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
             />
           </div>
         </div>
@@ -447,7 +447,7 @@ export default function AttendanceManagement() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div>
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-black">
                               {record.employeeName || "Unknown"}
                             </div>
                             <div className="text-sm text-gray-500">
@@ -456,11 +456,11 @@ export default function AttendanceManagement() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         {formatDate(record.date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-black">
                           {formatTime(record.checkInTime)}
                         </div>
                         {record.checkInLocation && (
@@ -471,7 +471,7 @@ export default function AttendanceManagement() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-black">
                           {formatTime(record.checkOutTime)}
                         </div>
                         {record.checkOutLocation && (
@@ -481,7 +481,7 @@ export default function AttendanceManagement() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         <div className="flex items-center">
                           <Timer className="w-4 h-4 mr-1 text-blue-500" />
                           {calculateWorkingHours(record)}
@@ -526,7 +526,7 @@ export default function AttendanceManagement() {
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-black">
                   Attendance Details
                 </h3>
                 <button
@@ -541,7 +541,7 @@ export default function AttendanceManagement() {
             <div className="p-6 space-y-6">
               {/* Employee Info */}
               <div>
-                <h4 className="font-semibold text-gray-900 mb-2">
+                <h4 className="font-semibold text-black mb-2">
                   Employee Information
                 </h4>
                 <div className="bg-gray-50 rounded-lg p-4 grid grid-cols-2 gap-4">
@@ -562,7 +562,7 @@ export default function AttendanceManagement() {
 
               {/* Attendance Details */}
               <div>
-                <h4 className="font-semibold text-gray-900 mb-2">
+                <h4 className="font-semibold text-black mb-2">
                   Attendance Details
                 </h4>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-3">
@@ -608,7 +608,7 @@ export default function AttendanceManagement() {
               {(selectedRecord.checkInNotes ||
                 selectedRecord.checkOutNotes) && (
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Notes</h4>
+                  <h4 className="font-semibold text-black mb-2">Notes</h4>
                   <div className="space-y-2">
                     {selectedRecord.checkInNotes && (
                       <div className="bg-blue-50 rounded-lg p-3">
@@ -637,7 +637,7 @@ export default function AttendanceManagement() {
               {/* Geofence Validation */}
               {selectedRecord.geofenceValidation && (
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">
+                  <h4 className="font-semibold text-black mb-2">
                     Location Validation
                   </h4>
                   <div className="bg-green-50 rounded-lg p-4">

@@ -304,15 +304,15 @@ export default function EmployeePortal() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white rounded-xl shadow p-4">
                 <p className="text-sm text-gray-500">This Week - Present</p>
-                <p className="text-3xl font-bold text-gray-900">0 days</p>
+                <p className="text-3xl font-bold text-black">0 days</p>
               </div>
               <div className="bg-white rounded-xl shadow p-4">
                 <p className="text-sm text-gray-500">This Week - Absent</p>
-                <p className="text-3xl font-bold text-gray-900">7 days</p>
+                <p className="text-3xl font-bold text-black">7 days</p>
               </div>
               <div className="bg-white rounded-xl shadow p-4">
                 <p className="text-sm text-gray-500">Avg Hours</p>
-                <p className="text-3xl font-bold text-gray-900">0h</p>
+                <p className="text-3xl font-bold text-black">0h</p>
               </div>
             </div>
           </div>
@@ -365,7 +365,7 @@ export default function EmployeePortal() {
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-6">
+              <h1 className="text-2xl font-bold text-black mb-6">
                 My Profile
               </h1>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -378,26 +378,26 @@ export default function EmployeePortal() {
                       <span className="text-sm font-medium text-gray-600">
                         Name:
                       </span>
-                      <p className="text-gray-900">{employeeData.name}</p>
+                      <p className="text-black">{employeeData.name}</p>
                     </div>
                     <div>
                       <span className="text-sm font-medium text-gray-600">
                         Email:
                       </span>
-                      <p className="text-gray-900">{employeeData.email}</p>
+                      <p className="text-black">{employeeData.email}</p>
                     </div>
                     <div>
                       <span className="text-sm font-medium text-gray-600">
                         Employee ID:
                       </span>
-                      <p className="text-gray-900">{employeeData.employeeId}</p>
+                      <p className="text-black">{employeeData.employeeId}</p>
                     </div>
                     {employeeData.department && (
                       <div>
                         <span className="text-sm font-medium text-gray-600">
                           Department:
                         </span>
-                        <p className="text-gray-900">
+                        <p className="text-black">
                           {employeeData.department}
                         </p>
                       </div>
@@ -407,7 +407,7 @@ export default function EmployeePortal() {
                         <span className="text-sm font-medium text-gray-600">
                           Designation:
                         </span>
-                        <p className="text-gray-900">
+                        <p className="text-black">
                           {employeeData.designation}
                         </p>
                       </div>
@@ -425,7 +425,7 @@ export default function EmployeePortal() {
                           key={location._id}
                           className="p-3 bg-gray-50 rounded-lg border border-gray-200"
                         >
-                          <div className="font-medium text-gray-900">
+                          <div className="font-medium text-black">
                             {location.name}
                           </div>
                           <div className="text-sm text-gray-600">
@@ -550,7 +550,7 @@ export default function EmployeePortal() {
                 {showNotifications && (
                   <div className="notification-dropdown absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col">
                     <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-                      <h3 className="font-semibold text-gray-900">
+                      <h3 className="font-semibold text-black">
                         Notifications
                       </h3>
                       {unreadCount > 0 && (
@@ -589,7 +589,7 @@ export default function EmployeePortal() {
                                 }`}
                               />
                               <div className="flex-1">
-                                <p className="font-medium text-gray-900 text-sm">
+                                <p className="font-medium text-black text-sm">
                                   {notification.title}
                                 </p>
                                 <p className="text-xs text-gray-600 mt-1">
@@ -950,7 +950,7 @@ function EnhancedDailyAttendance({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="text-lg font-bold text-black flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-green-600" /> Work Locations (
                 {workLocations.length})
               </h3>
@@ -1022,7 +1022,7 @@ function EnhancedDailyAttendance({
               {workLocations.length === 0 ? (
                 <div className="text-center py-12">
                   <MapPin className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  <h3 className="text-xl font-semibold text-black mb-2">
                     No Work Locations Assigned
                   </h3>
                   <p className="text-gray-600">
@@ -1038,7 +1038,7 @@ function EnhancedDailyAttendance({
                       className="border border-gray-200 rounded-lg p-4"
                     >
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-lg font-semibold text-gray-900">
+                        <h4 className="text-lg font-semibold text-black">
                           {location.name}
                         </h4>
                         <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
@@ -1050,7 +1050,7 @@ function EnhancedDailyAttendance({
                           <p className="text-gray-600 mb-1 font-medium">
                             📍 Address
                           </p>
-                          <p className="text-gray-900">
+                          <p className="text-black">
                             {location.address || "Not specified"}
                           </p>
                         </div>
@@ -1058,7 +1058,7 @@ function EnhancedDailyAttendance({
                           <p className="text-gray-600 mb-1 font-medium">
                             🌍 Coordinates
                           </p>
-                          <p className="text-gray-900 font-mono text-xs">
+                          <p className="text-black font-mono text-xs">
                             {location.latitude && location.longitude
                               ? `${
                                   typeof location.latitude === "number"
@@ -1076,7 +1076,7 @@ function EnhancedDailyAttendance({
                           <p className="text-gray-600 mb-1 font-medium">
                             📏 Check-in Radius
                           </p>
-                          <p className="text-gray-900">
+                          <p className="text-black">
                             {location.radius
                               ? `${
                                   typeof location.radius === "number"
@@ -1091,7 +1091,7 @@ function EnhancedDailyAttendance({
                             <p className="text-gray-600 mb-1 font-medium">
                               📝 Description
                             </p>
-                            <p className="text-gray-900">
+                            <p className="text-black">
                               {location.description}
                             </p>
                           </div>

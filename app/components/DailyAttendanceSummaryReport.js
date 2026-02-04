@@ -151,7 +151,7 @@ export default function DailyAttendanceSummaryReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <CalendarDays className="w-8 h-8 text-blue-600" />
                 <span>Daily Attendance Summary Report</span>
               </h1>
@@ -360,7 +360,7 @@ export default function DailyAttendanceSummaryReport() {
 
             {/* By Department */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+              <h2 className="text-lg font-semibold text-black mb-4 flex items-center space-x-2">
                 <Users className="w-5 h-5 text-blue-600" />
                 <span>By Department</span>
               </h2>
@@ -391,10 +391,10 @@ export default function DailyAttendanceSummaryReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {reportData.byDepartment?.map((g) => (
                       <tr key={g.department || g.name}>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {g.department || g.name || "Unassigned"}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {g.totalEmployees || 0}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-emerald-700">
@@ -418,7 +418,7 @@ export default function DailyAttendanceSummaryReport() {
 
             {/* By Site */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+              <h2 className="text-lg font-semibold text-black mb-4 flex items-center space-x-2">
                 <MapPin className="w-5 h-5 text-blue-600" />
                 <span>By Site</span>
               </h2>
@@ -449,10 +449,10 @@ export default function DailyAttendanceSummaryReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {reportData.bySite?.map((g) => (
                       <tr key={g.siteId || g.key}>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {g.siteName || g.name || "Location"}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {g.totalEmployees || 0}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-emerald-700">
@@ -476,7 +476,7 @@ export default function DailyAttendanceSummaryReport() {
 
             {/* By Project */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+              <h2 className="text-lg font-semibold text-black mb-4 flex items-center space-x-2">
                 <Briefcase className="w-5 h-5 text-blue-600" />
                 <span>By Project</span>
               </h2>
@@ -507,10 +507,10 @@ export default function DailyAttendanceSummaryReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {reportData.byProject?.map((g) => (
                       <tr key={g.projectId || g.key}>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {g.projectName || g.name || "Project"}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {g.totalEmployees || 0}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-emerald-700">
@@ -534,7 +534,7 @@ export default function DailyAttendanceSummaryReport() {
 
             {/* By Shift */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+              <h2 className="text-lg font-semibold text-black mb-4 flex items-center space-x-2">
                 <Clock className="w-5 h-5 text-blue-600" />
                 <span>By Shift</span>
               </h2>
@@ -565,10 +565,10 @@ export default function DailyAttendanceSummaryReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {reportData.byShift?.map((g) => (
                       <tr key={g.shift || g.key}>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {g.shift || g.name || "Shift"}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {g.totalEmployees || 0}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-emerald-700">

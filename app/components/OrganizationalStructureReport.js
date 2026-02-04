@@ -262,7 +262,7 @@ export default function OrganizationalStructureReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <Building2 className="w-8 h-8 text-blue-600" />
                 <span>Organizational Structure Report</span>
               </h1>
@@ -377,7 +377,7 @@ export default function OrganizationalStructureReport() {
         {/* Hierarchy Tree */}
         {reportData ? (
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
+            <h2 className="text-xl font-bold text-black mb-4">
               Organizational Hierarchy
             </h2>
             {renderHierarchy()}

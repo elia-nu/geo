@@ -338,13 +338,13 @@ const ProjectTeamPage = ({ params }) => {
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-black">
                               {employee.name || "Unknown Employee"}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         {employee.email}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -352,7 +352,7 @@ const ProjectTeamPage = ({ params }) => {
                           {employee.position || "N/A"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         {employee.department || "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -377,7 +377,7 @@ const ProjectTeamPage = ({ params }) => {
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
               <div className="mt-3">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                <h3 className="text-lg font-medium text-black mb-4">
                   Assign Employees to Project
                 </h3>
                 <div className="mt-4">
@@ -437,7 +437,7 @@ const ProjectTeamPage = ({ params }) => {
                             </div>
                           </div>
                           <div className="flex-1">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-black">
                               {employee.personalDetails?.name || 
                                employee.name || 
                                employee.personalDetails?.fullName || 

@@ -69,15 +69,10 @@ const Sidebar = ({
       activeSection === "employee-reports" ||
       activeSection === "employee-allocation-report" ||
       activeSection === "employee-lifecycle-report" ||
-      activeSection === "organizational-structure-report" ||
-      activeSection === "role-permission-audit-report" ||
-      activeSection === "department-performance-report" ||
-      activeSection === "attendance-daily-summary-report" ||
-      activeSection === "attendance-exceptions-report" ||
-      activeSection === "employee-attendance-history-report" ||
-      activeSection === "attendance-trend-productivity-report" ||
-      activeSection === "document-inventory-report" ||
-      activeSection === "document-expiry-compliance-report" ||
+      activeSection === "employee-management-reports" ||
+      activeSection === "organization-management-reports" ||
+      activeSection === "document-management-reports" ||
+      activeSection === "work-location-management-reports" ||
       activeSection === "document-access-audit-report" ||
       activeSection === "document-stats" ||
       activeSection === "site-location-master-report" ||
@@ -87,9 +82,11 @@ const Sidebar = ({
       activeSection === "payroll-reports" ||
       activeSection === "project-reports" ||
       activeSection === "executive-reports" ||
+      activeSection === "universal-system-reports" ||
       activeSection === "completed-activities" ||
       activeSection === "workflow-bottlenecks" ||
-      activeSection === "user-activity-security"
+      activeSection === "user-activity-security" ||
+      activeSection === "attendance-management-reports"
     ) {
       setExpandedMenus((prev) => ({
         ...prev,
@@ -323,84 +320,29 @@ const Sidebar = ({
       icon: BarChart3,
       submenu: [
         {
-          id: "employee-master-report",
-          label: "Employee Master Report",
-          path: "/hrm?section=employee-master-report",
+          id: "attendance-management-reports",
+          label: "Attendance Management Reports",
+          path: "/hrm?section=attendance-management-reports",
         },
         {
-          id: "employee-allocation-report",
-          label: "Employee Allocation Report",
-          path: "/hrm?section=employee-allocation-report",
+          id: "employee-management-reports",
+          label: "Employee Management Reports",
+          path: "/hrm?section=employee-management-reports",
         },
         {
-          id: "employee-lifecycle-report",
-          label: "Employee Lifecycle Report",
-          path: "/hrm?section=employee-lifecycle-report",
+          id: "organization-management-reports",
+          label: "Organization Management Reports",
+          path: "/hrm?section=organization-management-reports",
         },
         {
-          id: "organizational-structure-report",
-          label: "Organizational Structure Report",
-          path: "/hrm?section=organizational-structure-report",
+          id: "document-management-reports",
+          label: "Document Management Reports",
+          path: "/hrm?section=document-management-reports",
         },
         {
-          id: "role-permission-audit-report",
-          label: "Role & Permission Audit Report",
-          path: "/hrm?section=role-permission-audit-report",
-        },
-        {
-          id: "department-performance-report",
-          label: "Department Performance Summary",
-          path: "/hrm?section=department-performance-report",
-        },
-        {
-          id: "attendance-daily-summary-report",
-          label: "Daily Attendance Summary Report",
-          path: "/hrm?section=attendance-daily-summary-report",
-        },
-        {
-          id: "attendance-exceptions-report",
-          label: "Attendance Exception & Violation Report",
-          path: "/hrm?section=attendance-exceptions-report",
-        },
-        {
-          id: "employee-attendance-history-report",
-          label: "Employee Attendance History Report",
-          path: "/hrm?section=employee-attendance-history-report",
-        },
-        {
-          id: "attendance-trend-productivity-report",
-          label: "Attendance Trend & Productivity Report",
-          path: "/hrm?section=attendance-trend-productivity-report",
-        },
-        {
-          id: "document-inventory-report",
-          label: "Document Inventory Report",
-          path: "/hrm?section=document-inventory-report",
-        },
-        {
-          id: "document-expiry-compliance-report",
-          label: "Document Expiry & Compliance Report",
-          path: "/hrm?section=document-expiry-compliance-report",
-        },
-        {
-          id: "document-access-audit-report",
-          label: "Document Access & Activity Audit",
-          path: "/hrm?section=document-access-audit-report",
-        },
-        {
-          id: "site-location-master-report",
-          label: "Site Location Master Report",
-          path: "/hrm?section=site-location-master-report",
-        },
-        {
-          id: "site-attendance-compliance-report",
-          label: "Site Attendance Compliance Report",
-          path: "/hrm?section=site-attendance-compliance-report",
-        },
-        {
-          id: "workforce-distribution-report",
-          label: "Workforce Distribution by Site",
-          path: "/hrm?section=workforce-distribution-site-report",
+          id: "work-location-management-reports",
+          label: "Work Location Management Reports",
+          path: "/hrm?section=work-location-management-reports",
         },
         {
           id: "leave-reports",
@@ -423,35 +365,26 @@ const Sidebar = ({
           path: "/hrm?section=executive-reports",
         },
         {
-          id: "completed-activities",
-          label: "Completed Activities (Master Audit)",
-          path: "/hrm?section=executive-reports&tab=completed-activities",
+          id: "universal-system-reports",
+          label: "Universal System Reports",
+          path: "/hrm?section=universal-system-reports",
         },
-        {
-          id: "workflow-bottlenecks",
-          label: "Workflow Bottleneck & SLA Breach",
-          path: "/hrm?section=executive-reports&tab=workflow-bottlenecks",
-        },
-        {
-          id: "user-activity-security",
-          label: "User Activity & Security Audit",
-          path: "/hrm?section=executive-reports&tab=user-activity-security",
-        },
-        {
-          id: "employee-stats",
-          label: "Employee Statistics",
-          path: "/hrm?section=employee-stats",
-        },
-        {
-          id: "department-stats",
-          label: "Department Analytics",
-          path: "/hrm?section=department-stats",
-        },
-        {
-          id: "document-stats",
-          label: "Document Reports",
-          path: "/hrm?section=document-stats",
-        },
+        // The following report links are temporarily disabled in the sidebar:
+        // {
+        //   id: "employee-stats",
+        //   label: "Employee Statistics",
+        //   path: "/hrm?section=employee-stats",
+        // },
+        // {
+        //   id: "department-stats",
+        //   label: "Department Analytics",
+        //   path: "/hrm?section=department-stats",
+        // },
+        // {
+        //   id: "document-stats",
+        //   label: "Document Reports",
+        //   path: "/hrm?section=document-stats",
+        // },
       ],
     },
     /*{

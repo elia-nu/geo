@@ -73,7 +73,7 @@ export default function PayrollVarianceReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-amber-600" />
             Payroll Variance & Anomaly Report
           </h2>
@@ -105,7 +105,7 @@ export default function PayrollVarianceReport() {
           <select
             value={filters.month}
             onChange={(e) => setFilters({ ...filters, month: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
               <option key={m} value={m}>{new Date(2000, m - 1, 1).toLocaleString("default", { month: "long" })}</option>
@@ -118,7 +118,7 @@ export default function PayrollVarianceReport() {
             type="number"
             value={filters.year}
             onChange={(e) => setFilters({ ...filters, year: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
             min="2020"
             max="2030"
           />
@@ -151,7 +151,7 @@ export default function PayrollVarianceReport() {
 
           {anomalies.length > 0 && (
             <div className="bg-white rounded-lg border border-amber-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b bg-amber-50 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b bg-amber-50 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
                 Anomalies
               </h3>
@@ -162,7 +162,7 @@ export default function PayrollVarianceReport() {
                       {a.type.replace(/_/g, " ")}
                     </span>
                     <div>
-                      <p className="font-medium text-gray-900">{a.employeeName}</p>
+                      <p className="font-medium text-black">{a.employeeName}</p>
                       <p className="text-sm text-gray-600">{a.description}</p>
                     </div>
                   </li>
@@ -172,7 +172,7 @@ export default function PayrollVarianceReport() {
           )}
 
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b">Variance by Employee (current vs previous month)</h3>
+            <h3 className="text-sm font-semibold text-black px-4 py-3 border-b">Variance by Employee (current vs previous month)</h3>
             <div className="overflow-x-auto max-h-96 overflow-y-auto">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50 sticky top-0">
@@ -187,10 +187,10 @@ export default function PayrollVarianceReport() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {varianceRows.map((r) => (
                     <tr key={r.employeeId}>
-                      <td className="px-3 py-2 text-gray-900">{r.employeeName}</td>
-                      <td className="px-3 py-2">{r.department}</td>
-                      <td className="px-3 py-2 text-right">{r.currentMonth?.netPay}</td>
-                      <td className="px-3 py-2 text-right">{r.previousMonth?.netPay}</td>
+                      <td className="px-3 py-2 text-black">{r.employeeName}</td>
+                      <td className="px-3 py-2 text-black">{r.department}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.currentMonth?.netPay}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.previousMonth?.netPay}</td>
                       <td className={`px-3 py-2 text-right flex items-center justify-end gap-1 ${r.netChangePercent > 0 ? "text-emerald-600" : r.netChangePercent < 0 ? "text-red-600" : ""}`}>
                         {r.netChangePercent > 0 && <TrendingUp className="w-4 h-4" />}
                         {r.netChangePercent < 0 && <TrendingDown className="w-4 h-4" />}

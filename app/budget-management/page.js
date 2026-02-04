@@ -250,7 +250,7 @@ const BudgetManagementPage = () => {
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-bold text-black mb-2">
                 Budget Management
               </h1>
               <p className="text-gray-600">
@@ -279,7 +279,7 @@ const BudgetManagementPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Total Projects</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-black">
                   {projects.length}
                 </p>
               </div>
@@ -293,7 +293,7 @@ const BudgetManagementPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Projects with Budget</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-black">
                   {projectsWithBudget}
                 </p>
               </div>
@@ -307,7 +307,7 @@ const BudgetManagementPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Total Budget</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-black">
                   {formatCurrency(totalBudget)}
                 </p>
               </div>
@@ -321,7 +321,7 @@ const BudgetManagementPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Overrun Projects</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-black">
                   {overrunProjects}
                 </p>
               </div>
@@ -332,25 +332,25 @@ const BudgetManagementPage = () => {
         {/* Financial Overview */}
         {financialSummary && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            <h2 className="text-lg font-semibold text-black mb-4">
               Financial Overview
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <p className="text-sm text-gray-600">Total Budget</p>
-                <p className="text-xl font-bold text-gray-900">
+                <p className="text-xl font-bold text-black">
                   {formatCurrency(financialSummary.summary?.totalBudget || 0)}
                 </p>
               </div>
               <div className="text-center">
                 <p className="text-sm text-gray-600">Total Expenses</p>
-                <p className="text-xl font-bold text-gray-900">
+                <p className="text-xl font-bold text-black">
                   {formatCurrency(financialSummary.summary?.totalExpenses || 0)}
                 </p>
               </div>
               <div className="text-center">
                 <p className="text-sm text-gray-600">Total Income</p>
-                <p className="text-xl font-bold text-gray-900">
+                <p className="text-xl font-bold text-black">
                   {formatCurrency(financialSummary.summary?.totalIncome || 0)}
                 </p>
               </div>
@@ -440,7 +440,7 @@ const BudgetManagementPage = () => {
         {/* Projects List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-black">
               Project Budgets ({filteredProjects.length})
             </h2>
           </div>
@@ -468,7 +468,7 @@ const BudgetManagementPage = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-medium text-gray-900">
+                          <h3 className="text-lg font-medium text-black">
                             {project.name}
                           </h3>
                           <span

@@ -98,13 +98,13 @@ export async function POST(request) {
       t += 24 * 60 * 60 * 1000
     ) {
       const dLocal = new Date(t);
-      const dow = dLocal.getDay();
-      const isWeekday = dow !== 0 && dow !== 6;
       const hol = isHoliday(dLocal);
       const isHol =
         hol === true || (hol && (hol.isHoliday || hol.name || hol.type));
 
-      if (isWeekday && !isHol) {
+      // Business rule: no weekend breaks. Every calendar day is a working day
+      // except official holidays.
+      if (!isHol) {
         totalWorkingDays += 1;
         if (dLocal <= todayLocalForCount) {
           workingDaysSoFar += 1;
@@ -148,6 +148,31 @@ export async function POST(request) {
         if (isHol) holidayIsoSet.add(iso);
       }
     }
+
+    // If there are no holidays at all for this month, treat it as a 30‑day
+    // working month with no weekend breaks, as requested:
+    // - totalWorkingDays: always 30
+    // - workingDaysSoFar: count calendar days in this month up to today, capped at 30
+    if (holidayIsoSet.size === 0) {
+      totalWorkingDays = 30;
+
+      const today = new Date();
+      const sameMonth =
+        today.getFullYear() === targetYear &&
+        today.getMonth() === targetMonth - 1;
+
+      if (today < startLocalForCount) {
+        // Future month – no days worked yet
+        workingDaysSoFar = 0;
+      } else if (today > endLocalForCount || !sameMonth) {
+        // Past month (or different year) – full 30 working days
+        workingDaysSoFar = 30;
+      } else {
+        // Current month – days so far in this month, capped at 30
+        const dayOfMonth = today.getDate();
+        workingDaysSoFar = Math.min(dayOfMonth, 30);
+      }
+    }
     const holidays = Array.from(holidayIsoSet).map((iso) => ({
       date: new Date(`${iso}T00:00:00Z`),
       name: "Holiday",
@@ -171,7 +196,18 @@ export async function POST(request) {
       .toArray();
     console.log(`Found ${employees.length} employees for payroll calculation`);
 
-    if (employees.length === 0) {
+    // Filter employees to only those who existed during the selected period.
+    // If an employee's joiningDate is after the period end, we exclude them
+    // from this month's payroll.
+    const employeesForPeriod = employees.filter((employee) => {
+      const jdStr =
+        employee.joiningDate || employee.personalDetails?.joiningDate;
+      if (!jdStr) return true;
+      const jd = new Date(`${jdStr}T00:00:00Z`);
+      return jd <= endDate;
+    });
+
+    if (employeesForPeriod.length === 0) {
       return NextResponse.json({
         success: true,
         data: {
@@ -194,7 +230,9 @@ export async function POST(request) {
     }
 
     // Preload attendance for the month for these employees
-    const employeeIdSet = new Set(employees.map((e) => e._id.toString()));
+    const employeeIdSet = new Set(
+      employeesForPeriod.map((e) => e._id.toString())
+    );
     const attendanceRecords = await db
       .collection("daily_attendance")
       .find({
@@ -275,7 +313,7 @@ export async function POST(request) {
     });
 
     // Calculate payroll for each employee
-    const payrollData = employees.map((employee) => {
+    const payrollData = employeesForPeriod.map((employee) => {
       // Get salary information
       const grossSalary = parseFloat(
         employee.grossSalary || employee.baseSalary || 0
@@ -327,37 +365,45 @@ export async function POST(request) {
         const attKey = `${empIdStr}|${dateIso}`;
         const att = attendanceByEmpDate.get(attKey);
         const hasAttendance = att && att.checkInTime;
+        const approvalStatus = att?.adminApproval?.status;
 
-        // If there is an attendance record explicitly rejected/denied by admin,
-        // count this day as a deduction regardless of check-in/out times.
-        if (
-          att &&
-          (att.adminApproval?.status === "rejected" ||
-            att.adminApproval?.status === "denied")
-        ) {
-          if (
-            employee.name?.toLowerCase().includes("mamo elias") ||
-            empIdStr === "68e564a00d8e863db2a9b421"
-          ) {
-            console.log(
-              "[payroll][debug-day]",
-              employee.name,
-              dateIso,
-              "deduct: rejected/denied attendance"
-            );
-          }
-          deductionDays += 1;
-          deductionDates.push(dateIso);
-          continue;
-        }
+        // Determine if this calendar day is a \"working\" day for payroll:
+        // no weekend logic; any non-holiday calendar day counts.
+        const dUtc = new Date(`${dateIso}T00:00:00Z`);
+        const dLocalCheck = new Date(
+          dUtc.getUTCFullYear(),
+          dUtc.getUTCMonth(),
+          dUtc.getUTCDate()
+        );
+        const holInfo = isHoliday(dLocalCheck);
+        const isHolidayDay =
+          holidayIsoSet.has(dateIso) || (holInfo && holInfo.isHoliday);
+        const isPayrollWorkingDay = !isHolidayDay;
 
+        // NEW RULE:
+        // For an employee to have a working day, they must have an *approved* attendance.
+        // Any attendance that is not explicitly approved is treated as absence.
         if (hasAttendance) {
-          // Treat check-in without check-out as full-day absence
-          if (att && att.checkInTime && !att.checkOutTime) {
-            deductionDays += 1;
-            deductionDates.push(dateIso);
+          if (approvalStatus !== "approved") {
+            // Attendance exists but not approved (pending / rejected / denied / other) → absence
+            if (isPayrollWorkingDay) {
+              deductionDays += 1;
+              deductionDates.push(dateIso);
+            }
             continue;
           }
+
+          // Approved attendance exists:
+          // If check-in without check-out, still treat as full-day absence.
+          if (att.checkInTime && !att.checkOutTime) {
+            if (isPayrollWorkingDay) {
+              deductionDays += 1;
+              deductionDates.push(dateIso);
+            }
+            continue;
+          }
+
+          // Approved and complete attendance → counted as worked day, no deduction
           continue;
         }
 
@@ -380,26 +426,15 @@ export async function POST(request) {
           return new Date(dateIso) >= s && new Date(dateIso) <= e;
         });
         if (hasPendOrDeniedLeave) {
-          deductionDays += 1;
-          deductionDates.push(dateIso);
+          if (isPayrollWorkingDay) {
+            deductionDays += 1;
+            deductionDates.push(dateIso);
+          }
           continue;
         }
 
-        // Otherwise, pure absence: deduct only on working non-holiday days (UTC-safe)
-        const dUtc = new Date(`${dateIso}T00:00:00Z`);
-        const dow = dUtc.getUTCDay();
-        const isWeekday = dow !== 0 && dow !== 6;
-        // Cross-check: holiday from set OR direct calendar helper
-        const dLocalCheck = new Date(
-          dUtc.getUTCFullYear(),
-          dUtc.getUTCMonth(),
-          dUtc.getUTCDate()
-        );
-        const holInfo = isHoliday(dLocalCheck);
-        const isHolidayDay =
-          holidayIsoSet.has(dateIso) || (holInfo && holInfo.isHoliday);
-
-        if (isWeekday && !isHolidayDay) {
+        // Otherwise, pure absence: deduct only on working (non-holiday) days
+        if (isPayrollWorkingDay) {
           deductionDays += 1;
           deductionDates.push(dateIso);
         }
@@ -592,8 +627,16 @@ export async function GET(request) {
       .collection("employees")
       .find(employeeQuery)
       .toArray();
+    // Filter employees to only those who existed during the selected period.
+    const employeesForPeriod = employees.filter((employee) => {
+      const jdStr =
+        employee.joiningDate || employee.personalDetails?.joiningDate;
+      if (!jdStr) return true;
+      const jd = new Date(`${jdStr}T00:00:00Z`);
+      return jd <= endDate;
+    });
 
-    if (employees.length === 0) {
+    if (employeesForPeriod.length === 0) {
       return NextResponse.json({
         success: true,
         data: {
@@ -615,7 +658,7 @@ export async function GET(request) {
     }
 
     // Calculate payroll for each employee
-    const payrollData = employees.map((employee) => {
+    const payrollData = employeesForPeriod.map((employee) => {
       const grossSalary = parseFloat(
         employee.grossSalary || employee.baseSalary || 0
       );

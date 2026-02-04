@@ -634,13 +634,13 @@ const ProjectDetailPage = ({ params }) => {
               <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-3">
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 truncate">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black truncate">
                       {project.name}
                     </h1>
                     <button
                       onClick={refreshData}
                       disabled={refreshing}
-                      className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 rounded-lg transition-colors disabled:opacity-50 border border-gray-300"
+                      className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-black rounded-lg transition-colors disabled:opacity-50 border border-gray-300"
                       title="Refresh data"
                     >
                       <RefreshIcon
@@ -746,7 +746,7 @@ const ProjectDetailPage = ({ params }) => {
                   <p className="text-sm text-gray-500 font-medium">
                     Total Tasks
                   </p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-black">
                     {taskStats.total || 0}
                   </p>
                 </div>
@@ -774,7 +774,7 @@ const ProjectDetailPage = ({ params }) => {
                 <div className="text-right">
                   <p className="text-sm text-gray-500 font-medium">Budget</p>
                   {!isEditingBudget ? (
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-black">
                       {new Intl.NumberFormat("en-ET", {
                         style: "currency",
                         currency: "ETB",
@@ -857,7 +857,7 @@ const ProjectDetailPage = ({ params }) => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-500 font-medium">Expenses</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-black">
                     {new Intl.NumberFormat("en-ET", {
                       style: "currency",
                       currency: "ETB",
@@ -894,7 +894,7 @@ const ProjectDetailPage = ({ params }) => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-500 font-medium">Timeline</p>
-                  <p className="text-sm font-bold text-gray-900 leading-tight">
+                  <p className="text-sm font-bold text-black leading-tight">
                     {project.startDate && project.endDate
                       ? `${format(
                           parseISO(project.startDate),
@@ -929,7 +929,7 @@ const ProjectDetailPage = ({ params }) => {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center">
                       <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                        <PeopleIcon className="w-5 h-5 text-gray-900" />
+                        <PeopleIcon className="w-5 h-5 text-black" />
                       </div>
                       <h2 className="text-xl font-semibold text-white">
                         Team Members
@@ -940,7 +940,7 @@ const ProjectDetailPage = ({ params }) => {
                       className="flex items-center gap-2 text-gray-700 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-lg px-3 py-2 text-sm font-medium transition-colors shadow-sm border border-gray-200"
                     >
                       View All
-                      <ArrowForwardIcon className="w-4 h-4 text-gray-900" />
+                      <ArrowForwardIcon className="w-4 h-4 text-black" />
                     </Link>
                   </div>
                 </div>
@@ -959,7 +959,7 @@ const ProjectDetailPage = ({ params }) => {
                               : "U"}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-lg font-semibold text-gray-900 truncate">
+                            <p className="text-lg font-semibold text-black truncate">
                               {employee.name}
                             </p>
                             <p className="text-sm text-gray-500">
@@ -989,7 +989,7 @@ const ProjectDetailPage = ({ params }) => {
                       <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                         <PeopleIcon className="w-8 h-8 text-gray-400" />
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      <h3 className="text-lg font-medium text-black mb-2">
                         No Team Members
                       </h3>
                       <p className="text-gray-500 mb-4">
@@ -1014,7 +1014,7 @@ const ProjectDetailPage = ({ params }) => {
                   <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
                     <div className="flex items-center">
                       <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                        <BarChartIcon className="w-5 h-5 text-gray-900" />
+                        <BarChartIcon className="w-5 h-5 text-black" />
                       </div>
                       <h2 className="text-lg font-semibold text-white">
                         Task Distribution
@@ -1062,7 +1062,7 @@ const ProjectDetailPage = ({ params }) => {
                   <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4">
                     <div className="flex items-center">
                       <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                        <AttachMoneyIcon className="w-5 h-5 text-gray-900" />
+                        <AttachMoneyIcon className="w-5 h-5 text-black" />
                       </div>
                       <h2 className="text-lg font-semibold text-white">
                         Budget Utilization
@@ -1114,7 +1114,7 @@ const ProjectDetailPage = ({ params }) => {
                     <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
                       <div className="flex items-center">
                         <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                          <BarChartIcon className="w-5 h-5 text-gray-900" />
+                          <BarChartIcon className="w-5 h-5 text-black" />
                         </div>
                         <h2 className="text-lg font-semibold text-white">
                           Progress by Category
@@ -1160,7 +1160,7 @@ const ProjectDetailPage = ({ params }) => {
                     <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4">
                       <div className="flex items-center">
                         <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                          <CalendarIcon className="w-5 h-5 text-gray-900" />
+                          <CalendarIcon className="w-5 h-5 text-black" />
                         </div>
                         <h2 className="text-lg font-semibold text-white">
                           Project Timeline
@@ -1170,7 +1170,7 @@ const ProjectDetailPage = ({ params }) => {
                     <div className="p-6">
                       <div className="mb-4">
                         <div className="flex justify-between items-center mb-2">
-                          <p className="text-lg font-semibold text-gray-900">
+                          <p className="text-lg font-semibold text-black">
                             Overall Progress
                           </p>
                           <p className="text-2xl font-bold text-indigo-600">
@@ -1209,7 +1209,7 @@ const ProjectDetailPage = ({ params }) => {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center">
                       <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                        <TimelineIcon className="w-5 h-5 text-gray-900" />
+                        <TimelineIcon className="w-5 h-5 text-black" />
                       </div>
                       <h2 className="text-xl font-semibold text-white">
                         Milestones
@@ -1234,7 +1234,7 @@ const ProjectDetailPage = ({ params }) => {
                           className="p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow"
                         >
                           <div className="flex justify-between items-start mb-3">
-                            <h3 className="text-base font-semibold text-gray-900 flex-1 pr-2">
+                            <h3 className="text-base font-semibold text-black flex-1 pr-2">
                               {milestone.title}
                             </h3>
                             <span
@@ -1308,7 +1308,7 @@ const ProjectDetailPage = ({ params }) => {
                       <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                         <TimelineIcon className="w-8 h-8 text-gray-400" />
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      <h3 className="text-lg font-medium text-black mb-2">
                         No Milestones
                       </h3>
                       <p className="text-gray-500 mb-4">
@@ -1329,7 +1329,7 @@ const ProjectDetailPage = ({ params }) => {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center">
                       <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                        <NotificationsIcon className="w-5 h-5 text-gray-900" />
+                        <NotificationsIcon className="w-5 h-5 text-black" />
                       </div>
                       <h2 className="text-xl font-semibold text-white">
                         Project Alerts
@@ -1434,7 +1434,7 @@ const ProjectDetailPage = ({ params }) => {
                       <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                         <NotificationsOffIcon className="w-8 h-8 text-gray-400" />
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      <h3 className="text-lg font-medium text-black mb-2">
                         No Alerts
                       </h3>
                       <p className="text-gray-500">
@@ -1451,7 +1451,7 @@ const ProjectDetailPage = ({ params }) => {
                 <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4">
                   <div className="flex items-center">
                     <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                      <HistoryIcon className="w-5 h-5 text-gray-900" />
+                      <HistoryIcon className="w-5 h-5 text-black" />
                     </div>
                     <h2 className="text-xl font-semibold text-white">
                       Recent Activity
@@ -1478,7 +1478,7 @@ const ProjectDetailPage = ({ params }) => {
                             {getTimelineIcon(activity.type)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-base font-semibold text-gray-900">
+                            <h3 className="text-base font-semibold text-black">
                               {activity.title}
                             </h3>
                             <p className="text-sm text-gray-600 mb-1">
@@ -1499,7 +1499,7 @@ const ProjectDetailPage = ({ params }) => {
                       <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                         <HistoryIcon className="w-8 h-8 text-gray-400" />
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      <h3 className="text-lg font-medium text-black mb-2">
                         No Recent Activity
                       </h3>
                       <p className="text-gray-500">

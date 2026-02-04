@@ -193,7 +193,7 @@ export default function EmployeeAttendanceHistory({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-black">
             Attendance History
           </h1>
           <p className="text-gray-600 mt-1">
@@ -328,7 +328,7 @@ export default function EmployeeAttendanceHistory({
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-4">
                       <div className="text-center">
-                        <div className="text-lg font-semibold text-gray-900">
+                        <div className="text-lg font-semibold text-black">
                           {new Date(record.date).getDate()}
                         </div>
                         <div className="text-sm text-gray-500">
@@ -338,7 +338,7 @@ export default function EmployeeAttendanceHistory({
                         </div>
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-black">
                           {formatDate(record.date)}
                         </div>
                         <div className="text-sm text-gray-600">
@@ -365,7 +365,7 @@ export default function EmployeeAttendanceHistory({
                         <span className="text-sm font-medium text-gray-700">
                           Check-in:
                         </span>
-                        <span className="text-sm text-gray-900">
+                        <span className="text-sm text-black">
                           {formatTime(record.checkInTime)}
                         </span>
                       </div>
@@ -374,7 +374,7 @@ export default function EmployeeAttendanceHistory({
                         <span className="text-sm font-medium text-gray-700">
                           Check-out:
                         </span>
-                        <span className="text-sm text-gray-900">
+                        <span className="text-sm text-black">
                           {formatTime(record.checkOutTime)}
                         </span>
                       </div>
@@ -384,7 +384,7 @@ export default function EmployeeAttendanceHistory({
                           <span className="text-sm font-medium text-gray-700">
                             Hours:
                           </span>
-                          <span className="text-sm text-gray-900">
+                          <span className="text-sm text-black">
                             {workingHours}h
                           </span>
                         </div>
@@ -438,7 +438,7 @@ export default function EmployeeAttendanceHistory({
         ) : (
           <div className="text-center py-12 text-gray-500">
             <History className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-lg font-medium text-black mb-2">
               No attendance records found
             </h3>
             <p className="text-gray-600">

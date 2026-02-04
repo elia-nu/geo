@@ -82,7 +82,7 @@ export default function AttendanceExceptionViolationReport() {
         summary: reportData.summary || {},
         lateArrivals: reportData.lateArrivals || [],
         earlyDepartures: reportData.earlyDepartures || [],
-        outsideGeofenceAttempts: reportData.outsideGeofenceAttempts || [],
+        // Outside-geofence attempts removed from this report's UI/export payload
         missedCheckIns: reportData.missedCheckIns || [],
         filters: reportData.filters || {},
       };
@@ -145,7 +145,7 @@ export default function AttendanceExceptionViolationReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <AlertTriangle className="w-8 h-8 text-red-600" />
                 <span>Attendance Exception &amp; Violation Report</span>
               </h1>
@@ -327,17 +327,6 @@ export default function AttendanceExceptionViolationReport() {
                     {summary.earlyDepartures || 0}
                   </p>
                 </div>
-                <div className="bg-red-50 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <span className="font-medium text-red-900">
-                      Outside Geofence
-                    </span>
-                  </div>
-                  <p className="text-2xl font-bold text-red-600">
-                    {summary.outsideGeofence || 0}
-                  </p>
-                </div>
                 <div className="bg-orange-50 rounded-lg p-4">
                   <div className="flex items-center space-x-2 mb-2">
                     <AlertTriangle className="w-5 h-5 text-orange-600" />
@@ -354,7 +343,7 @@ export default function AttendanceExceptionViolationReport() {
 
             {/* Late Arrivals */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              <h2 className="text-lg font-semibold text-black mb-4">
                 Late Arrivals
               </h2>
               <div className="overflow-x-auto">
@@ -381,19 +370,19 @@ export default function AttendanceExceptionViolationReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {reportData.lateArrivals?.map((r, idx) => (
                       <tr key={idx}>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.employeeName}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.department}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.shift}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.date}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.checkInTime
                             ? new Date(r.checkInTime).toLocaleTimeString()
                             : ""}
@@ -407,7 +396,7 @@ export default function AttendanceExceptionViolationReport() {
 
             {/* Early Departures */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              <h2 className="text-lg font-semibold text-black mb-4">
                 Early Departures
               </h2>
               <div className="overflow-x-auto">
@@ -434,19 +423,19 @@ export default function AttendanceExceptionViolationReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {reportData.earlyDepartures?.map((r, idx) => (
                       <tr key={idx}>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.employeeName}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.department}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.shift}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.date}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.checkOutTime
                             ? new Date(r.checkOutTime).toLocaleTimeString()
                             : ""}
@@ -458,66 +447,9 @@ export default function AttendanceExceptionViolationReport() {
               </div>
             </div>
 
-            {/* Outside Geofence */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Outside-geofence Attempts
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Employee
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Department
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Action
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Distance (m)
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Work Location
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {reportData.outsideGeofenceAttempts?.map((r, idx) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
-                          {r.employeeName}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
-                          {r.department}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
-                          {r.date}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
-                          {r.action}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
-                          {r.distance ?? ""}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
-                          {r.workLocationName || r.nearestLocation?.name || ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
             {/* Missed Check-ins */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              <h2 className="text-lg font-semibold text-black mb-4">
                 Missed Check-ins
               </h2>
               <div className="overflow-x-auto">
@@ -538,13 +470,13 @@ export default function AttendanceExceptionViolationReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {reportData.missedCheckIns?.map((r, idx) => (
                       <tr key={idx}>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.employeeName}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.department}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {r.date}
                         </td>
                       </tr>

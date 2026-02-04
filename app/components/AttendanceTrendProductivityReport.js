@@ -136,7 +136,7 @@ export default function AttendanceTrendProductivityReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <LineChart className="w-8 h-8 text-blue-600" />
                 <span>Attendance Trend &amp; Productivity Report</span>
               </h1>
@@ -302,28 +302,28 @@ export default function AttendanceTrendProductivityReport() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {trends.map((t) => (
                     <tr key={t.periodKey}>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {t.periodKey}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {t.totalWorkingHours ?? 0}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {t.totalOvertimeHours ?? 0}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {t.distinctEmployees ?? 0}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {t.employeeDaysPresent ?? 0}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {t.daysInPeriod ?? 0}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {(t.absenteeismRate ?? 0).toFixed(2)}%
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {(t.avgOvertimePerEmployee ?? 0).toFixed(2)} hrs
                       </td>
                     </tr>

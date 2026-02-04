@@ -651,7 +651,7 @@ export default function EmployeeDatabase() {
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-black">
               Employee Database
             </h2>
             <p className="text-gray-600 mt-1">
@@ -670,7 +670,7 @@ export default function EmployeeDatabase() {
 
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <h3 className="text-lg font-semibold text-black mb-4">
           Search & Filters
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -683,7 +683,7 @@ export default function EmployeeDatabase() {
               placeholder="Search by name, email, department, skills..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-500"
+              className="w-full p-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500"
               name="employeeSearch"
               autoComplete="new-password"
               autoCorrect="off"
@@ -701,7 +701,7 @@ export default function EmployeeDatabase() {
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900"
+              className="w-full p-2 border border-gray-300 rounded bg-white text-black"
             >
               <option value="">All Departments</option>
               {Array.isArray(departments) &&
@@ -725,7 +725,7 @@ export default function EmployeeDatabase() {
             <select
               value={designationFilter}
               onChange={(e) => setDesignationFilter(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900"
+              className="w-full p-2 border border-gray-300 rounded bg-white text-black"
             >
               <option value="">All Designations</option>
               {Array.isArray(designations) &&
@@ -749,7 +749,7 @@ export default function EmployeeDatabase() {
             <select
               value={skillFilter}
               onChange={(e) => setSkillFilter(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900"
+              className="w-full p-2 border border-gray-300 rounded bg-white text-black"
             >
               <option value="">All Skills</option>
               {getUniqueSkills().map((skill, index) => (
@@ -766,7 +766,7 @@ export default function EmployeeDatabase() {
             <select
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900"
+              className="w-full p-2 border border-gray-300 rounded bg-white text-black"
             >
               <option value="">All Locations</option>
               {Array.isArray(workLocations) &&
@@ -884,19 +884,19 @@ export default function EmployeeDatabase() {
               ) : (
                 filteredEmployees.map((employee) => (
                   <tr key={employee._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[180px] overflow-hidden text-ellipsis">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black max-w-[180px] overflow-hidden text-ellipsis">
                       {getEmployeeName(employee)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[220px] overflow-hidden text-ellipsis">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black max-w-[220px] overflow-hidden text-ellipsis">
                       {getEmployeeEmail(employee)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[140px] overflow-hidden text-ellipsis">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black max-w-[140px] overflow-hidden text-ellipsis">
                       {getEmployeePhone(employee) || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[160px] overflow-hidden text-ellipsis">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black max-w-[160px] overflow-hidden text-ellipsis">
                       {employee.department}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[180px] overflow-hidden text-ellipsis">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black max-w-[180px] overflow-hidden text-ellipsis">
                       {employee.designation}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -1001,13 +1001,13 @@ export default function EmployeeDatabase() {
                     <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                       <User className="w-5 h-5 text-blue-600" />
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900">
+                    <h4 className="text-lg font-semibold text-black">
                       Personal Information
                     </h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Full Name <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -1023,7 +1023,7 @@ export default function EmployeeDatabase() {
                           })
                         }
                         placeholder="Enter employee's full name"
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-500 ${
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all bg-white text-black placeholder-gray-500 ${
                           formErrors.name
                             ? "border-red-300 focus:ring-red-500"
                             : "border-gray-300 focus:ring-blue-500"
@@ -1036,7 +1036,7 @@ export default function EmployeeDatabase() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Email Address <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -1052,7 +1052,7 @@ export default function EmployeeDatabase() {
                           })
                         }
                         placeholder="employee@company.com"
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-500 ${
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all bg-white text-black placeholder-gray-500 ${
                           formErrors.email
                             ? "border-red-300 focus:ring-red-500"
                             : "border-gray-300 focus:ring-blue-500"
@@ -1065,7 +1065,7 @@ export default function EmployeeDatabase() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Contact Number
                       </label>
                       <input
@@ -1081,11 +1081,11 @@ export default function EmployeeDatabase() {
                           })
                         }
                         placeholder="+1 (555) 123-4567"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-black placeholder-gray-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Emergency Contact Number
                       </label>
                       <input
@@ -1103,11 +1103,11 @@ export default function EmployeeDatabase() {
                           })
                         }
                         placeholder="Contact in case of emergency"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-black placeholder-gray-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Date of Birth
                       </label>
                       <input
@@ -1122,11 +1122,11 @@ export default function EmployeeDatabase() {
                             },
                           })
                         }
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-black placeholder-gray-500"
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Address
                       </label>
                       <textarea
@@ -1142,7 +1142,7 @@ export default function EmployeeDatabase() {
                         }
                         placeholder="Enter employee's address"
                         rows={3}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none bg-white text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none bg-white text-black placeholder-gray-500"
                       />
                     </div>
                   </div>
@@ -1154,13 +1154,13 @@ export default function EmployeeDatabase() {
                     <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                       <Building className="w-5 h-5 text-green-600" />
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900">
+                    <h4 className="text-lg font-semibold text-black">
                       Employment Information
                     </h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Department <span className="text-red-500">*</span>
                       </label>
                       <select
@@ -1191,7 +1191,7 @@ export default function EmployeeDatabase() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Designation <span className="text-red-500">*</span>
                       </label>
                       <select
@@ -1222,7 +1222,7 @@ export default function EmployeeDatabase() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Employee Type <span className="text-red-500">*</span>
                       </label>
                       <select
@@ -1258,7 +1258,7 @@ export default function EmployeeDatabase() {
                     </div>
                     {newEmployee.personalDetails.employeeType === "Contractual" && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                        <label className="block text-sm font-medium text-black mb-2">
                           Contract Expiry Date <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -1297,13 +1297,13 @@ export default function EmployeeDatabase() {
                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                       <Award className="w-5 h-5 text-purple-600" />
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900">
+                    <h4 className="text-lg font-semibold text-black">
                       Skills & Qualifications
                     </h4>
                   </div>
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Skills
                       </label>
                       <input
@@ -1318,7 +1318,7 @@ export default function EmployeeDatabase() {
                               .filter((s) => s),
                           })
                         }
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black placeholder-gray-500"
                       />
                       <p className="text-sm text-gray-500 mt-1">
                         Separate skills with commas
@@ -1336,7 +1336,7 @@ export default function EmployeeDatabase() {
                             type="text"
                             placeholder="e.g., AWS Solutions Architect"
                             id="cert-title-input"
-                            className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500"
                           />
                         </div>
                         <div>
@@ -1347,7 +1347,7 @@ export default function EmployeeDatabase() {
                             type="text"
                             placeholder="e.g., Amazon Web Services"
                             id="cert-issuer-input"
-                            className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500"
                           />
                         </div>
                         <div>
@@ -1357,7 +1357,7 @@ export default function EmployeeDatabase() {
                           <input
                             type="date"
                             id="cert-date-input"
-                            className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500"
                           />
                         </div>
                       </div>
@@ -1426,13 +1426,13 @@ export default function EmployeeDatabase() {
                     <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
                       <Heart className="w-5 h-5 text-orange-600" />
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900">
+                    <h4 className="text-lg font-semibold text-black">
                       Health Information
                     </h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Blood Type
                       </label>
                       <select
@@ -1446,7 +1446,7 @@ export default function EmployeeDatabase() {
                             },
                           })
                         }
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all bg-white text-black placeholder-gray-500"
                       >
                         <option value="">Select Blood Type</option>
                         <option value="A+">A+</option>
@@ -1460,7 +1460,7 @@ export default function EmployeeDatabase() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Allergies
                       </label>
                       <input
@@ -1478,7 +1478,7 @@ export default function EmployeeDatabase() {
                             },
                           })
                         }
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all bg-white text-black placeholder-gray-500"
                       />
                     </div>
                   </div>
@@ -1590,52 +1590,52 @@ export default function EmployeeDatabase() {
                     <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                       <User className="w-5 h-5 text-blue-600" />
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900">
+                    <h4 className="text-lg font-semibold text-black">
                       Personal Information
                     </h4>
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <label className="text-sm font-semibold text-gray-900">
+                      <label className="text-sm font-semibold text-black">
                         Full Name
                       </label>
-                      <p className="text-gray-900 font-semibold mt-1">
+                      <p className="text-black font-semibold mt-1">
                         {getEmployeeName(selectedEmployee)}
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-900">
+                      <label className="text-sm font-semibold text-black">
                         Email
                       </label>
-                      <p className="text-gray-900 mt-1">
+                      <p className="text-black mt-1">
                         {getEmployeeEmail(selectedEmployee)}
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-900">
+                      <label className="text-sm font-semibold text-black">
                         Contact Number
                       </label>
-                      <p className="text-gray-900 mt-1">
+                      <p className="text-black mt-1">
                         {selectedEmployee.personalDetails?.contactNumber ||
                           selectedEmployee.contactNumber ||
                           "Not provided"}
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-900">
+                      <label className="text-sm font-semibold text-black">
                         Date of Birth
                       </label>
-                      <p className="text-gray-900 mt-1">
+                      <p className="text-black mt-1">
                         {selectedEmployee.personalDetails?.dateOfBirth ||
                           selectedEmployee.dateOfBirth ||
                           "Not provided"}
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-900">
+                      <label className="text-sm font-semibold text-black">
                         Address
                       </label>
-                      <p className="text-gray-900 mt-1">
+                      <p className="text-black mt-1">
                         {selectedEmployee.personalDetails?.address ||
                           selectedEmployee.address ||
                           "Not provided"}
@@ -1650,29 +1650,29 @@ export default function EmployeeDatabase() {
                     <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                       <Building className="w-5 h-5 text-green-600" />
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900">
+                    <h4 className="text-lg font-semibold text-black">
                       Employment Information
                     </h4>
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <label className="text-sm font-semibold text-gray-900">
+                      <label className="text-sm font-semibold text-black">
                         Department
                       </label>
-                      <p className="text-gray-900 font-semibold mt-1">
+                      <p className="text-black font-semibold mt-1">
                         {selectedEmployee.department}
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-900">
+                      <label className="text-sm font-semibold text-black">
                         Designation
                       </label>
-                      <p className="text-gray-900 font-semibold mt-1">
+                      <p className="text-black font-semibold mt-1">
                         {selectedEmployee.designation}
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-900">
+                      <label className="text-sm font-semibold text-black">
                         Work Locations
                       </label>
                       {Array.isArray(selectedEmployee.workLocationsDetails) &&
@@ -1688,7 +1688,7 @@ export default function EmployeeDatabase() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-gray-900 mt-1">Not specified</p>
+                        <p className="text-black mt-1">Not specified</p>
                       )}
                     </div>
                     <div>
@@ -1703,7 +1703,7 @@ export default function EmployeeDatabase() {
                       <label className="text-sm font-semibold text-gray-700">
                         Joined Date
                       </label>
-                      <p className="text-gray-900 mt-1">
+                      <p className="text-black mt-1">
                         {selectedEmployee.createdAt
                           ? new Date(
                               selectedEmployee.createdAt
@@ -1720,7 +1720,7 @@ export default function EmployeeDatabase() {
                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                       <Award className="w-5 h-5 text-purple-600" />
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900">
+                    <h4 className="text-lg font-semibold text-black">
                       Skills & Qualifications
                     </h4>
                   </div>
@@ -1761,7 +1761,7 @@ export default function EmployeeDatabase() {
                                   key={`cert-${index}-${cert.title || index}`}
                                   className="bg-white p-3 rounded-lg border"
                                 >
-                                  <p className="font-medium text-gray-900">
+                                  <p className="font-medium text-black">
                                     {cert.title}
                                   </p>
                                   <p className="text-sm text-gray-600">
@@ -1790,7 +1790,7 @@ export default function EmployeeDatabase() {
                     <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
                       <Heart className="w-5 h-5 text-orange-600" />
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900">
+                    <h4 className="text-lg font-semibold text-black">
                       Health Information
                     </h4>
                   </div>
@@ -1799,7 +1799,7 @@ export default function EmployeeDatabase() {
                       <label className="text-sm font-semibold text-gray-700">
                         Blood Type
                       </label>
-                      <p className="text-gray-900 mt-1 font-medium">
+                      <p className="text-black mt-1 font-medium">
                         {getHealthRecords(selectedEmployee).bloodType ||
                           "Not provided"}
                       </p>
@@ -1941,7 +1941,7 @@ export default function EmployeeDatabase() {
             {/* Content */}
             <div className="p-6">
               <div className="mb-6">
-                <p className="text-gray-900 font-medium text-lg mb-4">
+                <p className="text-black font-medium text-lg mb-4">
                   Are you sure you want to delete{" "}
                   <span className="font-bold text-red-600">
                     {getEmployeeName(selectedEmployee)}

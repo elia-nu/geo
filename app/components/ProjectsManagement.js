@@ -359,7 +359,7 @@ export default function ProjectsManagement() {
           <div className="flex items-center gap-3">
             <CurrencyDollarIcon className="w-5 h-5 text-gray-600" />
             <div>
-              <h3 className="text-lg font-medium text-gray-900">
+              <h3 className="text-lg font-medium text-black">
                 Budget & Financial Management
               </h3>
               <p className="text-gray-600 text-sm">
@@ -374,7 +374,7 @@ export default function ProjectsManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-gray-200">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
+          <h1 className="text-2xl font-semibold text-black">Projects</h1>
           <p className="text-gray-600 text-sm mt-1">
             Manage and track your project portfolio
           </p>
@@ -480,7 +480,7 @@ export default function ProjectsManagement() {
       {/* No Projects / Results */}
       {projects.length === 0 && !loading ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-black mb-2">
             No Projects Found
           </h3>
           <p className="text-gray-600 mb-4">
@@ -496,7 +496,7 @@ export default function ProjectsManagement() {
         </div>
       ) : filteredProjects.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-black mb-2">
             No Projects Found
           </h3>
           <p className="text-gray-600">
@@ -513,7 +513,7 @@ export default function ProjectsManagement() {
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                    <h2 className="text-lg font-semibold text-black mb-1">
                       {project.name}
                     </h2>
                     <div className="text-xs text-gray-500 mb-3">
@@ -582,7 +582,7 @@ export default function ProjectsManagement() {
                     <span className="text-sm font-medium text-gray-700">
                       Progress
                     </span>
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-black">
                       {project.progress || 0}%
                     </span>
                   </div>
@@ -596,13 +596,13 @@ export default function ProjectsManagement() {
 
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div className="text-center">
-                    <div className="text-lg font-semibold text-gray-900">
+                    <div className="text-lg font-semibold text-black">
                       {project.assignedEmployees?.length || 0}
                     </div>
                     <div className="text-xs text-gray-500">Team Members</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-black">
                       {project.startDate
                         ? (() => {
                             try {
@@ -619,7 +619,7 @@ export default function ProjectsManagement() {
                     <div className="text-xs text-gray-500">Start Date</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-black">
                       {project.endDate
                         ? (() => {
                             try {
@@ -720,7 +720,7 @@ export default function ProjectsManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-black">
                 {currentProject ? "Edit Project" : "Create New Project"}
               </h2>
             </div>
@@ -894,7 +894,7 @@ export default function ProjectsManagement() {
             <div className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <FlagIcon className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-black">
                   Change Project Status
                 </h2>
               </div>
@@ -952,7 +952,7 @@ export default function ProjectsManagement() {
             <div className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <TimelineIcon className="w-5 h-5 text-green-600" />
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-black">
                   Update Project Progress
                 </h2>
               </div>
@@ -962,7 +962,7 @@ export default function ProjectsManagement() {
               <div className="mb-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm text-gray-700">Progress</span>
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium text-black">
                     {progressValue}%
                   </span>
                 </div>

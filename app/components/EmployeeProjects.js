@@ -115,7 +115,7 @@ export default function EmployeeProjects({ employeeId }) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">My Projects</h2>
+          <h2 className="text-xl font-semibold text-black">My Projects</h2>
         </div>
         <div className="grid gap-4">
           {[1, 2, 3].map((i) => (
@@ -141,7 +141,7 @@ export default function EmployeeProjects({ employeeId }) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">My Projects</h2>
+          <h2 className="text-xl font-semibold text-black">My Projects</h2>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center">
@@ -158,7 +158,7 @@ export default function EmployeeProjects({ employeeId }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">My Projects</h2>
+          <h2 className="text-2xl font-bold text-black">My Projects</h2>
           <p className="text-gray-600 mt-1">
             View and track your assigned projects
           </p>
@@ -195,7 +195,7 @@ export default function EmployeeProjects({ employeeId }) {
       {filteredProjects.length === 0 ? (
         <div className="text-center py-12">
           <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-black mb-2">
             No projects found
           </h3>
           <p className="text-gray-500">
@@ -214,7 +214,7 @@ export default function EmployeeProjects({ employeeId }) {
               {/* Project Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  <h3 className="text-lg font-semibold text-black mb-1">
                     {project.name}
                   </h3>
                   <p className="text-sm text-gray-600 line-clamp-2">

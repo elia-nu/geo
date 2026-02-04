@@ -46,8 +46,15 @@ export default function PayrollReconciliationReport() {
   const handleExportCSV = () => {
     if (!reportData) return;
     const rows = [
-      ["Employee", "Department", "Attendance Days", "Leave Days", "Overtime Hours", "Absences", "Validation"],
-      ...(reportData.rows || []).map((r) => [r.employeeName, r.department, r.attendanceDays, r.leaveDays, r.overtimeHours, r.absences, r.validationNote]),
+      ["Employee", "Department", "Attendance Days", "Leave Days", "Overtime Hours", "Absences"],
+      ...(reportData.rows || []).map((r) => [
+        r.employeeName,
+        r.department,
+        r.attendanceDays,
+        r.leaveDays,
+        r.overtimeHours,
+        r.absences,
+      ]),
     ];
     const csv = rows.map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -66,7 +73,7 @@ export default function PayrollReconciliationReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <Link2 className="w-5 h-5 text-blue-600" />
             Attendance-to-Payroll Reconciliation Report
           </h2>
@@ -99,7 +106,7 @@ export default function PayrollReconciliationReport() {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -108,7 +115,7 @@ export default function PayrollReconciliationReport() {
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -118,7 +125,7 @@ export default function PayrollReconciliationReport() {
             value={filters.department}
             onChange={(e) => setFilters({ ...filters, department: e.target.value })}
             placeholder="Optional"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -128,7 +135,7 @@ export default function PayrollReconciliationReport() {
             value={filters.employeeId}
             onChange={(e) => setFilters({ ...filters, employeeId: e.target.value })}
             placeholder="Optional"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
       </div>
@@ -172,14 +179,14 @@ export default function PayrollReconciliationReport() {
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <span className="font-medium text-gray-900">Period Working Days</span>
+                <span className="font-medium text-black">Period Working Days</span>
               </div>
               <p className="text-xl font-bold text-gray-700">{summary.periodWorkingDays ?? 0}</p>
             </div>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b">Reconciliation by Employee</h3>
+            <h3 className="text-sm font-semibold text-black px-4 py-3 border-b">Reconciliation by Employee</h3>
             <div className="overflow-x-auto max-h-96 overflow-y-auto">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50 sticky top-0">
@@ -188,21 +195,27 @@ export default function PayrollReconciliationReport() {
                     <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Department</th>
                     <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Attendance</th>
                     <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Leave</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Overtime (hrs)</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Absences</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Validation</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">
+                      Overtime (hrs)
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">
+                      Absences
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {rows.map((r) => (
                     <tr key={r.employeeId}>
-                      <td className="px-3 py-2 text-gray-900">{r.employeeName}</td>
-                      <td className="px-3 py-2">{r.department}</td>
-                      <td className="px-3 py-2 text-right">{r.attendanceDays}</td>
-                      <td className="px-3 py-2 text-right">{r.leaveDays}</td>
-                      <td className="px-3 py-2 text-right">{r.overtimeHours}</td>
-                      <td className="px-3 py-2 text-right">{r.absences}</td>
-                      <td className="px-3 py-2">{r.validationNote}</td>
+                      <td className="px-3 py-2 text-black">{r.employeeName}</td>
+                      <td className="px-3 py-2 text-black">{r.department}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.attendanceDays}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.leaveDays}</td>
+                      <td className="px-3 py-2 text-right text-black">
+                        {r.overtimeHours}
+                      </td>
+                      <td className="px-3 py-2 text-right text-black">
+                        {r.absences}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

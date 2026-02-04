@@ -149,7 +149,7 @@ export default function DepartmentPerformanceReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <TrendingUp className="w-8 h-8 text-blue-600" />
                 <span>Department Performance Summary</span>
               </h1>
@@ -297,7 +297,7 @@ export default function DepartmentPerformanceReport() {
         {/* Department Performance Table */}
         {reportData ? (
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
+            <h2 className="text-xl font-bold text-black mb-4">
               Department Performance Details
             </h2>
             <div className="overflow-x-auto">
@@ -328,12 +328,12 @@ export default function DepartmentPerformanceReport() {
                   {reportData.departments?.map((dept, idx) => (
                     <tr key={idx} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-black">
                           {dept.departmentName}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-black">
                           {dept.activeEmployees || 0} / {dept.totalEmployees || 0}
                         </div>
                         <div className="text-xs text-gray-500">active / total</div>
@@ -352,7 +352,7 @@ export default function DepartmentPerformanceReport() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-black">
                           {dept.leaveFrequency || 0}
                         </div>
                         <div className="text-xs text-gray-500">
@@ -360,7 +360,7 @@ export default function DepartmentPerformanceReport() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-black">
                           {new Intl.NumberFormat("en-US", {
                             style: "currency",
                             currency: "ETB",

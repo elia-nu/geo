@@ -26,21 +26,9 @@ export async function GET(request) {
       );
     }
 
-    const days =
-      parseInt(searchParams.get("days") || "30", 10) > 0
-        ? parseInt(searchParams.get("days") || "30", 10)
-        : 30;
+    const daysParam = parseInt(searchParams.get("days") || "30", 10);
+    const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30;
     const triggerAlerts = searchParams.get("triggerAlerts") === "true";
-
-    // Target compliance-critical types
-    const targetTypesRaw = searchParams.get("types");
-    const defaultTypes = ["contract", "insurance", "certification"];
-    const targetTypes = targetTypesRaw
-      ? targetTypesRaw
-          .split(",")
-          .map((t) => t.trim().toLowerCase())
-          .filter(Boolean)
-      : defaultTypes;
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -48,7 +36,7 @@ export async function GET(request) {
     horizon.setDate(horizon.getDate() + days);
     horizon.setHours(23, 59, 59, 999);
 
-    // Load all documents that have an expiry and are of relevant types
+    // Load all documents (same source as /api/documents and /hrm?section=documents)
     const documents = await db.collection("documents").find({}).toArray();
 
     // Load employees to enrich owner information
@@ -67,16 +55,17 @@ export async function GET(request) {
 
     const normalizeType = (doc) => {
       const raw = (doc.documentType || doc.type || "").toString().toLowerCase();
+      if (!raw) return "other";
       if (raw.includes("contract")) return "contract";
       if (raw.includes("insur")) return "insurance";
       if (raw.includes("cert")) return "certification";
-      return raw || "other";
+      return raw;
     };
 
     documents.forEach((doc) => {
       const normType = normalizeType(doc);
-      if (!targetTypes.includes(normType)) return;
 
+      // Use same expiry basis as DocumentManager: expiryDate is the primary field
       const expiryRaw = doc.expiryDate || doc.expirationDate;
       if (!expiryRaw) return;
 
@@ -90,9 +79,8 @@ export async function GET(request) {
       }
       expiryDate.setHours(0, 0, 0, 0);
 
-      const diffDays = Math.ceil(
-        (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      const diffMs = expiryDate.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
       const empKey =
         doc.employeeId && doc.employeeId.toString
@@ -122,13 +110,12 @@ export async function GET(request) {
         status: diffDays < 0 ? "expired" : "expiring",
       };
 
-      if (diffDays < 0) {
-        // Already expired (we limit to some reasonable past window, e.g. last 90 days)
-        if (diffDays >= -90) {
-          expired.push(baseInfo);
-        }
-      } else if (diffDays <= days) {
-        // Expiring within horizon
+      // Align classification with DocumentManager semantics:
+      // - Expired: expiryDate < now
+      // - Expiring Soon: now <= expiryDate <= now + days
+      if (expiryDate < now) {
+        expired.push(baseInfo);
+      } else if (expiryDate <= horizon) {
         expiring.push(baseInfo);
       }
     });
@@ -203,7 +190,7 @@ export async function GET(request) {
         reportType: "document_expiry_compliance",
         days,
         triggerAlerts,
-        targetTypes,
+        targetTypes: "all",
         counts: {
           totalExpiring: summary.totalExpiring,
           totalExpired: summary.totalExpired,
@@ -218,7 +205,7 @@ export async function GET(request) {
       params: {
         days,
         triggerAlerts,
-        targetTypes,
+        targetTypes: "all",
       },
       summary,
       expiring,

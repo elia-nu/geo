@@ -689,7 +689,7 @@ export default function IntegratedPayrollSystem() {
       {/* Main Interface */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-black flex items-center gap-2">
             <Calculator className="w-6 h-6 text-green-600" />
             Integrated Payroll System
           </h2>
@@ -974,10 +974,10 @@ export default function IntegratedPayrollSystem() {
                             index % 2 === 0 ? "bg-white" : "bg-gray-50"
                           }
                         >
-                          <td className="border border-gray-200 px-4 py-3 text-sm text-gray-900">
+                          <td className="border border-gray-200 px-4 py-3 text-sm text-black">
                             {record.date || "N/A"}
                           </td>
-                          <td className="border border-gray-200 px-4 py-3 text-sm font-medium text-gray-900">
+                          <td className="border border-gray-200 px-4 py-3 text-sm font-medium text-black">
                             {record.employeeName || "Unknown"}
                           </td>
                           <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700">
@@ -1040,7 +1040,7 @@ export default function IntegratedPayrollSystem() {
           <div className="bg-white w-full h-full flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="text-2xl font-bold text-black flex items-center gap-2">
                 <Calculator className="w-6 h-6 text-green-600" />
                 Payroll Calculation -{" "}
                 {new Date(selectedYear, selectedMonth - 1).toLocaleString(
@@ -1222,13 +1222,13 @@ export default function IntegratedPayrollSystem() {
                                     })
                                   : "-"}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm font-medium text-gray-900">
+                              <td className="border border-gray-200 px-3 py-3 text-sm font-medium text-black">
                                 {employee.name || "Unknown"}
                               </td>
                               <td className="border border-gray-200 px-3 py-3 text-sm text-gray-700 text-right font-mono">
                                 {formatCurrency(employee.grossSalary || 0)}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-900 text-right font-mono">
+                              <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
                                 <span className="inline-flex items-center justify-end gap-1 w-full">
                                   <span>
                                     {employee.workingDays != null
@@ -1244,7 +1244,7 @@ export default function IntegratedPayrollSystem() {
                                         employee,
                                       })
                                     }
-                                    className="p-1 rounded hover:bg-gray-200 text-gray-600 hover:text-gray-900"
+                                    className="p-1 rounded hover:bg-gray-200 text-gray-600 hover:text-black"
                                     title="View attendance & absence details"
                                   >
                                     <Eye className="w-4 h-4" />
@@ -1339,44 +1339,44 @@ export default function IntegratedPayrollSystem() {
                     <tfoot>
                       <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
                         <td
-                          className="border border-gray-200 px-2 py-3 text-sm text-gray-900"
+                          className="border border-gray-200 px-2 py-3 text-sm text-black"
                           colSpan="3"
                         >
                           TOTALS
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
                           {formatCurrency(computedSummary?.totalGross || 0)}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
                           {computedSummary?.totalWorkedDays ?? ""}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
                           {formatCurrency(computedSummary?.totalOvertime || 0)}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
                           {formatCurrency(computedSummary?.totalSalary || 0)}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
                           {formatCurrency(
                             computedSummary?.totalTransportAllowance || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
                           {formatCurrency(
                             computedSummary?.totalTelephoneAllowance || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
                           {formatCurrency(
                             computedSummary?.totalPosAllowance || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-gray-900 text-right font-mono font-medium">
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono font-medium">
                           {formatCurrency(
                             computedSummary?.totalTaxableIncome || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-gray-900 text-right font-mono bg-blue-100">
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono bg-blue-100">
                           {formatCurrency(
                             computedSummary?.totalGrossPayment || 0
                           )}
@@ -1386,17 +1386,17 @@ export default function IntegratedPayrollSystem() {
                             computedSummary?.totalIncomeTax || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
                           {formatCurrency(
                             computedSummary?.totalEmployeePension || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
                           {formatCurrency(
                             computedSummary?.totalEmployerPension || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
                           {formatCurrency(
                             computedSummary?.totalStatutoryDeduction || 0
                           )}
@@ -1450,7 +1450,7 @@ export default function IntegratedPayrollSystem() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-black flex items-center gap-2">
                 <Eye className="w-5 h-5 text-gray-600" />
                 Attendance & Absence Details
               </h3>
@@ -1468,13 +1468,13 @@ export default function IntegratedPayrollSystem() {
             <div className="p-5 space-y-4 overflow-y-auto">
               <div>
                 <p className="text-sm font-medium text-gray-500">Employee</p>
-                <p className="text-base font-semibold text-gray-900">
+                <p className="text-base font-semibold text-black">
                   {attendanceDetailModal.employee.name || "Unknown"}
                 </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Period</p>
-                <p className="text-base text-gray-900">
+                <p className="text-base text-black">
                   {selectedMonth &&
                     new Date(0, selectedMonth - 1).toLocaleString("default", {
                       month: "long",
@@ -1487,7 +1487,7 @@ export default function IntegratedPayrollSystem() {
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                     Working days (in period so far)
                   </p>
-                  <p className="text-xl font-bold text-gray-900">
+                  <p className="text-xl font-bold text-black">
                     {attendanceDetailModal.employee.workingDays ?? "-"}
                   </p>
                 </div>
@@ -1561,7 +1561,7 @@ export default function IntegratedPayrollSystem() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
             <div className="px-4 py-3 border-b flex items-center justify-between">
-              <div className="font-semibold text-gray-900">
+              <div className="font-semibold text-black">
                 Deduction Details
               </div>
               <button

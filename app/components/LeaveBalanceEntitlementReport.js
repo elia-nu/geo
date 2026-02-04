@@ -109,7 +109,7 @@ export default function LeaveBalanceEntitlementReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <Wallet className="w-5 h-5 text-emerald-600" />
             Leave Balance & Entitlement Report
           </h2>
@@ -157,7 +157,7 @@ export default function LeaveBalanceEntitlementReport() {
             value={filters.department}
             onChange={(e) => setFilters({ ...filters, department: e.target.value })}
             placeholder="Optional filter"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div className="flex items-center gap-4 pt-7">
@@ -225,7 +225,7 @@ export default function LeaveBalanceEntitlementReport() {
                   {rows.map((r) => (
                     <tr key={r.employeeId} className="hover:bg-gray-50">
                       <td className="px-3 py-2">
-                        <div className="font-medium text-gray-900">{r.employeeName}</div>
+                        <div className="font-medium text-black">{r.employeeName}</div>
                         <div className="text-xs text-gray-500">{r.email || r.employeeId}</div>
                       </td>
                       <td className="px-3 py-2 text-gray-700">{r.department}</td>
@@ -255,7 +255,7 @@ export default function LeaveBalanceEntitlementReport() {
                         const used = b.used ?? "—";
                         const over = b.overused > 0 ? b.overused : null;
                         return (
-                          <td key={lt} className="px-3 py-2 text-right">
+                          <td key={lt} className="px-3 py-2 text-right text-black">
                             <span className={over != null ? "text-red-600 font-medium" : ""}>
                               {avail} / {used}
                               {over != null && ` (-${over})`}

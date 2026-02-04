@@ -51,7 +51,7 @@ export default function SystemOperationalHealthReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <Activity className="w-5 h-5 text-blue-600" />
             System Operational Health Report
           </h2>
@@ -76,7 +76,7 @@ export default function SystemOperationalHealthReport() {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -85,7 +85,7 @@ export default function SystemOperationalHealthReport() {
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
       </div>
@@ -138,7 +138,7 @@ export default function SystemOperationalHealthReport() {
 
           {apiActivity.length > 0 && (
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">API Activity by Entity Type</h3>
+              <h3 className="text-sm font-semibold text-black mb-3">API Activity by Entity Type</h3>
               <div className="overflow-x-auto max-h-48 overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
@@ -150,8 +150,8 @@ export default function SystemOperationalHealthReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {apiActivity.map((a) => (
                       <tr key={a.type}>
-                        <td className="px-3 py-2 text-gray-900">{a.type}</td>
-                        <td className="px-3 py-2 text-right">{a.count}</td>
+                        <td className="px-3 py-2 text-black">{a.type}</td>
+                        <td className="px-3 py-2 text-right text-black">{a.count}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -162,7 +162,7 @@ export default function SystemOperationalHealthReport() {
 
           {failedPayrollRuns.length > 0 && (
             <div className="bg-white rounded-lg border border-amber-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
                 Failed Payroll Runs
               </h3>
@@ -191,7 +191,7 @@ export default function SystemOperationalHealthReport() {
 
           {attendanceSyncErrors.length > 0 && (
             <div className="bg-white rounded-lg border border-rose-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-rose-600" />
                 Attendance Sync Errors
               </h3>

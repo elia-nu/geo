@@ -57,7 +57,7 @@ export default function CompletedActivitiesMasterAuditReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-indigo-600" />
             Completed Activities Report (Master Audit)
           </h2>
@@ -82,7 +82,7 @@ export default function CompletedActivitiesMasterAuditReport() {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -91,7 +91,7 @@ export default function CompletedActivitiesMasterAuditReport() {
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -101,7 +101,7 @@ export default function CompletedActivitiesMasterAuditReport() {
             placeholder="Email or user ID"
             value={filters.actor}
             onChange={(e) => setFilters({ ...filters, actor: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -109,7 +109,7 @@ export default function CompletedActivitiesMasterAuditReport() {
           <select
             value={filters.module}
             onChange={(e) => setFilters({ ...filters, module: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           >
             <option value="all">All modules</option>
             <option value="attendance">Attendance</option>
@@ -169,13 +169,13 @@ export default function CompletedActivitiesMasterAuditReport() {
               <p className="text-lg font-bold text-red-600">{byStatus.failed ?? 0}</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3">
-              <span className="text-sm font-medium text-gray-900">Other</span>
+              <span className="text-sm font-medium text-black">Other</span>
               <p className="text-lg font-bold text-gray-600">{byStatus.other ?? 0}</p>
             </div>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
               <Calendar className="w-4 h-4 text-gray-500" />
               Completed transactions (Actor • Timestamp • Source • Status • Outcome)
             </h3>
@@ -194,11 +194,11 @@ export default function CompletedActivitiesMasterAuditReport() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {events.slice(0, 200).map((e, i) => (
                     <tr key={e.id || i}>
-                      <td className="px-3 py-2 text-gray-900">{e.actor ?? "—"}</td>
+                      <td className="px-3 py-2 text-black">{e.actor ?? "—"}</td>
                       <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                      <td className="px-3 py-2 capitalize">{e.module ?? "—"}</td>
-                      <td className="px-3 py-2">{e.action ?? "—"}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 capitalize text-black">{e.module ?? "—"}</td>
+                      <td className="px-3 py-2 text-black">{e.action ?? "—"}</td>
+                      <td className="px-3 py-2 text-black">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
                           e.status === "success" ? "bg-green-100 text-green-800" :
                           e.status === "failed" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
@@ -207,7 +207,7 @@ export default function CompletedActivitiesMasterAuditReport() {
                           {e.status ?? "—"}
                         </span>
                       </td>
-                      <td className="px-3 py-2">{e.outcome ?? "—"}</td>
+                      <td className="px-3 py-2 text-black">{e.outcome ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>

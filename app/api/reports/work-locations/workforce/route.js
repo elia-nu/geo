@@ -56,7 +56,8 @@ export async function GET(request) {
     }
 
     const [employees, locations, projects] = await Promise.all([
-      db.collection("employees").find({}).toArray(),
+      // Only consider active employees for workforce distribution
+      db.collection("employees").find({ status: "active" }).toArray(),
       db.collection("work_locations").find({}).toArray(),
       db.collection("projects").find({}).toArray(),
     ]);
@@ -84,12 +85,11 @@ export async function GET(request) {
       locationId && ObjectId.isValid(locationId) ? locationId : null;
 
     const siteMap = new Map();
+    const globalEmployees = new Set();
+    const globalPresentEmployees = new Set();
 
     employees.forEach((emp) => {
       const empId = emp._id.toString();
-
-      // Apply presence filter if required
-      if (presentEmpIds && !presentEmpIds.has(empId)) return;
 
       const dept =
         emp.personalDetails?.department || emp.department || "Unassigned";
@@ -160,13 +160,13 @@ export async function GET(request) {
 
         const entry = siteMap.get(siteKey);
         entry.employees.add(empId);
-        if (!departmentFilter) {
-          // Always track dept breakdown, regardless of filter
-          if (!entry.departments.has(dept)) {
-            entry.departments.set(dept, new Set());
-          }
-          entry.departments.get(dept).add(empId);
+        globalEmployees.add(empId);
+        // Always track department breakdown, even when a department filter is applied,
+        // so the breakdown column remains meaningful.
+        if (!entry.departments.has(dept)) {
+          entry.departments.set(dept, new Set());
         }
+        entry.departments.get(dept).add(empId);
 
         empProjects.forEach((p) => {
           if (!entry.projects.has(p.name)) {
@@ -175,8 +175,12 @@ export async function GET(request) {
           entry.projects.get(p.name).add(empId);
         });
 
+        // Presence: if a date range is specified, treat employees who had at least
+        // one check-in in that range as "present" at all of their assigned sites;
+        // otherwise, no presence filtering is applied.
         if (!presentEmpIds || presentEmpIds.has(empId)) {
           entry.presentEmpSet.add(empId);
+          globalPresentEmployees.add(empId);
         }
       });
     });
@@ -216,8 +220,9 @@ export async function GET(request) {
 
     const summary = {
       totalSites: sites.length,
-      totalEmployees: sites.reduce((sum, s) => sum + s.totalEmployees, 0),
-      totalPresent: sites.reduce((sum, s) => sum + s.presentEmployees, 0),
+      // Count unique employees across all sites, not the sum per site
+      totalEmployees: globalEmployees.size,
+      totalPresent: globalPresentEmployees.size,
     };
     summary.averageUtilization =
       sites.length > 0

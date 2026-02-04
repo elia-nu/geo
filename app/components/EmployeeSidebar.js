@@ -219,7 +219,7 @@ export default function EmployeeSidebar({
                 } py-3 rounded-lg transition-colors duration-200 ${
                   isActive
                     ? "bg-blue-50 text-blue-700 border border-blue-200"
-                    : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-black"
                 }`}
               >
                 <Icon

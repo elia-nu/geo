@@ -59,19 +59,30 @@ export async function GET(request) {
       const hours = task.actualHours || task.estimatedHours || 0;
       if (hours <= 0) continue;
 
+    const assignedTo = Array.isArray(task.assignedTo) ? task.assignedTo : [];
+    const employeeMultiplier = assignedTo.length > 0 ? assignedTo.length : 1;
+    const employeeHoursForTask = hours * employeeMultiplier;
+
       if (projId) {
-        const cur = byProject.get(projId) || { projectId: projId, projectName: project?.name || "Unnamed", employeeHours: 0, taskCount: 0 };
-        cur.employeeHours += hours;
+      const cur =
+        byProject.get(projId) || {
+          projectId: projId,
+          projectName: project?.name || "Unnamed",
+          employeeHours: 0,
+          taskCount: 0,
+        };
+      // Employee-hours per project: task hours multiplied by number of assignees (or 1 if unassigned)
+      cur.employeeHours += employeeHoursForTask;
         cur.taskCount += 1;
         byProject.set(projId, cur);
       }
 
-      const assignedTo = task.assignedTo || [];
       for (const empId of assignedTo) {
         const eid = empId?.toString?.() || String(empId);
         const emp = empById.get(eid);
         const role = emp?.designation || emp?.personalDetails?.designation || "Unassigned";
-        const roleCur = byRole.get(role) || { role, employeeHours: 0, taskCount: 0 };
+      const roleCur =
+        byRole.get(role) || { role, employeeHours: 0, taskCount: 0 };
         roleCur.employeeHours += hours;
         roleCur.taskCount += 1;
         byRole.set(role, roleCur);
@@ -95,15 +106,66 @@ export async function GET(request) {
         }
       }
 
-      const phaseId = task.milestoneId?.toString() || task.category || "general";
-      const phaseName = task.milestoneId && project?.milestones
-        ? (project.milestones.find((m) => m._id?.toString() === phaseId)?.title || phaseId)
-        : (task.category || "General");
-      const phaseCur = byPhase.get(phaseId) || { phaseId, phaseName, employeeHours: 0, taskCount: 0 };
-      phaseCur.employeeHours += hours;
-      phaseCur.taskCount += 1;
-      byPhase.set(phaseId, phaseCur);
+    // By Milestone / Phase: try to link tasks to actual project milestones.
+    // We only count a task here if we can resolve a real milestone;
+    // otherwise it is excluded from the phase view (no generic "general" bucket).
+    if (project && Array.isArray(project.milestones) && project.milestones.length > 0) {
+      let phaseId = null;
+      let phaseName = null;
+
+      if (task.milestoneId) {
+        const taskMilestoneId = task.milestoneId.toString();
+        const milestone =
+          project.milestones.find((m) => {
+            const mid1 = m._id?.toString?.();
+            const mid2 = m.id?.toString?.();
+            return mid1 === taskMilestoneId || mid2 === taskMilestoneId;
+          }) || null;
+
+        if (milestone) {
+          phaseId =
+            milestone._id?.toString?.() ||
+            milestone.id?.toString?.() ||
+            taskMilestoneId;
+          phaseName = milestone.title || milestone.name || "Milestone";
+        }
+      }
+
+      if (phaseId && phaseName) {
+        const phaseCur =
+          byPhase.get(phaseId) || {
+            phaseId,
+            phaseName,
+            employeeHours: 0,
+            taskCount: 0,
+          };
+        // Employee-hours per phase: same multiplier as per project
+        phaseCur.employeeHours += employeeHoursForTask;
+        phaseCur.taskCount += 1;
+        byPhase.set(phaseId, phaseCur);
+      }
     }
+    }
+
+  // Ensure all defined project milestones appear in the phase list,
+  // even if no tasks have been explicitly linked to them yet.
+  for (const project of projects) {
+    if (!Array.isArray(project.milestones)) continue;
+    for (const m of project.milestones) {
+      const mid =
+        m._id?.toString?.() ||
+        (typeof m.id !== "undefined" ? String(m.id) : null);
+      if (!mid) continue;
+      if (!byPhase.has(mid)) {
+        byPhase.set(mid, {
+          phaseId: mid,
+          phaseName: m.title || m.name || "Milestone",
+          employeeHours: 0,
+          taskCount: 0,
+        });
+      }
+    }
+  }
 
     const byProjectList = [...byProject.values()].map((x) => ({
       ...x,

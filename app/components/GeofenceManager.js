@@ -348,7 +348,7 @@ export default function GeofenceManager() {
                             name="name"
                             value={editGeofence.name}
                             onChange={(e) => handleInput(e, setEditGeofence)}
-                            className="p-1 border border-yellow-300 rounded w-full focus:outline-none focus:ring-2 text-gray-900 focus:ring-yellow-200 placeholder:text-gray-700"
+                            className="p-1 border border-yellow-300 rounded w-full focus:outline-none focus:ring-2 text-black focus:ring-yellow-200 placeholder:text-gray-700"
                             required
                             placeholder="Name"
                           />
@@ -358,7 +358,7 @@ export default function GeofenceManager() {
                             name="lat"
                             value={editGeofence.lat}
                             onChange={(e) => handleInput(e, setEditGeofence)}
-                            className="p-1 border border-yellow-300 rounded w-full focus:outline-none focus:ring-2 focus:ring-yellow-200 text-gray-900 placeholder:text-gray-700"
+                            className="p-1 border border-yellow-300 rounded w-full focus:outline-none focus:ring-2 focus:ring-yellow-200 text-black placeholder:text-gray-700"
                             required
                             type="number"
                             step="any"
@@ -370,7 +370,7 @@ export default function GeofenceManager() {
                             name="lng"
                             value={editGeofence.lng}
                             onChange={(e) => handleInput(e, setEditGeofence)}
-                            className="p-1 border border-yellow-300 rounded w-full focus:outline-none focus:ring-2 focus:ring-yellow-200 text-gray-900  placeholder:text-gray-700"
+                            className="p-1 border border-yellow-300 rounded w-full focus:outline-none focus:ring-2 focus:ring-yellow-200 text-black  placeholder:text-gray-700"
                             required
                             type="number"
                             step="any"
@@ -382,7 +382,7 @@ export default function GeofenceManager() {
                             name="radius"
                             value={editGeofence.radius}
                             onChange={(e) => handleInput(e, setEditGeofence)}
-                            className="p-1 border border-yellow-300 rounded w-full focus:outline-none focus:ring-2 focus:ring-yellow-200 text-gray-900 placeholder:text-gray-700"
+                            className="p-1 border border-yellow-300 rounded w-full focus:outline-none focus:ring-2 focus:ring-yellow-200 text-black placeholder:text-gray-700"
                             required
                             type="number"
                             step="any"

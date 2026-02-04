@@ -157,7 +157,7 @@ export default function EthiopianCalendarWithHolidays({
       <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-black flex items-center gap-2">
             <Calendar className="w-6 h-6 text-blue-600" />
             Ethiopian Calendar & Holidays
           </h2>
@@ -257,7 +257,7 @@ export default function EthiopianCalendarWithHolidays({
                           ? "bg-blue-100 text-blue-800 border-blue-200"
                           : isHolidayDate
                           ? "bg-red-100 text-red-800 border-red-200 hover:bg-red-200"
-                          : "bg-white text-gray-900 border-gray-200 hover:bg-gray-50"
+                          : "bg-white text-black border-gray-200 hover:bg-gray-50"
                       }
                     `}
                   >

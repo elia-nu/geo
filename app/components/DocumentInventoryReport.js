@@ -145,7 +145,7 @@ export default function DocumentInventoryReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <FileText className="w-8 h-8 text-blue-600" />
                 <span>Document Inventory Report</span>
               </h1>
@@ -344,7 +344,7 @@ export default function DocumentInventoryReport() {
         {/* Inventory table */}
         {reportData ? (
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
+            <h2 className="text-xl font-bold text-black mb-4">
               Documents
             </h2>
             <div className="overflow-x-auto">
@@ -404,28 +404,28 @@ export default function DocumentInventoryReport() {
                     return (
                       <tr key={doc.documentId || doc._id}>
                         <td className="px-4 py-2 whitespace-nowrap">
-                          <div className="font-medium text-gray-900">
+                          <div className="font-medium text-black">
                             {doc.title || doc.originalName}
                           </div>
                           <div className="text-xs text-gray-500">
                             {doc.documentId}
                           </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {doc.normalizedType || doc.documentType}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap">
-                          <div className="text-gray-900">
+                          <div className="text-black">
                             {doc.ownerName || "Unknown"}
                           </div>
                           <div className="text-xs text-gray-500">
                             {doc.ownerEmail}
                           </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {doc.ownerDepartment}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {Array.isArray(doc.projectNames) &&
                           doc.projectNames.length > 0
                             ? doc.projectNames.join(", ")
@@ -436,10 +436,10 @@ export default function DocumentInventoryReport() {
                             {statusLabel || "active"}
                           </span>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {uploadDate}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                        <td className="px-4 py-2 whitespace-nowrap text-black">
                           {expiryDate || "No Expiry"}
                         </td>
                       </tr>

@@ -186,7 +186,7 @@ export default function EmployeePhotoUpload({
           </div>
 
           <div>
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-sm font-medium text-black">
               {dragActive ? "Drop photo here" : "Upload employee photo"}
             </p>
             <p className="text-xs text-gray-500">

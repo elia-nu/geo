@@ -612,7 +612,7 @@ export default function EditStepperEmployeeForm({
         return (
           <div className="space-y-8">
             <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              <h3 className="text-2xl font-bold text-black mb-2">
                 Personal Information
               </h3>
               <p className="text-gray-600">
@@ -635,7 +635,7 @@ export default function EditStepperEmployeeForm({
                         name: e.target.value,
                       })
                     }
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200 bg-white text-gray-900 placeholder-gray-500 ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200 bg-white text-black placeholder-gray-500 ${
                       formErrors.name
                         ? "border-red-300 focus:ring-red-500 bg-red-50"
                         : "border-gray-300 focus:ring-blue-500 hover:border-gray-400"
@@ -669,7 +669,7 @@ export default function EditStepperEmployeeForm({
                       email: e.target.value,
                     })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                     formErrors.email
                       ? "border-red-300 focus:ring-red-500"
                       : "border-gray-300 focus:ring-blue-500"
@@ -692,7 +692,7 @@ export default function EditStepperEmployeeForm({
                   value={personalDetails.employeeId}
                   readOnly
                   disabled
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-900 cursor-not-allowed"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-black cursor-not-allowed"
                   placeholder="Auto-generated"
                 />
               </div>
@@ -710,7 +710,7 @@ export default function EditStepperEmployeeForm({
                       dateOfBirth: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                 />
               </div>
 
@@ -727,7 +727,7 @@ export default function EditStepperEmployeeForm({
                       contactNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                   placeholder="Enter contact number"
                 />
               </div>
@@ -745,7 +745,7 @@ export default function EditStepperEmployeeForm({
                       designation: "", // Clear designation when department changes
                     })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                     formErrors.department
                       ? "border-red-300 focus:ring-red-500"
                       : "border-gray-300 focus:ring-blue-500"
@@ -778,7 +778,7 @@ export default function EditStepperEmployeeForm({
                     })
                   }
                   disabled={!personalDetails.department}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                     formErrors.designation
                       ? "border-red-300 focus:ring-red-500"
                       : !personalDetails.department
@@ -819,7 +819,7 @@ export default function EditStepperEmployeeForm({
                       joiningDate: e.target.value,
                     })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                     formErrors.joiningDate
                       ? "border-red-300 focus:ring-red-500"
                       : "border-gray-300 focus:ring-blue-500"
@@ -846,7 +846,7 @@ export default function EditStepperEmployeeForm({
                       contractExpiryDate: e.target.value === "Contractual" ? personalDetails.contractExpiryDate : "",
                     })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 ${
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black ${
                     formErrors.employeeType
                       ? "border-red-300 focus:ring-red-500"
                       : "border-gray-300 focus:ring-blue-500"
@@ -879,7 +879,7 @@ export default function EditStepperEmployeeForm({
                         contractExpiryDate: e.target.value,
                       })
                     }
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 ${
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black ${
                       formErrors.contractExpiryDate
                         ? "border-red-300 focus:ring-red-500"
                         : "border-gray-300 focus:ring-blue-500"
@@ -907,7 +907,7 @@ export default function EditStepperEmployeeForm({
                       emergencyContactName: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                   placeholder="Enter emergency contact name"
                 />
               </div>
@@ -925,7 +925,7 @@ export default function EditStepperEmployeeForm({
                       emergencyContactNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                   placeholder="Enter emergency contact number"
                 />
               </div>
@@ -945,7 +945,7 @@ export default function EditStepperEmployeeForm({
                       transportAllowance: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                   placeholder="0"
                 />
               </div>
@@ -965,7 +965,7 @@ export default function EditStepperEmployeeForm({
                       telephoneAllowance: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                   placeholder="0"
                 />
               </div>
@@ -985,7 +985,7 @@ export default function EditStepperEmployeeForm({
                       posAllowance: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                   placeholder="0"
                 />
               </div>
@@ -1003,7 +1003,7 @@ export default function EditStepperEmployeeForm({
                     })
                   }
                   rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                   placeholder="Enter full address"
                 />
               </div>
@@ -1015,7 +1015,7 @@ export default function EditStepperEmployeeForm({
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              <h3 className="text-2xl font-bold text-black mb-2">
                 Employment History
               </h3>
               <p className="text-gray-600">
@@ -1026,7 +1026,7 @@ export default function EditStepperEmployeeForm({
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-blue-600" />
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-semibold text-black">
                   Work Experience
                 </span>
               </div>
@@ -1065,7 +1065,7 @@ export default function EditStepperEmployeeForm({
                         <Briefcase className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">
+                        <h4 className="font-semibold text-black">
                           Experience #{index + 1}
                         </h4>
                         <p className="text-sm text-gray-500">
@@ -1101,7 +1101,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setEmploymentHistory(updated);
                         }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                           formErrors[`employment_${index}_company`]
                             ? "border-red-300 focus:ring-red-500"
                             : "border-gray-300 focus:ring-blue-500"
@@ -1130,7 +1130,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setEmploymentHistory(updated);
                         }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                           formErrors[`employment_${index}_position`]
                             ? "border-red-300 focus:ring-red-500"
                             : "border-gray-300 focus:ring-blue-500"
@@ -1159,7 +1159,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setEmploymentHistory(updated);
                         }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                           formErrors[`employment_${index}_startDate`]
                             ? "border-red-300 focus:ring-red-500"
                             : "border-gray-300 focus:ring-blue-500"
@@ -1187,7 +1187,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setEmploymentHistory(updated);
                         }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                       />
                     </div>
 
@@ -1206,7 +1206,7 @@ export default function EditStepperEmployeeForm({
                           setEmploymentHistory(updated);
                         }}
                         rows={3}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                         placeholder="Describe key responsibilities and achievements"
                       />
                     </div>
@@ -1226,7 +1226,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setEmploymentHistory(updated);
                         }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                         placeholder="Reason for leaving (optional)"
                       />
                     </div>
@@ -1241,7 +1241,7 @@ export default function EditStepperEmployeeForm({
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              <h3 className="text-2xl font-bold text-black mb-2">
                 Certifications
               </h3>
               <p className="text-gray-600">
@@ -1252,7 +1252,7 @@ export default function EditStepperEmployeeForm({
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <Award className="w-5 h-5 text-yellow-600" />
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-semibold text-black">
                   Professional Certifications
                 </span>
               </div>
@@ -1291,7 +1291,7 @@ export default function EditStepperEmployeeForm({
                         <Award className="w-5 h-5 text-yellow-600" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">
+                        <h4 className="font-semibold text-black">
                           Certification #{index + 1}
                         </h4>
                         <p className="text-sm text-gray-500">
@@ -1326,7 +1326,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setCertifications(updated);
                         }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                           formErrors[`cert_${index}_title`]
                             ? "border-red-300 focus:ring-red-500"
                             : "border-gray-300 focus:ring-blue-500"
@@ -1356,7 +1356,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setCertifications(updated);
                         }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                           formErrors[`cert_${index}_institution`]
                             ? "border-red-300 focus:ring-red-500"
                             : "border-gray-300 focus:ring-blue-500"
@@ -1385,7 +1385,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setCertifications(updated);
                         }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                           formErrors[`cert_${index}_dateObtained`]
                             ? "border-red-300 focus:ring-red-500"
                             : "border-gray-300 focus:ring-blue-500"
@@ -1413,7 +1413,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setCertifications(updated);
                         }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                       />
                     </div>
 
@@ -1432,7 +1432,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setCertifications(updated);
                         }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                         placeholder="Enter credential ID (optional)"
                       />
                     </div>
@@ -1452,7 +1452,7 @@ export default function EditStepperEmployeeForm({
                           setCertifications(updated);
                         }}
                         rows={2}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                         placeholder="Brief description of the certification"
                       />
                     </div>
@@ -1467,7 +1467,7 @@ export default function EditStepperEmployeeForm({
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              <h3 className="text-2xl font-bold text-black mb-2">
                 Skills & Expertise
               </h3>
               <p className="text-gray-600">
@@ -1478,7 +1478,7 @@ export default function EditStepperEmployeeForm({
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <Brain className="w-5 h-5 text-blue-600" />
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-semibold text-black">
                   Professional Skills
                 </span>
               </div>
@@ -1515,7 +1515,7 @@ export default function EditStepperEmployeeForm({
                         <Brain className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">
+                        <h4 className="font-semibold text-black">
                           Skill #{index + 1}
                         </h4>
                         <p className="text-sm text-gray-500">
@@ -1549,7 +1549,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setSkills(updated);
                         }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 ${
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
                           formErrors[`skill_${index}_skillName`]
                             ? "border-red-300 focus:ring-red-500"
                             : "border-gray-300 focus:ring-blue-500"
@@ -1577,7 +1577,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setSkills(updated);
                         }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                       >
                         <option value="Beginner">Beginner</option>
                         <option value="Intermediate">Intermediate</option>
@@ -1601,7 +1601,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setSkills(updated);
                         }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                         placeholder="Years of experience"
                       />
                     </div>
@@ -1620,7 +1620,7 @@ export default function EditStepperEmployeeForm({
                           };
                           setSkills(updated);
                         }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                       >
                         <option value="">Select Category</option>
                         <option value="Technical">Technical</option>
@@ -1642,7 +1642,7 @@ export default function EditStepperEmployeeForm({
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              <h3 className="text-2xl font-bold text-black mb-2">
                 Health Records
               </h3>
               <p className="text-gray-600">
@@ -1664,7 +1664,7 @@ export default function EditStepperEmployeeForm({
                         bloodType: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                   >
                     <option value="">Select Blood Type</option>
                     <option value="A+">A+</option>
@@ -1691,7 +1691,7 @@ export default function EditStepperEmployeeForm({
                         emergencyMedicalContact: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                     placeholder="Emergency medical contact"
                   />
                 </div>
@@ -1709,7 +1709,7 @@ export default function EditStepperEmployeeForm({
                         insuranceProvider: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                     placeholder="Insurance provider name"
                   />
                 </div>
@@ -1727,7 +1727,7 @@ export default function EditStepperEmployeeForm({
                         insurancePolicyNumber: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
                     placeholder="Policy number"
                   />
                 </div>
@@ -1749,7 +1749,7 @@ export default function EditStepperEmployeeForm({
                           e.target.value = "";
                         }
                       }}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500"
                     />
                     <Button
                       onClick={(e) => {
@@ -1800,7 +1800,7 @@ export default function EditStepperEmployeeForm({
                           e.target.value = "";
                         }
                       }}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500"
                     />
                     <Button
                       onClick={(e) => {
@@ -1853,7 +1853,7 @@ export default function EditStepperEmployeeForm({
                           e.target.value = "";
                         }
                       }}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500"
                     />
                     <Button
                       onClick={(e) => {

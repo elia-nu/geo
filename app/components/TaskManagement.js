@@ -664,14 +664,14 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
           </>
         )}
         <span className="text-gray-400">›</span>
-        <span className="text-gray-900 font-medium">
+        <span className="text-black font-medium">
           {milestoneId ? "Milestone Tasks" : "Tasks"}
         </span>
       </nav>
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-1">
+          <h1 className="text-2xl font-semibold text-black mb-1">
             Task Management
           </h1>
           <p className="text-gray-600 text-sm">
@@ -796,7 +796,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
             {/* Task Header */}
             <div className="p-4 border-b border-gray-100">
               <div className="flex justify-between items-start mb-2">
-                <h3 className="text-lg font-semibold text-gray-900 truncate">
+                <h3 className="text-lg font-semibold text-black truncate">
                   {task.title}
                 </h3>
                 <div className="flex items-center gap-1">
@@ -1027,7 +1027,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       {/* Empty State */}
       {filteredTasks.length === 0 && !loading && (
         <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-black mb-2">
             No tasks found
           </h3>
           <p className="text-gray-600 mb-4">
@@ -1468,7 +1468,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                <h2 className="text-2xl font-bold text-black mb-2">
                   {selectedTask.title}
                 </h2>
                 <div className="flex items-center gap-2">
@@ -1504,7 +1504,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
               <div className="lg:col-span-2 space-y-6">
                 {/* Description */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-black mb-2">
                     Description
                   </h3>
                   <p className="text-gray-600 whitespace-pre-wrap">
@@ -1526,7 +1526,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 {selectedTask.assignedEmployees &&
                   selectedTask.assignedEmployees.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      <h3 className="text-lg font-semibold text-black mb-2">
                         Assigned Employees
                       </h3>
                       <div className="space-y-2">
@@ -1539,7 +1539,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                               {emp.name.charAt(0)}
                             </div>
                             <div>
-                              <p className="font-medium text-gray-900">
+                              <p className="font-medium text-black">
                                 {emp.name}
                               </p>
                               <p className="text-sm text-gray-500">
@@ -1556,7 +1556,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 <div className="grid grid-cols-2 gap-4">
                   {selectedTask.startDate && (
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-1">
+                      <h4 className="font-medium text-black mb-1">
                         Start Date
                       </h4>
                       <p className="text-gray-600">
@@ -1566,7 +1566,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                   )}
                   {selectedTask.dueDate && (
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-1">
+                      <h4 className="font-medium text-black mb-1">
                         Due Date
                       </h4>
                       <p className="text-gray-600">
@@ -1582,7 +1582,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 {/* Progress */}
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-black">
                       Progress
                     </h3>
                     <button
@@ -1621,7 +1621,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 {/* Subtasks */}
                 {selectedTask.subtasks && selectedTask.subtasks.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <h3 className="text-lg font-semibold text-black mb-2">
                       Subtasks (
                       {
                         selectedTask.subtasks.filter(
@@ -1661,7 +1661,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
                 {/* Category and Tags */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-black mb-2">
                     Details
                   </h3>
                   <div className="space-y-2">
@@ -1724,7 +1724,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       {showProgressDialog && selectedTask && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
+            <h2 className="text-xl font-bold text-black mb-4">
               Update Task Progress
             </h2>
 
@@ -1894,7 +1894,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 w-full max-w-7xl max-h-[90vh] overflow-y-auto m-4">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
+              <h2 className="text-2xl font-bold text-black">
                 Task Monitoring Dashboard
               </h2>
               <button
@@ -1920,7 +1920,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 w-full max-w-7xl max-h-[90vh] overflow-y-auto m-4">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
+              <h2 className="text-2xl font-bold text-black">
                 Task Progress Audits
               </h2>
               <button

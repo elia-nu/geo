@@ -947,7 +947,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       <div className="mb-6 sm:mb-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
           <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-black mb-2">
               Financial Management
             </h1>
             <p className="text-gray-600 text-sm sm:text-base">{projectName}</p>
@@ -1072,7 +1072,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-xl">
             <div className="p-4 sm:p-6 border-b border-gray-200">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+              <h3 className="text-base sm:text-lg font-semibold text-black">
                 Add Expected Payment
               </h3>
             </div>
@@ -1354,7 +1354,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b border-gray-200">
-              <h4 className="text-base sm:text-lg font-semibold text-gray-900">
+              <h4 className="text-base sm:text-lg font-semibold text-black">
                 Edit Budget Allocation
               </h4>
             </div>
@@ -1698,7 +1698,7 @@ const OverviewTab = ({
               <p className="text-xs sm:text-sm font-medium text-gray-600">
                 Total Budget
               </p>
-              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-black">
                 {formatCurrency(totalBudget)}
               </p>
             </div>
@@ -1773,7 +1773,7 @@ const OverviewTab = ({
       {totalBudget > 0 && (
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 gap-2">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+            <h3 className="text-base sm:text-lg font-semibold text-black">
               Budget Utilization
             </h3>
             <span
@@ -1829,7 +1829,7 @@ const OverviewTab = ({
       {/* Budget Alerts */}
       {budgetData?.alerts && budgetData.alerts.length > 0 && (
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
+          <h3 className="text-base sm:text-lg font-semibold text-black mb-3 sm:mb-4">
             Budget Alerts & Notifications
           </h3>
           <div className="space-y-3">
@@ -1901,7 +1901,7 @@ const OverviewTab = ({
       {/* Budget Allocations Overview */}
       {budgetData?.allocations && budgetData.allocations.length > 0 && (
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
+          <h3 className="text-base sm:text-lg font-semibold text-black mb-3 sm:mb-4">
             Budget Allocations
           </h3>
           <div className="space-y-3 sm:space-y-4">
@@ -1911,7 +1911,7 @@ const OverviewTab = ({
                 className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg gap-3 sm:gap-0"
               >
                 <div className="flex-1">
-                  <h4 className="text-sm sm:text-base font-medium text-gray-900">
+                  <h4 className="text-sm sm:text-base font-medium text-black">
                     {allocation.name || allocation.category}
                   </h4>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
@@ -1955,7 +1955,7 @@ const OverviewTab = ({
         {/* Recent Expenses */}
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+            <h3 className="text-base sm:text-lg font-semibold text-black">
               Recent Expenses
             </h3>
             <span className="text-xs sm:text-sm text-gray-500">
@@ -1969,7 +1969,7 @@ const OverviewTab = ({
                 className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2 sm:gap-0"
               >
                 <div className="flex-1">
-                  <h4 className="text-sm sm:text-base font-medium text-gray-900">
+                  <h4 className="text-sm sm:text-base font-medium text-black">
                     {expense.title}
                   </h4>
                   <p className="text-xs sm:text-sm text-gray-600">
@@ -1996,7 +1996,7 @@ const OverviewTab = ({
         {/* Recent Income */}
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+            <h3 className="text-base sm:text-lg font-semibold text-black">
               Recent Income
             </h3>
             <span className="text-xs sm:text-sm text-gray-500">
@@ -2010,7 +2010,7 @@ const OverviewTab = ({
                 className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2 sm:gap-0"
               >
                 <div className="flex-1">
-                  <h4 className="text-sm sm:text-base font-medium text-gray-900">
+                  <h4 className="text-sm sm:text-base font-medium text-black">
                     {inc.title}
                   </h4>
                   <p className="text-xs sm:text-sm text-gray-600">
@@ -2052,7 +2052,7 @@ const BudgetTab = ({
     return (
       <div className="text-center py-8 sm:py-12 px-4">
         <CurrencyDollarIcon className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" />
-        <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
+        <h3 className="text-base sm:text-lg font-medium text-black mb-2">
           No Budget Created
         </h3>
         <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
@@ -2073,25 +2073,25 @@ const BudgetTab = ({
     <div className="space-y-4 sm:space-y-6">
       {/* Budget Summary */}
       <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
+        <h3 className="text-base sm:text-lg font-semibold text-black mb-3 sm:mb-4">
           Budget Information
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <div>
             <p className="text-xs sm:text-sm text-gray-600">Total Budget</p>
-            <p className="text-xl sm:text-2xl font-bold text-gray-900">
+            <p className="text-xl sm:text-2xl font-bold text-black">
               {formatCurrency(budgetData.totalAmount, budgetData.currency)}
             </p>
           </div>
           <div>
             <p className="text-xs sm:text-sm text-gray-600">Approved By</p>
-            <p className="text-sm sm:text-lg font-medium text-gray-900">
+            <p className="text-sm sm:text-lg font-medium text-black">
               {budgetData.approvedBy || "Not specified"}
             </p>
           </div>
           <div>
             <p className="text-xs sm:text-sm text-gray-600">Approval Date</p>
-            <p className="text-sm sm:text-lg font-medium text-gray-900">
+            <p className="text-sm sm:text-lg font-medium text-black">
               {formatDate(budgetData.approvalDate)}
             </p>
           </div>
@@ -2099,7 +2099,7 @@ const BudgetTab = ({
         {budgetData.description && (
           <div className="mt-3 sm:mt-4">
             <p className="text-xs sm:text-sm text-gray-600">Description</p>
-            <p className="text-sm sm:text-base text-gray-900">
+            <p className="text-sm sm:text-base text-black">
               {budgetData.description}
             </p>
           </div>
@@ -2109,7 +2109,7 @@ const BudgetTab = ({
       {/* Budget Allocations */}
       {budgetData.allocations && budgetData.allocations.length > 0 && (
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
+          <h3 className="text-base sm:text-lg font-semibold text-black mb-3 sm:mb-4">
             Budget Allocations
           </h3>
           <div className="overflow-x-auto">
@@ -2146,7 +2146,7 @@ const BudgetTab = ({
                 {budgetData.allocations.map((allocation) => (
                   <tr key={allocation._id}>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                      <div className="text-xs sm:text-sm font-medium text-gray-900">
+                      <div className="text-xs sm:text-sm font-medium text-black">
                         {allocation.name || "Unnamed"}
                       </div>
                       {allocation.description && (
@@ -2160,13 +2160,13 @@ const BudgetTab = ({
                         {allocation.category}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
                       {formatCurrency(allocation.budgetedAmount)}
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-red-600">
                       {formatCurrency(allocation.spentAmount)}
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
                       {formatCurrency(allocation.remainingAmount)}
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
@@ -2188,7 +2188,7 @@ const BudgetTab = ({
                             }}
                           ></div>
                         </div>
-                        <span className="text-xs sm:text-sm text-gray-900">
+                        <span className="text-xs sm:text-sm text-black">
                           {allocation.utilization?.toFixed(1)}%
                         </span>
                       </div>
@@ -2275,7 +2275,7 @@ const ExpensesTab = ({
         </div>
         <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
           <p className="text-xs sm:text-sm text-gray-600">Total Count</p>
-          <p className="text-lg sm:text-xl font-bold text-gray-900">
+          <p className="text-lg sm:text-xl font-bold text-black">
             {expenses.length}
           </p>
         </div>
@@ -2284,7 +2284,7 @@ const ExpensesTab = ({
       {/* Expenses Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+          <h3 className="text-base sm:text-lg font-semibold text-black">
             All Expenses
           </h3>
         </div>
@@ -2319,7 +2319,7 @@ const ExpensesTab = ({
               {expenses.map((expense) => (
                 <tr key={expense._id}>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <div className="text-xs sm:text-sm font-medium text-gray-900">
+                    <div className="text-xs sm:text-sm font-medium text-black">
                       {expense.title}
                     </div>
                     {expense.description && (
@@ -2336,10 +2336,10 @@ const ExpensesTab = ({
                       {expense.category}
                     </span>
                   </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
                     {formatDate(expense.expenseDate)}
                   </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
                     {expense.vendor || "Not specified"}
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
@@ -2422,7 +2422,7 @@ const IncomeTab = ({
         </div>
         <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
           <p className="text-xs sm:text-sm text-gray-600">Total Count</p>
-          <p className="text-lg sm:text-xl font-bold text-gray-900">
+          <p className="text-lg sm:text-xl font-bold text-black">
             {income.length}
           </p>
         </div>
@@ -2431,7 +2431,7 @@ const IncomeTab = ({
       {/* Income Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+          <h3 className="text-base sm:text-lg font-semibold text-black">
             All Income & Payments
           </h3>
         </div>
@@ -2466,7 +2466,7 @@ const IncomeTab = ({
               {income.map((inc) => (
                 <tr key={inc._id}>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <div className="text-xs sm:text-sm font-medium text-gray-900">
+                    <div className="text-xs sm:text-sm font-medium text-black">
                       {inc.title}
                     </div>
                     {inc.invoiceNumber && (
@@ -2479,7 +2479,7 @@ const IncomeTab = ({
                     {formatCurrency(inc.amount)}
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <div className="text-xs sm:text-sm text-gray-900">
+                    <div className="text-xs sm:text-sm text-black">
                       {inc.clientName || "Not specified"}
                     </div>
                     {inc.clientEmail && (
@@ -2493,7 +2493,7 @@ const IncomeTab = ({
                       {inc.paymentMethod?.replace("_", " ")}
                     </span>
                   </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
                     {formatDate(inc.receivedDate)}
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
@@ -2584,7 +2584,7 @@ const ReportsTab = ({
     <div className="space-y-6">
       {/* Report Type Selector */}
       <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <h3 className="text-lg font-semibold text-black mb-4">
           Generate Reports
         </h3>
         <div className="flex flex-wrap gap-3">
@@ -2640,7 +2640,7 @@ const ReportsTab = ({
       ) : reportData ? (
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-black">
               {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report
             </h3>
             <div className="flex gap-2">
@@ -2686,7 +2686,7 @@ const ReportsTab = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-4 border border-gray-200 rounded-lg">
                   <p className="text-sm text-gray-600">Budget Utilization</p>
-                  <p className="text-xl font-bold text-gray-900">
+                  <p className="text-xl font-bold text-black">
                     {reportData.financialSummary.budgetUtilization?.toFixed(1)}%
                   </p>
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
@@ -2760,7 +2760,7 @@ const ReportsTab = ({
               {/* Alerts Section */}
               {reportData.alerts.length > 0 && (
                 <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h4 className="text-lg font-semibold text-black mb-4">
                     Active Alerts
                   </h4>
                   <div className="space-y-3">
@@ -2822,7 +2822,7 @@ const ReportsTab = ({
 
               {/* Allocation Performance */}
               <div className="bg-white border border-gray-200 rounded-lg p-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                <h4 className="text-lg font-semibold text-black mb-4">
                   Budget Allocation Performance
                 </h4>
                 <div className="overflow-x-auto">
@@ -2853,14 +2853,14 @@ const ReportsTab = ({
                       {reportData.allocations.map((allocation) => (
                         <tr key={allocation._id}>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-black">
                               {allocation.name}
                             </div>
                             <div className="text-sm text-gray-500">
                               {allocation.category}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                             {formatCurrency(allocation.budgetedAmount)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
@@ -2885,12 +2885,12 @@ const ReportsTab = ({
                                   }}
                                 ></div>
                               </div>
-                              <span className="text-sm text-gray-900">
+                              <span className="text-sm text-black">
                                 {allocation.utilization.toFixed(1)}%
                               </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                             {allocation.efficiency.toFixed(1)}%
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -2912,7 +2912,7 @@ const ReportsTab = ({
               {/* Recommendations */}
               {reportData.recommendations.length > 0 && (
                 <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h4 className="text-lg font-semibold text-black mb-4">
                     Recommendations
                   </h4>
                   <div className="space-y-3">
@@ -2951,7 +2951,7 @@ const ReportsTab = ({
       ) : (
         <div className="text-center py-12">
           <ChartBarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-black mb-2">
             No Report Generated
           </h3>
           <p className="text-gray-600">
@@ -2997,7 +2997,7 @@ const BudgetModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         <div className="p-3 sm:p-6 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+          <h3 className="text-base sm:text-lg font-semibold text-black">
             {isEdit ? "Edit Project Budget" : "Create Project Budget"}
           </h3>
         </div>
@@ -3132,7 +3132,7 @@ const BudgetModal = ({
           {/* Budget Allocations */}
           <div>
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4">
-              <h4 className="text-sm sm:text-md font-semibold text-gray-900">
+              <h4 className="text-sm sm:text-md font-semibold text-black">
                 Budget Allocations
               </h4>
               <button
@@ -3232,7 +3232,7 @@ const BudgetModal = ({
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b border-gray-200">
-              <h4 className="text-base sm:text-lg font-semibold text-gray-900">
+              <h4 className="text-base sm:text-lg font-semibold text-black">
                 Add Budget Allocation
               </h4>
             </div>
@@ -3606,7 +3606,7 @@ const ExpenseModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-4 sm:p-6 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+          <h3 className="text-base sm:text-lg font-semibold text-black">
             {isEdit ? "Edit Expense" : "Add New Expense"}
           </h3>
         </div>
@@ -3897,7 +3897,7 @@ const IncomeModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-4 sm:p-6 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+          <h3 className="text-base sm:text-lg font-semibold text-black">
             {isEdit ? "Edit Income/Payment" : "Add New Income/Payment"}
           </h3>
         </div>

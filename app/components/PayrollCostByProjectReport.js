@@ -70,7 +70,7 @@ export default function PayrollCostByProjectReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-emerald-600" />
             Payroll Cost by Project Report
           </h2>
@@ -102,7 +102,7 @@ export default function PayrollCostByProjectReport() {
           <select
             value={filters.month}
             onChange={(e) => setFilters({ ...filters, month: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
               <option key={m} value={m}>{new Date(2000, m - 1, 1).toLocaleString("default", { month: "long" })}</option>
@@ -115,7 +115,7 @@ export default function PayrollCostByProjectReport() {
             type="number"
             value={filters.year}
             onChange={(e) => setFilters({ ...filters, year: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
             min="2020"
             max="2030"
           />
@@ -131,7 +131,7 @@ export default function PayrollCostByProjectReport() {
       {reportData && (
         <div className="space-y-6">
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-blue-600" />
               By Project
             </h3>
@@ -150,12 +150,12 @@ export default function PayrollCostByProjectReport() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {byProject.map((r) => (
                     <tr key={r.projectId}>
-                      <td className="px-3 py-2 text-gray-900">{r.projectName}</td>
-                      <td className="px-3 py-2 text-right">{r.employeeCount}</td>
-                      <td className="px-3 py-2 text-right">{r.grossPay}</td>
-                      <td className="px-3 py-2 text-right">{r.netPay}</td>
-                      <td className="px-3 py-2 text-right">{r.allowances}</td>
-                      <td className="px-3 py-2 text-right">{r.deductions}</td>
+                      <td className="px-3 py-2 text-black">{r.projectName}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.employeeCount}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.allowances}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.deductions}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -165,7 +165,7 @@ export default function PayrollCostByProjectReport() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-rose-600" />
                 By Site
               </h3>
@@ -181,17 +181,17 @@ export default function PayrollCostByProjectReport() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {bySite.map((r) => (
                     <tr key={r.siteId}>
-                      <td className="px-3 py-2 text-gray-900">{r.siteName}</td>
-                      <td className="px-3 py-2 text-right">{r.employeeCount}</td>
-                      <td className="px-3 py-2 text-right">{r.grossPay}</td>
-                      <td className="px-3 py-2 text-right">{r.netPay}</td>
+                      <td className="px-3 py-2 text-black">{r.siteName}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.employeeCount}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-indigo-600" />
                 By Department
               </h3>
@@ -207,10 +207,10 @@ export default function PayrollCostByProjectReport() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {byDepartment.map((r) => (
                     <tr key={r.department}>
-                      <td className="px-3 py-2 text-gray-900">{r.department}</td>
-                      <td className="px-3 py-2 text-right">{r.employeeCount}</td>
-                      <td className="px-3 py-2 text-right">{r.grossPay}</td>
-                      <td className="px-3 py-2 text-right">{r.netPay}</td>
+                      <td className="px-3 py-2 text-black">{r.department}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.employeeCount}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -220,7 +220,7 @@ export default function PayrollCostByProjectReport() {
 
           {byPhase.length > 0 && (
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
                 <Milestone className="w-4 h-4 text-amber-600" />
                 By Phase / Milestone
               </h3>
@@ -238,11 +238,11 @@ export default function PayrollCostByProjectReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {byPhase.map((r, i) => (
                       <tr key={r.milestoneId || i}>
-                        <td className="px-3 py-2 text-gray-900">{r.projectName}</td>
-                        <td className="px-3 py-2">{r.phaseName}</td>
-                        <td className="px-3 py-2 text-right">{r.employeeCount}</td>
-                        <td className="px-3 py-2 text-right">{r.grossPay}</td>
-                        <td className="px-3 py-2 text-right">{r.netPay}</td>
+                        <td className="px-3 py-2 text-black">{r.projectName}</td>
+                        <td className="px-3 py-2 text-black">{r.phaseName}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.employeeCount}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
+                        <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
                       </tr>
                     ))}
                   </tbody>

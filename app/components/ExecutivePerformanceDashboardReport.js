@@ -56,7 +56,7 @@ export default function ExecutivePerformanceDashboardReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-indigo-600" />
             Executive Performance Dashboard Report
           </h2>
@@ -80,7 +80,7 @@ export default function ExecutivePerformanceDashboardReport() {
           <select
             value={filters.month}
             onChange={(e) => setFilters({ ...filters, month: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
               <option key={m} value={m}>{new Date(2000, m - 1, 1).toLocaleString("default", { month: "long" })}</option>
@@ -93,7 +93,7 @@ export default function ExecutivePerformanceDashboardReport() {
             type="number"
             value={filters.year}
             onChange={(e) => setFilters({ ...filters, year: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
             min="2020"
             max="2030"
           />
@@ -117,7 +117,7 @@ export default function ExecutivePerformanceDashboardReport() {
                 <div key={key} className={`${bg} rounded-lg p-4 border ${border}`}>
                   <div className="flex items-center gap-2 mb-2">
                     <Icon className={`w-5 h-5 ${text}`} />
-                    <span className="font-medium text-gray-900">{kpi.label || label}</span>
+                    <span className="font-medium text-black">{kpi.label || label}</span>
                   </div>
                   <p className={`text-2xl font-bold ${text}`}>
                     {typeof value === "number" ? value : value}{unit}
@@ -131,31 +131,31 @@ export default function ExecutivePerformanceDashboardReport() {
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Summary</h3>
+            <h3 className="text-sm font-semibold text-black mb-3">Summary</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <span className="text-gray-500">Total Employees</span>
-                <p className="font-bold text-gray-900">{summary.totalEmployees ?? 0}</p>
+                <p className="font-bold text-black">{summary.totalEmployees ?? 0}</p>
               </div>
               <div>
                 <span className="text-gray-500">Total Projects</span>
-                <p className="font-bold text-gray-900">{summary.totalProjects ?? 0} ({summary.completedProjects ?? 0} completed)</p>
+                <p className="font-bold text-black">{summary.totalProjects ?? 0} ({summary.completedProjects ?? 0} completed)</p>
               </div>
               <div>
                 <span className="text-gray-500">Tasks</span>
-                <p className="font-bold text-gray-900">{summary.completedTasks ?? 0} / {summary.totalTasks ?? 0}</p>
+                <p className="font-bold text-black">{summary.completedTasks ?? 0} / {summary.totalTasks ?? 0}</p>
               </div>
               <div>
                 <span className="text-gray-500">Attendance Days</span>
-                <p className="font-bold text-gray-900">{summary.totalAttendanceDays ?? 0}</p>
+                <p className="font-bold text-black">{summary.totalAttendanceDays ?? 0}</p>
               </div>
               <div>
                 <span className="text-gray-500">Payroll Total</span>
-                <p className="font-bold text-gray-900">{summary.payrollTotal ?? 0}</p>
+                <p className="font-bold text-black">{summary.payrollTotal ?? 0}</p>
               </div>
               <div>
                 <span className="text-gray-500">Budget vs Expenses</span>
-                <p className="font-bold text-gray-900">{summary.totalBudget ?? 0} / {summary.totalExpenses ?? 0}</p>
+                <p className="font-bold text-black">{summary.totalBudget ?? 0} / {summary.totalExpenses ?? 0}</p>
               </div>
             </div>
           </div>

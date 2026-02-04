@@ -311,7 +311,7 @@ const SubtaskManager = ({
           <div className="flex items-center gap-3">
             <AssignmentIcon className="text-blue-600" />
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-black">
                 Subtask Management
               </h2>
               <p className="text-sm text-gray-600">{task.title}</p>
@@ -348,7 +348,7 @@ const SubtaskManager = ({
           {/* Progress Overview */}
           <div className="bg-gray-50 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-black">
                 Progress Overview
               </h3>
               <span className="text-sm text-gray-600">
@@ -515,7 +515,7 @@ const SubtaskManager = ({
           {/* Subtasks List */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-black">
                 Subtasks ({totalCount})
               </h3>
               <button
@@ -725,7 +725,7 @@ const SubtaskManager = ({
                             className={`font-medium ${
                               subtask.status === "completed"
                                 ? "line-through text-gray-500"
-                                : "text-gray-900"
+                                : "text-black"
                             }`}
                           >
                             {subtask.title}

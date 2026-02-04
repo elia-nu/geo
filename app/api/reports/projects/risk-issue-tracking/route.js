@@ -60,15 +60,46 @@ export async function GET(request) {
         createdAt: a.createdAt,
       };
 
-      const type = (a.alertType || "").toLowerCase();
+      const typeRaw = a.alertType || "";
+      const type = typeRaw.toLowerCase();
       let category = "delay";
-      if (type.includes("delay") || type.includes("timeline") || type.includes("milestone")) {
-        category = "delay";
-      } else if (type.includes("resource") || type.includes("shortage") || type.includes("workforce") || type.includes("staff")) {
+
+      // Map known auto-generated alert types first
+      if (
+        type === "overdue_project" ||
+        type === "overdue_task" ||
+        type === "missed_milestone"
+      ) {
+        // Critical timeline issues are treated as escalations
+        category = "escalation";
+      } else if (type === "low_progress") {
+        // Low progress against timeline is effectively a resource/capacity risk
         category = "resource";
-      } else if (type.includes("compliance") || type.includes("breach") || type.includes("violation")) {
+      } else if (
+        type.includes("delay") ||
+        type.includes("deadline") ||
+        type.includes("timeline") ||
+        type.includes("milestone")
+      ) {
+        category = "delay";
+      } else if (
+        type.includes("resource") ||
+        type.includes("shortage") ||
+        type.includes("workforce") ||
+        type.includes("staff")
+      ) {
+        category = "resource";
+      } else if (
+        type.includes("compliance") ||
+        type.includes("breach") ||
+        type.includes("violation")
+      ) {
         category = "compliance";
-      } else if (type.includes("escalat") || a.priority === "high" || a.priority === "critical") {
+      } else if (
+        type.includes("escalat") ||
+        a.priority === "high" ||
+        a.priority === "critical"
+      ) {
         category = "escalation";
       } else {
         category = "delay";

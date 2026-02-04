@@ -50,7 +50,7 @@ export default function AttendanceDocumentsPage() {
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => window.history.back()}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+                  className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors"
                 >
                   <ArrowLeft className="w-5 h-5" />
                   <span>Back to Attendance</span>
@@ -58,7 +58,7 @@ export default function AttendanceDocumentsPage() {
                 <div className="h-6 w-px bg-gray-300"></div>
                 <div className="flex items-center space-x-2">
                   <FileText className="w-6 h-6 text-purple-600" />
-                  <h1 className="text-xl font-semibold text-gray-900">
+                  <h1 className="text-xl font-semibold text-black">
                     Attendance Documents & Requests
                   </h1>
                 </div>
@@ -80,7 +80,7 @@ export default function AttendanceDocumentsPage() {
                 <select
                   value={selectedEmployee}
                   onChange={(e) => setSelectedEmployee(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black"
                 >
                   <option value="">Select an employee...</option>
                   {employees.map((emp) => (
@@ -110,7 +110,7 @@ export default function AttendanceDocumentsPage() {
             <div className="max-w-6xl mx-auto px-6">
               <div className="bg-white rounded-xl shadow-lg p-12 text-center">
                 <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-xl font-semibold text-black mb-2">
                   Welcome to Attendance Documents
                 </h3>
                 <p className="text-gray-600 mb-6">

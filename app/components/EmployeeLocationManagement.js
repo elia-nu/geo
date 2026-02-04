@@ -281,7 +281,7 @@ export default function EmployeeLocationManagement() {
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl font-bold text-black mb-2">
                 Employee Location Management
               </h1>
               <p className="text-gray-600">
@@ -383,7 +383,7 @@ export default function EmployeeLocationManagement() {
                 <select
                   value={bulkLocation}
                   onChange={(e) => setBulkLocation(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                 >
                   <option value="">Select a work location...</option>
                   {workLocations.map((location) => (
@@ -433,7 +433,7 @@ export default function EmployeeLocationManagement() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search by name or ID..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                 />
               </div>
             </div>
@@ -446,7 +446,7 @@ export default function EmployeeLocationManagement() {
               <select
                 value={selectedDepartment}
                 onChange={(e) => setSelectedDepartment(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
               >
                 <option value="">All Departments</option>
                 {getUniqueDepartments().map((dept) => (
@@ -465,7 +465,7 @@ export default function EmployeeLocationManagement() {
               <select
                 value={filterByLocation}
                 onChange={(e) => setFilterByLocation(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
               >
                 <option value="all">All Employees</option>
                 <option value="assigned">With Locations</option>
@@ -490,7 +490,7 @@ export default function EmployeeLocationManagement() {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-black">
                 Employees ({filteredEmployees.length})
               </h3>
               <div className="flex items-center space-x-4">
@@ -575,7 +575,7 @@ export default function EmployeeLocationManagement() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-black">
                               {employee.personalDetails?.name ||
                                 employee.name ||
                                 "Unknown"}
@@ -588,7 +588,7 @@ export default function EmployeeLocationManagement() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-black">
                             {employee.personalDetails?.department ||
                               employee.department ||
                               "Not specified"}

@@ -140,7 +140,7 @@ export default function WorkForceDistributionReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <Users className="w-8 h-8 text-blue-600" />
                 <span>Workforce Distribution by Site</span>
               </h1>
@@ -345,14 +345,14 @@ export default function WorkForceDistributionReport() {
                   {reportData.sites?.map((s) => (
                     <tr key={s.id}>
                       <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-black">
                           {s.name}
                         </div>
                         <div className="text-xs text-gray-500">
                           {s.address || "—"}
                         </div>
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {s.presentEmployees || 0} / {s.totalEmployees || 0}
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">
@@ -361,7 +361,7 @@ export default function WorkForceDistributionReport() {
                         </span>
                       </td>
                       <td className="px-4 py-2">
-                        <div className="text-xs text-gray-900">
+                        <div className="text-xs text-black">
                           {s.departments
                             ? Object.entries(s.departments)
                                 .map(([name, count]) => `${name}: ${count}`)
@@ -370,7 +370,7 @@ export default function WorkForceDistributionReport() {
                         </div>
                       </td>
                       <td className="px-4 py-2">
-                        <div className="text-xs text-gray-900">
+                        <div className="text-xs text-black">
                           {s.projects
                             ? Object.entries(s.projects)
                                 .map(([name, count]) => `${name}: ${count}`)

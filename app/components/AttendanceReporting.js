@@ -277,12 +277,12 @@ export default function AttendanceReporting() {
       {currentReport && (
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-black">
               Current Report
             </h3>
             <button
               onClick={clearCurrentReport}
-              className="text-sm text-gray-700 hover:text-gray-900"
+              className="text-sm text-gray-700 hover:text-black"
             >
               Clear Report
             </button>
@@ -389,7 +389,7 @@ export default function AttendanceReporting() {
             <div className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Report Type
                   </label>
                   <select
@@ -409,7 +409,7 @@ export default function AttendanceReporting() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Start Date
                     {reportForm.reportType !== "random" && (
                       <span className="text-gray-500 text-xs ml-1">
@@ -430,7 +430,7 @@ export default function AttendanceReporting() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     End Date
                     {reportForm.reportType !== "random" && (
                       <span className="text-gray-500 text-xs ml-1">
@@ -451,7 +451,7 @@ export default function AttendanceReporting() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Employee ID (Optional)
                   </label>
                   <input
@@ -468,7 +468,7 @@ export default function AttendanceReporting() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Department (Optional)
                   </label>
                   <input
@@ -497,7 +497,7 @@ export default function AttendanceReporting() {
                       }
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-900">
+                    <span className="ml-2 text-sm text-black">
                       Include Photos
                     </span>
                   </label>
@@ -513,7 +513,7 @@ export default function AttendanceReporting() {
                       }
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-900">
+                    <span className="ml-2 text-sm text-black">
                       Include Location Data
                     </span>
                   </label>

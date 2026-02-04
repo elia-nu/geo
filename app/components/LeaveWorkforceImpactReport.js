@@ -118,7 +118,7 @@ export default function LeaveWorkforceImpactReport({ embedded = false }) {
         <div className={embedded ? "" : "bg-white rounded-lg shadow-sm p-6 mb-6"}>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <Briefcase className="w-8 h-8 text-blue-600" />
                 <span>Leave Impact on Workforce Availability Report</span>
               </h1>
@@ -240,7 +240,7 @@ export default function LeaveWorkforceImpactReport({ embedded = false }) {
             </div>
 
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+              <h2 className="text-lg font-semibold text-black mb-4 flex items-center space-x-2">
                 <Briefcase className="w-5 h-5 text-blue-600" />
                 <span>Projects Affected by Leave</span>
               </h2>
@@ -256,7 +256,7 @@ export default function LeaveWorkforceImpactReport({ embedded = false }) {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {projectsAffected.map((p) => (
                       <tr key={p.projectId}>
-                        <td className="px-4 py-2 text-gray-900">{p.projectName}</td>
+                        <td className="px-4 py-2 text-black">{p.projectName}</td>
                         <td className="px-4 py-2">{p.totalAssigned}</td>
                         <td className="px-4 py-2">{p.onLeaveCount}</td>
                       </tr>
@@ -267,7 +267,7 @@ export default function LeaveWorkforceImpactReport({ embedded = false }) {
             </div>
 
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+              <h2 className="text-lg font-semibold text-black mb-4 flex items-center space-x-2">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
                 <span>Coverage Gaps</span>
               </h2>
@@ -284,7 +284,7 @@ export default function LeaveWorkforceImpactReport({ embedded = false }) {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {coverageGaps.map((g) => (
                       <tr key={g.projectId}>
-                        <td className="px-4 py-2 text-gray-900">{g.projectName}</td>
+                        <td className="px-4 py-2 text-black">{g.projectName}</td>
                         <td className="px-4 py-2">{g.assignedCount}</td>
                         <td className="px-4 py-2">{g.onLeaveCount}</td>
                         <td className="px-4 py-2 text-red-600">{g.gap}</td>
@@ -296,7 +296,7 @@ export default function LeaveWorkforceImpactReport({ embedded = false }) {
             </div>
 
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+              <h2 className="text-lg font-semibold text-black mb-4 flex items-center space-x-2">
                 <Users className="w-5 h-5 text-blue-600" />
                 <span>Replacement Demand Forecast</span>
               </h2>
@@ -312,7 +312,7 @@ export default function LeaveWorkforceImpactReport({ embedded = false }) {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {replacementDemandForecast.map((r) => (
                       <tr key={r.projectId}>
-                        <td className="px-4 py-2 text-gray-900">{r.projectName}</td>
+                        <td className="px-4 py-2 text-black">{r.projectName}</td>
                         <td className="px-4 py-2">{r.replacementFte}</td>
                         <td className="px-4 py-2 text-gray-600">{r.suggestedCoverage}</td>
                       </tr>

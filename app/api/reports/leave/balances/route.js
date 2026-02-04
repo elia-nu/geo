@@ -4,16 +4,6 @@ import { ObjectId } from "mongodb";
 import { getCurrentUser, checkPermission } from "../../../middleware/auth";
 import { createAuditLog } from "../../../../utils/audit";
 
-function calculateLeaveDays(startDate, endDate) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  let days = 0;
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    if (d.getDay() !== 0 && d.getDay() !== 6) days++;
-  }
-  return days;
-}
-
 // 6.2 Leave Balance & Entitlement Report
 // Current leave balances per employee; overused / underutilized indicators
 export async function GET(request) {
@@ -39,9 +29,14 @@ export async function GET(request) {
 
     const departmentFilter = searchParams.get("department") || null;
     const showOverusedOnly = searchParams.get("overusedOnly") === "true";
-    const showUnderutilizedOnly = searchParams.get("underutilizedOnly") === "true";
+    const showUnderutilizedOnly =
+      searchParams.get("underutilizedOnly") === "true";
 
-    const employees = await db.collection("employees").find({}).toArray();
+    // Only active employees should be included in this report
+    const employees = await db
+      .collection("employees")
+      .find({ status: "active" })
+      .toArray();
     const leaveBalances = await db
       .collection("leave_balances")
       .find({})
@@ -52,34 +47,7 @@ export async function GET(request) {
       balanceByEmpId.set(lb.employeeId.toString(), lb);
     });
 
-    const startOfYear = new Date(new Date().getFullYear(), 0, 1);
-    const leaveRequests = await db
-      .collection("attendance_documents")
-      .find({
-        type: "leave",
-        startDate: { $gte: startOfYear.toISOString().split("T")[0] },
-      })
-      .toArray();
-
-    const usedPendingByEmp = new Map();
-    leaveRequests.forEach((req) => {
-      const empId =
-        req.employeeId && req.employeeId.toString
-          ? req.employeeId.toString()
-          : String(req.employeeId);
-      if (!usedPendingByEmp.has(empId))
-        usedPendingByEmp.set(empId, { used: {}, pending: {} });
-      const days = calculateLeaveDays(req.startDate, req.endDate);
-      const lt = req.leaveType || "annual";
-      if (req.status === "approved") {
-        usedPendingByEmp.get(empId).used[lt] =
-          (usedPendingByEmp.get(empId).used[lt] || 0) + days;
-      } else if (req.status === "pending") {
-        usedPendingByEmp.get(empId).pending[lt] =
-          (usedPendingByEmp.get(empId).pending[lt] || 0) + days;
-      }
-    });
-
+    // Fallback entitlements only when there is no leave_balances record yet
     const entitlementDefaults = {
       annual: 20,
       sick: 10,
@@ -98,39 +66,50 @@ export async function GET(request) {
       if (departmentFilter && department !== departmentFilter) continue;
 
       let lb = balanceByEmpId.get(empId);
+
+      // If no leave_balances record exists yet, synthesize a basic one from defaults
       if (!lb) {
-        lb = {
-          employeeId: emp._id,
-          balances: {},
-          employmentDate:
-            emp.joiningDate
-              ? new Date(emp.joiningDate + "T00:00:00.000Z")
-              : emp.createdAt,
-        };
+        const balances = {};
         Object.keys(entitlementDefaults).forEach((lt) => {
-          lb.balances[lt] = {
-            available: entitlementDefaults[lt],
+          const entitlement = entitlementDefaults[lt];
+          balances[lt] = {
+            totalEarned: entitlement,
+            available: entitlement,
             used: 0,
             pending: 0,
-            totalEarned: entitlementDefaults[lt],
             description: lt,
           };
         });
+        lb = {
+          employeeId: emp._id,
+          balances,
+        };
       }
 
-      const up = usedPendingByEmp.get(empId) || { used: {}, pending: {} };
       const balanceBreakdown = {};
       let anyOverused = false;
       let anyUnderutilized = false;
 
       Object.keys(lb.balances || {}).forEach((leaveType) => {
-        const b = lb.balances[leaveType];
-        const used = up.used[leaveType] || 0;
-        const pending = up.pending[leaveType] || 0;
-        const available = (b.available != null ? b.available : b.totalEarned) - used - pending;
-        const entitlement = entitlementDefaults[leaveType] ?? b.totalEarned ?? 0;
-        const effectiveAvailable = Math.max(0, available);
-        if (available < 0) anyOverused = true;
+        const b = lb.balances[leaveType] || {};
+
+        const entitlement =
+          (typeof b.totalEarned === "number" ? b.totalEarned : null) ??
+          entitlementDefaults[leaveType] ??
+          0;
+        const used = typeof b.used === "number" ? b.used : 0;
+        const pending = typeof b.pending === "number" ? b.pending : 0;
+        const available =
+          typeof b.available === "number"
+            ? b.available
+            : Math.max(0, entitlement - used - pending);
+
+        // Overused when used + pending exceeds entitlement
+        const overusedAmount =
+          used + pending > entitlement ? used + pending - entitlement : 0;
+        if (overusedAmount > 0) anyOverused = true;
+
+        // Underutilized: for annual leave, using less than 30% of entitlement
         if (
           leaveType === "annual" &&
           entitlement > 0 &&
@@ -138,12 +117,13 @@ export async function GET(request) {
         ) {
           anyUnderutilized = true;
         }
+
         balanceBreakdown[leaveType] = {
           entitlement,
           used,
           pending,
-          available: effectiveAvailable,
-          overused: available < 0 ? Math.abs(available) : 0,
+          available,
+          overused: overusedAmount,
         };
       });
 

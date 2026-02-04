@@ -374,10 +374,10 @@ export default function EmployeeMasterReport() {
       {showFilters && (
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+            <h3 className="text-lg font-semibold text-black">Filters</h3>
             <button
               onClick={clearFilters}
-              className="text-sm text-gray-600 hover:text-gray-900"
+              className="text-sm text-gray-600 hover:text-black"
             >
               Clear All
             </button>
@@ -512,7 +512,7 @@ export default function EmployeeMasterReport() {
       {reportData && (
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-black">
               Report Summary
             </h3>
             <div className="flex items-center space-x-2">
@@ -560,7 +560,7 @@ export default function EmployeeMasterReport() {
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex items-center space-x-2 mb-2">
                 <XCircle className="w-5 h-5 text-gray-600" />
-                <span className="font-medium text-gray-900">Inactive</span>
+                <span className="font-medium text-black">Inactive</span>
               </div>
               <p className="text-2xl font-bold text-gray-600">
                 {reportData.summary?.byStatus?.Inactive || 0}
@@ -627,7 +627,7 @@ export default function EmployeeMasterReport() {
                   <tr key={employee._id || employee.employeeId} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-black">
                           {employee.employeeName || "N/A"}
                         </div>
                         <div className="text-sm text-gray-500">
@@ -636,32 +636,32 @@ export default function EmployeeMasterReport() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {employee.department || "N/A"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {employee.role || "N/A"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {employee.workLocation || "N/A"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {employee.supervisor || "N/A"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {employee.contractType || "N/A"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {formatDate(employee.joiningDate)}
                       </div>
                     </td>
@@ -718,7 +718,7 @@ export default function EmployeeMasterReport() {
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
+                  <h4 className="font-semibold text-black mb-3 flex items-center space-x-2">
                     <UserCheck className="w-5 h-5 text-blue-600" />
                     <span>Personal Information</span>
                   </h4>
@@ -751,7 +751,7 @@ export default function EmployeeMasterReport() {
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
+                  <h4 className="font-semibold text-black mb-3 flex items-center space-x-2">
                     <Briefcase className="w-5 h-5 text-blue-600" />
                     <span>Employment Details</span>
                   </h4>
@@ -788,7 +788,7 @@ export default function EmployeeMasterReport() {
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
+                  <h4 className="font-semibold text-black mb-3 flex items-center space-x-2">
                     <MapPin className="w-5 h-5 text-blue-600" />
                     <span>Location & Supervisor</span>
                   </h4>
@@ -815,7 +815,7 @@ export default function EmployeeMasterReport() {
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
+                  <h4 className="font-semibold text-black mb-3 flex items-center space-x-2">
                     <Building2 className="w-5 h-5 text-blue-600" />
                     <span>Project Assignments</span>
                   </h4>

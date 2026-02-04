@@ -145,7 +145,7 @@ export default function DocumentExpiryComplianceReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <ShieldCheck className="w-8 h-8 text-blue-600" />
                 <span>Document Expiry & Compliance Report</span>
               </h1>
@@ -164,14 +164,6 @@ export default function DocumentExpiryComplianceReport() {
                   className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
                 />
                 <span>{loading ? "Generating..." : "Generate Report"}</span>
-              </button>
-              <button
-                onClick={() => handleGenerateReport({ triggerAlerts: true })}
-                disabled={loading}
-                className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium disabled:opacity-50 flex items-center space-x-2"
-              >
-                <Bell className="w-4 h-4" />
-                <span>Generate + Alerts</span>
               </button>
               {reportData && (
                 <>
@@ -287,7 +279,7 @@ export default function DocumentExpiryComplianceReport() {
           <div className="space-y-6">
             {/* Expiring soon */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-3 flex items-center space-x-2">
+              <h2 className="text-xl font-bold text-black mb-3 flex items-center space-x-2">
                 <Clock className="w-5 h-5 text-amber-600" />
                 <span>Expiring Soon</span>
               </h2>
@@ -319,24 +311,24 @@ export default function DocumentExpiryComplianceReport() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {reportData.expiring.map((item) => (
                         <tr key={item.documentId}>
-                          <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                          <td className="px-4 py-2 whitespace-nowrap text-black">
                             {item.type}
                           </td>
-                          <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                          <td className="px-4 py-2 whitespace-nowrap text-black">
                             {item.title}
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap">
-                            <div className="text-gray-900">
+                            <div className="text-black">
                               {item.ownerName}
                             </div>
                             <div className="text-xs text-gray-500">
                               {item.ownerEmail}
                             </div>
                           </td>
-                          <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                          <td className="px-4 py-2 whitespace-nowrap text-black">
                             {item.ownerDepartment}
                           </td>
-                          <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                          <td className="px-4 py-2 whitespace-nowrap text-black">
                             {item.expiryDate
                               ? new Date(
                                   item.expiryDate
@@ -361,7 +353,7 @@ export default function DocumentExpiryComplianceReport() {
 
             {/* Expired */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-3 flex items-center space-x-2">
+              <h2 className="text-xl font-bold text-black mb-3 flex items-center space-x-2">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
                 <span>Expired</span>
               </h2>
@@ -393,24 +385,24 @@ export default function DocumentExpiryComplianceReport() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {reportData.expired.map((item) => (
                         <tr key={item.documentId}>
-                          <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                          <td className="px-4 py-2 whitespace-nowrap text-black">
                             {item.type}
                           </td>
-                          <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                          <td className="px-4 py-2 whitespace-nowrap text-black">
                             {item.title}
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap">
-                            <div className="text-gray-900">
+                            <div className="text-black">
                               {item.ownerName}
                             </div>
                             <div className="text-xs text-gray-500">
                               {item.ownerEmail}
                             </div>
                           </td>
-                          <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                          <td className="px-4 py-2 whitespace-nowrap text-black">
                             {item.ownerDepartment}
                           </td>
-                          <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                          <td className="px-4 py-2 whitespace-nowrap text-black">
                             {item.expiryDate
                               ? new Date(
                                   item.expiryDate

@@ -55,7 +55,7 @@ export default function UserActivitySecurityAuditReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <Shield className="w-5 h-5 text-indigo-600" />
             User Activity & Security Audit Report
           </h2>
@@ -80,7 +80,7 @@ export default function UserActivitySecurityAuditReport() {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -89,7 +89,7 @@ export default function UserActivitySecurityAuditReport() {
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -99,7 +99,7 @@ export default function UserActivitySecurityAuditReport() {
             placeholder="Email or user ID"
             value={filters.actor}
             onChange={(e) => setFilters({ ...filters, actor: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
       </div>
@@ -149,14 +149,14 @@ export default function UserActivitySecurityAuditReport() {
 
           {suspiciousPatterns.length > 0 && (
             <div className="bg-rose-50 rounded-lg border border-rose-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-600" />
                 Suspicious activity patterns
               </h3>
               <ul className="space-y-2">
                 {suspiciousPatterns.map((p, i) => (
                   <li key={i} className="bg-white rounded p-2 border border-rose-100 text-sm">
-                    <span className="font-medium text-gray-900">{p.type?.replace(/_/g, " ")}</span>
+                    <span className="font-medium text-black">{p.type?.replace(/_/g, " ")}</span>
                     {p.actor && <span className="text-gray-600"> — {p.actor}</span>}
                     {p.detail && <p className="text-gray-600 mt-0.5">{p.detail}</p>}
                     {p.failures != null && <span className="text-gray-500"> ({p.failures} failures)</span>}
@@ -169,7 +169,7 @@ export default function UserActivitySecurityAuditReport() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
                 <LogIn className="w-4 h-4 text-gray-500" />
                 Login activity (sample)
               </h3>
@@ -186,8 +186,8 @@ export default function UserActivitySecurityAuditReport() {
                     {logins.slice(0, 30).map((e, i) => (
                       <tr key={e.id || i}>
                         <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2">{e.actor ?? "—"}</td>
-                        <td className="px-3 py-2">{e.action ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.actor ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.action ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -195,7 +195,7 @@ export default function UserActivitySecurityAuditReport() {
               </div>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
                 <Download className="w-4 h-4 text-gray-500" />
                 Data exports (sample)
               </h3>
@@ -212,8 +212,8 @@ export default function UserActivitySecurityAuditReport() {
                     {dataExports.slice(0, 30).map((e, i) => (
                       <tr key={e.id || i}>
                         <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2">{e.actor ?? "—"}</td>
-                        <td className="px-3 py-2">{e.entityType ?? e.action ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.actor ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.entityType ?? e.action ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -224,7 +224,7 @@ export default function UserActivitySecurityAuditReport() {
 
           {permissionChanges.length > 0 && (
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
                 <Key className="w-4 h-4 text-gray-500" />
                 Permission / role changes
               </h3>
@@ -242,9 +242,9 @@ export default function UserActivitySecurityAuditReport() {
                     {permissionChanges.slice(0, 30).map((e, i) => (
                       <tr key={e.id || i}>
                         <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2">{e.actor ?? "—"}</td>
-                        <td className="px-3 py-2">{e.action ?? "—"}</td>
-                        <td className="px-3 py-2">{e.userId ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.actor ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.action ?? "—"}</td>
+                        <td className="px-3 py-2 text-black">{e.userId ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>

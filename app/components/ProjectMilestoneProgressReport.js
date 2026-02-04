@@ -69,7 +69,7 @@ export default function ProjectMilestoneProgressReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <Milestone className="w-5 h-5 text-amber-600" />
             Project Milestone Progress Report
           </h2>
@@ -102,7 +102,7 @@ export default function ProjectMilestoneProgressReport() {
           value={filters.projectId}
           onChange={(e) => setFilters({ ...filters, projectId: e.target.value })}
           placeholder="Optional"
-          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
         />
       </div>
 
@@ -140,14 +140,14 @@ export default function ProjectMilestoneProgressReport() {
 
           {delayRisks.length > 0 && (
             <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
                 Delay Risk Indicators
               </h3>
               <ul className="space-y-2">
                 {delayRisks.map((d, i) => (
                   <li key={i} className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-gray-900">{d.projectName} – {d.milestoneTitle}</span>
+                    <span className="font-medium text-black">{d.projectName} – {d.milestoneTitle}</span>
                     <span className="text-amber-800">{d.daysOverdue} days overdue</span>
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${d.risk === "high" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>{d.risk}</span>
                   </li>
@@ -173,13 +173,13 @@ export default function ProjectMilestoneProgressReport() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {rows.map((r, i) => (
                     <tr key={r.milestoneId || i}>
-                      <td className="px-3 py-2 text-gray-900">{r.projectName}</td>
-                      <td className="px-3 py-2 font-medium">{r.milestoneTitle}</td>
-                      <td className="px-3 py-2">{r.plannedCompletion || "—"}</td>
-                      <td className="px-3 py-2">{r.actualCompletion || "—"}</td>
-                      <td className="px-3 py-2 capitalize">{r.status}</td>
-                      <td className="px-3 py-2 text-right">{r.progress}%</td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 text-black">{r.projectName}</td>
+                      <td className="px-3 py-2 font-medium text-black">{r.milestoneTitle}</td>
+                      <td className="px-3 py-2 text-black">{r.plannedCompletion || "—"}</td>
+                      <td className="px-3 py-2 text-black">{r.actualCompletion || "—"}</td>
+                      <td className="px-3 py-2 capitalize text-black">{r.status}</td>
+                      <td className="px-3 py-2 text-right text-black">{r.progress}%</td>
+                      <td className="px-3 py-2 text-black">
                         {r.isOverdue ? (
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.delayRisk === "high" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>
                             {r.daysOverdue} days

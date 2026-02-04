@@ -288,7 +288,7 @@ const TaskDependencyManager = ({
           <div className="flex items-center gap-3">
             <TimelineIcon className="text-blue-600" />
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-black">
                 Task Dependencies
               </h2>
               <p className="text-sm text-gray-600">{task.title}</p>
@@ -382,7 +382,7 @@ const TaskDependencyManager = ({
 
           {/* Current Dependencies */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <h3 className="text-lg font-semibold text-black mb-4">
               Current Dependencies ({dependencies.length})
             </h3>
 
@@ -415,7 +415,7 @@ const TaskDependencyManager = ({
                               className={`font-medium ${
                                 isCompleted
                                   ? "line-through text-gray-500"
-                                  : "text-gray-900"
+                                  : "text-black"
                               }`}
                             >
                               {getTaskTitle(dependencyId)}
@@ -462,7 +462,7 @@ const TaskDependencyManager = ({
           {/* Dependency Visualization */}
           {dependencies.length > 0 && (
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <h3 className="text-lg font-semibold text-black mb-4">
                 Dependency Flow
               </h3>
               <div className="flex items-center gap-4 overflow-x-auto">
@@ -483,7 +483,7 @@ const TaskDependencyManager = ({
                           className={`text-sm font-medium ${
                             isCompleted
                               ? "line-through text-gray-500"
-                              : "text-gray-900"
+                              : "text-black"
                           }`}
                         >
                           {getTaskTitle(dependencyId)}

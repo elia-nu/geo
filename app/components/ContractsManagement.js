@@ -198,7 +198,7 @@ export default function ContractsManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Contract Management</h2>
+          <h2 className="text-2xl font-bold text-black">Contract Management</h2>
           <p className="text-gray-600 mt-1">
             Monitor and manage employee contracts
           </p>
@@ -218,7 +218,7 @@ export default function ContractsManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Contracts</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-2xl font-bold text-black">{stats.total}</p>
             </div>
             <FileText className="w-8 h-8 text-blue-500" />
           </div>
@@ -227,7 +227,7 @@ export default function ContractsManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Active</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.active}</p>
+              <p className="text-2xl font-bold text-black">{stats.active}</p>
             </div>
             <CheckCircle className="w-8 h-8 text-green-500" />
           </div>
@@ -236,7 +236,7 @@ export default function ContractsManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Expiring Soon</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.expiring}</p>
+              <p className="text-2xl font-bold text-black">{stats.expiring}</p>
             </div>
             <AlertTriangle className="w-8 h-8 text-yellow-500" />
           </div>
@@ -245,7 +245,7 @@ export default function ContractsManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Expired</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.expired}</p>
+              <p className="text-2xl font-bold text-black">{stats.expired}</p>
             </div>
             <XCircle className="w-8 h-8 text-red-500" />
           </div>
@@ -330,7 +330,7 @@ export default function ContractsManagement() {
                     {contract.employeeName.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">
+                    <h3 className="font-semibold text-black">
                       {contract.employeeName}
                     </h3>
                     <p className="text-sm text-gray-500">

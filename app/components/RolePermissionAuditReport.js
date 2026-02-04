@@ -19,7 +19,7 @@ export default function RolePermissionAuditReport() {
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
-  const [activeTab, setActiveTab] = useState("roles"); // roles, conflicts, summary
+  const [activeTab, setActiveTab] = useState("roles"); // roles, summary
 
   const handleGenerateReport = async () => {
     setLoading(true);
@@ -66,7 +66,6 @@ export default function RolePermissionAuditReport() {
         format,
         roles: reportData.roles,
         summary: reportData.summary,
-        permissionConflicts: reportData.permissionConflicts || [],
       };
 
       const response = await fetch(
@@ -96,7 +95,7 @@ export default function RolePermissionAuditReport() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `roles_permissions_audit_report_${new Date()
+      a.download = `role_audit_report_${new Date()
         .toISOString()
         .split("T")[0]}.${format === "csv" ? "csv" : "xlsx"}`;
       document.body.appendChild(a);
@@ -122,12 +121,12 @@ export default function RolePermissionAuditReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <Shield className="w-8 h-8 text-blue-600" />
-                <span>Role & Permission Audit Report</span>
+                <span>Role Audit Report</span>
               </h1>
               <p className="text-gray-600 mt-1">
-                Audit roles, permissions, and identify conflicts
+                Audit roles, system privileges, and assigned users across the organization.
               </p>
             </div>
             <div className="flex items-center space-x-2">
@@ -181,7 +180,7 @@ export default function RolePermissionAuditReport() {
 
         {/* Summary Cards */}
         {reportData?.summary && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-4 mb-6">
             <div className="bg-blue-50 rounded-lg p-4">
               <div className="flex items-center space-x-2 mb-2">
                 <Shield className="w-5 h-5 text-blue-600" />
@@ -202,23 +201,13 @@ export default function RolePermissionAuditReport() {
               </p>
             </div>
 
-            <div className="bg-red-50 rounded-lg p-4">
+            <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                <span className="font-medium text-red-900">Excessive Permissions</span>
+                <Key className="w-5 h-5 text-gray-700" />
+                <span className="font-medium text-black">Total Permissions</span>
               </div>
-              <p className="text-2xl font-bold text-red-600">
-                {reportData.summary.rolesWithExcessivePermissions || 0}
-              </p>
-            </div>
-
-            <div className="bg-orange-50 rounded-lg p-4">
-              <div className="flex items-center space-x-2 mb-2">
-                <XCircle className="w-5 h-5 text-orange-600" />
-                <span className="font-medium text-orange-900">Permission Conflicts</span>
-              </div>
-              <p className="text-2xl font-bold text-orange-600">
-                {reportData.summary.permissionConflicts || 0}
+              <p className="text-2xl font-bold text-gray-700">
+                {reportData.summary.totalPermissions || 0}
               </p>
             </div>
           </div>
@@ -240,16 +229,6 @@ export default function RolePermissionAuditReport() {
                   Roles & Permissions
                 </button>
                 <button
-                  onClick={() => setActiveTab("conflicts")}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === "conflicts"
-                      ? "border-blue-500 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  Permission Conflicts
-                </button>
-                <button
                   onClick={() => setActiveTab("summary")}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${
                     activeTab === "summary"
@@ -266,7 +245,7 @@ export default function RolePermissionAuditReport() {
               {/* Roles & Permissions Tab */}
               {activeTab === "roles" && (
                 <div className="space-y-4">
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">
+                  <h2 className="text-xl font-bold text-black mb-4">
                     Roles & Permissions
                   </h2>
                   <div className="overflow-x-auto">
@@ -292,7 +271,7 @@ export default function RolePermissionAuditReport() {
                           <tr key={idx} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div>
-                                <div className="text-sm font-medium text-gray-900">
+                                <div className="text-sm font-medium text-black">
                                   {role.role}
                                 </div>
                                 <div className="text-sm text-gray-500">
@@ -301,25 +280,34 @@ export default function RolePermissionAuditReport() {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
+                              <div className="text-sm text-black">
                                 {role.totalUsers || 0}
                               </div>
                             </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm text-gray-900">
-                                <div className="mb-1">
-                                  <span className="font-medium">
-                                    Actual: {role.actualPermissions?.length || 0}
-                                  </span>
+                            <td className="px-6 py-4 align-top">
+                              <div className="text-sm text-black space-y-1 max-w-md">
+                                <div className="font-medium">
+                                  Actual ({role.actualPermissions?.length || 0})
                                 </div>
-                                {role.hasExcessivePermissions && (
+                                {role.actualPermissions && role.actualPermissions.length > 0 && (
+                                  <ul className="list-disc list-inside text-xs text-gray-600 space-y-0.5">
+                                    {role.actualPermissions.map((perm, i) => (
+                                      <li key={i}>{perm}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                                {role.hasExcessivePermissions && role.excessivePermissions?.length > 0 && (
                                   <div className="text-red-600 text-xs">
-                                    Excessive: {role.excessivePermissions?.length || 0}
+                                    Excessive ({role.excessivePermissions.length}):
+                                    {" "}
+                                    {role.excessivePermissions.join(", ")}
                                   </div>
                                 )}
-                                {role.hasMissingPermissions && (
+                                {role.hasMissingPermissions && role.missingPermissions?.length > 0 && (
                                   <div className="text-orange-600 text-xs">
-                                    Missing: {role.missingPermissions?.length || 0}
+                                    Missing ({role.missingPermissions.length}):
+                                    {" "}
+                                    {role.missingPermissions.join(", ")}
                                   </div>
                                 )}
                               </div>
@@ -355,80 +343,17 @@ export default function RolePermissionAuditReport() {
                 </div>
               )}
 
-              {/* Permission Conflicts Tab */}
-              {activeTab === "conflicts" && (
-                <div className="space-y-4">
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">
-                    Permission Conflicts
-                  </h2>
-                  {reportData.permissionConflicts &&
-                  reportData.permissionConflicts.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Permission
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Assigned To Roles
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Conflict Level
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {reportData.permissionConflicts.map((conflict, idx) => (
-                            <tr key={idx} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {conflict.permission}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="text-sm text-gray-900">
-                                  {conflict.assignedToRoles?.join(", ") || "N/A"}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    conflict.conflictLevel === "high"
-                                      ? "bg-red-100 text-red-800"
-                                      : conflict.conflictLevel === "medium"
-                                      ? "bg-orange-100 text-orange-800"
-                                      : "bg-yellow-100 text-yellow-800"
-                                  }`}
-                                >
-                                  {conflict.conflictLevel || "low"}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
-                      <p>No permission conflicts found</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Summary Statistics Tab */}
               {activeTab === "summary" && (
                 <div className="space-y-6">
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">
+                  <h2 className="text-xl font-bold text-black mb-4">
                     Summary Statistics
                   </h2>
 
                   {/* By Role */}
                   {reportData.summary?.byRole && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      <h3 className="text-lg font-semibold text-black mb-3">
                         By Role
                       </h3>
                       <div className="overflow-x-auto">
@@ -456,19 +381,19 @@ export default function RolePermissionAuditReport() {
                             {Object.entries(reportData.summary.byRole).map(
                               ([role, data], idx) => (
                                 <tr key={idx} className="hover:bg-gray-50">
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-black">
                                     {role}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                                     {data.users || 0}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                                     {data.permissions || 0}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                                     {data.excessivePermissions || 0}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                                     {data.missingPermissions || 0}
                                   </td>
                                 </tr>

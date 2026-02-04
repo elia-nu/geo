@@ -37,7 +37,7 @@ export default function DocumentReports() {
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-900">Document Reports</h2>
+          <h2 className="text-2xl font-bold text-black">Document Reports</h2>
           <div className="flex items-center gap-2">
             <input
               type="date"
@@ -87,7 +87,7 @@ export default function DocumentReports() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="border rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">By Type</h3>
+                <h3 className="font-semibold text-black mb-3">By Type</h3>
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
@@ -109,7 +109,7 @@ export default function DocumentReports() {
               </div>
 
               <div className="border rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">
+                <h3 className="font-semibold text-black mb-3">
                   Upload Trend (by month)
                 </h3>
                 <div className="overflow-x-auto">

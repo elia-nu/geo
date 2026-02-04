@@ -137,7 +137,7 @@ export default function SiteLocationMasterReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <MapPin className="w-8 h-8 text-blue-600" />
                 <span>Site Location Master Report</span>
               </h1>
@@ -327,20 +327,20 @@ export default function SiteLocationMasterReport() {
                   {locations.map((loc, idx) => (
                     <tr key={loc.id || idx}>
                       <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-black">
                           {loc.name}
                         </div>
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {loc.description || loc.address || "—"}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {/* Coordinates may not be present in this flattened view */}
                         {loc.latitude && loc.longitude
                           ? `${loc.latitude}, ${loc.longitude}`
                           : "—"}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {loc.radius ?? "—"}
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">
@@ -348,7 +348,7 @@ export default function SiteLocationMasterReport() {
                           {loc.status || "active"}
                         </span>
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {loc.employeeCount || 0}
                       </td>
                     </tr>

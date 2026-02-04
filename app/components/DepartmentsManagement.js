@@ -177,7 +177,7 @@ export default function DepartmentsManagement() {
       {/* Header */}
       <div className="bg-white rounded-lg shadow p-6 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Departments</h2>
+          <h2 className="text-2xl font-bold text-black">Departments</h2>
           <p className="text-gray-700">Create and manage company departments</p>
         </div>
         <div className="flex items-center gap-3">
@@ -205,7 +205,7 @@ export default function DepartmentsManagement() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name or description..."
-          className="flex-1 outline-none text-gray-900 placeholder-gray-500"
+          className="flex-1 outline-none text-black placeholder-gray-500"
         />
       </div>
 
@@ -243,7 +243,7 @@ export default function DepartmentsManagement() {
               {filtered.map((dept) => (
                 <tr key={dept._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2 text-gray-900 font-medium">
+                    <div className="flex items-center gap-2 text-black font-medium">
                       <Building2 className="w-4 h-4 text-blue-600" />{" "}
                       {dept.name}
                     </div>
@@ -298,7 +298,7 @@ export default function DepartmentsManagement() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b">
-              <h3 className="text-lg font-bold text-gray-900">
+              <h3 className="text-lg font-bold text-black">
                 New Department
               </h3>
             </div>
@@ -310,7 +310,7 @@ export default function DepartmentsManagement() {
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-500"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-black placeholder-gray-500"
                   placeholder="e.g., Human Resources"
                   required
                 />
@@ -324,7 +324,7 @@ export default function DepartmentsManagement() {
                   onChange={(e) =>
                     setForm({ ...form, description: e.target.value })
                   }
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-500"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-black placeholder-gray-500"
                   rows={3}
                   placeholder="Optional details..."
                 />
@@ -361,12 +361,12 @@ export default function DepartmentsManagement() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b">
-              <h3 className="text-lg font-bold text-gray-900">
+              <h3 className="text-lg font-bold text-black">
                 Department Details
               </h3>
             </div>
             <div className="p-6 space-y-3">
-              <div className="text-gray-900 font-semibold">{viewDept.name}</div>
+              <div className="text-black font-semibold">{viewDept.name}</div>
               <div className="text-gray-800">{viewDept.description || "—"}</div>
               <div className="text-gray-800 flex items-center gap-1">
                 <Users className="w-4 h-4 text-gray-400" />{" "}
@@ -397,7 +397,7 @@ export default function DepartmentsManagement() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b">
-              <h3 className="text-lg font-bold text-gray-900">
+              <h3 className="text-lg font-bold text-black">
                 Edit Department
               </h3>
             </div>
@@ -409,7 +409,7 @@ export default function DepartmentsManagement() {
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-500"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-black placeholder-gray-500"
                   required
                 />
               </div>
@@ -422,7 +422,7 @@ export default function DepartmentsManagement() {
                   onChange={(e) =>
                     setForm({ ...form, description: e.target.value })
                   }
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-500"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-black placeholder-gray-500"
                   rows={3}
                 />
               </div>
@@ -457,7 +457,7 @@ export default function DepartmentsManagement() {
             className="bg-white rounded-xl shadow-2xl w-full max-w-sm"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-5 border-b text-gray-900 font-semibold">
+            <div className="px-6 py-5 border-b text-black font-semibold">
               Delete Department
             </div>
             <div className="p-6 text-gray-800">

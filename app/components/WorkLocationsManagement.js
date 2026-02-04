@@ -333,7 +333,7 @@ export default function WorkLocationsManagement() {
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <h1 className="text-2xl font-bold text-black mb-2">
               Work Location Management
             </h1>
             <p className="text-gray-600">
@@ -404,7 +404,7 @@ export default function WorkLocationsManagement() {
       ) : filteredLocations.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          <h3 className="text-lg font-semibold text-black mb-2">
             No work locations found
           </h3>
           <p className="text-gray-600 mb-4">
@@ -428,7 +428,7 @@ export default function WorkLocationsManagement() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-2">
                   <MapPin className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-black">
                     {location.name}
                   </h3>
                 </div>
@@ -544,7 +544,7 @@ export default function WorkLocationsManagement() {
               className="p-6 overflow-y-auto flex-1 space-y-4"
             >
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Location Name *
                 </label>
                 <input
@@ -563,7 +563,7 @@ export default function WorkLocationsManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Address
                 </label>
                 <input
@@ -582,7 +582,7 @@ export default function WorkLocationsManagement() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Latitude *
                   </label>
                   <input
@@ -602,7 +602,7 @@ export default function WorkLocationsManagement() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Longitude *
                   </label>
                   <input
@@ -623,7 +623,7 @@ export default function WorkLocationsManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Radius (meters)
                 </label>
                 <input
@@ -641,7 +641,7 @@ export default function WorkLocationsManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Description
                 </label>
                 <textarea
@@ -716,7 +716,7 @@ export default function WorkLocationsManagement() {
               className="p-6 overflow-y-auto flex-1 space-y-4"
             >
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Location Name *
                 </label>
                 <input
@@ -734,7 +734,7 @@ export default function WorkLocationsManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Address
                 </label>
                 <input
@@ -752,7 +752,7 @@ export default function WorkLocationsManagement() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Latitude *
                   </label>
                   <input
@@ -771,7 +771,7 @@ export default function WorkLocationsManagement() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Longitude *
                   </label>
                   <input
@@ -791,7 +791,7 @@ export default function WorkLocationsManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Radius (meters)
                 </label>
                 <input
@@ -808,7 +808,7 @@ export default function WorkLocationsManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Description
                 </label>
                 <textarea
@@ -882,14 +882,14 @@ export default function WorkLocationsManagement() {
               className="p-6 overflow-y-auto flex-1 space-y-4"
             >
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   Select Employees
                 </label>
                 <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
                   {employees.map((employee) => (
                     <label
                       key={employee._id}
-                      className="flex items-center space-x-2 py-1 text-gray-900"
+                      className="flex items-center space-x-2 py-1 text-black"
                     >
                       <input
                         type="checkbox"

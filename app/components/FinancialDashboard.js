@@ -175,7 +175,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-black mb-2">
               Financial Dashboard
             </h2>
             <p className="text-gray-600">
@@ -213,7 +213,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
           <h3 className="text-sm font-medium text-gray-600 mb-1">
             Budget Status
           </h3>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-2xl font-bold text-black">
             {formatCurrency(budget?.totalBudget || 0)}
           </p>
           <p className="text-sm text-gray-500 mt-1">
@@ -254,7 +254,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
           <h3 className="text-sm font-medium text-gray-600 mb-1">
             Income Status
           </h3>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-2xl font-bold text-black">
             {formatCurrency(income?.totalIncome || 0)}
           </p>
           <p className="text-sm text-gray-500 mt-1">
@@ -328,7 +328,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
           <h3 className="text-sm font-medium text-gray-600 mb-1">
             Payment Status
           </h3>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-2xl font-bold text-black">
             {formatCurrency(payments?.collected?.amount || 0)}
           </p>
           <p className="text-sm text-gray-500 mt-1">
@@ -377,7 +377,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
               {/* Risk Factors */}
               {analysis?.riskFactors?.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h3 className="text-lg font-semibold text-black mb-4">
                     Risk Factors
                   </h3>
                   <div className="space-y-3">
@@ -404,7 +404,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
               {/* Performance Metrics */}
               {/*
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold text-black mb-4">
                   Performance Metrics
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -412,7 +412,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     <h4 className="text-sm font-medium text-gray-600 mb-2">
                       Budget Efficiency
                     </h4>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-black">
                       {formatPercentage(
                         analysis?.performanceMetrics?.budgetEfficiency || 0
                       )}
@@ -422,7 +422,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     <h4 className="text-sm font-medium text-gray-600 mb-2">
                       Revenue Efficiency
                     </h4>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-black">
                       {formatPercentage(
                         analysis?.performanceMetrics?.revenueEfficiency || 0
                       )}
@@ -432,7 +432,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     <h4 className="text-sm font-medium text-gray-600 mb-2">
                       Cost per Revenue
                     </h4>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-black">
                       {formatCurrency(
                         analysis?.performanceMetrics?.costPerDollarRevenue || 0
                       )}
@@ -443,7 +443,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
           
             
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold text-black mb-4">
                   Projections
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -451,7 +451,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                     <h4 className="text-sm font-medium text-gray-600 mb-2">
                       Daily Burn Rate
                     </h4>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-black">
                       {formatCurrency(projections?.dailyBurnRate || 0)}
                     </p>
                   </div>
@@ -479,7 +479,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             <div className="space-y-6">
               {/* Budget Allocations */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold text-black mb-4">
                   Budget Allocations
                 </h3>
                 <div className="overflow-x-auto">
@@ -512,7 +512,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                           <tr key={allocation._id}>
                             <td className="px-6 py-4 whitespace-normal break-words">
                               <div>
-                                <div className="text-sm font-medium text-gray-900">
+                                <div className="text-sm font-medium text-black">
                                   {allocation.name}
                                 </div>
                                 <div className="text-sm text-gray-500">
@@ -520,13 +520,13 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
+                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-black">
                               {formatCurrency(allocation.budgetedAmount)}
                             </td>
-                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
+                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-black">
                               {formatCurrency(allocation.spentAmount)}
                             </td>
-                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
+                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-black">
                               {formatCurrency(allocation.remainingAmount)}
                             </td>
                             <td className="px-6 py-4 whitespace-normal break-words">
@@ -548,7 +548,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                                     }}
                                   ></div>
                                 </div>
-                                <span className="text-sm text-gray-900">
+                                <span className="text-sm text-black">
                                   {formatPercentage(allocation.utilization)}
                                 </span>
                               </div>
@@ -637,7 +637,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
               {paymentTracking?.paymentsByClient &&
                 paymentTracking?.paymentsByClient?.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    <h3 className="text-lg font-semibold text-black mb-4">
                       Client Performance
                     </h3>
                     <div className="overflow-x-auto">
@@ -670,7 +670,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                               <tr key={index}>
                                 <td className="px-6 py-4 whitespace-normal break-words">
                                   <div>
-                                    <div className="text-sm font-medium text-gray-900">
+                                    <div className="text-sm font-medium text-black">
                                       {client.clientName}
                                     </div>
                                     <div className="text-sm text-gray-500">
@@ -678,13 +678,13 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
+                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-black">
                                   {formatCurrency(client.expectedAmount)}
                                 </td>
-                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
+                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-black">
                                   {formatCurrency(client.totalAmount)}
                                 </td>
-                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900">
+                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-black">
                                   {formatCurrency(client.uncollectedAmount)}
                                 </td>
                                 <td className="px-6 py-4 whitespace-normal break-words">
@@ -706,7 +706,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                                         }}
                                       ></div>
                                     </div>
-                                    <span className="text-xs text-gray-900 font-medium text-center">
+                                    <span className="text-xs text-black font-medium text-center">
                                       {formatPercentage(client.collectionRate)}
                                     </span>
                                   </div>
@@ -778,7 +778,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
               {financialReports && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-black">
                       {financialReports.reportType
                         .replace("-", " ")
                         .toUpperCase()}{" "}
@@ -793,7 +793,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                   {/* Summary */}
                   {financialReports.summary && (
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <h4 className="text-md font-semibold text-gray-900 mb-3">
+                      <h4 className="text-md font-semibold text-black mb-3">
                         Summary
                       </h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -803,7 +803,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                               <p className="text-sm text-gray-600 capitalize">
                                 {key.replace(/([A-Z])/g, " $1").trim()}
                               </p>
-                              <p className="text-lg font-semibold text-gray-900">
+                              <p className="text-lg font-semibold text-black">
                                 {typeof value === "number"
                                   ? key.includes("Rate") ||
                                     key.includes("Percent")
@@ -845,7 +845,7 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                                 {Object.values(row).map((value, cellIndex) => (
                                   <td
                                     key={cellIndex}
-                                    className="px-6 py-4 whitespace-normal break-words text-sm text-gray-900"
+                                    className="px-6 py-4 whitespace-normal break-words text-sm text-black"
                                   >
                                     {typeof value === "number"
                                       ? Object.keys(row)[cellIndex].includes(

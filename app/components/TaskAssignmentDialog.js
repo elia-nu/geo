@@ -122,7 +122,7 @@ const TaskAssignmentDialog = ({
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Assign Tasks</h2>
+            <h2 className="text-xl font-bold text-black">Assign Tasks</h2>
             <p className="text-sm text-gray-600 mt-1">
               Assigning {selectedTasks.length} task
               {selectedTasks.length !== 1 ? "s" : ""}
@@ -200,7 +200,7 @@ const TaskAssignmentDialog = ({
                       ).charAt(0)}
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-black">
                         {employee.personalDetails?.name ||
                           employee.name ||
                           "Unknown"}
@@ -254,7 +254,7 @@ const TaskAssignmentDialog = ({
                         {team.name.charAt(0)}
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-black">
                           {team.name}
                         </div>
                         <div className="text-xs text-gray-500">

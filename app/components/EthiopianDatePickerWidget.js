@@ -50,7 +50,7 @@ export default function EthiopianDatePickerWidget({
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-xl font-bold text-black flex items-center gap-2">
             <Calendar className="w-5 h-5 text-blue-600" />
             Ethiopian Date Picker
           </h2>

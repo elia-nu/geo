@@ -70,8 +70,14 @@ export async function GET(request) {
     });
 
     const query = { type: "leave" };
+    // Use leave period (startDate/endDate on the document) for the filter,
+    // not the submittedAt timestamp. This aligns with how other leave
+    // reports and balances work, and with the UI labels.
     if (startDate && endDate) {
-      query.submittedAt = { $gte: startDate, $lte: endDate };
+      const startStr = startDate.toISOString().slice(0, 10);
+      const endStr = endDate.toISOString().slice(0, 10);
+      query.startDate = { $lte: endStr };
+      query.endDate = { $gte: startStr };
     }
 
     const leaveRequests = await db
@@ -175,7 +181,13 @@ export async function GET(request) {
       userEmail: user.email,
       metadata: {
         reportType: "leave_request_summary",
-        filters: { startDate, endDate, departmentFilter, projectIdFilter, siteIdFilter },
+        filters: {
+          startDate: startDate?.toISOString?.()?.slice(0, 10),
+          endDate: endDate?.toISOString?.()?.slice(0, 10),
+          department: departmentFilter,
+          projectId: projectIdFilter,
+          locationId: siteIdFilter,
+        },
         totalRequests: totalProcessed,
       },
     });

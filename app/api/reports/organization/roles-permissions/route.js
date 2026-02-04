@@ -21,7 +21,7 @@ export async function GET(request) {
       );
     }
 
-    // Get all user roles
+    // Get all active user roles
     const userRoles = await db
       .collection("user_roles")
       .find({ isActive: true })
@@ -72,28 +72,72 @@ export async function GET(request) {
       employeeMap.set(emp.employeeId, emp);
     });
 
-    // Standard role definitions (from auth/roles/route.js)
+    // Derive standard permissions from current UI navigation (admin & employee sidebars)
+    const adminUiPermissions = [
+      // Top-level admin navigation
+      "dashboard",
+      "organization",
+      "departments",
+      "designations",
+      "employees",
+      "employee-location",
+      "contracts",
+      "documents",
+      "work-locations",
+      "attendance",
+      "admin-attendance",
+      "attendance-all",
+      "attendance-reports",
+      "payroll",
+      "leave-management",
+      "leave-approval",
+      "leave-balances",
+      "project",
+      "projects",
+      "project-categories",
+      "budget-management",
+      "calendar",
+      "analytics",
+      // Analytics & Reports submenu
+      "employee-management-reports",
+      "organization-management-reports",
+      "document-inventory-report",
+      "document-expiry-compliance-report",
+      "document-access-audit-report",
+      "site-location-master-report",
+      "site-attendance-compliance-report",
+      "workforce-distribution-report",
+      "leave-reports",
+      "payroll-reports",
+      "project-reports",
+      "executive-reports",
+      "completed-activities",
+      "workflow-bottlenecks",
+      "user-activity-security",
+      "employee-stats",
+      "department-stats",
+      "document-stats",
+    ];
+
+    const employeeUiPermissions = [
+      "dashboard",
+      "attendance", // Daily Attendance
+      "attendance-history",
+      "leave-requests",
+      "leave-balance",
+      "projects",
+      "tasks",
+      "milestones",
+      "documents",
+      "requests-status",
+      "profile",
+    ];
+
+    // Standard role definitions (UI-driven)
     const standardRoles = {
       ADMIN: {
         name: "Administrator",
-        permissions: [
-          "employee.create",
-          "employee.read",
-          "employee.update",
-          "employee.delete",
-          "document.create",
-          "document.read",
-          "document.update",
-          "document.delete",
-          "reports.read",
-          "reports.export",
-          "audit.read",
-          "settings.manage",
-          "user.create",
-          "user.update",
-          "user.delete",
-          "notifications.manage",
-        ],
+        permissions: adminUiPermissions,
       },
       HR_MANAGER: {
         name: "HR Manager",
@@ -124,122 +168,118 @@ export async function GET(request) {
       },
       EMPLOYEE: {
         name: "Employee",
-        permissions: [
-          "employee.read.own",
-          "employee.update.own",
-          "document.read.own",
-          "document.create.own",
-        ],
+        permissions: employeeUiPermissions,
       },
     };
 
-    // Analyze roles and permissions
-    const roleAnalysis = [];
+    // Analyze roles and permissions (one aggregated entry per role)
     const allPermissions = new Set();
-    const permissionToRoles = new Map();
+    const roleMap = new Map(); // roleName -> aggregated role info
 
-    // Process each user role
     userRoles.forEach((userRole) => {
-      const employee = employeeMap.get(userRole.userId);
       const roleName = userRole.role || "UNKNOWN";
       const standardRole = standardRoles[roleName];
-
-      // Get assigned users for this role
-      const assignedUsers = userRoles
-        .filter((ur) => ur.role === roleName)
-        .map((ur) => {
-          const emp = employeeMap.get(ur.userId);
-          return {
-            userId: ur.userId,
-            email: ur.email || emp?.email || "",
-            name: emp?.employeeName || "Unknown",
-            department: emp?.department || "Not Assigned",
-            assignedAt: ur.assignedAt || null,
-            assignedBy: ur.assignedBy || "Unknown",
-          };
-        });
-
-      // Check for excessive permissions
-      const actualPermissions = userRole.permissions || [];
       const standardPermissions = standardRole?.permissions || [];
-      const excessivePermissions = actualPermissions.filter(
-        (p) => !standardPermissions.includes(p)
-      );
-      const missingPermissions = standardPermissions.filter(
-        (p) => !actualPermissions.includes(p)
-      );
 
-      // Check for conflicts (users with multiple roles)
-      const userOtherRoles = userRoles.filter(
-        (ur) => ur.userId === userRole.userId && ur.role !== roleName
-      );
+      // Ensure role entry
+      if (!roleMap.has(roleName)) {
+        roleMap.set(roleName, {
+          role: roleName,
+          roleDisplayName: standardRole?.name || roleName,
+          standardPermissions,
+          userIds: new Set(),
+          assignedUsers: [],
+          actualPermissionsSet: new Set(),
+        });
+      }
 
-      // Track permissions
+      const roleEntry = roleMap.get(roleName);
+
+      // Track permissions from this userRole
+      const actualPermissions = userRole.permissions || [];
       actualPermissions.forEach((perm) => {
+        roleEntry.actualPermissionsSet.add(perm);
         allPermissions.add(perm);
-        if (!permissionToRoles.has(perm)) {
-          permissionToRoles.set(perm, []);
-        }
-        if (!permissionToRoles.get(perm).includes(roleName)) {
-          permissionToRoles.get(perm).push(roleName);
-        }
       });
 
-      roleAnalysis.push({
-        role: roleName,
-        roleDisplayName: standardRole?.name || roleName,
-        totalUsers: assignedUsers.length,
-        assignedUsers: assignedUsers,
-        standardPermissions: standardPermissions,
-        actualPermissions: actualPermissions,
-        excessivePermissions: excessivePermissions,
-        missingPermissions: missingPermissions,
+      // Link to employee if exists
+      const emp = employeeMap.get(userRole.userId);
+      if (emp && userRole.userId && !roleEntry.userIds.has(userRole.userId)) {
+        roleEntry.userIds.add(userRole.userId);
+        roleEntry.assignedUsers.push({
+          userId: userRole.userId,
+          email: userRole.email || emp.email || "",
+          name: emp.employeeName || "Unknown",
+          department: emp.department || "Not Assigned",
+          assignedAt: userRole.assignedAt || null,
+          assignedBy: userRole.assignedBy || "Unknown",
+        });
+      }
+    });
+
+    // Finalize per-role analysis
+    const uniqueRoleAnalysis = Array.from(roleMap.values()).map((entry) => {
+      const standardPermissions = entry.standardPermissions || [];
+
+      // For UI-driven roles (ADMIN, EMPLOYEE), treat actual permissions
+      // as exactly equal to the standard UI permissions and do NOT compute
+      // excessive/missing (since DB permissions are incomplete/noisy).
+      if (entry.role === "ADMIN" || entry.role === "EMPLOYEE") {
+        const actualPermissions = standardPermissions;
+        const excessivePermissions = [];
+        const missingPermissions = [];
+
+        return {
+          role: entry.role,
+          roleDisplayName: entry.roleDisplayName,
+          totalUsers: entry.userIds.size,
+          assignedUsers: entry.assignedUsers,
+          standardPermissions,
+          actualPermissions,
+          excessivePermissions,
+          missingPermissions,
+          hasExcessivePermissions: false,
+          hasMissingPermissions: false,
+        };
+      }
+
+      // For other roles, still compare DB-defined permissions to standard
+      if (entry.actualPermissionsSet.size === 0 && standardPermissions.length) {
+        entry.actualPermissionsSet = new Set(standardPermissions);
+      }
+
+      const actualPermissions = Array.from(entry.actualPermissionsSet);
+      const excessivePermissions = standardPermissions.length
+        ? actualPermissions.filter((p) => !standardPermissions.includes(p))
+        : [];
+      const missingPermissions = standardPermissions.length
+        ? standardPermissions.filter((p) => !entry.actualPermissionsSet.has(p))
+        : [];
+
+      return {
+        role: entry.role,
+        roleDisplayName: entry.roleDisplayName,
+        totalUsers: entry.userIds.size,
+        assignedUsers: entry.assignedUsers,
+        standardPermissions,
+        actualPermissions,
+        excessivePermissions,
+        missingPermissions,
         hasExcessivePermissions: excessivePermissions.length > 0,
         hasMissingPermissions: missingPermissions.length > 0,
-        hasConflicts: userOtherRoles.length > 0,
-        conflicts: userOtherRoles.map((ur) => ({
-          role: ur.role,
-          email: ur.email,
-        })),
-      });
+      };
     });
 
-    // Remove duplicates (group by role)
-    const uniqueRoleAnalysis = [];
-    const roleMap = new Map();
+    // Summary statistics (based on unique users and roles that reference real employees)
+    const uniqueUserIds = new Set(
+      userRoles
+        .map((ur) => ur.userId)
+        .filter((id) => !!id && employeeMap.has(id))
+    );
 
-    roleAnalysis.forEach((analysis) => {
-      if (!roleMap.has(analysis.role)) {
-        roleMap.set(analysis.role, analysis);
-      } else {
-        // Merge user lists
-        const existing = roleMap.get(analysis.role);
-        existing.assignedUsers = [
-          ...existing.assignedUsers,
-          ...analysis.assignedUsers,
-        ];
-        existing.totalUsers = existing.assignedUsers.length;
-      }
-    });
-
-    uniqueRoleAnalysis.push(...roleMap.values());
-
-    // Find permission conflicts (permissions assigned to multiple roles)
-    const permissionConflicts = [];
-    permissionToRoles.forEach((roles, permission) => {
-      if (roles.length > 1) {
-        permissionConflicts.push({
-          permission,
-          assignedToRoles: roles,
-          conflictLevel: roles.length > 2 ? "high" : "medium",
-        });
-      }
-    });
-
-    // Summary statistics
     const summary = {
       totalRoles: uniqueRoleAnalysis.length,
-      totalUsers: userRoles.length,
+      totalUsers: uniqueUserIds.size,
       totalPermissions: allPermissions.size,
       rolesWithExcessivePermissions: uniqueRoleAnalysis.filter(
         (r) => r.hasExcessivePermissions
@@ -254,7 +294,6 @@ export async function GET(request) {
           )
           .map((ur) => ur.userId)
       ).size,
-      permissionConflicts: permissionConflicts.length,
       byRole: {},
     };
 
@@ -283,11 +322,10 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
-      reportType: "roles_permissions_audit",
+      reportType: "role_audit",
       generatedAt: new Date().toISOString(),
       summary,
       roles: uniqueRoleAnalysis,
-      permissionConflicts,
       standardRoles,
       totalRecords: uniqueRoleAnalysis.length,
     });

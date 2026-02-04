@@ -53,7 +53,7 @@ export default function WorkflowBottleneckSLAReport() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-amber-600" />
             Workflow Bottleneck & SLA Breach Report
           </h2>
@@ -78,7 +78,7 @@ export default function WorkflowBottleneckSLAReport() {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
         <div>
@@ -87,7 +87,7 @@ export default function WorkflowBottleneckSLAReport() {
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
           />
         </div>
       </div>
@@ -137,14 +137,14 @@ export default function WorkflowBottleneckSLAReport() {
 
           {bottlenecks.length > 0 && (
             <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
                 Root cause analysis (bottlenecks)
               </h3>
               <ul className="space-y-3">
                 {bottlenecks.map((b, i) => (
                   <li key={i} className="bg-white rounded-lg p-3 border border-amber-100">
-                    <span className="font-medium text-gray-900">{b.area}</span>
+                    <span className="font-medium text-black">{b.area}</span>
                     <p className="text-sm text-gray-700 mt-1">{b.indicator}</p>
                     {b.probableCauses && b.probableCauses.length > 0 && (
                       <ul className="mt-2 text-xs text-gray-600 list-disc list-inside">
@@ -161,7 +161,7 @@ export default function WorkflowBottleneckSLAReport() {
 
           {leaveDelays.length > 0 && (
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b">Leave approval delays (sample)</h3>
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b">Leave approval delays (sample)</h3>
               <div className="overflow-x-auto max-h-48 overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
@@ -176,10 +176,10 @@ export default function WorkflowBottleneckSLAReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {leaveDelays.slice(0, 50).map((d, i) => (
                       <tr key={d.id || i}>
-                        <td className="px-3 py-2 capitalize">{d.status ?? "—"}</td>
+                        <td className="px-3 py-2 capitalize text-black">{d.status ?? "—"}</td>
                         <td className="px-3 py-2 text-gray-700">{d.submittedAt ? new Date(d.submittedAt).toLocaleString() : "—"}</td>
                         <td className="px-3 py-2 text-gray-700">{d.processedAt ? new Date(d.processedAt).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2 text-right">{d.hoursToDecision != null ? d.hoursToDecision.toFixed(1) : "—"}</td>
+                        <td className="px-3 py-2 text-right text-black">{d.hoursToDecision != null ? d.hoursToDecision.toFixed(1) : "—"}</td>
                         <td className="px-3 py-2 text-center">
                           {d.breached ? <span className="text-amber-600 font-medium">Yes</span> : "No"}
                         </td>
@@ -193,7 +193,7 @@ export default function WorkflowBottleneckSLAReport() {
 
           {taskDelays.length > 0 && (
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-gray-900 px-4 py-3 border-b">Task closure delays (sample)</h3>
+              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b">Task closure delays (sample)</h3>
               <div className="overflow-x-auto max-h-48 overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
@@ -208,10 +208,10 @@ export default function WorkflowBottleneckSLAReport() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {taskDelays.slice(0, 50).map((d, i) => (
                       <tr key={d.id || i}>
-                        <td className="px-3 py-2 text-gray-900 truncate max-w-[200px]" title={d.title}>{d.title ?? "—"}</td>
-                        <td className="px-3 py-2 capitalize">{d.status ?? "—"}</td>
+                        <td className="px-3 py-2 text-black truncate max-w-[200px]" title={d.title}>{d.title ?? "—"}</td>
+                        <td className="px-3 py-2 capitalize text-black">{d.status ?? "—"}</td>
                         <td className="px-3 py-2 text-gray-700">{d.dueDate ? new Date(d.dueDate).toLocaleDateString() : "—"}</td>
-                        <td className="px-3 py-2 text-right">{d.hoursOpen != null ? d.hoursOpen.toFixed(0) : "—"}</td>
+                        <td className="px-3 py-2 text-right text-black">{d.hoursOpen != null ? d.hoursOpen.toFixed(0) : "—"}</td>
                         <td className="px-3 py-2 text-center">
                           {d.overdue ? <span className="text-amber-600 font-medium">Yes</span> : "No"}
                         </td>

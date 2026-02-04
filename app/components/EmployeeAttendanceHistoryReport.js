@@ -47,9 +47,22 @@ export default function EmployeeAttendanceHistoryReport() {
       }
 
       const data = await res.json();
-      setReportData(data);
-      setMessage("Employee Attendance History Report generated.");
-      setMessageType("success");
+      // If the employee id does not exist and there are no records,
+      // show a clear message instead of an "Unknown" employee.
+      if (
+        (!data.employee ||
+          data.employee.name === "Unknown" ||
+          data.employee.name === "") &&
+        (!data.records || data.records.length === 0)
+      ) {
+        setReportData(null);
+        setMessage("No employee found for this ID. Please check and try again.");
+        setMessageType("error");
+      } else {
+        setReportData(data);
+        setMessage("Employee Attendance History Report generated.");
+        setMessageType("success");
+      }
     } catch (error) {
       console.error("Error generating employee attendance history:", error);
       setMessage(error.message || "Failed to generate report");
@@ -137,7 +150,7 @@ export default function EmployeeAttendanceHistoryReport() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-black flex items-center space-x-2">
                 <Clock className="w-8 h-8 text-blue-600" />
                 <span>Employee Attendance History Report</span>
               </h1>
@@ -248,7 +261,7 @@ export default function EmployeeAttendanceHistoryReport() {
                   <Users className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <div className="text-lg font-semibold text-gray-900">
+                  <div className="text-lg font-semibold text-black">
                     {employee?.name || "Employee"}
                   </div>
                   <div className="text-sm text-gray-600">
@@ -304,39 +317,39 @@ export default function EmployeeAttendanceHistoryReport() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {records.map((r, idx) => (
                     <tr key={idx}>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {r.date}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {r.status || "—"}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {r.checkInTime
                           ? new Date(r.checkInTime).toLocaleString()
                           : "—"}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {r.checkOutTime
                           ? new Date(r.checkOutTime).toLocaleString()
                           : "—"}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {r.workingHours ?? "—"}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {r.checkInLocation
                           ? `${r.checkInLocation.latitude}, ${r.checkInLocation.longitude}`
                           : "—"}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {r.checkOutLocation
                           ? `${r.checkOutLocation.latitude}, ${r.checkOutLocation.longitude}`
                           : "—"}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         {r.nearestWorkLocationName || "—"}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-gray-900">
+                      <td className="px-4 py-2 whitespace-nowrap text-black">
                         <div className="flex flex-col space-y-1">
                           <span>
                             Geofence:{" "}

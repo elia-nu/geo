@@ -352,7 +352,7 @@ export default function TaskDetailModal({
           <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-6 py-4 border-b border-gray-200">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <h3 className="text-xl font-semibold text-gray-900 truncate">
+                <h3 className="text-xl font-semibold text-black truncate">
                   {task.title}
                 </h3>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -396,7 +396,7 @@ export default function TaskDetailModal({
               <div className="space-y-8">
                 {/* Task Description */}
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                  <h4 className="text-sm font-semibold text-black mb-2">
                     Description
                   </h4>
                   <p className="text-sm text-gray-700 leading-6 whitespace-pre-wrap">
@@ -477,7 +477,7 @@ export default function TaskDetailModal({
                 {/* Tags */}
                 {task.tags && task.tags.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                    <h4 className="text-sm font-semibold text-black mb-2">
                       Tags
                     </h4>
                     <div className="flex flex-wrap gap-2">
@@ -495,7 +495,7 @@ export default function TaskDetailModal({
 
                 {/* Comments - show first with See more/less */}
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                  <h4 className="text-sm font-semibold text-black mb-3">
                     Comments
                   </h4>
                   <div className="space-y-3 mb-4">
@@ -518,7 +518,7 @@ export default function TaskDetailModal({
                             </div>
                             <div className="flex-1">
                               <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                                <p className="text-sm text-gray-900">
+                                <p className="text-sm text-black">
                                   {comment.content}
                                 </p>
                                 <p className="text-xs text-gray-500 mt-1">
@@ -576,7 +576,7 @@ export default function TaskDetailModal({
                 {/* Attachments - folder-like grid */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-gray-900">
+                    <h4 className="text-sm font-semibold text-black">
                       Attachments{" "}
                       {attachments.length > 0 && `(${attachments.length})`}
                     </h4>
@@ -611,7 +611,7 @@ export default function TaskDetailModal({
                               <Folder className="w-5 h-5" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-gray-900 truncate">
+                              <p className="text-sm font-medium text-black truncate">
                                 {attachment.originalName}
                               </p>
                               <p className="text-xs text-gray-500 truncate">

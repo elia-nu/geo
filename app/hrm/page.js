@@ -33,18 +33,19 @@ import RolePermissionAuditReport from "../components/RolePermissionAuditReport";
 import DepartmentPerformanceReport from "../components/DepartmentPerformanceReport";
 import DocumentInventoryReport from "../components/DocumentInventoryReport";
 import DocumentExpiryComplianceReport from "../components/DocumentExpiryComplianceReport";
-import DocumentAccessAuditReport from "../components/DocumentAccessAuditReport";
 import SiteLocationMasterReport from "../components/SiteLocationMasterReport";
 import SiteAttendanceComplianceReport from "../components/SiteAttendanceComplianceReport";
 import WorkForceDistributionReport from "../components/WorkforceDistributionReport";
-import DailyAttendanceSummaryReport from "../components/DailyAttendanceSummaryReport";
-import AttendanceExceptionViolationReport from "../components/AttendanceExceptionViolationReport";
-import EmployeeAttendanceHistoryReport from "../components/EmployeeAttendanceHistoryReport";
-import AttendanceTrendProductivityReport from "../components/AttendanceTrendProductivityReport";
 import LeaveManagementReports from "../components/LeaveManagementReports";
 import PayrollManagementReports from "../components/PayrollManagementReports";
 import ProjectManagementReports from "../components/ProjectManagementReports";
 import CrossSystemExecutiveReports from "../components/CrossSystemExecutiveReports";
+import UniversalSystemReports from "../components/UniversalSystemReports";
+import EmployeeManagementReports from "../components/EmployeeManagementReports";
+import OrganizationManagementReports from "../components/OrganizationManagementReports";
+import DocumentManagementReports from "../components/DocumentManagementReports";
+import WorkLocationManagementReports from "../components/WorkLocationManagementReports";
+import AttendanceManagementReports from "../components/AttendanceManagementReports";
 
 export default function HRMDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -60,11 +61,11 @@ export default function HRMDashboard() {
     checkAuthentication();
   }, []);
 
-  // Sync active section from route query (?section=... and ?tab=... for executive reports)
+  // Sync active section from route query (?section=... and ?tab=... for tabbed reports)
   useEffect(() => {
     const section = searchParams?.get("section");
     const tab = searchParams?.get("tab");
-    if (section === "executive-reports" && tab) {
+    if ((section === "executive-reports" || section === "universal-system-reports") && tab) {
       setActiveSection(tab);
     } else if (section) {
       setActiveSection(section);
@@ -187,8 +188,6 @@ export default function HRMDashboard() {
         return <DocumentInventoryReport />;
       case "document-expiry-compliance-report":
         return <DocumentExpiryComplianceReport />;
-      case "document-access-audit-report":
-        return <DocumentAccessAuditReport />;
       case "site-location-master-report":
         return <SiteLocationMasterReport />;
       case "site-attendance-compliance-report":
@@ -327,14 +326,38 @@ export default function HRMDashboard() {
         return <PayrollManagementReports />;
       case "project-reports":
         return <ProjectManagementReports />;
+      case "attendance-management-reports":
+        return <AttendanceManagementReports />;
+      case "employee-management-reports":
+        return <EmployeeManagementReports />;
+      case "document-management-reports":
+        return <DocumentManagementReports />;
+      case "work-location-management-reports":
+        return <WorkLocationManagementReports />;
+      case "organization-management-reports":
+        return <OrganizationManagementReports />;
       case "executive-reports":
-      case "completed-activities":
-      case "workflow-bottlenecks":
-      case "user-activity-security":
+      case "system-health":
+      case "compliance-audit":
+      case "workforce-productivity-roi":
+      case "executive-dashboard":
         return (
           <CrossSystemExecutiveReports
             initialTab={
               activeSection === "executive-reports"
+                ? searchParams?.get("tab") || undefined
+                : activeSection
+            }
+          />
+        );
+      case "universal-system-reports":
+      case "completed-activities":
+      case "workflow-bottlenecks":
+      case "user-activity-security":
+        return (
+          <UniversalSystemReports
+            initialTab={
+              activeSection === "universal-system-reports"
                 ? searchParams?.get("tab") || undefined
                 : activeSection
             }
@@ -353,14 +376,6 @@ export default function HRMDashboard() {
         return <RolePermissionAuditReport />;
       case "department-performance-report":
         return <DepartmentPerformanceReport />;
-      case "attendance-daily-summary-report":
-        return <DailyAttendanceSummaryReport />;
-      case "attendance-exceptions-report":
-        return <AttendanceExceptionViolationReport />;
-      case "employee-attendance-history-report":
-        return <EmployeeAttendanceHistoryReport />;
-      case "attendance-trend-productivity-report":
-        return <AttendanceTrendProductivityReport />;
       default:
         return <Dashboard onSectionChange={handleSectionChange} />;
     }

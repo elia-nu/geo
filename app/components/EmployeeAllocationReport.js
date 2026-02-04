@@ -267,10 +267,10 @@ export default function EmployeeAllocationReport() {
       {showFilters && (
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+            <h3 className="text-lg font-semibold text-black">Filters</h3>
             <button
               onClick={clearFilters}
-              className="text-sm text-gray-600 hover:text-gray-900"
+              className="text-sm text-gray-600 hover:text-black"
             >
               Clear All
             </button>
@@ -343,7 +343,7 @@ export default function EmployeeAllocationReport() {
       {reportData && (
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-black">
               Allocation Summary
             </h3>
             <div className="flex items-center space-x-2">
@@ -421,7 +421,7 @@ export default function EmployeeAllocationReport() {
           {(reportData.allocationStats?.utilization?.overloaded?.length > 0 ||
             reportData.allocationStats?.utilization?.underutilized?.length > 0) && (
             <div className="mb-6">
-              <h4 className="text-md font-semibold text-gray-900 mb-3">
+              <h4 className="text-md font-semibold text-black mb-3">
                 Utilization Analysis
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -492,7 +492,7 @@ export default function EmployeeAllocationReport() {
                   <tr key={employee._id || employee.employeeId} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-black">
                           {employee.employeeName || "N/A"}
                         </div>
                         <div className="text-sm text-gray-500">
@@ -501,17 +501,17 @@ export default function EmployeeAllocationReport() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {employee.department || "N/A"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {employee.workLocation || "N/A"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {employee.supervisor || "N/A"}
                       </div>
                     </td>
@@ -529,7 +529,7 @@ export default function EmployeeAllocationReport() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-black">
                         {employee.assignedProjects && employee.assignedProjects.length > 0
                           ? employee.assignedProjects.map((p) => p.name).join(", ")
                           : "None"}

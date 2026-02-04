@@ -196,7 +196,7 @@ export default function DesignationsManagement() {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-gray-900">Designations</h2>
+        <h2 className="text-2xl font-bold text-black">Designations</h2>
         <div className="text-sm text-gray-600">{designations.length} total</div>
       </div>
 
@@ -206,20 +206,20 @@ export default function DesignationsManagement() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search designations..."
-          className="w-full max-w-md p-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-500"
+          className="w-full max-w-md p-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="border rounded-lg p-4">
-          <h3 className="font-semibold text-gray-900 mb-3">
+          <h3 className="font-semibold text-black mb-3">
             Manage by Department
           </h3>
           <div className="flex flex-col gap-3">
             <select
               value={selectedDeptId}
               onChange={(e) => setSelectedDeptId(e.target.value)}
-              className="p-2 border border-gray-300 rounded bg-white text-gray-900"
+              className="p-2 border border-gray-300 rounded bg-white text-black"
             >
               {departments.map((d) => (
                 <option key={d._id} value={d._id}>
@@ -234,7 +234,7 @@ export default function DesignationsManagement() {
                 value={newDesignation}
                 onChange={(e) => setNewDesignation(e.target.value)}
                 placeholder="New designation name"
-                className="flex-1 p-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-500"
+                className="flex-1 p-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500"
               />
               <button
                 onClick={addDesignation}
@@ -250,7 +250,7 @@ export default function DesignationsManagement() {
                 onChange={(e) =>
                   setRename({ ...rename, oldName: e.target.value })
                 }
-                className="flex-1 p-2 border border-gray-300 rounded bg-white text-gray-900 min-w-0"
+                className="flex-1 p-2 border border-gray-300 rounded bg-white text-black min-w-0"
               >
                 <option value="">Select existing</option>
                 {deptDesignations.map((n) => (
@@ -266,7 +266,7 @@ export default function DesignationsManagement() {
                   setRename({ ...rename, newName: e.target.value })
                 }
                 placeholder="New name"
-                className="flex-1 p-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-500 min-w-0"
+                className="flex-1 p-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500 min-w-0"
               />
               <button
                 onClick={updateDesignation}
@@ -277,7 +277,7 @@ export default function DesignationsManagement() {
             </div>
 
             <div className="mt-2">
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">
+              <h4 className="text-sm font-semibold text-black mb-2">
                 Designations in {selectedDept?.name || "Department"}
               </h4>
               <div className="flex flex-wrap gap-2">
@@ -307,7 +307,7 @@ export default function DesignationsManagement() {
         </div>
 
         <div>
-          <h3 className="font-semibold text-gray-900 mb-3">All Designations</h3>
+          <h3 className="font-semibold text-black mb-3">All Designations</h3>
           {loading && <p className="text-gray-700">Loading...</p>}
           {error && <p className="text-red-600">{error}</p>}
           {!loading && !error && (
@@ -317,7 +317,7 @@ export default function DesignationsManagement() {
                   key={`des-${des}`}
                   className="flex items-center justify-between border rounded-lg p-3 bg-gray-50"
                 >
-                  <span className="text-gray-900 font-medium">{des}</span>
+                  <span className="text-black font-medium">{des}</span>
                   <button
                     onClick={() => navigator.clipboard.writeText(String(des))}
                     className="text-sm px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded"

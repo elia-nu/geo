@@ -51,10 +51,38 @@ export async function GET(request) {
     const daysWithCheckOut = attendanceRecords.filter((r) => r.checkInTime && r.checkOutTime).length;
     const attendanceRate = empCount > 0 ? Math.round((totalAttendanceDays / (empCount * 22)) * 10000) / 100 : 0;
 
+    // Tasks/output for the selected month
     const tasks = await db.collection("tasks").find({}).toArray();
-    const completedTasks = tasks.filter((t) => t.status === "completed").length;
-    const totalTasks = tasks.length;
-    const outputRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 10000) / 100 : 0;
+
+    // Tasks that are "in scope" for this month:
+    // - existed on or before the end of the month (createdAt <= endStr, if present)
+    // - not cancelled
+    const monthStart = new Date(startStr);
+    const monthEnd = endDate;
+
+    const inScopeTasks = tasks.filter((t) => {
+      if (t.status === "cancelled") return false;
+      const createdAt = t.createdAt ? new Date(t.createdAt) : null;
+      if (createdAt && createdAt > monthEnd) {
+        // Task created after this month → not in scope
+        return false;
+      }
+      return true;
+    });
+
+    // Tasks completed within this month (by completedAt timestamp)
+    const completedInMonth = inScopeTasks.filter((t) => {
+      if (t.status !== "completed") return false;
+      if (!t.completedAt) return false;
+      const c = new Date(t.completedAt);
+      return c >= monthStart && c <= monthEnd;
+    }).length;
+
+    const totalInScope = inScopeTasks.length;
+    const outputRate =
+      totalInScope > 0
+        ? Math.round((completedInMonth / totalInScope) * 10000) / 100
+        : 0;
 
     const origin = new URL(request.url).origin;
     const authHeader = request.headers.get("authorization") || "";
@@ -119,8 +147,8 @@ export async function GET(request) {
         totalAttendanceDays,
         daysWithCheckOut,
         outputRate,
-        completedTasks,
-        totalTasks,
+        completedTasksInMonth: completedInMonth,
+        totalTasksInScope: totalInScope,
         payrollCost: Math.round(payrollCost * 100) / 100,
         projectCompletionRate,
         avgProjectProgress: avgProgress,
@@ -130,7 +158,9 @@ export async function GET(request) {
       attendanceVsOutput: {
         attendanceRate,
         outputRate,
-        note: "Attendance rate: attendance days vs estimated working days; Output: completed tasks vs total tasks.",
+        note:
+          "Attendance: attendance days vs estimated working days for this month; " +
+          "Output: tasks completed this month vs all non-cancelled tasks that existed by month end.",
       },
       payrollCostVsProjectProgress: {
         payrollCost: Math.round(payrollCost * 100) / 100,
