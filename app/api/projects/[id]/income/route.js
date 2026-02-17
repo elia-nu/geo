@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
+import {
+  normalizeIncomeRecord,
+  normalizeIncomeRecords,
+  prepareIncomeForStorage,
+} from "../../../../utils/incomeDataMigration.js";
 
 // Function to check and update overdue payments
 async function checkAndUpdateOverduePayments(db, projectId) {
@@ -183,33 +188,38 @@ export async function GET(request, { params }) {
     // Sort by received date (newest first)
     income.sort((a, b) => new Date(b.receivedDate) - new Date(a.receivedDate));
 
+    // Normalize income records for backward compatibility
+    const normalizedIncome = normalizeIncomeRecords(income);
+
     // Pagination
     const skip = (page - 1) * limit;
-    const paginatedIncome = income.slice(skip, skip + limit);
-    const totalCount = income.length;
+    const paginatedIncome = normalizedIncome.slice(skip, skip + limit);
+    const totalCount = normalizedIncome.length;
     const totalPages = Math.ceil(totalCount / limit);
 
-    // Calculate income summary
-    const totalIncome = income.reduce((sum, inc) => sum + (inc.amount || 0), 0);
-    const collectedAmount = income
+    // Calculate income summary using normalized data
+    const totalIncome = normalizedIncome.reduce((sum, inc) => sum + (inc.collectedAmount || 0), 0);
+    const collectedAmount = normalizedIncome
       .filter((inc) => inc.status === "collected")
-      .reduce((sum, inc) => sum + (inc.amount || 0), 0);
-    const pendingAmount = income
-      .filter((inc) => inc.status === "pending")
-      .reduce((sum, inc) => sum + (inc.amount || 0), 0);
-    const overdueAmount = income
+      .reduce((sum, inc) => sum + (inc.collectedAmount || 0), 0);
+    const pendingAmount = normalizedIncome
+      .filter((inc) => inc.status === "pending" || inc.status === "expected")
+      .reduce((sum, inc) => sum + (inc.expectedAmount || 0), 0);
+    const overdueAmount = normalizedIncome
       .filter((inc) => inc.status === "overdue")
-      .reduce((sum, inc) => sum + (inc.amount || 0), 0);
+      .reduce((sum, inc) => sum + (inc.expectedAmount || 0), 0);
 
-    const incomeByStatus = income.reduce((acc, inc) => {
-      const status = inc.status || "pending";
-      acc[status] = (acc[status] || 0) + (inc.amount || 0);
+    const incomeByStatus = normalizedIncome.reduce((acc, inc) => {
+      const status = inc.status || "expected";
+      const amount = inc.status === "collected" ? (inc.collectedAmount || 0) : (inc.expectedAmount || 0);
+      acc[status] = (acc[status] || 0) + amount;
       return acc;
     }, {});
 
-    const incomeByMethod = income.reduce((acc, inc) => {
+    const incomeByMethod = normalizedIncome.reduce((acc, inc) => {
       const method = inc.paymentMethod || "unknown";
-      acc[method] = (acc[method] || 0) + (inc.amount || 0);
+      const amount = inc.collectedAmount || 0;
+      acc[method] = (acc[method] || 0) + amount;
       return acc;
     }, {});
 
@@ -313,29 +323,30 @@ export async function POST(request, { params }) {
       }
     }
 
-    const income = {
+    // Create income object with new field names
+    const incomeData = {
       _id: new ObjectId(),
       title,
       description: description || "",
-      amount: receivedAmt,
+      collectedAmount: receivedAmt, // New field name
       expectedAmount: expectedAmt,
       uncollectedAmount: Math.max(0, expectedAmt - receivedAmt),
       collectionRate,
       isFullyCollected,
-      receivedDate:
+      collectedDate:
         receivedAmt > 0
           ? receivedDate
             ? new Date(receivedDate)
             : new Date()
-          : null,
+          : null, // New field name
       dueDate: dueDate ? new Date(dueDate) : null,
       paymentMethod: paymentMethod || "bank_transfer",
       invoiceNumber: invoiceNumber || "",
-      receiptType: receiptType || "none",
+      receiptType: receiptType || "none", // Preserved for backward compatibility
       receiptImage: receiptImage || "",
       receiptUrl: receiptUrl || "",
       status: paymentStatus,
-      paymentReference: paymentReference || "",
+      transactionNumber: paymentReference || "", // New field name
       notes: notes || "",
       categoryId: categoryId || null,
       // Enhanced tracking
@@ -370,6 +381,9 @@ export async function POST(request, { params }) {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    // Prepare for storage with backward compatibility (adds old field names)
+    const income = prepareIncomeForStorage(incomeData);
 
     // Add income to project and update financial status
     const result = await db.collection("projects").updateOne(

@@ -38,6 +38,15 @@ import {
   showValidationErrors,
   showDeleteConfirmDialog,
 } from "../utils/sweetAlert";
+import {
+  normalizeIncomeRecord,
+  normalizeIncomeRecords,
+  calculateIncomeStatus,
+  getDaysOverdue as calculateDaysOverdue,
+  prepareIncomeForStorage,
+  validateIncomeData,
+  hasValidationErrors,
+} from "../utils/incomeDataMigration";
 
 const ProjectFinancialManagement = ({ projectId, projectName }) => {
   function getStatusColor(status) {
@@ -134,17 +143,19 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [incomeForm, setIncomeForm] = useState({
     title: "",
     description: "",
-    amount: "",
     expectedAmount: "",
-    receivedDate: new Date().toISOString().split("T")[0],
+    collectedAmount: "",
+    collectedDate: new Date().toISOString().split("T")[0],
     dueDate: "",
     paymentMethod: "bank_transfer",
     clientName: "",
     categoryId: "",
     invoiceNumber: "",
-    status: "pending",
-    paymentReference: "",
+    status: "expected",
+    transactionNumber: "",
     notes: "",
+    receiptImage: null,
+    receiptUrl: "",
   });
 
   // Expected payment (expected-only) form state
@@ -158,15 +169,27 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     status: "pending",
   });
 
+  // Expected income form state (for new CreateExpectedIncomeModal)
+  const [expectedIncomeForm, setExpectedIncomeForm] = useState({
+    title: "",
+    expectedAmount: "",
+    dueDate: "",
+    invoiceNumber: "",
+    notes: "",
+  });
+
+  // Form validation state for expected income
+  const [expectedIncomeFormErrors, setExpectedIncomeFormErrors] = useState({});
+
   // Collection form state for confirming payment collection
   const [collectionForm, setCollectionForm] = useState({
     id: "",
     title: "",
     expectedAmount: "",
-    actualAmount: "",
-    collectionDate: new Date().toISOString().split("T")[0],
+    collectedAmount: "",
+    collectedDate: new Date().toISOString().split("T")[0],
     paymentMethod: "bank_transfer",
-    paymentReference: "",
+    transactionNumber: "",
     invoiceNumber: "",
     notes: "",
   });
@@ -174,6 +197,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [editingIncomeId, setEditingIncomeId] = useState(null);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [showExpectedPaymentModal, setShowExpectedPaymentModal] =
+    useState(false);
+  const [showCreateExpectedIncomeModal, setShowCreateExpectedIncomeModal] =
     useState(false);
 
   const [allocationForm, setAllocationForm] = useState({
@@ -200,6 +225,32 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   );
   const [incomeCategories, setIncomeCategories] = useState([]);
   const [milestones, setMilestones] = useState([]);
+
+  // Status calculation functions
+  const calculateIncomeStatus = (incomeItem) => {
+    // If payment has been collected, status is 'collected'
+    if (incomeItem.collectedAmount && incomeItem.collectedDate) {
+      return 'collected';
+    }
+    
+    // Check if overdue
+    if (incomeItem.dueDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+      const dueDate = new Date(incomeItem.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      
+      if (today > dueDate) {
+        return 'overdue';
+      }
+    }
+    
+    // Default status is 'expected'
+    return 'expected';
+  };
+
+  // Use the imported utility function for calculating days overdue
+  const getDaysOverdue = calculateDaysOverdue;
 
   // Fetch all financial data
   useEffect(() => {
@@ -232,7 +283,11 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
       if (budgetData.success) setBudgetData(budgetData.budget);
       if (expensesData.success) setExpenses(expensesData.expenses);
-      if (incomeData.success) setIncome(incomeData.income);
+      if (incomeData.success) {
+        // Normalize income records for backward compatibility
+        const normalizedIncome = normalizeIncomeRecords(incomeData.income);
+        setIncome(normalizedIncome);
+      }
       if (reportsData.success) setFinancialReports(reportsData.data);
     } catch (err) {
       setError("Failed to fetch financial data: " + err.message);
@@ -298,6 +353,38 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       console.error("Error fetching category data:", error);
     }
   };
+
+  // Automatically update income statuses based on current date
+  useEffect(() => {
+    if (income.length === 0) return;
+
+    const updateIncomeStatuses = () => {
+      const updatedIncome = income.map(inc => {
+        const calculatedStatus = calculateIncomeStatus(inc);
+        
+        // Only update if status has changed
+        if (inc.status !== calculatedStatus) {
+          return { ...inc, status: calculatedStatus };
+        }
+        return inc;
+      });
+
+      // Check if any statuses changed
+      const hasChanges = updatedIncome.some((inc, index) => inc.status !== income[index].status);
+      
+      if (hasChanges) {
+        setIncome(updatedIncome);
+      }
+    };
+
+    // Update statuses immediately
+    updateIncomeStatuses();
+
+    // Update daily at midnight (check every hour for simplicity)
+    const interval = setInterval(updateIncomeStatuses, 60 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [income]);
 
   const handleCreateBudget = async () => {
     // Validate form data
@@ -541,28 +628,90 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
-  const handleOpenEditIncome = (inc) => {
-    setIncomeForm({
-      title: inc.title || "",
-      description: inc.description || "",
-      amount: (inc.amount ?? "").toString(),
-      expectedAmount: (inc.expectedAmount ?? "").toString(),
-      receivedDate: inc.receivedDate
-        ? new Date(inc.receivedDate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0],
-      dueDate: inc.dueDate
-        ? new Date(inc.dueDate).toISOString().split("T")[0]
-        : "",
-      paymentMethod: inc.paymentMethod || "bank_transfer",
-      invoiceNumber: inc.invoiceNumber || "",
-      status: inc.status || "pending",
-      paymentReference: inc.paymentReference || "",
-      notes: inc.notes || "",
-      receiptType: inc.receiptType || "none",
-      receiptImage: inc.receiptImage || null,
-      receiptUrl: inc.receiptUrl || "",
+  const handleCreateExpectedIncome = async () => {
+    // Validate form data using utility function
+    const errors = validateIncomeData(expectedIncomeForm, false);
+    
+    // Additional validation for invoice number
+    if (!expectedIncomeForm.invoiceNumber || expectedIncomeForm.invoiceNumber.trim() === '') {
+      errors.invoiceNumber = 'Invoice number is required';
+    }
+
+    setExpectedIncomeFormErrors(errors);
+
+    if (hasValidationErrors(errors)) {
+      showValidationErrors(errors);
+      return;
+    }
+
+    setIncomeLoading(true);
+    try {
+      const payload = {
+        title: expectedIncomeForm.title,
+        expectedAmount: parseFloat(expectedIncomeForm.expectedAmount),
+        dueDate: expectedIncomeForm.dueDate,
+        invoiceNumber: expectedIncomeForm.invoiceNumber,
+        notes: expectedIncomeForm.notes || '',
+        status: 'expected',
+      };
+
+      const response = await fetch(`/api/projects/${projectId}/income/expected`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setShowCreateExpectedIncomeModal(false);
+        fetchFinancialData();
+        resetExpectedIncomeForm();
+        projectToasts.incomeAdded();
+      } else {
+        projectToasts.incomeError(data.error || "Failed to create expected income");
+      }
+    } catch (err) {
+      projectToasts.incomeError("Failed to create expected income: " + err.message);
+    } finally {
+      setIncomeLoading(false);
+    }
+  };
+
+  const resetExpectedIncomeForm = () => {
+    setExpectedIncomeForm({
+      title: "",
+      expectedAmount: "",
+      dueDate: "",
+      invoiceNumber: "",
+      notes: "",
     });
-    setEditingIncomeId(inc._id);
+    setExpectedIncomeFormErrors({});
+  };
+
+  const handleOpenEditIncome = (inc) => {
+    // Normalize the income record for backward compatibility
+    const normalized = normalizeIncomeRecord(inc);
+    
+    setIncomeForm({
+      title: normalized.title || "",
+      description: normalized.description || "",
+      expectedAmount: (normalized.expectedAmount ?? "").toString(),
+      collectedAmount: (normalized.collectedAmount ?? "").toString(),
+      collectedDate: normalized.collectedDate
+        ? new Date(normalized.collectedDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0],
+      dueDate: normalized.dueDate
+        ? new Date(normalized.dueDate).toISOString().split("T")[0]
+        : "",
+      paymentMethod: normalized.paymentMethod || "bank_transfer",
+      invoiceNumber: normalized.invoiceNumber || "",
+      status: normalized.status || "expected",
+      transactionNumber: normalized.transactionNumber || "",
+      notes: normalized.notes || "",
+      receiptImage: normalized.receiptImage || null,
+      receiptUrl: normalized.receiptUrl || "",
+    });
+    setEditingIncomeId(normalized._id);
     setShowIncomeModal(true);
   };
 
@@ -625,15 +774,18 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
   // Handle payment collection
   const handleCollectPayment = (incomeItem) => {
+    // Normalize the income record for backward compatibility
+    const normalized = normalizeIncomeRecord(incomeItem);
+    
     setCollectionForm({
-      id: incomeItem._id,
-      title: incomeItem.title,
-      expectedAmount: incomeItem.expectedAmount || incomeItem.amount || "",
-      actualAmount: incomeItem.expectedAmount || incomeItem.amount || "",
-      collectionDate: new Date().toISOString().split("T")[0],
-      paymentMethod: incomeItem.paymentMethod || "bank_transfer",
-      paymentReference: incomeItem.paymentReference || "",
-      invoiceNumber: incomeItem.invoiceNumber || "",
+      id: normalized._id,
+      title: normalized.title,
+      expectedAmount: normalized.expectedAmount || "",
+      collectedAmount: normalized.expectedAmount || "",
+      collectedDate: new Date().toISOString().split("T")[0],
+      paymentMethod: normalized.paymentMethod || "bank_transfer",
+      transactionNumber: normalized.transactionNumber || "",
+      invoiceNumber: normalized.invoiceNumber || "",
       notes: "",
     });
     setShowCollectionModal(true);
@@ -641,34 +793,42 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
   // Handle collection confirmation
   const handleConfirmCollection = async () => {
-    // Validate the collection form
-    const errors = validateCollectionForm(collectionForm);
+    // Validate the collection form using utility function
+    const errors = validateIncomeData(collectionForm, true);
     setCollectionFormErrors(errors);
 
     // If there are validation errors, don't proceed
-    if (hasFormErrors(errors)) {
-      projectToasts.collectionError("Please fill in all required fields");
+    if (hasValidationErrors(errors)) {
+      showValidationErrors(errors);
       return;
     }
 
     setCollectionLoading(true);
     try {
-      const updateData = {
-        status: "collected",
-        amount: parseFloat(collectionForm.actualAmount),
-        receivedDate: collectionForm.collectionDate,
-        paymentMethod: collectionForm.paymentMethod,
-        paymentReference: collectionForm.paymentReference,
+      // Prepare collection data
+      const collectionData = {
+        collectedAmount: parseFloat(collectionForm.collectedAmount),
+        transactionNumber: collectionForm.transactionNumber,
         invoiceNumber: collectionForm.invoiceNumber,
-        notes: collectionForm.notes,
+        paymentMethod: collectionForm.paymentMethod,
+        collectedDate: collectionForm.collectedDate,
+        notes: collectionForm.notes || '',
       };
 
+      // Handle file upload if provided
+      if (collectionForm.receiptFile) {
+        // For now, we'll just pass the filename
+        // In production, you would upload to cloud storage first
+        collectionData.receiptFile = collectionForm.receiptFile.name;
+      }
+
+      // Call the collect payment endpoint
       const response = await fetch(
-        `/api/projects/${projectId}/income/${collectionForm.id}`,
+        `/api/projects/${projectId}/income/${collectionForm.id}/collect`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updateData),
+          body: JSON.stringify(collectionData),
         }
       );
 
@@ -695,10 +855,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       id: "",
       title: "",
       expectedAmount: "",
-      actualAmount: "",
-      collectionDate: new Date().toISOString().split("T")[0],
+      collectedAmount: "",
+      collectedDate: new Date().toISOString().split("T")[0],
       paymentMethod: "bank_transfer",
-      paymentReference: "",
+      transactionNumber: "",
       invoiceNumber: "",
       notes: "",
     });
@@ -1084,17 +1244,16 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     setIncomeForm({
       title: "",
       description: "",
-      amount: "",
       expectedAmount: "",
-      receivedDate: new Date().toISOString().split("T")[0],
+      collectedAmount: "",
+      collectedDate: new Date().toISOString().split("T")[0],
       dueDate: "",
       paymentMethod: "bank_transfer",
       categoryId: "",
       invoiceNumber: "",
-      status: "pending",
-      paymentReference: "",
+      status: "expected",
+      transactionNumber: "",
       notes: "",
-      receiptType: "none", // none, image, url
       receiptImage: null,
       receiptUrl: "",
     });
@@ -1202,14 +1361,14 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
             <button
               onClick={() => {
-                resetCollectionForm();
-                setShowExpectedPaymentModal(true);
+                resetExpectedIncomeForm();
+                setShowCreateExpectedIncomeModal(true);
               }}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+              className="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden xs:inline">Add Expected Payment</span>
-              <span className="xs:hidden">Expected Payment</span>
+              <span className="hidden xs:inline">Create Expected Income</span>
+              <span className="xs:hidden">Expected Income</span>
             </button>
           </div>
         </div>
@@ -1265,8 +1424,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 transition-colors whitespace-normal break-words flex-shrink-0 ${activeTab === tab.id
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
             >
               <tab.icon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1301,8 +1460,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                     }))
                   }
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expectedPaymentFormErrors.title
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                    ? "border-red-300 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
                     }`}
                   placeholder="e.g., Phase 1 Payment"
                 />
@@ -1327,8 +1486,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                     }))
                   }
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expectedPaymentFormErrors.expectedAmount
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                    ? "border-red-300 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
                     }`}
                   placeholder="0.00"
                 />
@@ -1351,8 +1510,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                     }))
                   }
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expectedPaymentFormErrors.categoryId
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                    ? "border-red-300 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
                     }`}
                 >
                   <option value="">Select a category</option>
@@ -1382,8 +1541,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                     }))
                   }
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expectedPaymentFormErrors.dueDate
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                    ? "border-red-300 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
                     }`}
                 />
                 {expectedPaymentFormErrors.dueDate && (
@@ -1582,7 +1741,6 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           expenseFormErrors={expenseFormErrors}
           handleExpenseFormChange={handleExpenseFormChange}
           budgetData={budgetData}
-          budgetAllocationCategories={budgetAllocationCategories}
           onSubmit={editingExpenseId ? handleEditExpense : handleAddExpense}
           setShowExpenseModal={setShowExpenseModal}
           setEditingExpenseId={setEditingExpenseId}
@@ -1602,7 +1760,6 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             setShowIncomeModal(false);
             setEditingIncomeId(null);
           }}
-          incomeCategories={incomeCategories}
           isEdit={!!editingIncomeId}
           incomeCategories={incomeCategories}
           loading={incomeLoading}
@@ -1621,6 +1778,21 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           formatCurrency={formatCurrency}
           collectionFormErrors={collectionFormErrors}
           loading={collectionLoading}
+        />
+      )}
+
+      {showCreateExpectedIncomeModal && (
+        <CreateExpectedIncomeModal
+          expectedIncomeForm={expectedIncomeForm}
+          setExpectedIncomeForm={setExpectedIncomeForm}
+          onSubmit={handleCreateExpectedIncome}
+          onClose={() => {
+            setShowCreateExpectedIncomeModal(false);
+            resetExpectedIncomeForm();
+          }}
+          incomeCategories={incomeCategories}
+          loading={incomeLoading}
+          formErrors={expectedIncomeFormErrors}
         />
       )}
 
@@ -2038,10 +2210,10 @@ const OverviewTab = ({
           <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 mb-2">
             <div
               className={`h-2 sm:h-3 rounded-full transition-all duration-300 ${budgetUtilization > 100
-                  ? "bg-red-500"
-                  : budgetUtilization > 90
-                    ? "bg-yellow-500"
-                    : "bg-blue-500"
+                ? "bg-red-500"
+                : budgetUtilization > 90
+                  ? "bg-yellow-500"
+                  : "bg-blue-500"
                 }`}
               style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
             ></div>
@@ -2083,10 +2255,10 @@ const OverviewTab = ({
               <div
                 key={index}
                 className={`p-3 sm:p-4 rounded-lg border-l-4 ${alert.severity === "high"
-                    ? "bg-red-50 border-red-400"
-                    : alert.severity === "medium"
-                      ? "bg-yellow-50 border-yellow-400"
-                      : "bg-blue-50 border-blue-400"
+                  ? "bg-red-50 border-red-400"
+                  : alert.severity === "medium"
+                    ? "bg-yellow-50 border-yellow-400"
+                    : "bg-blue-50 border-blue-400"
                   }`}
               >
                 <div className="flex items-start gap-2 sm:gap-3">
@@ -2102,20 +2274,20 @@ const OverviewTab = ({
                   <div className="flex-1">
                     <p
                       className={`text-xs sm:text-sm font-medium ${alert.severity === "high"
-                          ? "text-red-800"
-                          : alert.severity === "medium"
-                            ? "text-yellow-800"
-                            : "text-blue-800"
+                        ? "text-red-800"
+                        : alert.severity === "medium"
+                          ? "text-yellow-800"
+                          : "text-blue-800"
                         }`}
                     >
                       {alert.type.replace("_", " ").toUpperCase()}
                     </p>
                     <p
                       className={`text-xs sm:text-sm ${alert.severity === "high"
-                          ? "text-red-700"
-                          : alert.severity === "medium"
-                            ? "text-yellow-700"
-                            : "text-blue-700"
+                        ? "text-red-700"
+                        : alert.severity === "medium"
+                          ? "text-yellow-700"
+                          : "text-blue-700"
                         }`}
                     >
                       {alert.message}
@@ -2123,10 +2295,10 @@ const OverviewTab = ({
                     {alert.amount && (
                       <p
                         className={`text-xs mt-1 font-medium ${alert.severity === "high"
-                            ? "text-red-600"
-                            : alert.severity === "medium"
-                              ? "text-yellow-600"
-                              : "text-blue-600"
+                          ? "text-red-600"
+                          : alert.severity === "medium"
+                            ? "text-yellow-600"
+                            : "text-blue-600"
                           }`}
                       >
                         Amount: {formatCurrency(Math.abs(alert.amount))}
@@ -2175,10 +2347,10 @@ const OverviewTab = ({
                 <div className="w-full sm:w-24 bg-gray-200 rounded-full h-2">
                   <div
                     className={`h-2 rounded-full ${allocation.utilization > 100
-                        ? "bg-red-500"
-                        : allocation.utilization > 90
-                          ? "bg-yellow-500"
-                          : "bg-blue-500"
+                      ? "bg-red-500"
+                      : allocation.utilization > 90
+                        ? "bg-yellow-500"
+                        : "bg-blue-500"
                       }`}
                     style={{
                       width: `${Math.min(allocation.utilization || 0, 100)}%`,
@@ -2255,12 +2427,12 @@ const OverviewTab = ({
                     {inc.title}
                   </h4>
                   <p className="text-xs sm:text-sm text-gray-600">
-                    {inc.clientName} • {formatDate(inc.receivedDate)}
+                    {inc.clientName} • {formatDate(inc.collectedDate || inc.receivedDate)}
                   </p>
                 </div>
                 <div className="text-left sm:text-right">
                   <p className="text-sm sm:text-base font-semibold text-green-600">
-                    {formatCurrency(inc.amount)}
+                    {formatCurrency(inc.collectedAmount || inc.amount || inc.expectedAmount || 0)}
                   </p>
                   <span
                     className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
@@ -2415,10 +2587,10 @@ const BudgetTab = ({
                         <div className="w-12 sm:w-16 bg-gray-200 rounded-full h-2 mr-1 sm:mr-2">
                           <div
                             className={`h-2 rounded-full ${allocation.utilization > 100
-                                ? "bg-red-500"
-                                : allocation.utilization > 90
-                                  ? "bg-yellow-500"
-                                  : "bg-blue-500"
+                              ? "bg-red-500"
+                              : allocation.utilization > 90
+                                ? "bg-yellow-500"
+                                : "bg-blue-500"
                               }`}
                             style={{
                               width: `${Math.min(
@@ -2676,7 +2848,7 @@ const IncomeTab = ({
 
   // State for sorting
   const [sortConfig, setSortConfig] = useState({
-    key: 'receivedDate',
+    key: 'collectedDate',
     direction: 'desc'
   });
 
@@ -2692,10 +2864,10 @@ const IncomeTab = ({
     const matchesPaymentMethod = !filters.paymentMethod || inc.paymentMethod === filters.paymentMethod;
 
     const matchesDateFrom = !filters.dateFrom ||
-      (inc.receivedDate && new Date(inc.receivedDate) >= new Date(filters.dateFrom));
+      ((inc.collectedDate || inc.receivedDate) && new Date(inc.collectedDate || inc.receivedDate) >= new Date(filters.dateFrom));
 
     const matchesDateTo = !filters.dateTo ||
-      (inc.receivedDate && new Date(inc.receivedDate) <= new Date(filters.dateTo));
+      ((inc.collectedDate || inc.receivedDate) && new Date(inc.collectedDate || inc.receivedDate) <= new Date(filters.dateTo));
 
     return matchesSearch && matchesStatus && matchesPaymentMethod && matchesDateFrom && matchesDateTo;
   });
@@ -2709,7 +2881,7 @@ const IncomeTab = ({
     if (sortConfig.key === 'amount' || sortConfig.key === 'expectedAmount') {
       aValue = parseFloat(aValue) || 0;
       bValue = parseFloat(bValue) || 0;
-    } else if (sortConfig.key === 'receivedDate' || sortConfig.key === 'dueDate') {
+    } else if (sortConfig.key === 'collectedDate' || sortConfig.key === 'receivedDate' || sortConfig.key === 'dueDate') {
       aValue = aValue ? new Date(aValue) : new Date(0);
       bValue = bValue ? new Date(bValue) : new Date(0);
     } else {
@@ -2753,10 +2925,10 @@ const IncomeTab = ({
       {/* Income Summary - Updated to use filtered data */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Total Income</p>
-          <p className="text-lg sm:text-xl font-bold text-green-600">
+          <p className="text-xs sm:text-sm text-gray-600">Total Expected</p>
+          <p className="text-lg sm:text-xl font-bold text-blue-600">
             {formatCurrency(
-              filteredIncome.reduce((sum, inc) => sum + (inc.amount || 0), 0)
+              filteredIncome.reduce((sum, inc) => sum + (inc.expectedAmount || 0), 0)
             )}
           </p>
         </div>
@@ -2766,17 +2938,17 @@ const IncomeTab = ({
             {formatCurrency(
               filteredIncome
                 .filter((inc) => inc.status === "collected")
-                .reduce((sum, inc) => sum + (inc.amount || 0), 0)
+                .reduce((sum, inc) => sum + (inc.collectedAmount || inc.amount || 0), 0)
             )}
           </p>
         </div>
         <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Pending</p>
+          <p className="text-xs sm:text-sm text-gray-600">Expected/Overdue</p>
           <p className="text-lg sm:text-xl font-bold text-yellow-600">
             {formatCurrency(
               filteredIncome
-                .filter((inc) => inc.status === "pending")
-                .reduce((sum, inc) => sum + (inc.amount || 0), 0)
+                .filter((inc) => inc.status === "expected" || inc.status === "overdue")
+                .reduce((sum, inc) => sum + (inc.expectedAmount || 0), 0)
             )}
           </p>
         </div>
@@ -2944,11 +3116,11 @@ const IncomeTab = ({
                 </th>
                 <th
                   className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-                  onClick={() => handleSort('receivedDate')}
+                  onClick={() => handleSort('collectedDate')}
                 >
                   <div className="flex items-center space-x-1">
-                    <span>Date</span>
-                    {sortConfig.key === 'receivedDate' && (
+                    <span>Collected Date</span>
+                    {sortConfig.key === 'collectedDate' && (
                       sortConfig.direction === 'asc' ?
                         <ChevronUpIcon className="w-4 h-4" /> :
                         <ChevronDownIcon className="w-4 h-4" />
@@ -3001,7 +3173,7 @@ const IncomeTab = ({
                       {formatCurrency(inc.expectedAmount || 0)}
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600">
-                      {formatCurrency(inc.amount || 0)}
+                      {formatCurrency(inc.collectedAmount || inc.amount || 0)}
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -3009,7 +3181,7 @@ const IncomeTab = ({
                       </span>
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                      {formatDate(inc.receivedDate)}
+                      {formatDate(inc.collectedDate || inc.receivedDate)}
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <span
@@ -3171,8 +3343,8 @@ const ReportsTab = ({
               onClick={() => generateReport(report.id)}
               disabled={loading}
               className={`p-4 text-left border rounded-lg transition-colors ${reportType === report.id
-                  ? "border-blue-500 bg-blue-50 text-blue-900"
-                  : "border-gray-200 hover:border-gray-300"
+                ? "border-blue-500 bg-blue-50 text-blue-900"
+                : "border-gray-200 hover:border-gray-300"
                 } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <div className="font-medium">{report.name}</div>
@@ -3242,10 +3414,10 @@ const ReportsTab = ({
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                     <div
                       className={`h-2 rounded-full ${reportData.financialSummary.budgetUtilization > 100
-                          ? "bg-red-500"
-                          : reportData.financialSummary.budgetUtilization > 90
-                            ? "bg-yellow-500"
-                            : "bg-blue-500"
+                        ? "bg-red-500"
+                        : reportData.financialSummary.budgetUtilization > 90
+                          ? "bg-yellow-500"
+                          : "bg-blue-500"
                         }`}
                       style={{
                         width: `${Math.min(
@@ -3260,8 +3432,8 @@ const ReportsTab = ({
                   <p className="text-sm text-gray-600">Profit/Loss</p>
                   <p
                     className={`text-xl font-bold ${reportData.financialSummary.profitLoss >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
+                      ? "text-green-600"
+                      : "text-red-600"
                       }`}
                   >
                     {formatCurrency(reportData.financialSummary.profitLoss)}
@@ -3316,30 +3488,30 @@ const ReportsTab = ({
                       <div
                         key={index}
                         className={`p-3 rounded-lg border-l-4 ${alert.severity === "high"
-                            ? "bg-red-50 border-red-400"
-                            : alert.severity === "medium"
-                              ? "bg-yellow-50 border-yellow-400"
-                              : "bg-blue-50 border-blue-400"
+                          ? "bg-red-50 border-red-400"
+                          : alert.severity === "medium"
+                            ? "bg-yellow-50 border-yellow-400"
+                            : "bg-blue-50 border-blue-400"
                           }`}
                       >
                         <div className="flex justify-between items-start">
                           <div>
                             <p
                               className={`font-medium text-sm ${alert.severity === "high"
-                                  ? "text-red-800"
-                                  : alert.severity === "medium"
-                                    ? "text-yellow-800"
-                                    : "text-blue-800"
+                                ? "text-red-800"
+                                : alert.severity === "medium"
+                                  ? "text-yellow-800"
+                                  : "text-blue-800"
                                 }`}
                             >
                               {alert.type.replace(/_/g, " ").toUpperCase()}
                             </p>
                             <p
                               className={`text-sm ${alert.severity === "high"
-                                  ? "text-red-700"
-                                  : alert.severity === "medium"
-                                    ? "text-yellow-700"
-                                    : "text-blue-700"
+                                ? "text-red-700"
+                                : alert.severity === "medium"
+                                  ? "text-yellow-700"
+                                  : "text-blue-700"
                                 }`}
                             >
                               {alert.message}
@@ -3348,10 +3520,10 @@ const ReportsTab = ({
                           {alert.amount && (
                             <span
                               className={`text-sm font-medium ${alert.severity === "high"
-                                  ? "text-red-600"
-                                  : alert.severity === "medium"
-                                    ? "text-yellow-600"
-                                    : "text-blue-600"
+                                ? "text-red-600"
+                                : alert.severity === "medium"
+                                  ? "text-yellow-600"
+                                  : "text-blue-600"
                                 }`}
                             >
                               {formatCurrency(Math.abs(alert.amount))}
@@ -3415,10 +3587,10 @@ const ReportsTab = ({
                               <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                 <div
                                   className={`h-2 rounded-full ${allocation.utilization > 100
-                                      ? "bg-red-500"
-                                      : allocation.utilization > 90
-                                        ? "bg-yellow-500"
-                                        : "bg-blue-500"
+                                    ? "bg-red-500"
+                                    : allocation.utilization > 90
+                                      ? "bg-yellow-500"
+                                      : "bg-blue-500"
                                     }`}
                                   style={{
                                     width: `${Math.min(
@@ -3561,8 +3733,8 @@ const BudgetModal = ({
                   handleBudgetFormChange("totalAmount", e.target.value)
                 }
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${budgetFormErrors.totalAmount
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
                   }`}
                 placeholder="0.00"
                 required
@@ -3584,8 +3756,8 @@ const BudgetModal = ({
                   handleBudgetFormChange("currency", e.target.value)
                 }
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${budgetFormErrors.currency
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
                   }`}
               >
                 <option value="ETB">ETB - Ethiopian Birr</option>
@@ -3609,8 +3781,8 @@ const BudgetModal = ({
               }
               rows={3}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${budgetFormErrors.description
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
+                ? "border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:ring-blue-500"
                 }`}
               placeholder="Budget description..."
             />
@@ -3633,8 +3805,8 @@ const BudgetModal = ({
                   handleBudgetFormChange("approvedBy", e.target.value)
                 }
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${budgetFormErrors.approvedBy
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
                   }`}
                 placeholder="Approver name"
               />
@@ -3656,8 +3828,8 @@ const BudgetModal = ({
                   handleBudgetFormChange("approvalDate", e.target.value)
                 }
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${budgetFormErrors.approvalDate
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
                   }`}
               />
               {budgetFormErrors.approvalDate && (
@@ -3796,8 +3968,8 @@ const BudgetModal = ({
                     handleAllocationFormChange("name", e.target.value)
                   }
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${allocationFormErrors.name
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
                     }`}
                   placeholder="e.g., Development Team"
                   required
@@ -3844,8 +4016,8 @@ const BudgetModal = ({
                     handleAllocationFormChange("amount", e.target.value)
                   }
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${allocationFormErrors.amount
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
                     }`}
                   placeholder="0.00"
                   required
@@ -3867,8 +4039,8 @@ const BudgetModal = ({
                     handleAllocationFormChange("allocationType", e.target.value)
                   }
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${allocationFormErrors.allocationType
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
                     }`}
                 >
                   <option value="">Select Allocation Type</option>
@@ -4085,7 +4257,6 @@ const ExpenseModal = ({
   expenseFormErrors,
   handleExpenseFormChange,
   budgetData,
-  budgetAllocationCategories,
   onSubmit,
   setShowExpenseModal,
   setEditingExpenseId,
@@ -4137,8 +4308,8 @@ const ExpenseModal = ({
                   handleExpenseFormChange("title", e.target.value)
                 }
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.title
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
                   }`}
                 placeholder="e.g., Office Supplies"
                 required
@@ -4162,8 +4333,8 @@ const ExpenseModal = ({
                   handleExpenseFormChange("amount", e.target.value)
                 }
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.amount
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
                   }`}
                 placeholder="0.00"
                 required
@@ -4188,8 +4359,8 @@ const ExpenseModal = ({
                   handleExpenseFormChange("expenseDate", e.target.value)
                 }
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.expenseDate
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
                   }`}
               />
               {expenseFormErrors.expenseDate && (
@@ -4209,8 +4380,8 @@ const ExpenseModal = ({
                   handleExpenseFormChange("allocationId", e.target.value)
                 }
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.allocationId
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
                   }`}
                 required
               >
@@ -4240,8 +4411,8 @@ const ExpenseModal = ({
                   handleExpenseFormChange("vendor", e.target.value)
                 }
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.vendor
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
                   }`}
                 placeholder="Vendor name"
                 required
@@ -4334,8 +4505,8 @@ const ExpenseModal = ({
                   value={expenseForm.receiptUrl}
                   onChange={(e) => handleExpenseFormChange('receiptUrl', e.target.value)}
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.receiptUrl
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
                     }`}
                   placeholder="https://example.com/receipt.pdf"
                 />
@@ -4370,8 +4541,8 @@ const ExpenseModal = ({
                 }
                 rows={3}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${expenseFormErrors.description
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
                   }`}
                 placeholder="Expense description..."
               />
@@ -4452,7 +4623,6 @@ const ExpenseModal = ({
 const IncomeModal = ({
   incomeForm,
   setIncomeForm,
-  incomeCategories,
   onSubmit,
   onClose,
   isEdit,
@@ -4467,7 +4637,7 @@ const IncomeModal = ({
       'dueDate',
       'description',
       'invoiceNumber',
-      'paymentReference',
+      'transactionNumber',
       'paymentMethod'
     ];
 
@@ -4540,16 +4710,16 @@ const IncomeModal = ({
               />
             </div>
 
-            {/* Amount (Auto-filled when all fields are complete) */}
+            {/* Collected Amount (Auto-filled when all fields are complete) */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Amount {!isEdit && <span className="text-xs text-gray-500">(Auto-filled)</span>}
+                Collected Amount {!isEdit && <span className="text-xs text-gray-500">(Auto-filled)</span>}
               </label>
               <input
                 type="number"
                 step="0.01"
-                value={incomeForm.amount}
-                onChange={(e) => handleFieldChange('amount', e.target.value)}
+                value={incomeForm.collectedAmount}
+                onChange={(e) => handleFieldChange('collectedAmount', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="0.00"
                 readOnly={!isEdit && incomeForm.status === 'collected'}
@@ -4603,15 +4773,15 @@ const IncomeModal = ({
               />
             </div>
 
-            {/* Payment Reference */}
+            {/* Transaction Number */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Payment Reference *
+                Transaction Number *
               </label>
               <input
                 type="text"
-                value={incomeForm.paymentReference}
-                onChange={(e) => handleFieldChange('paymentReference', e.target.value)}
+                value={incomeForm.transactionNumber}
+                onChange={(e) => handleFieldChange('transactionNumber', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Transaction ID or reference"
                 required
@@ -4736,15 +4906,15 @@ const IncomeModal = ({
               </select>
             </div>
 
-            {/* Received Date */}
+            {/* Collected Date */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Received Date
+                Collected Date
               </label>
               <input
                 type="date"
-                value={incomeForm.receivedDate}
-                onChange={(e) => handleFieldChange('receivedDate', e.target.value)}
+                value={incomeForm.collectedDate}
+                onChange={(e) => handleFieldChange('collectedDate', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
@@ -4813,13 +4983,13 @@ const IncomeModal = ({
               !incomeForm.dueDate ||
               !incomeForm.description ||
               !incomeForm.invoiceNumber ||
-              !incomeForm.paymentReference ||
+              !incomeForm.transactionNumber ||
               !incomeForm.paymentMethod ||
               !incomeForm.notes
             }
             className={`w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2 flex items-center justify-center gap-2 ${isEdit
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-green-600 hover:bg-green-700"
+              ? "bg-blue-600 hover:bg-blue-700"
+              : "bg-green-600 hover:bg-green-700"
               }`}
           >
             {loading && (
@@ -4850,13 +5020,26 @@ const CollectionModal = ({
     }));
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setCollectionForm(prev => ({
+        ...prev,
+        receiptFile: file
+      }));
+    }
+  };
+
+  // Get today's date in YYYY-MM-DD format for max date validation
+  const today = new Date().toISOString().split('T')[0];
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">
-              Confirm Payment Collection
+              Collect Payment
             </h3>
             <button
               onClick={onClose}
@@ -4869,15 +5052,15 @@ const CollectionModal = ({
           </div>
 
           <div className="space-y-4">
-            {/* Payment Info */}
-            <div className="bg-gray-50 p-4 rounded-lg">
+            {/* Payment Info - Read-only Expected Amount Display */}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
               <h4 className="font-medium text-gray-900 mb-2">{collectionForm.title}</h4>
               <p className="text-sm text-gray-600">
-                Expected Amount: {formatCurrency(collectionForm.expectedAmount)}
+                Expected Amount: <span className="font-semibold text-blue-700">{formatCurrency(collectionForm.expectedAmount)}</span>
               </p>
             </div>
 
-            {/* Actual Amount */}
+            {/* Collected Amount */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Actual Amount Collected *
@@ -4885,33 +5068,53 @@ const CollectionModal = ({
               <input
                 type="number"
                 step="0.01"
-                value={collectionForm.actualAmount}
-                onChange={(e) => handleFieldChange('actualAmount', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.actualAmount ? 'border-red-500' : 'border-gray-300'
+                min="0"
+                value={collectionForm.collectedAmount}
+                onChange={(e) => handleFieldChange('collectedAmount', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.collectedAmount ? 'border-red-500' : 'border-gray-300'
                   }`}
                 placeholder="Enter collected amount"
                 required
               />
-              {collectionFormErrors.actualAmount && (
-                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.actualAmount}</p>
+              {collectionFormErrors.collectedAmount && (
+                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.collectedAmount}</p>
               )}
             </div>
 
-            {/* Collection Date */}
+            {/* Transaction Number */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Collection Date *
+                Transaction Number *
               </label>
               <input
-                type="date"
-                value={collectionForm.collectionDate}
-                onChange={(e) => handleFieldChange('collectionDate', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.collectionDate ? 'border-red-500' : 'border-gray-300'
+                type="text"
+                value={collectionForm.transactionNumber}
+                onChange={(e) => handleFieldChange('transactionNumber', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.transactionNumber ? 'border-red-500' : 'border-gray-300'
                   }`}
+                placeholder="Transaction ID, check number, etc."
                 required
               />
-              {collectionFormErrors.collectionDate && (
-                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.collectionDate}</p>
+              {collectionFormErrors.transactionNumber && (
+                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.transactionNumber}</p>
+              )}
+            </div>
+
+            {/* Invoice Number */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Invoice Number
+              </label>
+              <input
+                type="text"
+                value={collectionForm.invoiceNumber}
+                onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.invoiceNumber ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                placeholder="Invoice number for this payment"
+              />
+              {collectionFormErrors.invoiceNumber && (
+                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.invoiceNumber}</p>
               )}
             </div>
 
@@ -4940,48 +5143,49 @@ const CollectionModal = ({
               )}
             </div>
 
-            {/* Payment Reference */}
+            {/* Collection Date */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Reference *
+                Collection Date *
               </label>
               <input
-                type="text"
-                value={collectionForm.paymentReference}
-                onChange={(e) => handleFieldChange('paymentReference', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.paymentReference ? 'border-red-500' : 'border-gray-300'
+                type="date"
+                max={today}
+                value={collectionForm.collectedDate}
+                onChange={(e) => handleFieldChange('collectedDate', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.collectedDate ? 'border-red-500' : 'border-gray-300'
                   }`}
-                placeholder="Transaction ID, check number, etc."
                 required
               />
-              {collectionFormErrors.paymentReference && (
-                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.paymentReference}</p>
+              {collectionFormErrors.collectedDate && (
+                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.collectedDate}</p>
               )}
+              <p className="text-xs text-gray-500 mt-1">Collection date cannot be in the future</p>
             </div>
 
-            {/* Invoice Number */}
+            {/* Receipt Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Invoice Number *
+                Receipt / Proof of Payment
               </label>
               <input
-                type="text"
-                value={collectionForm.invoiceNumber}
-                onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.invoiceNumber ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                placeholder="Invoice number for this payment"
-                required
+                type="file"
+                accept="image/*,.pdf"
+                onChange={handleFileChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
-              {collectionFormErrors.invoiceNumber && (
-                <p className="text-red-500 text-sm mt-1">{collectionFormErrors.invoiceNumber}</p>
+              {collectionForm.receiptFile && (
+                <p className="text-xs text-green-600 mt-1">
+                  Selected: {collectionForm.receiptFile.name}
+                </p>
               )}
+              <p className="text-xs text-gray-500 mt-1">Optional: Upload receipt or proof of payment</p>
             </div>
 
             {/* Notes */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Collection Notes *
+                Collection Notes
               </label>
               <textarea
                 value={collectionForm.notes}
@@ -4990,7 +5194,6 @@ const CollectionModal = ({
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${collectionFormErrors.notes ? 'border-red-500' : 'border-gray-300'
                   }`}
                 placeholder="Any additional notes about the collection..."
-                required
               />
               {collectionFormErrors.notes && (
                 <p className="text-red-500 text-sm mt-1">{collectionFormErrors.notes}</p>
@@ -5008,10 +5211,10 @@ const CollectionModal = ({
             </button>
             <button
               onClick={onConfirm}
-              disabled={loading || !collectionForm.actualAmount || !collectionForm.collectionDate}
-              className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors flex items-center justify-center gap-2 ${loading || !collectionForm.actualAmount || !collectionForm.collectionDate
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700'
+              disabled={loading || !collectionForm.collectedAmount || !collectionForm.collectedDate || !collectionForm.transactionNumber}
+              className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors flex items-center justify-center gap-2 ${loading || !collectionForm.collectedAmount || !collectionForm.collectedDate || !collectionForm.transactionNumber
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700'
                 }`}
             >
               {loading ? (
@@ -5019,9 +5222,171 @@ const CollectionModal = ({
               ) : (
                 <CheckCircleIcon className="w-4 h-4" />
               )}
-              {loading ? "Processing..." : "Confirm Collection"}
+              {loading ? "Processing..." : "Collect Payment"}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Create Expected Income Modal Component
+const CreateExpectedIncomeModal = ({
+  expectedIncomeForm,
+  setExpectedIncomeForm,
+  onSubmit,
+  onClose,
+  incomeCategories,
+  loading = false,
+  formErrors = {},
+}) => {
+  const handleFieldChange = (field, value) => {
+    setExpectedIncomeForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  // Get today's date in YYYY-MM-DD format for min date validation
+  const today = new Date().toISOString().split('T')[0];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+            Create Expected Income
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
+            Set up an expected payment with a due date to track when payment should be received
+          </p>
+        </div>
+
+        <div className="p-4 sm:p-6 space-y-4">
+          {/* Title */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+              Title *
+            </label>
+            <input
+              type="text"
+              value={expectedIncomeForm.title}
+              onChange={(e) => handleFieldChange('title', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                formErrors.title ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="e.g., Phase 1 Payment, Milestone Completion"
+              required
+            />
+            {formErrors.title && (
+              <p className="mt-1 text-xs text-red-600">{formErrors.title}</p>
+            )}
+          </div>
+
+          {/* Expected Amount */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+              Expected Amount *
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={expectedIncomeForm.expectedAmount}
+              onChange={(e) => handleFieldChange('expectedAmount', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                formErrors.expectedAmount ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="0.00"
+              required
+            />
+            {formErrors.expectedAmount && (
+              <p className="mt-1 text-xs text-red-600">{formErrors.expectedAmount}</p>
+            )}
+          </div>
+
+          {/* Due Date */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+              Due Date *
+            </label>
+            <input
+              type="date"
+              min={today}
+              value={expectedIncomeForm.dueDate}
+              onChange={(e) => handleFieldChange('dueDate', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                formErrors.dueDate ? 'border-red-300' : 'border-gray-300'
+              }`}
+              required
+            />
+            {formErrors.dueDate && (
+              <p className="mt-1 text-xs text-red-600">{formErrors.dueDate}</p>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Payment will be marked as overdue if not collected by this date
+            </p>
+          </div>
+
+          {/* Invoice Number */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+              Invoice Number *
+            </label>
+            <input
+              type="text"
+              value={expectedIncomeForm.invoiceNumber}
+              onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                formErrors.invoiceNumber ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="INV-001"
+              required
+            />
+            {formErrors.invoiceNumber && (
+              <p className="mt-1 text-xs text-red-600">{formErrors.invoiceNumber}</p>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+              Notes
+            </label>
+            <textarea
+              value={expectedIncomeForm.notes}
+              onChange={(e) => handleFieldChange('notes', e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              placeholder="Additional notes about this expected payment..."
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 p-4 sm:p-6 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={
+              loading ||
+              !expectedIncomeForm.title ||
+              !expectedIncomeForm.expectedAmount ||
+              !expectedIncomeForm.dueDate ||
+              !expectedIncomeForm.invoiceNumber
+            }
+            className={`w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700`}
+          >
+            {loading && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            )}
+            {loading ? "Creating..." : "Create Expected Income"}
+          </button>
         </div>
       </div>
     </div>

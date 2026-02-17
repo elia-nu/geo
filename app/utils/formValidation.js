@@ -494,35 +494,32 @@ export const getFirstError = (errors) => {
 export const validateCollectionForm = (formData) => {
   const errors = {};
 
-  // Invoice number validation
-  if (!formData.invoiceNumber || formData.invoiceNumber.trim().length === 0) {
-    errors.invoiceNumber = "Invoice number is required";
+  // Collected amount validation (required)
+  if (!formData.collectedAmount || parseFloat(formData.collectedAmount) <= 0) {
+    errors.collectedAmount = "Collected amount must be greater than 0";
   }
 
-  // Payment reference validation
-  if (!formData.paymentReference || formData.paymentReference.trim().length === 0) {
-    errors.paymentReference = "Payment reference is required";
+  // Transaction number validation (required)
+  if (!formData.transactionNumber || formData.transactionNumber.trim().length === 0) {
+    errors.transactionNumber = "Transaction number is required";
   }
 
-  // Notes validation
-  if (!formData.notes || formData.notes.trim().length === 0) {
-    errors.notes = "Collection notes are required";
+  // Collection date validation (required, cannot be in future)
+  if (!formData.collectedDate) {
+    errors.collectedDate = "Collection date is required";
+  } else {
+    const collectionDate = new Date(formData.collectedDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+    
+    if (collectionDate > today) {
+      errors.collectedDate = "Collection date cannot be in the future";
+    }
   }
 
-  // Actual amount validation
-  if (!formData.actualAmount || formData.actualAmount <= 0) {
-    errors.actualAmount = "Actual amount must be greater than 0";
-  }
-
-  // Collection date validation
-  if (!formData.collectionDate) {
-    errors.collectionDate = "Collection date is required";
-  }
-
-  // Payment method validation
-  if (!formData.paymentMethod || formData.paymentMethod.trim().length === 0) {
-    errors.paymentMethod = "Payment method is required";
-  }
+  // Invoice number validation (optional but recommended)
+  // Notes validation (optional)
+  // Payment method validation (optional, has default)
 
   return errors;
 };
@@ -540,14 +537,14 @@ export const validateExpectedPaymentForm = (formData) => {
   }
 
   // Expected amount validation
-  if (!formData.expectedAmount || formData.expectedAmount <= 0) {
+  if (!formData.expectedAmount || parseFloat(formData.expectedAmount) <= 0) {
     errors.expectedAmount = "Expected amount must be greater than 0";
   }
 
-  // Category validation
-  if (!formData.categoryId || formData.categoryId.trim().length === 0) {
-    errors.categoryId = "Category is required";
-  }
+  // Category validation (optional for now)
+  // if (!formData.categoryId || formData.categoryId.trim().length === 0) {
+  //   errors.categoryId = "Category is required";
+  // }
 
   // Due date validation
   if (!formData.dueDate || formData.dueDate.trim().length === 0) {

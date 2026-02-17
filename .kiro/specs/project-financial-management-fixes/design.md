@@ -2,17 +2,26 @@
 
 ## Overview
 
-This design addresses the syntax errors identified in the ProjectFinancialManagement.js component. The primary issues are missing closing parentheses in array mapping functions within JSX table structures. The fix involves correcting the JSX syntax while preserving all existing functionality, styling, and component behavior.
+This design transforms the ProjectFinancialManagement component into a comprehensive construction company financial tracking system. The system manages expected income with due dates, automatically tracks overdue payments, provides detailed payment collection forms, implements pagination for large datasets, and delivers a financial dashboard with enhanced reporting capabilities. The design separates expected income from actual collected income to provide better cash flow visibility and payment tracking.
 
 ## Architecture
 
-The ProjectFinancialManagement component follows a standard React functional component pattern with:
-- State management using React hooks (useState, useEffect)
-- Multiple tab-based UI sections (Overview, Dashboard, Entities, Budget, Expenses, Income, Reports)
-- Modal components for data entry and editing
-- Table components for data display with filtering and sorting
+The ProjectFinancialManagement component follows an enhanced React functional component pattern with:
 
-The syntax errors do not affect the overall architecture but prevent the component from compiling.
+### Core Architecture Components
+- **State Management**: React hooks (useState, useEffect) for local state and data management
+- **Tab-Based Navigation**: Multiple sections (Overview, Dashboard, Budget, Expenses, Income, Reports)
+- **Modal System**: Separate modals for creating expected income and collecting payments
+- **Pagination Engine**: Reusable pagination logic for income and expense tables
+- **Status Calculator**: Automatic overdue detection based on due dates and payment status
+- **Dashboard Analytics**: Real-time calculation of financial metrics and KPIs
+
+### Data Flow
+1. **Expected Income Creation** → Store with due date and expected amount
+2. **Overdue Detection** → Background process checks due dates vs current date
+3. **Payment Collection** → Separate flow captures transaction details and actual amount
+4. **Dashboard Updates** → Reactive calculations based on income/expense changes
+5. **Report Generation** → Aggregation of financial data with filtering and export
 
 ## Components and Interfaces
 
@@ -21,133 +30,476 @@ The syntax errors do not affect the overall architecture but prevent the compone
 ProjectFinancialManagement
 ├── Tab Navigation
 ├── Overview Tab (OverviewTab)
-├── Dashboard Tab (FinancialDashboard)
-├── Entities Tab (EntityManagement)
+├── Financial Dashboard Tab (Enhanced)
+│   ├── Expected Income Card
+│   ├── Collected Income Card
+│   ├── Overdue Payments Card
+│   ├── Total Expenses Card
+│   ├── Profit Margin Card
+│   └── Collection Rate Indicator
 ├── Budget Tab (BudgetTab)
-├── Expenses Tab (ExpensesTab) ← Contains syntax error
-├── Income Tab (IncomeTab) ← Contains syntax error
-├── Reports Tab (ReportsTab)
+├── Expenses Tab (ExpensesTab with Pagination)
+│   ├── Expense Table with Pagination Controls
+│   ├── Page Size Selector
+│   └── Page Navigation
+├── Income Tab (IncomeTab - Redesigned)
+│   ├── Income Status Filter (All/Expected/Collected/Overdue)
+│   ├── Income Table with Pagination
+│   │   ├── Expected Amount Column
+│   │   ├── Collected Amount Column
+│   │   ├── Due Date Column
+│   │   ├── Status Badge (Expected/Collected/Overdue)
+│   │   ├── Days Overdue Indicator
+│   │   └── Action Buttons (Collect Payment/View Details)
+│   └── Pagination Controls
+├── Reports Tab (ReportsTab - Enhanced)
+│   ├── Income vs Expected Report
+│   ├── Overdue Payments Report
+│   ├── Collection Rate Analysis
+│   └── Export Functionality
 └── Modal Components
     ├── BudgetModal
     ├── ExpenseModal
-    ├── IncomeModal
-    └── CollectionModal
-```
+    ├── CreateExpectedIncomeModal (New)
+    │   ├── Title Field
+    │   ├── Expected Amount Field
+    │   ├── Due Date Picker
+    │   ├── Invoice Number Field
+    │   └── Notes Field
+    ├── CollectPaymentModal (New)
+    │   ├── Expected Amount Display (Read-only)
+    │   ├── Actual Amount Field
+    │   ├── Transaction Number Field
+    │   ├── Invoice Number Field (Pre-filled, editable)
+    │   ├── Payment Method Selector
+    │   ├── Collection Date Picker
+    │   └── Receipt Upload
+    └── IncomeDetailsModal (Updated)
 
-### Affected Components
+### Key Component Changes
 
-#### ExpensesTab Component
-- **Issue**: Missing closing parenthesis in expenses.map() function at line ~2624
-- **Location**: Table body rendering section
-- **Impact**: Prevents component compilation
+#### IncomeTab Component (Major Redesign)
+- **Removed**: Receipt type field and column
+- **Added**: Status filter dropdown (All/Expected/Collected/Overdue)
+- **Added**: Pagination controls (10, 25, 50, 100 records per page)
+- **Added**: Overdue indicator with days count
+- **Enhanced**: Status badges with color coding
+- **Split**: Single "Add Income" into "Create Expected Income" and "Collect Payment" actions
 
-#### IncomeTab Component  
-- **Issue**: Missing closing parenthesis in sortedIncome.map() function at line ~3051
-- **Location**: Table body rendering section within conditional rendering
-- **Impact**: Prevents component compilation
+#### ExpensesTab Component (Pagination Enhancement)
+- **Added**: Pagination controls matching income tab
+- **Added**: Page size selector
+- **Maintained**: All existing filtering and sorting functionality
+
+#### FinancialDashboard Component (Enhanced)
+- **Added**: Expected income total card
+- **Added**: Collected income total card
+- **Added**: Overdue payments card with count and amount
+- **Added**: Collection rate percentage indicator
+- **Enhanced**: Profit calculation using collected income (not expected)
 
 ## Data Models
 
-The existing data models remain unchanged:
-- **Expense**: { _id, title, description, amount, expenseDate, allocationId, vendor, receiptUrl, status, tags }
-- **Income**: { _id, title, expectedAmount, amount, receivedDate, dueDate, paymentMethod, invoiceNumber, status, paymentReference, notes, receiptType, receiptImage, receiptUrl }
-- **Budget**: { totalAmount, currency, description, approvedBy, approvalDate, allocations }
+### Income Model (Redesigned)
+```javascript
+{
+  _id: String,
+  projectId: String,
+  title: String,
+  
+  // Expected Income Fields
+  expectedAmount: Number,        // Amount we expect to receive
+  dueDate: Date,                 // When payment is due
+  
+  // Collected Income Fields
+  collectedAmount: Number,       // Actual amount received (null if not collected)
+  collectedDate: Date,           // When payment was received (null if not collected)
+  transactionNumber: String,     // Bank/payment transaction reference
+  
+  // Common Fields
+  invoiceNumber: String,         // Invoice reference
+  paymentMethod: String,         // Cash, Bank Transfer, Check, etc.
+  notes: String,
+  
+  // Status Management
+  status: String,                // 'expected', 'collected', 'overdue'
+  
+  // Receipt/Documentation
+  receiptImage: String,          // File path for receipt image
+  receiptUrl: String,            // URL for receipt document
+  
+  // Removed Fields
+  // receiptType: REMOVED - No longer needed
+  // paymentReference: MERGED into transactionNumber
+  // receivedDate: RENAMED to collectedDate for clarity
+  // amount: RENAMED to collectedAmount for clarity
+  
+  // Metadata
+  createdAt: Date,
+  updatedAt: Date,
+  createdBy: String
+}
+```
+
+### Status Calculation Logic
+```javascript
+function calculateIncomeStatus(income) {
+  if (income.collectedAmount && income.collectedDate) {
+    return 'collected';
+  }
+  
+  const today = new Date();
+  const dueDate = new Date(income.dueDate);
+  
+  if (today > dueDate) {
+    return 'overdue';
+  }
+  
+  return 'expected';
+}
+
+function getDaysOverdue(income) {
+  if (income.status !== 'overdue') return 0;
+  
+  const today = new Date();
+  const dueDate = new Date(income.dueDate);
+  const diffTime = today - dueDate;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+}
+```
+
+### Expense Model (Unchanged with Pagination)
+```javascript
+{
+  _id: String,
+  projectId: String,
+  title: String,
+  description: String,
+  amount: Number,
+  expenseDate: Date,
+  allocationId: String,
+  vendor: String,
+  receiptUrl: String,
+  status: String,
+  tags: Array,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Pagination State Model
+```javascript
+{
+  currentPage: Number,           // Current page number (1-indexed)
+  pageSize: Number,              // Records per page (default: 10)
+  totalRecords: Number,          // Total number of records
+  totalPages: Number             // Calculated: Math.ceil(totalRecords / pageSize)
+}
+```
+
+### Dashboard Metrics Model
+```javascript
+{
+  totalExpectedIncome: Number,   // Sum of all expectedAmount
+  totalCollectedIncome: Number,  // Sum of all collectedAmount where status='collected'
+  totalOverdueAmount: Number,    // Sum of expectedAmount where status='overdue'
+  overdueCount: Number,          // Count of income records with status='overdue'
+  totalExpenses: Number,         // Sum of all expenses
+  profitMargin: Number,          // (totalCollectedIncome - totalExpenses) / totalCollectedIncome * 100
+  collectionRate: Number         // (totalCollectedIncome / totalExpectedIncome) * 100
+}
+```
 
 ## Error Handling
 
-### Current Error State
-1. **Compilation Errors**: JavaScript syntax errors prevent the application from starting
-2. **Missing Parentheses**: Array mapping functions have unclosed parentheses
-3. **JSX Structure**: Malformed JSX prevents proper rendering
+### Input Validation
+1. **Expected Income Creation**
+   - Validate expected amount is positive number
+   - Validate due date is not in the past
+   - Validate invoice number is unique
+   - Show clear error messages for validation failures
 
-### Resolution Strategy
-1. **Syntax Correction**: Add missing closing parentheses to array mapping functions
-2. **JSX Validation**: Ensure proper bracket matching in all JSX structures
-3. **Code Formatting**: Apply consistent indentation and formatting
-4. **Testing**: Verify component renders correctly after fixes
+2. **Payment Collection**
+   - Validate collected amount is positive number
+   - Validate transaction number is provided
+   - Validate collection date is not in the future
+   - Warn if collected amount differs significantly from expected amount
+
+3. **Pagination**
+   - Handle empty result sets gracefully
+   - Validate page numbers are within valid range
+   - Default to page 1 if invalid page requested
+
+### Status Management
+1. **Overdue Detection**
+   - Run status check on component mount
+   - Update status when viewing income list
+   - Handle timezone differences correctly
+   - Cache status calculations to avoid repeated computation
+
+2. **Status Transitions**
+   - Expected → Overdue (automatic when due date passes)
+   - Expected → Collected (manual when payment collected)
+   - Overdue → Collected (manual when payment collected)
+   - Prevent invalid status transitions
+
+### API Error Handling
+1. **Network Failures**
+   - Show user-friendly error messages
+   - Retry failed requests with exponential backoff
+   - Maintain local state during network issues
+
+2. **Data Consistency**
+   - Validate income records have required fields
+   - Handle missing or null values gracefully
+   - Provide default values for optional fields
 
 ## Testing Strategy
 
-### Validation Steps
-1. **Syntax Validation**: Ensure JavaScript compiler accepts the corrected code
-2. **Component Rendering**: Verify all tabs render without errors
-3. **Table Functionality**: Confirm expense and income tables display data correctly
-4. **Interactive Features**: Test sorting, filtering, and modal functionality
-5. **Responsive Design**: Verify mobile and desktop layouts work properly
+### Unit Testing Focus
+1. **Status Calculation Functions**
+   - Test calculateIncomeStatus with various date scenarios
+   - Test getDaysOverdue calculation accuracy
+   - Test edge cases (today is due date, far future dates)
 
-### Test Cases
-1. **Expenses Table**: Load component with expense data and verify table renders
-2. **Income Table**: Load component with income data and verify table renders with filters
-3. **Modal Operations**: Test opening/closing modals for adding/editing records
-4. **Tab Navigation**: Verify switching between all tabs works correctly
-5. **Data Operations**: Test CRUD operations for expenses and income
+2. **Pagination Logic**
+   - Test page calculation with various record counts
+   - Test boundary conditions (empty list, single page, many pages)
+   - Test page size changes
 
-## Implementation Plan
+3. **Dashboard Calculations**
+   - Test metric calculations with sample data
+   - Test profit margin calculation
+   - Test collection rate calculation
+   - Test handling of zero or null values
 
-### Phase 1: Syntax Error Fixes
-1. Fix missing closing parenthesis in ExpensesTab expenses.map() function
-2. Fix missing closing parenthesis in IncomeTab sortedIncome.map() function
-3. Validate JSX structure and bracket matching
-4. Test component compilation
+### Integration Testing
+1. **Expected Income Flow**
+   - Create expected income → Verify appears in table
+   - Wait for due date to pass → Verify status changes to overdue
+   - Collect payment → Verify status changes to collected
 
-### Phase 2: Code Quality Improvements
-1. Apply consistent formatting to affected sections
-2. Ensure proper indentation in table structures
-3. Validate all array mapping functions follow consistent patterns
-4. Add code comments for complex JSX structures
+2. **Pagination Flow**
+   - Load large dataset → Verify pagination appears
+   - Navigate pages → Verify correct records displayed
+   - Change page size → Verify records update correctly
 
-### Phase 3: Validation and Testing
-1. Run diagnostic tools to confirm no syntax errors
-2. Test component rendering in development environment
-3. Verify all existing functionality remains intact
-4. Perform responsive design testing
+3. **Dashboard Updates**
+   - Add income → Verify dashboard metrics update
+   - Collect payment → Verify collected income increases
+   - Add expense → Verify profit margin recalculates
 
-## Technical Details
+### User Acceptance Testing
+1. **Income Management Workflow**
+   - Create expected income with due date
+   - View income in table with status
+   - Filter by overdue status
+   - Collect payment with transaction details
+   - Verify payment appears as collected
 
-### Specific Fixes Required
+2. **Reporting Workflow**
+   - Generate income report
+   - Verify expected vs collected comparison
+   - Export report to PDF/Excel
+   - Verify data accuracy
 
-#### Fix 1: ExpensesTab - Line ~2624
+## Technical Implementation Details
+
+### Pagination Implementation
 ```javascript
-// Current (broken):
-{expenses.map((expense) => (
-  // ... JSX content ...
-))  // ← Missing closing parenthesis
-
-// Fixed:
-{expenses.map((expense) => (
-  // ... JSX content ...
-))}  // ← Added missing closing parenthesis
+// Pagination Hook
+function usePagination(data, initialPageSize = 10) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+  
+  const totalPages = Math.ceil(data.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedData = data.slice(startIndex, endIndex);
+  
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+  
+  const changePageSize = (newSize) => {
+    setPageSize(newSize);
+    setCurrentPage(1); // Reset to first page
+  };
+  
+  return {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData,
+    goToPage,
+    changePageSize,
+    hasNextPage: currentPage < totalPages,
+    hasPrevPage: currentPage > 1
+  };
+}
 ```
 
-#### Fix 2: IncomeTab - Line ~3051  
+### Status Management Implementation
 ```javascript
-// Current (broken):
-sortedIncome.map((inc) => (
-  // ... JSX content ...
-))  // ← Missing closing parenthesis
-
-// Fixed:
-sortedIncome.map((inc) => (
-  // ... JSX content ...
-)))  // ← Added missing closing parenthesis
+// Automatic Status Update
+useEffect(() => {
+  const updateIncomeStatuses = () => {
+    const today = new Date();
+    
+    const updatedIncome = income.map(inc => {
+      // Skip if already collected
+      if (inc.collectedAmount && inc.collectedDate) {
+        return { ...inc, status: 'collected' };
+      }
+      
+      // Check if overdue
+      const dueDate = new Date(inc.dueDate);
+      if (today > dueDate) {
+        return { ...inc, status: 'overdue' };
+      }
+      
+      return { ...inc, status: 'expected' };
+    });
+    
+    setIncome(updatedIncome);
+  };
+  
+  updateIncomeStatuses();
+  
+  // Update daily at midnight
+  const interval = setInterval(updateIncomeStatuses, 24 * 60 * 60 * 1000);
+  return () => clearInterval(interval);
+}, [income]);
 ```
 
-### Code Structure Preservation
-- Maintain all existing className attributes for styling
-- Preserve all event handlers and onClick functions
-- Keep all conditional rendering logic intact
-- Maintain responsive design breakpoints (sm:, lg: classes)
-- Preserve accessibility attributes and ARIA labels
+### Dashboard Metrics Calculation
+```javascript
+// Calculate Dashboard Metrics
+function calculateDashboardMetrics(income, expenses) {
+  const totalExpectedIncome = income.reduce((sum, inc) => sum + (inc.expectedAmount || 0), 0);
+  
+  const collectedIncome = income.filter(inc => inc.status === 'collected');
+  const totalCollectedIncome = collectedIncome.reduce((sum, inc) => sum + (inc.collectedAmount || 0), 0);
+  
+  const overdueIncome = income.filter(inc => inc.status === 'overdue');
+  const totalOverdueAmount = overdueIncome.reduce((sum, inc) => sum + (inc.expectedAmount || 0), 0);
+  const overdueCount = overdueIncome.length;
+  
+  const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+  
+  const profitMargin = totalCollectedIncome > 0 
+    ? ((totalCollectedIncome - totalExpenses) / totalCollectedIncome * 100).toFixed(2)
+    : 0;
+  
+  const collectionRate = totalExpectedIncome > 0
+    ? (totalCollectedIncome / totalExpectedIncome * 100).toFixed(2)
+    : 0;
+  
+  return {
+    totalExpectedIncome,
+    totalCollectedIncome,
+    totalOverdueAmount,
+    overdueCount,
+    totalExpenses,
+    profitMargin,
+    collectionRate
+  };
+}
+```
+
+### API Endpoints Required
+```javascript
+// Income Management APIs
+POST   /api/projects/:projectId/income/expected     // Create expected income
+PUT    /api/projects/:projectId/income/:id/collect  // Collect payment
+GET    /api/projects/:projectId/income              // Get all income (with pagination)
+GET    /api/projects/:projectId/income/overdue      // Get overdue income
+PUT    /api/projects/:projectId/income/:id          // Update income details
+DELETE /api/projects/:projectId/income/:id          // Delete income record
+
+// Dashboard APIs
+GET    /api/projects/:projectId/dashboard/metrics   // Get dashboard metrics
+GET    /api/projects/:projectId/reports/income      // Generate income report
+```
+
+### UI Component Structure
+
+#### CreateExpectedIncomeModal
+```jsx
+<Modal>
+  <Input label="Title" required />
+  <Input label="Expected Amount" type="number" required />
+  <DatePicker label="Due Date" required minDate={today} />
+  <Input label="Invoice Number" required />
+  <Textarea label="Notes" optional />
+  <Button>Create Expected Income</Button>
+</Modal>
+```
+
+#### CollectPaymentModal
+```jsx
+<Modal>
+  <Display label="Expected Amount" value={expectedAmount} />
+  <Input label="Actual Amount Collected" type="number" required />
+  <Input label="Transaction Number" required />
+  <Input label="Invoice Number" value={invoiceNumber} />
+  <Select label="Payment Method" options={['Cash', 'Bank Transfer', 'Check', 'Card']} />
+  <DatePicker label="Collection Date" required maxDate={today} />
+  <FileUpload label="Receipt/Proof" optional />
+  <Button>Collect Payment</Button>
+</Modal>
+```
+
+#### Income Table with Status Badges
+```jsx
+<Table>
+  <Column header="Title" />
+  <Column header="Expected Amount" />
+  <Column header="Collected Amount" render={(inc) => inc.collectedAmount || '-'} />
+  <Column header="Due Date" />
+  <Column header="Status" render={(inc) => (
+    <Badge 
+      color={inc.status === 'collected' ? 'green' : inc.status === 'overdue' ? 'red' : 'yellow'}
+    >
+      {inc.status}
+      {inc.status === 'overdue' && ` (${getDaysOverdue(inc)} days)`}
+    </Badge>
+  )} />
+  <Column header="Actions" render={(inc) => (
+    inc.status !== 'collected' && <Button onClick={() => openCollectModal(inc)}>Collect</Button>
+  )} />
+</Table>
+```
 
 ## Risk Mitigation
 
-### Potential Risks
-1. **Functionality Loss**: Risk of breaking existing features during fixes
-2. **Styling Issues**: Risk of affecting CSS classes or responsive design
-3. **State Management**: Risk of disrupting React state or props flow
+### Data Migration Risks
+1. **Existing Income Records**: May have receiptType field that needs to be handled
+   - **Mitigation**: Keep field in database but hide from UI, allow gradual migration
 
-### Mitigation Strategies
-1. **Minimal Changes**: Make only the necessary syntax corrections
-2. **Incremental Testing**: Test after each fix to ensure functionality
-3. **Code Review**: Verify changes don't affect surrounding code
-4. **Backup Strategy**: Maintain original code structure and patterns
+2. **Field Name Changes**: amount → collectedAmount, receivedDate → collectedDate
+   - **Mitigation**: Support both old and new field names during transition period
+
+3. **Status Field**: May not exist in old records
+   - **Mitigation**: Calculate status on-the-fly for records without status field
+
+### Performance Risks
+1. **Large Datasets**: Pagination helps but initial load may be slow
+   - **Mitigation**: Implement server-side pagination with API support
+
+2. **Status Calculations**: Running on every render could be expensive
+   - **Mitigation**: Memoize calculations using useMemo hook
+
+3. **Dashboard Metrics**: Calculating on large datasets
+   - **Mitigation**: Cache metrics and recalculate only when data changes
+
+### User Experience Risks
+1. **Confusion Between Expected and Collected**: Users may not understand the difference
+   - **Mitigation**: Clear labeling, tooltips, and help text
+
+2. **Overdue Notifications**: Users may miss overdue payments
+   - **Mitigation**: Prominent visual indicators, dashboard alerts, optional email notifications
