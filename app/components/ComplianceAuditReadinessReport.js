@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Download, RefreshCw, Shield, ClipboardCheck, FileCheck, FolderOpen } from "lucide-react";
+import { RefreshCw, Shield, ClipboardCheck, FileCheck } from "lucide-react";
 
 export default function ComplianceAuditReadinessReport() {
   const [loading, setLoading] = useState(false);
@@ -46,8 +46,6 @@ export default function ComplianceAuditReadinessReport() {
   const payrollApprovalTrails = reportData?.payrollApprovalTrails || [];
   const leaveApprovals = reportData?.leaveApprovals || [];
   const leaveApprovalDocuments = reportData?.leaveApprovalDocuments || [];
-  const documentAccessRecords = reportData?.documentAccessRecords || [];
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -57,7 +55,7 @@ export default function ComplianceAuditReadinessReport() {
             Compliance & Audit Readiness Report
           </h2>
           <p className="text-sm text-gray-600 mt-0.5">
-            Attendance verification logs, payroll approval trails, leave approvals, document access records.
+            Attendance verification logs, payroll approval trails, leave approvals.
           </p>
         </div>
         <button
@@ -99,7 +97,7 @@ export default function ComplianceAuditReadinessReport() {
 
       {reportData && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-blue-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <ClipboardCheck className="w-5 h-5 text-blue-600" />
@@ -121,61 +119,29 @@ export default function ComplianceAuditReadinessReport() {
               </div>
               <p className="text-2xl font-bold text-emerald-600">{summary.leaveApprovalCount ?? 0}</p>
             </div>
-            <div className="bg-indigo-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <FolderOpen className="w-5 h-5 text-indigo-600" />
-                <span className="font-medium text-indigo-900">Document Access</span>
-              </div>
-              <p className="text-2xl font-bold text-indigo-600">{summary.documentAccessCount ?? 0}</p>
-            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b">Attendance Verification Logs</h3>
-              <div className="overflow-x-auto max-h-48 overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Time</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">User</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Action</th>
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <h3 className="text-sm font-semibold text-black px-4 py-3 border-b">Attendance Verification Logs</h3>
+            <div className="overflow-x-auto max-h-48 overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Time</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">User</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {attendanceVerificationLogs.slice(0, 15).map((e, i) => (
+                    <tr key={i}>
+                      <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
+                      <td className="px-3 py-2 text-black">{e.userEmail ?? e.userId ?? "—"}</td>
+                      <td className="px-3 py-2 capitalize text-black">{e.action ?? "—"}</td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {attendanceVerificationLogs.slice(0, 15).map((e, i) => (
-                      <tr key={i}>
-                        <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2 text-black">{e.userEmail ?? e.userId ?? "—"}</td>
-                        <td className="px-3 py-2 capitalize text-black">{e.action ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b">Document Access Records</h3>
-              <div className="overflow-x-auto max-h-48 overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Time</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">User</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {documentAccessRecords.slice(0, 15).map((e, i) => (
-                      <tr key={i}>
-                        <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2 text-black">{e.userEmail ?? e.userId ?? "—"}</td>
-                        <td className="px-3 py-2 text-black">{e.action ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 

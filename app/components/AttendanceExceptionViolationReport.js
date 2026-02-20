@@ -82,7 +82,7 @@ export default function AttendanceExceptionViolationReport() {
         summary: reportData.summary || {},
         lateArrivals: reportData.lateArrivals || [],
         earlyDepartures: reportData.earlyDepartures || [],
-        // Outside-geofence attempts removed from this report's UI/export payload
+        outsideGeofenceAttempts: reportData.outsideGeofenceAttempts || [],
         missedCheckIns: reportData.missedCheckIns || [],
         filters: reportData.filters || {},
       };

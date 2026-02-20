@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { RefreshCw, ClipboardList, Calendar, User, Tag, CheckCircle } from "lucide-react";
+import { RefreshCw, ClipboardList, Calendar, Download, CheckCircle } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export default function CompletedActivitiesMasterAuditReport() {
   const [loading, setLoading] = useState(false);
@@ -53,6 +54,40 @@ export default function CompletedActivitiesMasterAuditReport() {
   const byModule = summary.byModule || {};
   const byStatus = summary.byStatus || {};
 
+  const handleExportExcel = () => {
+    if (!reportData) return;
+    const wb = XLSX.utils.book_new();
+    const summaryRows = [
+      ["Completed Activities (Master Audit) - Export"],
+      [],
+      ["Metric", "Value"],
+      ["Total Events", summary.totalEvents ?? 0],
+      ["By Module - Attendance", byModule.attendance ?? 0],
+      ["By Module - Leave", byModule.leave ?? 0],
+      ["By Module - Payroll", byModule.payroll ?? 0],
+      ["By Module - Documents", byModule.documents ?? 0],
+      ["By Module - Projects", byModule.projects ?? 0],
+      ["By Status - Success", byStatus.success ?? 0],
+      ["By Status - Failed", byStatus.failed ?? 0],
+      ["By Status - Other", byStatus.other ?? 0],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), "Summary");
+    const eventRows = [
+      ["Actor", "Timestamp", "Module", "Action", "Status", "Outcome"],
+      ...events.map((e) => [
+        e.actor ?? "",
+        e.timestamp ? new Date(e.timestamp).toLocaleString() : "",
+        e.module ?? "",
+        e.action ?? "",
+        e.status ?? "",
+        e.outcome ?? "",
+      ]),
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(eventRows), "Events");
+    const fileName = `completed_activities_audit_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -65,14 +100,25 @@ export default function CompletedActivitiesMasterAuditReport() {
             Every completed transaction: attendance check-in/out, leave approvals, payroll runs, document uploads, project updates. Actor, timestamp, source module, status, outcome.
           </p>
         </div>
-        <button
-          onClick={handleGenerateReport}
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 flex items-center gap-2"
-        >
-          <RefreshCw className={loading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
-          {loading ? "Generating..." : "Generate Report"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleGenerateReport}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 flex items-center gap-2"
+          >
+            <RefreshCw className={loading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
+            {loading ? "Generating..." : "Generate Report"}
+          </button>
+          {reportData && (
+            <button
+              onClick={handleExportExcel}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export Excel
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

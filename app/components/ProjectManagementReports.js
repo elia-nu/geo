@@ -1,19 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { Briefcase, Milestone, Users, DollarSign, AlertTriangle } from "lucide-react";
+import { Briefcase, Milestone, Users, DollarSign } from "lucide-react";
 import ProjectMasterSummaryReport from "./ProjectMasterSummaryReport";
 import ProjectMilestoneProgressReport from "./ProjectMilestoneProgressReport";
 import ProjectWorkforceUtilizationReport from "./ProjectWorkforceUtilizationReport";
 import ProjectCostBudgetPerformanceReport from "./ProjectCostBudgetPerformanceReport";
-import ProjectRiskIssueTrackingReport from "./ProjectRiskIssueTrackingReport";
 
 const TABS = [
   { id: "master-summary", label: "Project Master Summary", icon: Briefcase, component: ProjectMasterSummaryReport },
   { id: "milestone-progress", label: "Milestone Progress", icon: Milestone, component: ProjectMilestoneProgressReport },
   { id: "workforce-utilization", label: "Workforce Utilization", icon: Users, component: ProjectWorkforceUtilizationReport },
   { id: "cost-budget", label: "Cost & Budget Performance", icon: DollarSign, component: ProjectCostBudgetPerformanceReport },
-  { id: "risk-issue", label: "Risk & Issue Tracking", icon: AlertTriangle, component: ProjectRiskIssueTrackingReport },
 ];
 
 export default function ProjectManagementReports() {
@@ -28,7 +26,7 @@ export default function ProjectManagementReports() {
             Project Management Reports
           </h1>
           <p className="text-gray-600 mb-6">
-            8.1 Master Summary • 8.2 Milestone Progress • 8.3 Workforce Utilization • 8.4 Cost & Budget • 8.5 Risk & Issue Tracking
+            8.1 Master Summary • 8.2 Milestone Progress • 8.3 Workforce Utilization • 8.4 Cost & Budget
           </p>
 
           <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-6">

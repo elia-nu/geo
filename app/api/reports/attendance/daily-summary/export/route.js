@@ -34,14 +34,7 @@ export async function POST(request) {
       filters = {},
     } = data;
 
-    if (
-      !summary ||
-      Object.keys(summary).length === 0 ||
-      (!byDepartment.length &&
-        !bySite.length &&
-        !byProject.length &&
-        !byShift.length)
-    ) {
+    if (!summary || typeof summary !== "object") {
       return NextResponse.json(
         {
           error:

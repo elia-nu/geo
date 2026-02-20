@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { RefreshCw, AlertTriangle, Clock, Calendar, Briefcase, DollarSign } from "lucide-react";
+import { RefreshCw, AlertTriangle, Calendar, Briefcase, DollarSign, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export default function WorkflowBottleneckSLAReport() {
   const [loading, setLoading] = useState(false);
@@ -49,6 +50,56 @@ export default function WorkflowBottleneckSLAReport() {
   const leaveDelays = reportData?.leaveDelays || [];
   const taskDelays = reportData?.taskDelays || [];
 
+  const handleExportExcel = () => {
+    if (!reportData) return;
+    const wb = XLSX.utils.book_new();
+    const summaryRows = [
+      ["Workflow Bottleneck & SLA Breach - Export"],
+      [],
+      ["Leave", "Total", leaveSummary.totalRequests ?? 0],
+      ["Leave", "Approved/Rejected", leaveSummary.approvedOrRejected ?? 0],
+      ["Leave", "Pending", leaveSummary.pending ?? 0],
+      ["Leave", "SLA Breaches", leaveSummary.breaches ?? 0],
+      ["Payroll", "Periods Analyzed", payrollSummary.periodsAnalyzed ?? 0],
+      ["Payroll", "Breaches", payrollSummary.breaches ?? 0],
+      ["Tasks", "Total", tasksSummary.totalTasks ?? 0],
+      ["Tasks", "Completed", tasksSummary.completed ?? 0],
+      ["Tasks", "Overdue", tasksSummary.overdue ?? 0],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), "Summary");
+    if (leaveDelays.length > 0) {
+      const leaveRows = [
+        ["Status", "Submitted", "Processed", "Hours to decision", "SLA breach"],
+        ...leaveDelays.map((d) => [
+          d.status ?? "",
+          d.submittedAt ? new Date(d.submittedAt).toLocaleString() : "",
+          d.processedAt ? new Date(d.processedAt).toLocaleString() : "",
+          d.hoursToDecision != null ? d.hoursToDecision : "",
+          d.breached ? "Yes" : "No",
+        ]),
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(leaveRows), "Leave Delays");
+    }
+    if (taskDelays.length > 0) {
+      const taskRows = [
+        ["Title", "Status", "Due", "Hours open", "Overdue"],
+        ...taskDelays.map((d) => [
+          d.title ?? "",
+          d.status ?? "",
+          d.dueDate ? new Date(d.dueDate).toLocaleDateString() : "",
+          d.hoursOpen != null ? d.hoursOpen : "",
+          d.overdue ? "Yes" : "No",
+        ]),
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(taskRows), "Task Delays");
+    }
+    if (bottlenecks.length > 0) {
+      const botRows = [["Area", "Indicator", "Probable causes"], ...bottlenecks.map((b) => [b.area ?? "", b.indicator ?? "", (b.probableCauses || []).join("; ")])];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(botRows), "Bottlenecks");
+    }
+    XLSX.writeFile(wb, `workflow_bottleneck_sla_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -61,14 +112,25 @@ export default function WorkflowBottleneckSLAReport() {
             Delays in leave approvals, payroll processing, project task closures. Root cause analysis.
           </p>
         </div>
-        <button
-          onClick={handleGenerateReport}
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 flex items-center gap-2"
-        >
-          <RefreshCw className={loading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
-          {loading ? "Generating..." : "Generate Report"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleGenerateReport}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 flex items-center gap-2"
+          >
+            <RefreshCw className={loading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
+            {loading ? "Generating..." : "Generate Report"}
+          </button>
+          {reportData && (
+            <button
+              onClick={handleExportExcel}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export Excel
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

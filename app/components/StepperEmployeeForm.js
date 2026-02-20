@@ -12,37 +12,19 @@ import {
   Plus,
   Trash2,
   X,
+  Upload,
+  FileText,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import ClientOnly from "./ClientOnly";
 
-const STEPS = [
-  {
-    id: 1,
-    title: "Personal Details",
-    icon: User,
-    description: "Basic information",
-  },
-  {
-    id: 2,
-    title: "Employment History",
-    icon: Briefcase,
-    description: "Work experience",
-  },
-  {
-    id: 3,
-    title: "Certifications",
-    icon: Award,
-    description: "Qualifications",
-  },
-  { id: 4, title: "Skills", icon: Brain, description: "Competencies" },
-  {
-    id: 5,
-    title: "Health Records",
-    icon: Heart,
-    description: "Medical information",
-  },
+const ALL_STEPS = [
+  { id: "personal", title: "Personal Details", icon: User, description: "Basic information" },
+  { id: "employment", title: "Employment History", icon: Briefcase, description: "Work experience" },
+  { id: "certifications", title: "Certifications", icon: Award, description: "Qualifications" },
+  { id: "skills", title: "Skills", icon: Brain, description: "Competencies" },
+  { id: "health", title: "Health Records", icon: Heart, description: "Medical information" },
 ];
 
 export default function StepperEmployeeForm({
@@ -122,6 +104,12 @@ export default function StepperEmployeeForm({
   });
 
   const [formErrors, setFormErrors] = useState({});
+  const [employmentHistoryPdfFile, setEmploymentHistoryPdfFile] = useState(null);
+
+  // If user attaches a PDF for employment history, skip Certifications and Skills steps
+  const visibleSteps = employmentHistoryPdfFile
+    ? ALL_STEPS.filter((s) => ["personal", "employment", "health"].includes(s.id))
+    : ALL_STEPS;
 
   // Fetch departments, designations and next employee id when modal opens
   useEffect(() => {
@@ -232,10 +220,11 @@ export default function StepperEmployeeForm({
     }
   }, [personalDetails.department, departments, designations]);
 
-  const canNavigateToStep = (targetStep) => {
-    if (targetStep <= currentStep) return true;
-    if (targetStep === currentStep + 1) {
-      const errors = validateStep(currentStep);
+  const canNavigateToStep = (targetStepIndex) => {
+    if (targetStepIndex <= currentStep) return true;
+    if (targetStepIndex === currentStep + 1) {
+      const stepId = visibleSteps[currentStep - 1]?.id;
+      const errors = stepId ? validateStep(stepId) : {};
       setFormErrors(errors);
       return Object.keys(errors).length === 0;
     }
@@ -250,7 +239,7 @@ export default function StepperEmployeeForm({
         resetForm();
       } else if (
         e.key === "ArrowRight" &&
-        currentStep < STEPS.length &&
+        currentStep < visibleSteps.length &&
         !loading
       ) {
         e.preventDefault();
@@ -261,7 +250,7 @@ export default function StepperEmployeeForm({
       } else if (
         e.key === "Enter" &&
         e.ctrlKey &&
-        currentStep === STEPS.length
+        currentStep === visibleSteps.length
       ) {
         e.preventDefault();
         handleSubmit();
@@ -272,15 +261,15 @@ export default function StepperEmployeeForm({
       document.addEventListener("keydown", handleKeyDown);
       return () => document.removeEventListener("keydown", handleKeyDown);
     }
-  }, [currentStep, loading, isOpen]);
+  }, [currentStep, loading, isOpen, visibleSteps.length]);
 
   if (!isOpen) return null;
 
-  const validateStep = (step) => {
+  const validateStep = (stepId) => {
     const errors = {};
 
-    switch (step) {
-      case 1:
+    switch (stepId) {
+      case "personal":
         if (!personalDetails.name.trim()) errors.name = "Name is required";
         if (!personalDetails.email.trim()) errors.email = "Email is required";
         if (
@@ -301,7 +290,8 @@ export default function StepperEmployeeForm({
           errors.contractExpiryDate = "Contract expiry date is required for contractual employees";
         break;
 
-      case 2:
+      case "employment":
+        if (employmentHistoryPdfFile) break;
         employmentHistory.forEach((job, index) => {
           if (job.company || job.position || job.startDate) {
             if (!job.company)
@@ -316,7 +306,7 @@ export default function StepperEmployeeForm({
         });
         break;
 
-      case 3:
+      case "certifications":
         certifications.forEach((cert, index) => {
           if (cert.title || cert.issuer || cert.issueDate) {
             if (!cert.title)
@@ -329,7 +319,7 @@ export default function StepperEmployeeForm({
         });
         break;
 
-      case 4:
+      case "skills":
         skills.forEach((skill, index) => {
           if (
             skill.skillName ||
@@ -347,11 +337,12 @@ export default function StepperEmployeeForm({
   };
 
   const handleNext = () => {
-    const errors = validateStep(currentStep);
+    const stepId = visibleSteps[currentStep - 1]?.id;
+    const errors = stepId ? validateStep(stepId) : {};
     setFormErrors(errors);
 
     if (Object.keys(errors).length === 0) {
-      setCurrentStep((prev) => Math.min(prev + 1, STEPS.length));
+      setCurrentStep((prev) => Math.min(prev + 1, visibleSteps.length));
     }
   };
 
@@ -360,7 +351,8 @@ export default function StepperEmployeeForm({
   };
 
   const handleSubmit = async () => {
-    const errors = validateStep(currentStep);
+    const stepId = visibleSteps[currentStep - 1]?.id;
+    const errors = stepId ? validateStep(stepId) : {};
     setFormErrors(errors);
 
     if (Object.keys(errors).length > 0) return;
@@ -370,6 +362,7 @@ export default function StepperEmployeeForm({
     setSuccess("");
 
     try {
+      const usePdfForHistory = !!employmentHistoryPdfFile;
       const employeeData = {
         personalDetails: {
           ...personalDetails,
@@ -377,13 +370,19 @@ export default function StepperEmployeeForm({
           updatedAt: new Date(),
           status: "active",
         },
-        employmentHistory: employmentHistory.filter(
-          (job) => job.company || job.position || job.startDate
-        ),
-        certifications: certifications.filter(
-          (cert) => cert.title || cert.issuer || cert.issueDate
-        ),
-        skills: skills.filter((skill) => skill.skillName),
+        employmentHistory: usePdfForHistory
+          ? []
+          : employmentHistory.filter(
+              (job) => job.company || job.position || job.startDate
+            ),
+        certifications: usePdfForHistory
+          ? []
+          : certifications.filter(
+              (cert) => cert.title || cert.issuer || cert.issueDate
+            ),
+        skills: usePdfForHistory
+          ? []
+          : skills.filter((skill) => skill.skillName),
         healthRecords,
       };
 
@@ -401,6 +400,29 @@ export default function StepperEmployeeForm({
       }
 
       const result = await response.json();
+      const newEmployeeId = result.employeeId;
+
+      if (usePdfForHistory && employmentHistoryPdfFile && newEmployeeId) {
+        const formData = new FormData();
+        formData.append("file", employmentHistoryPdfFile);
+        formData.append(
+          "documentData",
+          JSON.stringify({
+            employeeId: newEmployeeId,
+            type: "employment_history",
+            title: `Employment History - ${personalDetails.name || "Employee"}`,
+            category: "employee",
+          })
+        );
+        const uploadRes = await fetch("/api/documents/upload", {
+          method: "POST",
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          console.warn("Employment history PDF upload failed; employee was created.");
+        }
+      }
+
       setSuccess("Employee created successfully!");
 
       setTimeout(() => {
@@ -477,6 +499,7 @@ export default function StepperEmployeeForm({
     setFormErrors({});
     setError("");
     setSuccess("");
+    setEmploymentHistoryPdfFile(null);
   };
 
   const addEmploymentEntry = () => {
@@ -554,8 +577,9 @@ export default function StepperEmployeeForm({
   };
 
   const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
+    const stepId = visibleSteps[currentStep - 1]?.id;
+    switch (stepId) {
+      case "personal":
         return (
           <div className="space-y-8">
             <div className="text-center mb-8">
@@ -972,7 +996,7 @@ export default function StepperEmployeeForm({
           </div>
         );
 
-      case 2:
+      case "employment":
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -984,6 +1008,56 @@ export default function StepperEmployeeForm({
               </p>
             </div>
 
+            {/* Attach PDF: if provided, Certifications and Skills steps are hidden */}
+            <div className="mb-6 p-4 border border-slate-200 rounded-xl bg-slate-50">
+              <div className="flex items-center gap-2 mb-2">
+                <Upload className="w-5 h-5 text-teal-600" />
+                <span className="font-semibold text-gray-800">Attach PDF</span>
+              </div>
+              <p className="text-sm text-gray-600 mb-3">
+                Upload a single PDF for employment history, certifications, and skills. If you attach a PDF, the Certifications and Skills steps will be skipped.
+              </p>
+              {!employmentHistoryPdfFile ? (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file && file.type === "application/pdf") {
+                        setEmploymentHistoryPdfFile(file);
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-medium">
+                    <FileText className="w-4 h-4" />
+                    Choose PDF
+                  </span>
+                </label>
+              ) : (
+                <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-red-600" />
+                    <span className="text-sm font-medium text-black">{employmentHistoryPdfFile.name}</span>
+                    <span className="text-xs text-gray-500">
+                      ({(employmentHistoryPdfFile.size / 1024).toFixed(1)} KB)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEmploymentHistoryPdfFile(null)}
+                    className="text-red-600 hover:text-red-700 text-sm font-medium flex items-center gap-1"
+                  >
+                    <X className="w-4 h-4" /> Remove
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {!employmentHistoryPdfFile && (
+              <>
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-blue-600" />
@@ -1161,10 +1235,12 @@ export default function StepperEmployeeForm({
                 </div>
               </div>
             ))}
+              </>
+            )}
           </div>
         );
 
-      case 3:
+      case "certifications":
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -1330,7 +1406,7 @@ export default function StepperEmployeeForm({
           </div>
         );
 
-      case 4:
+      case "skills":
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -1458,7 +1534,7 @@ export default function StepperEmployeeForm({
           </div>
         );
 
-      case 5:
+      case "health":
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold">Health Records</h3>
@@ -1721,8 +1797,8 @@ export default function StepperEmployeeForm({
                   Add New Employee
                 </h2>
                 <p className="text-white text-opacity-90 text-sm">
-                  Step {currentStep} of {STEPS.length} -{" "}
-                  {STEPS[currentStep - 1]?.title}
+                  Step {currentStep} of {visibleSteps.length} -{" "}
+                  {visibleSteps[currentStep - 1]?.title}
                 </p>
               </div>
               <button
@@ -1744,70 +1820,73 @@ export default function StepperEmployeeForm({
               <div
                 className="absolute top-5 left-0 h-1.5 bg-gradient-to-r from-yellow-300 to-amber-400 rounded-full transition-all duration-500 ease-out shadow-lg"
                 style={{
-                  width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%`,
+                  width: `${visibleSteps.length > 1 ? ((currentStep - 1) / (visibleSteps.length - 1)) * 100 : 0}%`,
                 }}
               ></div>
 
               <div className="relative flex justify-between">
-                {STEPS.map((step, index) => (
-                  <div
-                    key={step.id}
-                    className="flex flex-col items-center group"
-                  >
-                    {/* Step Circle */}
+                {visibleSteps.map((step, index) => {
+                  const stepNumber = index + 1;
+                  return (
                     <div
-                      onClick={() => {
-                        if (canNavigateToStep(step.id)) setCurrentStep(step.id);
-                      }}
-                      role="button"
-                      title={step.title}
-                      className={`relative flex items-center justify-center w-12 h-12 rounded-full border-3 transition-all duration-300 transform cursor-pointer ${
-                        currentStep > step.id
-                          ? "bg-amber-400 border-amber-300 text-white scale-110 shadow-xl shadow-amber-500/50"
-                          : currentStep === step.id
-                          ? "bg-white border-white text-teal-700 scale-110 shadow-xl shadow-white/50 animate-pulse"
-                          : "bg-teal-400 bg-opacity-40 border-teal-300 text-white hover:scale-105 hover:bg-opacity-60"
-                      }`}
+                      key={step.id}
+                      className="flex flex-col items-center group"
                     >
-                      {currentStep > step.id ? (
-                        <Check className="w-6 h-6 animate-in zoom-in duration-300" />
-                      ) : (
-                        <step.icon
-                          className={`w-6 h-6 ${
-                            currentStep === step.id ? "animate-bounce" : ""
+                      {/* Step Circle */}
+                      <div
+                        onClick={() => {
+                          if (canNavigateToStep(stepNumber)) setCurrentStep(stepNumber);
+                        }}
+                        role="button"
+                        title={step.title}
+                        className={`relative flex items-center justify-center w-12 h-12 rounded-full border-3 transition-all duration-300 transform cursor-pointer ${
+                          currentStep > stepNumber
+                            ? "bg-amber-400 border-amber-300 text-white scale-110 shadow-xl shadow-amber-500/50"
+                            : currentStep === stepNumber
+                            ? "bg-white border-white text-teal-700 scale-110 shadow-xl shadow-white/50 animate-pulse"
+                            : "bg-teal-400 bg-opacity-40 border-teal-300 text-white hover:scale-105 hover:bg-opacity-60"
+                        }`}
+                      >
+                        {currentStep > stepNumber ? (
+                          <Check className="w-6 h-6 animate-in zoom-in duration-300" />
+                        ) : (
+                          <step.icon
+                            className={`w-6 h-6 ${
+                              currentStep === stepNumber ? "animate-bounce" : ""
+                            }`}
+                          />
+                        )}
+
+                        {/* Pulse Animation for Current Step */}
+                        {currentStep === stepNumber && (
+                          <div className="absolute inset-0 rounded-full border-3 border-white animate-ping opacity-75"></div>
+                        )}
+                      </div>
+
+                      {/* Step Label */}
+                      <div className="mt-3 text-center">
+                        <p
+                          className={`text-sm font-semibold transition-colors ${
+                            currentStep >= stepNumber
+                              ? "text-white drop-shadow"
+                              : "text-white text-opacity-60"
                           }`}
-                        />
-                      )}
-
-                      {/* Pulse Animation for Current Step */}
-                      {currentStep === step.id && (
-                        <div className="absolute inset-0 rounded-full border-3 border-white animate-ping opacity-75"></div>
-                      )}
+                        >
+                          {step.title}
+                        </p>
+                        <p
+                          className={`text-xs mt-1 ${
+                            currentStep >= stepNumber
+                              ? "text-white text-opacity-90"
+                              : "text-white text-opacity-50"
+                          }`}
+                        >
+                          {step.description}
+                        </p>
+                      </div>
                     </div>
-
-                    {/* Step Label */}
-                    <div className="mt-3 text-center">
-                      <p
-                        className={`text-sm font-semibold transition-colors ${
-                          currentStep >= step.id
-                            ? "text-white drop-shadow"
-                            : "text-white text-opacity-60"
-                        }`}
-                      >
-                        {step.title}
-                      </p>
-                      <p
-                        className={`text-xs mt-1 ${
-                          currentStep >= step.id
-                            ? "text-white text-opacity-90"
-                            : "text-white text-opacity-50"
-                        }`}
-                      >
-                        {step.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1869,7 +1948,7 @@ export default function StepperEmployeeForm({
                   <span>Navigate</span>
                   <span className="bg-gray-100 px-2 py-1 rounded">Esc</span>
                   <span>Close</span>
-                  {currentStep === STEPS.length && (
+                  {currentStep === visibleSteps.length && (
                     <>
                       <span className="bg-gray-100 px-2 py-1 rounded">
                         Ctrl+Enter
@@ -1881,10 +1960,10 @@ export default function StepperEmployeeForm({
 
                 {/* Step Counter */}
                 <span className="text-sm text-gray-500 font-medium">
-                  {currentStep} of {STEPS.length}
+                  {currentStep} of {visibleSteps.length}
                 </span>
 
-                {currentStep < STEPS.length ? (
+                {currentStep < visibleSteps.length ? (
                   <Button
                     onClick={handleNext}
                     disabled={loading}

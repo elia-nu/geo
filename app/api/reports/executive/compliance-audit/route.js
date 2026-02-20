@@ -10,7 +10,7 @@ function toDate(v) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// 9.2 Compliance & Audit Readiness Report: Attendance verification logs, Payroll approval trails, Leave approvals, Document access records
+// 9.2 Compliance & Audit Readiness Report: Attendance verification logs, Payroll approval trails, Leave approvals
 export async function GET(request) {
   try {
     const db = await getDb();
@@ -121,31 +121,6 @@ export async function GET(request) {
       ],
     }).sort({ updatedAt: -1 }).limit(100).toArray();
 
-    const documentAccessRecords = auditLogs
-      .filter(
-        (e) =>
-          (e.entityType === "document" ||
-            e.entityType === "policy_document" ||
-            e.entityType === "attachment") &&
-          [
-            "DOCUMENT_VIEW",
-            "DOCUMENT_DOWNLOAD",
-            "DOCUMENT_UPDATE",
-            "DOCUMENT_DELETE",
-            "VIEW",
-            "EXPORT",
-          ].includes(e.action || "")
-      )
-      .slice(0, 100)
-      .map((e) => ({
-        timestamp: e.timestamp,
-        userId: e.userId,
-        userEmail: e.userEmail,
-        action: e.action,
-        entityId: e.entityId,
-        metadata: e.metadata,
-      }));
-
     await createAuditLog({
       action: "VIEW",
       entityType: "report",
@@ -164,7 +139,6 @@ export async function GET(request) {
         attendanceVerificationCount: attendanceVerificationLogs.length,
         payrollApprovalCount: payrollApprovalTrails.length,
         leaveApprovalCount: leaveApprovals.length + leaveDocs.length,
-        documentAccessCount: documentAccessRecords.length,
       },
       attendanceVerificationLogs,
       payrollApprovalTrails,
@@ -179,7 +153,6 @@ export async function GET(request) {
         submittedAt: d.submittedAt,
         updatedAt: d.updatedAt,
       })),
-      documentAccessRecords,
     });
   } catch (error) {
     console.error("Error generating compliance & audit readiness report:", error);

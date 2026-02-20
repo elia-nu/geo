@@ -8,8 +8,6 @@ import {
   ChevronRight,
   ChevronDown,
   Users,
-  Briefcase,
-  MapPin,
   UserCheck,
   FileText,
 } from "lucide-react";
@@ -131,19 +129,8 @@ export default function OrganizationalStructureReport() {
   const renderHierarchy = () => {
     if (!reportData?.hierarchy) return null;
 
-    const { company, divisions } = reportData.hierarchy;
-
-    // Flatten all departments across divisions; we don't show divisions in the UI
-    const allDepartments = [];
-    if (Array.isArray(divisions)) {
-      divisions.forEach((division) => {
-        if (Array.isArray(division.departments)) {
-          division.departments.forEach((dept) => {
-            allDepartments.push(dept);
-          });
-        }
-      });
-    }
+    const { company, departments } = reportData.hierarchy;
+    const allDepartments = Array.isArray(departments) ? departments : [];
 
     return (
       <div className="space-y-4">
@@ -155,7 +142,7 @@ export default function OrganizationalStructureReport() {
           </div>
         </div>
 
-        {/* Departments (no division level) */}
+        {/* Departments → Roles (no division, no unit) */}
         {allDepartments.map((department, idx) => {
           const deptNodeId = `dept-${department.id || idx}`;
           const isDeptExpanded = expandedNodes.has(deptNodeId);
@@ -187,63 +174,48 @@ export default function OrganizationalStructureReport() {
 
               {isDeptExpanded && (
                 <div className="p-3 space-y-2 border-t border-gray-100">
-                  {/* Units */}
-                  {department.units?.map((unit, unitIdx) => (
+                  {/* Roles (directly under department) */}
+                  {department.roles?.map((role, roleIdx) => (
                     <div
-                      key={unitIdx}
-                      className="border border-gray-200 rounded p-2 bg-gray-50"
+                      key={roleIdx}
+                      className="ml-4 mb-2 border-l-2 border-blue-200 pl-3"
                     >
-                      <div className="flex items-center space-x-2 mb-2">
-                        <MapPin className="w-4 h-4 text-gray-500" />
+                      <div className="flex items-center space-x-2 mb-1">
+                        <UserCheck className="w-4 h-4 text-blue-500" />
                         <span className="font-medium text-gray-700">
-                          {unit.name}
+                          {role.name}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          ({role.employees?.length || 0})
                         </span>
                       </div>
 
-                      {/* Roles */}
-                      {unit.roles?.map((role, roleIdx) => (
-                        <div
-                          key={roleIdx}
-                          className="ml-6 mb-2 border-l-2 border-blue-200 pl-3"
-                        >
-                          <div className="flex items-center space-x-2 mb-1">
-                            <UserCheck className="w-4 h-4 text-blue-500" />
-                            <span className="font-medium text-gray-700">
-                              {role.name}
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              ({role.employees?.length || 0})
-                            </span>
-                          </div>
-
-                          {/* Employees */}
-                          {role.employees && role.employees.length > 0 && (
-                            <div className="ml-4 space-y-1">
-                              {role.employees.map((emp, empIdx) => (
-                                <div
-                                  key={empIdx}
-                                  className="text-sm text-gray-600 flex items-center space-x-2"
-                                >
-                                  <span>•</span>
-                                  <span>{emp.name}</span>
-                                  <span className="text-gray-400">
-                                    ({emp.email})
-                                  </span>
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-xs ${
-                                      emp.status === "active"
-                                        ? "bg-green-100 text-green-800"
-                                        : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {emp.status || "active"}
-                                  </span>
-                                </div>
-                              ))}
+                      {/* Employees */}
+                      {role.employees && role.employees.length > 0 && (
+                        <div className="ml-4 space-y-1">
+                          {role.employees.map((emp, empIdx) => (
+                            <div
+                              key={empIdx}
+                              className="text-sm text-gray-600 flex items-center space-x-2"
+                            >
+                              <span>•</span>
+                              <span>{emp.name}</span>
+                              <span className="text-gray-400">
+                                ({emp.email})
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-xs ${
+                                  emp.status === "active"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {emp.status || "active"}
+                              </span>
                             </div>
-                          )}
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   ))}
                 </div>
@@ -319,19 +291,9 @@ export default function OrganizationalStructureReport() {
           )}
         </div>
 
-        {/* Summary Cards */}
+        {/* Summary Cards (Departments, Roles, Employees — no Division, no Unit) */}
         {reportData?.summary && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="flex items-center space-x-2 mb-2">
-                <Building2 className="w-5 h-5 text-blue-600" />
-                <span className="font-medium text-blue-900">Divisions</span>
-              </div>
-              <p className="text-2xl font-bold text-blue-600">
-                {reportData.summary.totalDivisions || 0}
-              </p>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-green-50 rounded-lg p-4">
               <div className="flex items-center space-x-2 mb-2">
                 <FileText className="w-5 h-5 text-green-600" />
@@ -339,16 +301,6 @@ export default function OrganizationalStructureReport() {
               </div>
               <p className="text-2xl font-bold text-green-600">
                 {reportData.summary.totalDepartments || 0}
-              </p>
-            </div>
-
-            <div className="bg-purple-50 rounded-lg p-4">
-              <div className="flex items-center space-x-2 mb-2">
-                <MapPin className="w-5 h-5 text-purple-600" />
-                <span className="font-medium text-purple-900">Units</span>
-              </div>
-              <p className="text-2xl font-bold text-purple-600">
-                {reportData.summary.totalUnits || 0}
               </p>
             </div>
 

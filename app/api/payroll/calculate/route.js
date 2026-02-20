@@ -111,7 +111,9 @@ export async function POST(request) {
         }
       }
     }
-    const totalDaysInMonth = endDate.getUTCDate();
+    // Number of calendar days in the month (28, 29, 30, or 31)
+    const totalDaysInMonth = endLocalForCount.getDate();
+
     try {
       const origin = new URL(request.url).origin;
       const apiUrl = `${origin}/api/ethiopian-calendar?action=holidays&year=${targetYear}&month=${targetMonth}`;
@@ -149,28 +151,24 @@ export async function POST(request) {
       }
     }
 
-    // If there are no holidays at all for this month, treat it as a 30‑day
-    // working month with no weekend breaks, as requested:
-    // - totalWorkingDays: always 30
-    // - workingDaysSoFar: count calendar days in this month up to today, capped at 30
+    // When no holidays were found via API/set: working days = all days in month (28–31).
+    // Override only so working days = days in month, not a fixed 30.
     if (holidayIsoSet.size === 0) {
-      totalWorkingDays = 30;
+      totalWorkingDays = totalDaysInMonth;
 
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
       const sameMonth =
         today.getFullYear() === targetYear &&
         today.getMonth() === targetMonth - 1;
 
       if (today < startLocalForCount) {
-        // Future month – no days worked yet
         workingDaysSoFar = 0;
       } else if (today > endLocalForCount || !sameMonth) {
-        // Past month (or different year) – full 30 working days
-        workingDaysSoFar = 30;
+        workingDaysSoFar = totalDaysInMonth;
       } else {
-        // Current month – days so far in this month, capped at 30
         const dayOfMonth = today.getDate();
-        workingDaysSoFar = Math.min(dayOfMonth, 30);
+        workingDaysSoFar = Math.min(dayOfMonth, totalDaysInMonth);
       }
     }
     const holidays = Array.from(holidayIsoSet).map((iso) => ({
@@ -565,9 +563,13 @@ export async function POST(request) {
       data: {
         payrollData,
         summary,
-        period: { month: targetMonth, year: targetYear },
+        period: {
+          month: targetMonth,
+          year: targetYear,
+          workingDays: totalWorkingDays,
+          totalDaysInMonth,
+        },
         calculatedAt: new Date().toISOString(),
-        // Ethiopian calendar info
         workingDays: workingDaysSoFar,
         totalDays: totalDaysInMonth,
         holidays: holidays.map((holiday) => ({
@@ -615,6 +617,7 @@ export async function GET(request) {
     );
     const totalDaysInMonth = endDate.getDate();
     const holidays = getHolidaysForMonth(targetYear, targetMonth);
+    const workingDaysSoFar = totalWorkingDays;
 
     // Build employee query
     let employeeQuery = { status: "active" };
@@ -746,9 +749,13 @@ export async function GET(request) {
       data: {
         payrollData,
         summary,
-        period: { month: targetMonth, year: targetYear },
+        period: {
+          month: targetMonth,
+          year: targetYear,
+          workingDays: totalWorkingDays,
+          totalDaysInMonth,
+        },
         calculatedAt: new Date().toISOString(),
-        // Ethiopian calendar info
         workingDays: workingDaysSoFar,
         totalDays: totalDaysInMonth,
         holidays: holidays.map((holiday) => ({

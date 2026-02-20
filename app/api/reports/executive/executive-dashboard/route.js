@@ -31,17 +31,29 @@ export async function GET(request) {
     const targetMonth = monthParam ? parseInt(monthParam, 10) : now.getMonth() + 1;
     const targetYear = yearParam ? parseInt(yearParam, 10) : now.getFullYear();
     const startStr = `${targetYear}-${String(targetMonth).padStart(2, "0")}-01`;
-    const endDate = new Date(targetYear, targetMonth, 0);
-    const endStr = endDate.toISOString().slice(0, 10);
+    const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+    const endStr = `${targetYear}-${String(targetMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
     const employees = await db.collection("employees").find({}).toArray();
-    const empCount = employees.length;
+    const activeEmployees = employees.filter((e) => {
+      const s = (e.status || "").toString().toLowerCase();
+      return !["terminated", "inactive"].includes(s);
+    });
+    const activeCount = activeEmployees.length;
+
+    // daily_attendance.date is stored as YYYY-MM-DD string; support both string and Date for robustness
+    const startDate = new Date(startStr + "T00:00:00.000Z");
+    const endDate = new Date(endStr + "T23:59:59.999Z");
     const attendanceRecords = await db.collection("daily_attendance").find({
-      date: { $gte: startStr, $lte: endStr },
+      $or: [
+        { date: { $gte: startStr, $lte: endStr } },
+        { date: { $gte: startDate, $lte: endDate } },
+      ],
     }).toArray();
-    const totalAttendanceDays = attendanceRecords.length;
+
+    const totalAttendanceDays = attendanceRecords.filter((r) => r.checkInTime).length;
     const daysWithCheckOut = attendanceRecords.filter((r) => r.checkInTime && r.checkOutTime).length;
-    const expectedWorkingDays = empCount * 22;
+    const expectedWorkingDays = activeCount * 22;
     const attendanceAccuracy = expectedWorkingDays > 0
       ? Math.round((totalAttendanceDays / expectedWorkingDays) * 10000) / 100
       : 0;
@@ -82,6 +94,7 @@ export async function GET(request) {
     const taskCompletionRate = totalTasks > 0
       ? Math.round((completedTasks / totalTasks) * 10000) / 100
       : 0;
+    const empCount = employees.length;
     const assignedEmpIds = new Set();
     projects.forEach((p) => (p.assignedEmployees || []).forEach((id) => assignedEmpIds.add(id.toString())));
     const workforceUtilization = empCount > 0

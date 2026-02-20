@@ -154,8 +154,6 @@ function generateExcelExport(employees, summary, filters) {
       "Department",
       "Role/Designation",
       "Work Location",
-      "Supervisor",
-      "Supervisor Email",
       "Contract Type",
       "Joining Date",
       "Contract Expiry Date",
@@ -219,8 +217,6 @@ function generateExcelExport(employees, summary, filters) {
           emp.department || "N/A",
           emp.role || emp.designation || "N/A",
           emp.workLocation || "N/A",
-          emp.supervisor || "N/A",
-          emp.supervisorEmail || "N/A",
           emp.contractType || "N/A",
           joiningDate,
           contractExpiryDate,
@@ -233,7 +229,6 @@ function generateExcelExport(employees, summary, filters) {
         employeeRows.push([
           "ERROR",
           "Error processing employee data",
-          "",
           "",
           "",
           "",
@@ -260,8 +255,6 @@ function generateExcelExport(employees, summary, filters) {
       { wch: 20 }, // Department
       { wch: 20 }, // Role
       { wch: 20 }, // Work Location
-      { wch: 25 }, // Supervisor
-      { wch: 30 }, // Supervisor Email
       { wch: 15 }, // Contract Type
       { wch: 15 }, // Joining Date
       { wch: 18 }, // Contract Expiry Date
@@ -306,8 +299,6 @@ function generateCSVExport(employees, summary, filters) {
       "Department",
       "Role/Designation",
       "Work Location",
-      "Supervisor",
-      "Supervisor Email",
       "Contract Type",
       "Joining Date",
       "Contract Expiry Date",
@@ -382,8 +373,6 @@ function generateCSVExport(employees, summary, filters) {
           escapeCSV(emp.department || ""),
           escapeCSV(emp.role || emp.designation || ""),
           escapeCSV(emp.workLocation || ""),
-          escapeCSV(emp.supervisor || ""),
-          escapeCSV(emp.supervisorEmail || ""),
           escapeCSV(emp.contractType || ""),
           escapeCSV(joiningDate),
           escapeCSV(contractExpiryDate),

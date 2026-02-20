@@ -127,30 +127,6 @@ export async function GET(request) {
       },
     });
 
-    // Lookup supervisor (if supervisor field exists)
-    pipeline.push({
-      $lookup: {
-        from: "employees",
-        let: { supervisorId: "$supervisor" },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $eq: ["$_id", "$$supervisorId"],
-              },
-            },
-          },
-          {
-            $project: {
-              name: { $ifNull: ["$personalDetails.name", "$name"] },
-              email: { $ifNull: ["$personalDetails.email", "$email"] },
-            },
-          },
-        ],
-        as: "supervisorDetails",
-      },
-    });
-
     // Lookup leave records to determine if on leave
     pipeline.push({
       $lookup: {
@@ -223,21 +199,6 @@ export async function GET(request) {
             "$workLocation",
             "$personalDetails.workLocation",
             "Not Assigned",
-          ],
-        },
-        // Supervisor
-        supervisorName: {
-          $ifNull: [
-            { $arrayElemAt: ["$supervisorDetails.name", 0] },
-            "$supervisorName",
-            "Not Assigned",
-          ],
-        },
-        supervisorEmail: {
-          $ifNull: [
-            { $arrayElemAt: ["$supervisorDetails.email", 0] },
-            "$supervisorEmail",
-            "",
           ],
         },
         // Contract type
@@ -429,8 +390,6 @@ export async function GET(request) {
         department: "$departmentName",
         role: 1,
         workLocation: "$workLocationName",
-        supervisor: "$supervisorName",
-        supervisorEmail: 1,
         contractType: 1,
         joiningDate: 1,
         contractExpiryDate: 1,

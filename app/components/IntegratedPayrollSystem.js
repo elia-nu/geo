@@ -425,7 +425,7 @@ export default function IntegratedPayrollSystem() {
       "Transport Allowance",
       "Telephone Allowance",
       "POS Allowance",
-      "Transport/Overtime",
+      "Overtime",
       "Net Salary",
     ];
 
@@ -1128,7 +1128,7 @@ export default function IntegratedPayrollSystem() {
                   <div className="bg-orange-50 rounded-lg p-4 text-center md:col-span-2">
                     <TrendingUp className="w-6 h-6 text-orange-600 mx-auto mb-2" />
                     <h4 className="text-sm font-medium text-gray-600">
-                      Total Transport/Overtime
+                      Total Overtime
                     </h4>
                     <span className="text-lg font-bold text-orange-600">
                       {formatCurrency(computedSummary?.totalOvertime || 0)}
@@ -1159,7 +1159,7 @@ export default function IntegratedPayrollSystem() {
                           No. of Working Days
                         </th>
                         <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
-                          Transport/Overtime
+                          Overtime
                         </th>
                         <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
                           Salary

@@ -1597,6 +1597,17 @@ export default function EmployeeDatabase() {
                   <div className="space-y-4">
                     <div>
                       <label className="text-sm font-semibold text-black">
+                        ID
+                      </label>
+                      <p className="text-black mt-1 font-mono text-sm">
+                        {selectedEmployee.personalDetails?.employeeId ||
+                          selectedEmployee.employeeId ||
+                          selectedEmployee._id?.toString() ||
+                          "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-semibold text-black">
                         Full Name
                       </label>
                       <p className="text-black font-semibold mt-1">

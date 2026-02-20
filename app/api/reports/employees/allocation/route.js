@@ -219,12 +219,14 @@ export async function GET(request) {
       $sort: { employeeName: 1 },
     });
 
-    // Project final fields
+    // Project final fields (include personalDetails and name so displayName can use them in JS)
     pipeline.push({
       $project: {
         _id: 1,
         employeeId: { $toString: "$_id" },
         employeeName: 1,
+        personalDetails: 1,
+        name: 1,
         email: 1,
         department: 1,
         role: 1,
@@ -257,6 +259,15 @@ export async function GET(request) {
     };
 
     employees.forEach((emp) => {
+      // Normalize display name once: main record name or personalDetails.name
+      const displayName =
+        (typeof emp.employeeName === "string" && emp.employeeName.trim()) ||
+        (typeof emp.personalDetails?.name === "string" && emp.personalDetails.name.trim()) ||
+        (typeof emp.name === "string" && emp.name.trim()) ||
+        emp.employeeId ||
+        emp._id?.toString() ||
+        "Unknown Employee";
+
       // Count by project
       emp.assignedProjects?.forEach((project) => {
         const projectName = project.name;
@@ -270,7 +281,7 @@ export async function GET(request) {
         allocationStats.byProject[projectName].employeeCount++;
         allocationStats.byProject[projectName].employees.push({
           id: emp.employeeId,
-          name: emp.employeeName,
+          name: displayName,
           department: emp.department,
         });
       });
@@ -287,7 +298,7 @@ export async function GET(request) {
       allocationStats.byLocation[location].employeeCount++;
       allocationStats.byLocation[location].employees.push({
         id: emp.employeeId,
-        name: emp.employeeName,
+        name: displayName,
         projectCount: emp.projectCount,
       });
 
@@ -303,7 +314,7 @@ export async function GET(request) {
       allocationStats.byDepartment[dept].employeeCount++;
       allocationStats.byDepartment[dept].employees.push({
         id: emp.employeeId,
-        name: emp.employeeName,
+        name: displayName,
         projectCount: emp.projectCount,
       });
 
@@ -319,7 +330,7 @@ export async function GET(request) {
       allocationStats.bySupervisor[supervisor].employeeCount++;
       allocationStats.bySupervisor[supervisor].employees.push({
         id: emp.employeeId,
-        name: emp.employeeName,
+        name: displayName,
         projectCount: emp.projectCount,
       });
 
@@ -328,14 +339,14 @@ export async function GET(request) {
       if (projectCount === 0) {
         allocationStats.utilization.underutilized.push({
           id: emp.employeeId,
-          name: emp.employeeName,
+          name: displayName,
           department: emp.department,
           projectCount: 0,
         });
       } else if (projectCount > 3) {
         allocationStats.utilization.overloaded.push({
           id: emp.employeeId,
-          name: emp.employeeName,
+          name: displayName,
           department: emp.department,
           projectCount: projectCount,
           projects: emp.assignedProjects,
@@ -343,11 +354,23 @@ export async function GET(request) {
       } else {
         allocationStats.utilization.optimal.push({
           id: emp.employeeId,
-          name: emp.employeeName,
+          name: displayName,
           department: emp.department,
           projectCount: projectCount,
         });
       }
+    });
+
+    // Normalize employeeName on each returned employee (main record or personalDetails.name)
+    employees.forEach((emp) => {
+      const resolvedName =
+        (typeof emp.employeeName === "string" && emp.employeeName.trim()) ||
+        (typeof emp.personalDetails?.name === "string" && emp.personalDetails.name.trim()) ||
+        (typeof emp.name === "string" && emp.name.trim()) ||
+        emp.employeeId ||
+        emp._id?.toString() ||
+        "Unknown Employee";
+      emp.employeeName = resolvedName;
     });
 
     // Create audit log

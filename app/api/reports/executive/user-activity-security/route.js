@@ -12,7 +12,6 @@ function toDate(v) {
 // 10.3 User Activity & Security Audit Report
 // - Logins (success/failure)
 // - Permission / role changes
-// - Data exports
 // - Suspicious activity patterns (simple heuristics)
 export async function GET(request) {
   try {
@@ -106,80 +105,6 @@ export async function GET(request) {
       ) / 100;
     }
 
-    // --- Permission / role changes ---
-    const roleChangeEvents = filteredLogs.filter((e) => {
-      const t = (e.entityType || "").toLowerCase();
-      const a = (e.action || "").toUpperCase();
-      return (
-        t === "user_role" ||
-        a === "ROLE_CHANGE" ||
-        a === "ASSIGN_ROLE" ||
-        a === "REVOKE_ROLE"
-      );
-    });
-
-    // Also supplement with direct user_roles assignments if present
-    const userRoles = await db
-      .collection("user_roles")
-      .find({ isActive: true })
-      .toArray();
-
-    const permissionChanges = roleChangeEvents.map((ev) => ({
-      id: ev._id?.toString?.() || ev.id || "",
-      timestamp: ev.timestamp || ev.createdAt || null,
-      actor: ev.userEmail || ev.userId || "system",
-      userId: ev.metadata?.userId || ev.entityId || null,
-      action: ev.action,
-      changes: ev.changes || ev.metadata?.changes || null,
-      metadata: ev.metadata || null,
-    }));
-
-    const permissionSummary = {
-      totalRoleAssignments: userRoles.length,
-      totalChangeEvents: permissionChanges.length,
-    };
-
-    // --- Data exports (EXPORT and document download events) ---
-    const exportEvents = filteredLogs.filter((e) => {
-      const a = (e.action || "").toUpperCase();
-      const t = (e.entityType || "").toLowerCase();
-      return (
-        a === "EXPORT" ||
-        a === "DOCUMENT_DOWNLOAD" ||
-        (t === "report" && a === "VIEW" && (e.entityId || "").includes("export"))
-      );
-    });
-
-    const dataExports = exportEvents.map((ev) => ({
-      id: ev._id?.toString?.() || ev.id || "",
-      timestamp: ev.timestamp || ev.createdAt || null,
-      actor: ev.userEmail || ev.userId || "system",
-      entityType: ev.entityType,
-      entityId: ev.entityId,
-      action: ev.action,
-      ip:
-        ev.ipAddress ||
-        ev.metadata?.ip ||
-        ev.metadata?.ipAddress ||
-        null,
-      userAgent: ev.userAgent || ev.metadata?.userAgent || null,
-      details: ev.metadata || null,
-    }));
-
-    const exportSummary = {
-      totalExports: dataExports.length,
-      byEntityType: {},
-      byActor: {},
-    };
-    for (const ev of dataExports) {
-      const t = ev.entityType || "other";
-      const actorKey = ev.actor || "unknown";
-      exportSummary.byEntityType[t] =
-        (exportSummary.byEntityType[t] || 0) + 1;
-      exportSummary.byActor[actorKey] =
-        (exportSummary.byActor[actorKey] || 0) + 1;
-    }
-
     // --- Suspicious activity patterns (simple heuristics) ---
     const suspiciousPatterns = [];
 
@@ -215,22 +140,7 @@ export async function GET(request) {
       }
     }
 
-    // 2) Heavy data exporters
-    for (const [actorKey, count] of Object.entries(
-      exportSummary.byActor
-    )) {
-      if (count >= 10) {
-        suspiciousPatterns.push({
-          type: "heavy_data_exports",
-          actor: actorKey,
-          exports: count,
-          detail:
-            "Unusually high number of export/download actions for this user.",
-        });
-      }
-    }
-
-    // 3) Admin-level activity without clear audit metadata
+    // 2) Admin-level activity without clear audit metadata
     const adminLikeEvents = filteredLogs.filter((e) => {
       const role = e.metadata?.userRole || "";
       return (
@@ -250,8 +160,6 @@ export async function GET(request) {
 
     const summary = {
       loginSummary,
-      permissionSummary,
-      exportSummary,
       suspiciousCount: suspiciousPatterns.length,
     };
 
@@ -283,8 +191,6 @@ export async function GET(request) {
       },
       summary,
       logins: loginDetails.slice(0, 500),
-      permissionChanges: permissionChanges.slice(0, 300),
-      dataExports: dataExports.slice(0, 500),
       suspiciousPatterns,
     });
   } catch (error) {

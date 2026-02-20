@@ -101,17 +101,7 @@ export async function GET(request) {
         });
       }
 
-      const expectedTax = currGross > 0 && (curr.incomeTax == null || curr.incomeTax === 0) && currGross > 2000;
-      if (expectedTax) {
-        anomalies.push({
-          type: "missing_deduction",
-          severity: "medium",
-          employeeId: empId,
-          employeeName: curr.name,
-          description: "Income tax is zero but gross may be above tax threshold",
-          grossPay: currGross,
-        });
-      }
+      // Do not flag "income tax is zero but gross above threshold" as an anomaly (per business rule)
     });
 
     await createAuditLog({

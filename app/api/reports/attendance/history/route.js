@@ -83,7 +83,15 @@ export async function GET(request) {
       attendanceEmployeeId = trimmedId;
     }
 
-    const attQuery = { employeeId: attendanceEmployeeId };
+    // Match employeeId as string or ObjectId (daily_attendance may store either)
+    const attQuery = {
+      $or: [
+        { employeeId: attendanceEmployeeId },
+        ...(ObjectId.isValid(attendanceEmployeeId)
+          ? [{ employeeId: new ObjectId(attendanceEmployeeId) }]
+          : []),
+      ],
+    };
     if (startDate && endDate) {
       attQuery.date = { $gte: startDate, $lte: endDate };
     } else if (startDate) {

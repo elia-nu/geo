@@ -72,6 +72,17 @@ export async function POST(request) {
   }
 }
 
+function getEmployeeDisplayName(emp) {
+  return (
+    (typeof emp.employeeName === "string" && emp.employeeName.trim()) ||
+    (typeof emp.personalDetails?.name === "string" && emp.personalDetails.name.trim()) ||
+    (typeof emp.name === "string" && emp.name.trim()) ||
+    emp.employeeId ||
+    (emp._id && emp._id.toString && emp._id.toString()) ||
+    "Unknown Employee"
+  );
+}
+
 function generateExcelExport(employees, allocationStats, filters) {
   const workbook = XLSX.utils.book_new();
 
@@ -133,7 +144,7 @@ function generateExcelExport(employees, allocationStats, filters) {
   employees.forEach((emp) => {
     rows.push([
       emp.employeeId || emp._id || "N/A",
-      emp.employeeName || "N/A",
+      getEmployeeDisplayName(emp),
       emp.email || "N/A",
       emp.department || "N/A",
       emp.role || "N/A",
@@ -161,7 +172,7 @@ function generateExcelExport(employees, allocationStats, filters) {
     allocationStats.utilization.overloaded.forEach((emp) => {
       utilRows.push([
         "Overloaded",
-        emp.name,
+        (emp.name && String(emp.name).trim()) || emp.id || "Unknown Employee",
         emp.department,
         emp.projectCount,
         emp.projects?.map((p) => p.name).join(", ") || "",
@@ -171,7 +182,13 @@ function generateExcelExport(employees, allocationStats, filters) {
 
   if (allocationStats.utilization?.underutilized) {
     allocationStats.utilization.underutilized.forEach((emp) => {
-      utilRows.push(["Underutilized", emp.name, emp.department, 0, ""]);
+      utilRows.push([
+        "Underutilized",
+        (emp.name && String(emp.name).trim()) || emp.id || "Unknown Employee",
+        emp.department,
+        0,
+        "",
+      ]);
     });
   }
 
@@ -209,7 +226,7 @@ function generateCSVExport(employees, allocationStats, filters) {
   employees.forEach((emp) => {
     const row = [
       emp.employeeId || emp._id || "",
-      `"${(emp.employeeName || "").replace(/"/g, '""')}"`,
+      `"${(getEmployeeDisplayName(emp)).replace(/"/g, '""')}"`,
       emp.email || "",
       `"${(emp.department || "").replace(/"/g, '""')}"`,
       `"${(emp.role || "").replace(/"/g, '""')}"`,
@@ -292,7 +309,7 @@ async function generatePDFExport(employees, allocationStats, filters) {
         }
 
         doc.fontSize(9).font("Helvetica-Bold");
-        doc.text(`${index + 1}. ${emp.employeeName || "N/A"}`);
+        doc.text(`${index + 1}. ${getEmployeeDisplayName(emp)}`);
         doc.font("Helvetica");
         doc.text(`   Department: ${emp.department || "N/A"}`);
         doc.text(`   Location: ${emp.workLocation || "N/A"}`);

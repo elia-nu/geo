@@ -10,7 +10,7 @@ function toDate(v) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// 9.3 Workforce Productivity & ROI Report: Attendance rate vs output, Payroll cost vs project progress, Leave impact vs delivery timelines
+// 9.3 Workforce Productivity Report: Attendance rate, Payroll cost vs project progress, Leave impact vs delivery timelines
 export async function GET(request) {
   try {
     const db = await getDb();
@@ -177,9 +177,9 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.error("Error generating workforce productivity & ROI report:", error);
+    console.error("Error generating workforce productivity report:", error);
     return NextResponse.json(
-      { error: "Failed to generate workforce productivity & ROI report", message: error.message },
+      { error: "Failed to generate workforce productivity report", message: error.message },
       { status: 500 }
     );
   }

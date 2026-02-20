@@ -18,7 +18,7 @@ const TAB_IDS = [
 const TABS = [
   { id: "system-health", label: "System Operational Health", icon: Activity, component: SystemOperationalHealthReport },
   { id: "compliance-audit", label: "Compliance & Audit Readiness", icon: Shield, component: ComplianceAuditReadinessReport },
-  { id: "workforce-productivity-roi", label: "Workforce Productivity & ROI", icon: TrendingUp, component: WorkforceProductivityROIReport },
+  { id: "workforce-productivity-roi", label: "Workforce Productivity", icon: TrendingUp, component: WorkforceProductivityROIReport },
   { id: "executive-dashboard", label: "Executive Performance Dashboard", icon: BarChart3, component: ExecutivePerformanceDashboardReport },
 ];
 
@@ -51,7 +51,7 @@ export default function CrossSystemExecutiveReports({ initialTab }) {
             Cross-System & Executive Reports (Admin-Level Intelligence)
           </h1>
           <p className="text-gray-600 mb-6">
-            9.1–9.4 Executive Reports: System health, compliance readiness, workforce productivity & ROI, and executive performance dashboard.
+            9.1–9.4 Executive Reports: System health, compliance readiness, workforce productivity, and executive performance dashboard.
           </p>
 
           <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-6">

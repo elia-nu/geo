@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { RefreshCw, Shield, LogIn, Key, Download, AlertTriangle } from "lucide-react";
+import { RefreshCw, Shield, LogIn, Download, AlertTriangle } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export default function UserActivitySecurityAuditReport() {
   const [loading, setLoading] = useState(false);
@@ -44,12 +45,28 @@ export default function UserActivitySecurityAuditReport() {
 
   const summary = reportData?.summary || {};
   const loginSummary = summary.loginSummary || {};
-  const permissionSummary = summary.permissionSummary || {};
-  const exportSummary = summary.exportSummary || {};
   const logins = reportData?.logins || [];
-  const permissionChanges = reportData?.permissionChanges || [];
-  const dataExports = reportData?.dataExports || [];
   const suspiciousPatterns = reportData?.suspiciousPatterns || [];
+
+  const handleExportExcel = () => {
+    if (!reportData) return;
+    const wb = XLSX.utils.book_new();
+    const summaryRows = [
+      ["User Activity & Security Audit - Export"],
+      [],
+      ["Login Success", loginSummary.success ?? 0],
+      ["Login Failure", loginSummary.failure ?? 0],
+      ["Login Success Rate %", loginSummary.successRate ?? ""],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), "Summary");
+    const loginRows = [["Time", "Actor", "Action"], ...logins.map((e) => [e.timestamp ? new Date(e.timestamp).toLocaleString() : "", e.actor ?? "", e.action ?? ""])];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(loginRows), "Logins");
+    if (suspiciousPatterns.length > 0) {
+      const suspRows = [["Type", "Actor", "Detail", "Failures", "Exports"], ...suspiciousPatterns.map((p) => [p.type ?? "", p.actor ?? "", p.detail ?? "", p.failures ?? "", p.exports ?? ""])];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(suspRows), "Suspicious Patterns");
+    }
+    XLSX.writeFile(wb, `user_activity_security_audit_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   return (
     <div className="space-y-6">
@@ -60,17 +77,28 @@ export default function UserActivitySecurityAuditReport() {
             User Activity & Security Audit Report
           </h2>
           <p className="text-sm text-gray-600 mt-0.5">
-            Logins, permission changes, data exports, suspicious activity patterns.
+            Logins, suspicious activity patterns.
           </p>
         </div>
-        <button
-          onClick={handleGenerateReport}
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 flex items-center gap-2"
-        >
-          <RefreshCw className={loading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
-          {loading ? "Generating..." : "Generate Report"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleGenerateReport}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 flex items-center gap-2"
+          >
+            <RefreshCw className={loading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
+            {loading ? "Generating..." : "Generate Report"}
+          </button>
+          {reportData && (
+            <button
+              onClick={handleExportExcel}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export Excel
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -112,7 +140,7 @@ export default function UserActivitySecurityAuditReport() {
 
       {reportData && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="bg-green-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <LogIn className="w-5 h-5 text-green-600" />
@@ -130,20 +158,6 @@ export default function UserActivitySecurityAuditReport() {
             <div className="bg-blue-50 rounded-lg p-4">
               <span className="font-medium text-blue-900 text-sm">Login Success Rate</span>
               <p className="text-2xl font-bold text-blue-600">{loginSummary.successRate ?? "—"}%</p>
-            </div>
-            <div className="bg-amber-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Key className="w-5 h-5 text-amber-600" />
-                <span className="font-medium text-amber-900">Role/Permission Events</span>
-              </div>
-              <p className="text-2xl font-bold text-amber-600">{permissionSummary.totalChangeEvents ?? 0}</p>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Download className="w-5 h-5 text-purple-600" />
-                <span className="font-medium text-purple-900">Data Exports</span>
-              </div>
-              <p className="text-2xl font-bold text-purple-600">{exportSummary.totalExports ?? 0}</p>
             </div>
           </div>
 
@@ -167,91 +181,33 @@ export default function UserActivitySecurityAuditReport() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
-                <LogIn className="w-4 h-4 text-gray-500" />
-                Login activity (sample)
-              </h3>
-              <div className="overflow-x-auto max-h-48 overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Time</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Actor</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Action</th>
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
+              <LogIn className="w-4 h-4 text-gray-500" />
+              Login activity (sample)
+            </h3>
+            <div className="overflow-x-auto max-h-48 overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Time</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Actor</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {logins.slice(0, 30).map((e, i) => (
+                    <tr key={e.id || i}>
+                      <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
+                      <td className="px-3 py-2 text-black">{e.actor ?? "—"}</td>
+                      <td className="px-3 py-2 text-black">{e.action ?? "—"}</td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {logins.slice(0, 30).map((e, i) => (
-                      <tr key={e.id || i}>
-                        <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2 text-black">{e.actor ?? "—"}</td>
-                        <td className="px-3 py-2 text-black">{e.action ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
-                <Download className="w-4 h-4 text-gray-500" />
-                Data exports (sample)
-              </h3>
-              <div className="overflow-x-auto max-h-48 overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Time</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Actor</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Type</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {dataExports.slice(0, 30).map((e, i) => (
-                      <tr key={e.id || i}>
-                        <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2 text-black">{e.actor ?? "—"}</td>
-                        <td className="px-3 py-2 text-black">{e.entityType ?? e.action ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          {permissionChanges.length > 0 && (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <h3 className="text-sm font-semibold text-black px-4 py-3 border-b flex items-center gap-2">
-                <Key className="w-4 h-4 text-gray-500" />
-                Permission / role changes
-              </h3>
-              <div className="overflow-x-auto max-h-48 overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Time</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Actor</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Action</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Target user</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {permissionChanges.slice(0, 30).map((e, i) => (
-                      <tr key={e.id || i}>
-                        <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2 text-black">{e.actor ?? "—"}</td>
-                        <td className="px-3 py-2 text-black">{e.action ?? "—"}</td>
-                        <td className="px-3 py-2 text-black">{e.userId ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

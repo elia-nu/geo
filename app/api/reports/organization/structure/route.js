@@ -120,92 +120,39 @@ export async function GET(request) {
       ])
       .toArray();
 
-    // Get all projects (can represent divisions/units)
-    const projects = await db
-      .collection("projects")
-      .find({})
-      .project({
-        _id: 1,
-        name: 1,
-        status: 1,
-        description: 1,
-      })
-      .toArray();
-
-    // Build hierarchy structure
-    // Structure: Company → Division (Projects) → Department → Unit (Work Locations) → Role
+    // Build hierarchy: Company → Department → Role (no division, no unit)
     const hierarchy = {
-      company: "Organization", // Default company name
-      divisions: [],
+      company: "Organization",
+      departments: [],
     };
 
-    // Group by projects (divisions)
-    const projectMap = new Map();
-    projects.forEach((project) => {
-      projectMap.set(project._id.toString(), {
-        id: project._id.toString(),
-        name: project.name || "Unassigned Division",
-        status: project.status || "active",
-        departments: [],
-      });
-    });
-
-    // Add departments to projects
-    departments.forEach((dept) => {
-      const projectId = dept.projectId
-        ? dept.projectId.toString()
-        : "unassigned";
-      
-      if (!projectMap.has(projectId)) {
-        projectMap.set(projectId, {
-          id: projectId,
-          name: "Unassigned Division",
-          status: "active",
-          departments: [],
-        });
-      }
-
-      const division = projectMap.get(projectId);
-      
-      // Group employees by department
-      const deptEmployees = employees.filter(
-        (emp) =>
-          emp.department === dept.name ||
-          (dept._id && emp.department === dept._id.toString())
-      );
-
-      // Group by work location (units)
-      const unitsMap = new Map();
-      deptEmployees.forEach((emp) => {
-        const unitName = emp.workLocation || "Unassigned Unit";
-        if (!unitsMap.has(unitName)) {
-          unitsMap.set(unitName, {
-            name: unitName,
-            roles: [],
-          });
-        }
-
-        const unit = unitsMap.get(unitName);
+    // Helper: build roles array from a list of employees (group by role name)
+    const buildRolesFromEmployees = (empList) => {
+      const rolesMap = new Map();
+      empList.forEach((emp) => {
         const roleName = emp.role || "Employee";
-        
-        let roleGroup = unit.roles.find((r) => r.name === roleName);
-        if (!roleGroup) {
-          roleGroup = {
-            name: roleName,
-            employees: [],
-          };
-          unit.roles.push(roleGroup);
+        if (!rolesMap.has(roleName)) {
+          rolesMap.set(roleName, { name: roleName, employees: [] });
         }
-
-        roleGroup.employees.push({
+        rolesMap.get(roleName).employees.push({
           id: emp.employeeId,
           name: emp.employeeName,
           email: emp.email,
           status: emp.status,
         });
       });
+      return Array.from(rolesMap.values());
+    };
 
-      division.departments.push({
+    // Add each department with its roles (no units)
+    departments.forEach((dept) => {
+      const deptEmployees = employees.filter(
+        (emp) =>
+          emp.department === dept.name ||
+          (dept._id && emp.department === dept._id.toString())
+      );
+
+      hierarchy.departments.push({
         id: dept._id.toString(),
         name: dept.name || "Unnamed Department",
         description: dept.description || "",
@@ -213,92 +160,34 @@ export async function GET(request) {
           ? dept.managerId.toString()
           : null,
         employeeCount: deptEmployees.length,
-        units: Array.from(unitsMap.values()),
+        roles: buildRolesFromEmployees(deptEmployees),
       });
     });
 
-    // Also handle employees without departments
+    // Employees not in any department
     const unassignedEmployees = employees.filter(
       (emp) => !departments.some((dept) => dept.name === emp.department)
     );
 
     if (unassignedEmployees.length > 0) {
-      const unassignedDivision = projectMap.get("unassigned") || {
-        id: "unassigned",
-        name: "Unassigned Division",
-        status: "active",
-        departments: [],
-      };
-
-      const unitsMap = new Map();
-      unassignedEmployees.forEach((emp) => {
-        const unitName = emp.workLocation || "Unassigned Unit";
-        if (!unitsMap.has(unitName)) {
-          unitsMap.set(unitName, {
-            name: unitName,
-            roles: [],
-          });
-        }
-
-        const unit = unitsMap.get(unitName);
-        const roleName = emp.role || "Employee";
-        
-        let roleGroup = unit.roles.find((r) => r.name === roleName);
-        if (!roleGroup) {
-          roleGroup = {
-            name: roleName,
-            employees: [],
-          };
-          unit.roles.push(roleGroup);
-        }
-
-        roleGroup.employees.push({
-          id: emp.employeeId,
-          name: emp.employeeName,
-          email: emp.email,
-          status: emp.status,
-        });
-      });
-
-      unassignedDivision.departments.push({
+      hierarchy.departments.push({
         id: "unassigned",
         name: "Unassigned Department",
         description: "Employees not assigned to any department",
         managerId: null,
         employeeCount: unassignedEmployees.length,
-        units: Array.from(unitsMap.values()),
+        roles: buildRolesFromEmployees(unassignedEmployees),
       });
-
-      if (!projectMap.has("unassigned")) {
-        projectMap.set("unassigned", unassignedDivision);
-      }
     }
 
-    hierarchy.divisions = Array.from(projectMap.values());
-
-    // Calculate summary statistics
+    // Summary (no divisions, no units)
     const summary = {
-      totalDivisions: hierarchy.divisions.length,
-      totalDepartments: departments.length + (unassignedEmployees.length > 0 ? 1 : 0),
-      totalUnits: new Set(
-        employees.map((e) => e.workLocation || "Unassigned Unit")
-      ).size,
+      totalDepartments: hierarchy.departments.length,
       totalRoles: new Set(employees.map((e) => e.role || "Employee")).size,
       totalEmployees: employees.length,
-      byDivision: {},
       byDepartment: {},
       byRole: {},
     };
-
-    hierarchy.divisions.forEach((div) => {
-      summary.byDivision[div.name] = {
-        departments: div.departments.length,
-        employees: div.departments.reduce(
-          (sum, dept) => sum + dept.employeeCount,
-          0
-        ),
-      };
-    });
 
     departments.forEach((dept) => {
       const deptEmployees = employees.filter(
@@ -308,6 +197,9 @@ export async function GET(request) {
       );
       summary.byDepartment[dept.name] = deptEmployees.length;
     });
+    if (unassignedEmployees.length > 0) {
+      summary.byDepartment["Unassigned Department"] = unassignedEmployees.length;
+    }
 
     employees.forEach((emp) => {
       const role = emp.role || "Employee";

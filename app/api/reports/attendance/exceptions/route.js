@@ -110,10 +110,19 @@ export async function GET(request) {
       });
     });
 
-    // Attendance in date range for these employees
+    // Attendance in date range for these employees (support both string and ObjectId employeeId)
+    const empIdStrings = [...employeesById.keys()];
+    const empIdObjectIds = empIdStrings
+      .filter((id) => ObjectId.isValid(id))
+      .map((id) => new ObjectId(id));
     const attQuery = {
       date: { $gte: startDate, $lte: endDate },
-      employeeId: { $in: [...employeesById.keys()] },
+      $or: [
+        { employeeId: { $in: empIdStrings } },
+        ...(empIdObjectIds.length > 0
+          ? [{ employeeId: { $in: empIdObjectIds } }]
+          : []),
+      ],
     };
     const attendance = await db
       .collection("daily_attendance")
@@ -127,6 +136,9 @@ export async function GET(request) {
     const datesSet = new Set();
     attendance.forEach((rec) => datesSet.add(rec.date));
     const dates = [...datesSet].sort();
+
+    // All calendar days in [startDate, endDate] for missed check-ins (so we list employees who didn't check in on any day in range)
+    const allDatesInRange = getDateRange(startDate, endDate);
 
     // Thresholds
     const lateThreshold = { hour: 9, minute: 15 };
@@ -240,9 +252,9 @@ export async function GET(request) {
       }
     });
 
-    // Missed check-ins: employees with no attendance record at all for a date in range
+    // Missed check-ins: for every calendar day in [startDate, endDate], list employees who had no check-in that day
     const missedCheckIns = [];
-    dates.forEach((d) => {
+    allDatesInRange.forEach((d) => {
       employees.forEach((emp) => {
         const empId = emp._id.toString();
         const key = `${empId}:${d}`;
@@ -354,5 +366,19 @@ export async function GET(request) {
 function scanNull(value) {
   if (!value) return null;
   return value.trim() === "" ? null : value.trim();
+}
+
+/** Returns array of YYYY-MM-DD strings from start (inclusive) to end (inclusive). */
+function getDateRange(startStr, endStr) {
+  const out = [];
+  const start = new Date(startStr + "T00:00:00Z");
+  const end = new Date(endStr + "T00:00:00Z");
+  if (start.getTime() > end.getTime()) return out;
+  const d = new Date(start);
+  while (d.getTime() <= end.getTime()) {
+    out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
 }
 

@@ -32,8 +32,8 @@ export default function WorkforceProductivityROIReport() {
       }
       const data = await res.json();
       setReportData(data);
-      setMessage("Workforce Productivity & ROI report generated.");
-      setMessageType("success");
+      setMessage("Workforce Productivity report generated.");
+      setMessageType("success"); 
     } catch (error) {
       setMessage(error.message || "Failed to generate report");
       setMessageType("error");
@@ -53,10 +53,10 @@ export default function WorkforceProductivityROIReport() {
         <div>
           <h2 className="text-lg font-semibold text-black flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-emerald-600" />
-            Workforce Productivity & ROI Report
+            Workforce Productivity Report
           </h2>
           <p className="text-sm text-gray-600 mt-0.5">
-            Attendance rate vs output, payroll cost vs project progress, leave impact vs delivery timelines.
+            Attendance rate, payroll cost vs project progress, leave impact vs delivery timelines.
           </p>
         </div>
         <button
@@ -103,20 +103,13 @@ export default function WorkforceProductivityROIReport() {
 
       {reportData && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="bg-blue-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Users className="w-5 h-5 text-blue-600" />
                 <span className="font-medium text-blue-900">Attendance Rate %</span>
               </div>
               <p className="text-2xl font-bold text-blue-600">{summary.attendanceRate ?? 0}%</p>
-            </div>
-            <div className="bg-emerald-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-emerald-600" />
-                <span className="font-medium text-emerald-900">Output Rate %</span>
-              </div>
-              <p className="text-2xl font-bold text-emerald-600">{summary.outputRate ?? 0}%</p>
             </div>
             <div className="bg-amber-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -138,11 +131,10 @@ export default function WorkforceProductivityROIReport() {
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">
                 <Users className="w-4 h-4 text-blue-600" />
-                Attendance vs Output
+                Attendance
               </h3>
               <p className="text-sm text-gray-600 mb-2">{attendanceVsOutput.note}</p>
               <p className="text-lg font-bold text-blue-600">Attendance: {attendanceVsOutput.attendanceRate ?? 0}%</p>
-              <p className="text-lg font-bold text-emerald-600">Output: {attendanceVsOutput.outputRate ?? 0}%</p>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-black mb-3 flex items-center gap-2">

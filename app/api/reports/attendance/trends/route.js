@@ -87,10 +87,19 @@ export async function GET(request) {
       });
     });
 
-    // Attendance in range
+    // Attendance in range (support both string and ObjectId employeeId)
+    const empIdStrings = [...employeesById.keys()];
+    const empIdObjectIds = empIdStrings
+      .filter((id) => ObjectId.isValid(id))
+      .map((id) => new ObjectId(id));
     const attQuery = {
       date: { $gte: startDate, $lte: endDate },
-      employeeId: { $in: [...employeesById.keys()] },
+      $or: [
+        { employeeId: { $in: empIdStrings } },
+        ...(empIdObjectIds.length > 0
+          ? [{ employeeId: { $in: empIdObjectIds } }]
+          : []),
+      ],
     };
     const attendance = await db
       .collection("daily_attendance")

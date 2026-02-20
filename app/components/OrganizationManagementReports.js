@@ -11,7 +11,7 @@ const TABS = [
     id: "organizational-structure",
     label: "Organizational Structure Report",
     description:
-      "Hierarchy tree by Company → Division → Department → Unit → Role for HR planning and governance audits.",
+      "Hierarchy tree by Company → Department → Role for HR planning and governance audits.",
     icon: GitBranch,
     component: OrganizationalStructureReport,
   },

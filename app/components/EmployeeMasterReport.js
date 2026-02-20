@@ -606,9 +606,6 @@ export default function EmployeeMasterReport() {
                     Location
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Supervisor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contract Type
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -648,11 +645,6 @@ export default function EmployeeMasterReport() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-black">
                         {employee.workLocation || "N/A"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-black">
-                        {employee.supervisor || "N/A"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -790,7 +782,7 @@ export default function EmployeeMasterReport() {
                 <div>
                   <h4 className="font-semibold text-black mb-3 flex items-center space-x-2">
                     <MapPin className="w-5 h-5 text-blue-600" />
-                    <span>Location & Supervisor</span>
+                    <span>Location</span>
                   </h4>
                   <div className="space-y-2 text-sm">
                     <div>
@@ -798,18 +790,6 @@ export default function EmployeeMasterReport() {
                         Work Location:
                       </span>{" "}
                       {selectedEmployee.workLocation || "N/A"}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">
-                        Supervisor:
-                      </span>{" "}
-                      {selectedEmployee.supervisor || "N/A"}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">
-                        Supervisor Email:
-                      </span>{" "}
-                      {selectedEmployee.supervisorEmail || "N/A"}
                     </div>
                   </div>
                 </div>

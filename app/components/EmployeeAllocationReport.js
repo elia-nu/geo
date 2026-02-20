@@ -433,9 +433,11 @@ export default function EmployeeAllocationReport() {
                     </h5>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {reportData.allocationStats.utilization.overloaded.map((emp) => (
-                        <div key={emp.id} className="text-sm">
-                          <span className="font-medium">{emp.name}</span> -{" "}
-                          <span className="text-red-700">{emp.projectCount} projects</span>
+                        <div key={emp.id} className="text-sm text-gray-900">
+                          <span className="font-medium text-gray-900">
+                            {(emp.name && String(emp.name).trim()) || emp.id || "Unknown Employee"}
+                          </span>
+                          <span className="text-red-700"> — {emp.projectCount} projects</span>
                         </div>
                       ))}
                     </div>
@@ -450,9 +452,11 @@ export default function EmployeeAllocationReport() {
                     </h5>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {reportData.allocationStats.utilization.underutilized.map((emp) => (
-                        <div key={emp.id} className="text-sm">
-                          <span className="font-medium">{emp.name}</span> -{" "}
-                          <span className="text-yellow-700">No projects assigned</span>
+                        <div key={emp.id} className="text-sm text-gray-900">
+                          <span className="font-medium text-gray-900">
+                            {(emp.name && String(emp.name).trim()) || emp.id || "Unknown Employee"}
+                          </span>
+                          <span className="text-yellow-700"> — No projects assigned</span>
                         </div>
                       ))}
                     </div>
@@ -493,7 +497,7 @@ export default function EmployeeAllocationReport() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-black">
-                          {employee.employeeName || "N/A"}
+                          {employee.employeeName || employee.personalDetails?.name || employee.name || "N/A"}
                         </div>
                         <div className="text-sm text-gray-500">
                           {employee.email || "N/A"}

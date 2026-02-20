@@ -40,16 +40,6 @@ export async function POST(request) {
       outsideGeofenceAttempts.length +
       missedCheckIns.length;
 
-    if (totalRecords === 0) {
-      return NextResponse.json(
-        {
-          error:
-            "No exception data provided for export. Please generate a report first.",
-        },
-        { status: 400 }
-      );
-    }
-
     try {
       await createAuditLog({
         action: "EXPORT",

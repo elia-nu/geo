@@ -26,8 +26,8 @@ export async function POST(request) {
       summary = {},
     } = data;
 
-    // Validate data
-    if (!hierarchy || !hierarchy.divisions) {
+    // Validate data (hierarchy has company + departments, no divisions/units)
+    if (!hierarchy || !hierarchy.departments) {
       return NextResponse.json(
         { error: "No organizational structure data provided for export. Please generate a report first." },
         { status: 400 }
@@ -94,7 +94,7 @@ function generateExcelExport(hierarchy, summary) {
   try {
     const workbook = XLSX.utils.book_new();
 
-    // Summary Sheet
+    // Summary Sheet (no divisions, no units)
     const summaryData = [
       ["ORGANIZATIONAL STRUCTURE REPORT"],
       [],
@@ -103,23 +103,13 @@ function generateExcelExport(hierarchy, summary) {
       ["SUMMARY"],
       [],
       ["Metric", "Value"],
-      ["Total Divisions", summary?.totalDivisions || 0],
       ["Total Departments", summary?.totalDepartments || 0],
-      ["Total Units", summary?.totalUnits || 0],
       ["Total Roles", summary?.totalRoles || 0],
       ["Total Employees", summary?.totalEmployees || 0],
       [],
-      ["By Division"],
-      ["Division", "Departments", "Employees"],
+      ["By Department"],
+      ["Department", "Employees"],
     ];
-
-    if (summary?.byDivision) {
-      Object.entries(summary.byDivision).forEach(([div, data]) => {
-        summaryData.push([div, data.departments || 0, data.employees || 0]);
-      });
-    }
-
-    summaryData.push([], ["By Department"], ["Department", "Employees"]);
     if (summary?.byDepartment) {
       Object.entries(summary.byDepartment).forEach(([dept, count]) => {
         summaryData.push([dept, count || 0]);
@@ -136,12 +126,10 @@ function generateExcelExport(hierarchy, summary) {
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
 
-    // Hierarchy Sheet - Flattened structure
+    // Hierarchy Sheet - Company → Department → Role (no Division, no Unit)
     const hierarchyHeaders = [
       "Company",
-      "Division",
       "Department",
-      "Unit",
       "Role",
       "Employee ID",
       "Employee Name",
@@ -152,65 +140,47 @@ function generateExcelExport(hierarchy, summary) {
     const hierarchyRows = [hierarchyHeaders];
 
     const companyName = hierarchy.company || "Organization";
-    const divisions = hierarchy.divisions || [];
+    const departments = hierarchy.departments || [];
 
-    divisions.forEach((division) => {
-      const divisionName = division.name || "Unassigned";
-      const departments = division.departments || [];
+    departments.forEach((department) => {
+      const departmentName = department.name || "Unassigned";
+      const roles = department.roles || [];
 
-      departments.forEach((department) => {
-        const departmentName = department.name || "Unassigned";
-        const units = department.units || [];
+      roles.forEach((role) => {
+        const roleName = role.name || "Employee";
+        const employees = role.employees || [];
 
-        units.forEach((unit) => {
-          const unitName = unit.name || "Unassigned";
-          const roles = unit.roles || [];
-
-          roles.forEach((role) => {
-            const roleName = role.name || "Employee";
-            const employees = role.employees || [];
-
-            if (employees.length === 0) {
-              // Add row even if no employees
-              hierarchyRows.push([
-                companyName,
-                divisionName,
-                departmentName,
-                unitName,
-                roleName,
-                "",
-                "",
-                "",
-                "",
-              ]);
-            } else {
-              employees.forEach((emp) => {
-                hierarchyRows.push([
-                  companyName,
-                  divisionName,
-                  departmentName,
-                  unitName,
-                  roleName,
-                  emp.id || "",
-                  emp.name || "",
-                  emp.email || "",
-                  emp.status || "",
-                ]);
-              });
-            }
+        if (employees.length === 0) {
+          hierarchyRows.push([
+            companyName,
+            departmentName,
+            roleName,
+            "",
+            "",
+            "",
+            "",
+          ]);
+        } else {
+          employees.forEach((emp) => {
+            hierarchyRows.push([
+              companyName,
+              departmentName,
+              roleName,
+              emp.id || "",
+              emp.name || "",
+              emp.email || "",
+              emp.status || "",
+            ]);
           });
-        });
+        }
       });
     });
 
     const hierarchySheet = XLSX.utils.aoa_to_sheet(hierarchyRows);
 
-    // Set column widths
     hierarchySheet["!cols"] = [
       { wch: 20 }, // Company
-      { wch: 25 }, // Division
       { wch: 25 }, // Department
-      { wch: 20 }, // Unit
       { wch: 20 }, // Role
       { wch: 15 }, // Employee ID
       { wch: 30 }, // Employee Name
@@ -244,14 +214,12 @@ function generateExcelExport(hierarchy, summary) {
   }
 }
 
-// Generate CSV export
+// Generate CSV export (Company → Department → Role, no Division, no Unit)
 function generateCSVExport(hierarchy, summary) {
   try {
     const headers = [
       "Company",
-      "Division",
       "Department",
-      "Unit",
       "Role",
       "Employee ID",
       "Employee Name",
@@ -261,64 +229,49 @@ function generateCSVExport(hierarchy, summary) {
 
     const csvRows = [headers.join(",")];
 
+    const escapeCSV = (value) => {
+      if (value === null || value === undefined) return "";
+      const str = String(value);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
     const companyName = hierarchy.company || "Organization";
-    const divisions = hierarchy.divisions || [];
+    const departments = hierarchy.departments || [];
 
-    divisions.forEach((division) => {
-      const divisionName = division.name || "Unassigned";
-      const departments = division.departments || [];
+    departments.forEach((department) => {
+      const departmentName = department.name || "Unassigned";
+      const roles = department.roles || [];
 
-      departments.forEach((department) => {
-        const departmentName = department.name || "Unassigned";
-        const units = department.units || [];
+      roles.forEach((role) => {
+        const roleName = role.name || "Employee";
+        const employees = role.employees || [];
 
-        units.forEach((unit) => {
-          const unitName = unit.name || "Unassigned";
-          const roles = unit.roles || [];
-
-          roles.forEach((role) => {
-            const roleName = role.name || "Employee";
-            const employees = role.employees || [];
-
-            // Escape CSV values properly
-            const escapeCSV = (value) => {
-              if (value === null || value === undefined) return "";
-              const str = String(value);
-              if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-                return `"${str.replace(/"/g, '""')}"`;
-              }
-              return str;
-            };
-
-            if (employees.length === 0) {
-              csvRows.push([
-                escapeCSV(companyName),
-                escapeCSV(divisionName),
-                escapeCSV(departmentName),
-                escapeCSV(unitName),
-                escapeCSV(roleName),
-                "",
-                "",
-                "",
-                "",
-              ].join(","));
-            } else {
-              employees.forEach((emp) => {
-                csvRows.push([
-                  escapeCSV(companyName),
-                  escapeCSV(divisionName),
-                  escapeCSV(departmentName),
-                  escapeCSV(unitName),
-                  escapeCSV(roleName),
-                  escapeCSV(emp.id || ""),
-                  escapeCSV(emp.name || ""),
-                  escapeCSV(emp.email || ""),
-                  escapeCSV(emp.status || ""),
-                ].join(","));
-              });
-            }
+        if (employees.length === 0) {
+          csvRows.push([
+            escapeCSV(companyName),
+            escapeCSV(departmentName),
+            escapeCSV(roleName),
+            "",
+            "",
+            "",
+            "",
+          ].join(","));
+        } else {
+          employees.forEach((emp) => {
+            csvRows.push([
+              escapeCSV(companyName),
+              escapeCSV(departmentName),
+              escapeCSV(roleName),
+              escapeCSV(emp.id || ""),
+              escapeCSV(emp.name || ""),
+              escapeCSV(emp.email || ""),
+              escapeCSV(emp.status || ""),
+            ].join(","));
           });
-        });
+        }
       });
     });
 
