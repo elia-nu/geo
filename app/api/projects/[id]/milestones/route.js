@@ -66,6 +66,29 @@ export async function POST(request, { params }) {
       );
     }
 
+    // Find the project to validate dates
+    const project = await db.collection("projects").findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    const due = new Date(dueDate);
+    if (project.startDate && due < new Date(project.startDate)) {
+      return NextResponse.json(
+        { error: "Milestone due date must be on or after project start date" },
+        { status: 400 }
+      );
+    }
+    if (project.endDate && due > new Date(project.endDate)) {
+      return NextResponse.json(
+        { error: "Milestone due date must be on or before project end date" },
+        { status: 400 }
+      );
+    }
+
     // Validate progress if provided
     const progressValue = Number(progress);
     if (isNaN(progressValue) || progressValue < 0 || progressValue > 100) {
@@ -87,7 +110,6 @@ export async function POST(request, { params }) {
       updatedAt: new Date(),
     };
 
-    // Find the project and update it
     const result = await db.collection("projects").updateOne(
       { _id: new ObjectId(id) },
       {
@@ -100,12 +122,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Get project name for audit log
-    const project = await db
-      .collection("projects")
-      .findOne({ _id: new ObjectId(id) }, { projection: { name: 1 } });
-
-    // Create audit log
+    // Create audit log (project already loaded above for date validation)
     await createAuditLog({
       action: "ADD_MILESTONE",
       entityType: "project",
@@ -156,6 +173,33 @@ export async function PUT(request, { params }) {
         { error: "Milestones must be an array" },
         { status: 400 }
       );
+    }
+
+    const projectForDates = await db.collection("projects").findOne({
+      _id: new ObjectId(id),
+      projection: { startDate: 1, endDate: 1 },
+    });
+    if (!projectForDates) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+    const projStart = projectForDates.startDate ? new Date(projectForDates.startDate) : null;
+    const projEnd = projectForDates.endDate ? new Date(projectForDates.endDate) : null;
+    for (const m of milestones) {
+      if (m.dueDate) {
+        const due = new Date(m.dueDate);
+        if (projStart && due < projStart) {
+          return NextResponse.json(
+            { error: "Milestone due date must be on or after project start date" },
+            { status: 400 }
+          );
+        }
+        if (projEnd && due > projEnd) {
+          return NextResponse.json(
+            { error: "Milestone due date must be on or before project end date" },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     // Process milestones to ensure they have proper ObjectIds

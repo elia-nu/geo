@@ -9,6 +9,13 @@ import {
   Person as PersonIcon,
 } from "@mui/icons-material";
 import Link from "next/link";
+import {
+  showLoadingToast,
+  showSuccessToast,
+  showErrorToast,
+  closeDialog,
+  showDeleteConfirmDialog,
+} from "../../../utils/sweetAlert";
 
 const ProjectTeamPage = ({ params }) => {
   const { id: projectId } = use(params);
@@ -90,6 +97,7 @@ const ProjectTeamPage = ({ params }) => {
     }
 
     try {
+      showLoadingToast("Assigning Employees...", "Please wait...");
       const employeeIds = selectedEmployees.map((emp) => emp._id);
 
       const response = await fetch(
@@ -104,40 +112,56 @@ const ProjectTeamPage = ({ params }) => {
       );
 
       const data = await response.json();
+      closeDialog();
 
       if (data.success) {
+        showSuccessToast("Success", "Employees assigned to project successfully.");
         fetchProjectData();
         handleCloseDialog();
       } else {
-        setError(data.error || "Failed to assign employees");
+        const msg = data.error || "Failed to assign employees";
+        setError(msg);
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       setError("Error assigning employees: " + err.message);
+      showErrorToast("Error", "Error assigning employees: " + err.message);
     }
   };
 
   const handleRemoveEmployee = async (employeeId) => {
+    const employee = assignedEmployees.find((e) => e._id === employeeId);
+    const name = employee?.name || employee?.personalDetails?.name || "this team member";
+    const result = await showDeleteConfirmDialog(
+      "Remove from Project Team",
+      `Are you sure you want to remove ${name} from this project team?`,
+      "Yes, remove"
+    );
+    if (!result.isConfirmed) return;
+
     try {
-      const response = await fetch(
-        `/api/projects/${projectId}/assign-employees`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ employeeId }),
-        }
-      );
+      showLoadingToast("Removing from Team...", "Please wait...");
+      const url = `/api/projects/${projectId}/assign-employees?employeeId=${encodeURIComponent(employeeId)}`;
+      const response = await fetch(url, {
+        method: "DELETE",
+      });
 
       const data = await response.json();
+      closeDialog();
 
       if (data.success) {
+        showSuccessToast("Success", "Team member removed from project.");
         fetchProjectData();
       } else {
-        setError(data.error || "Failed to remove employee");
+        const msg = data.error || "Failed to remove employee";
+        setError(msg);
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       setError("Error removing employee: " + err.message);
+      showErrorToast("Error", "Error removing employee: " + err.message);
     }
   };
 

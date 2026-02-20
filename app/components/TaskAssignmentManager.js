@@ -3,6 +3,13 @@
 import { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import {
+  showLoadingToast,
+  showSuccessToast,
+  showErrorToast,
+  closeDialog,
+  showDeleteConfirmDialog,
+} from "../utils/sweetAlert";
+import {
   Person as PersonIcon,
   Group as GroupIcon,
   Assignment as AssignmentIcon,
@@ -52,6 +59,7 @@ const TaskAssignmentManager = ({
     try {
       setLoading(true);
       setError(null);
+      showLoadingToast("Adding Assignee...", "Please wait...");
 
       const response = await fetch(`/api/tasks/${task._id}/assign`, {
         method: "POST",
@@ -64,30 +72,20 @@ const TaskAssignmentManager = ({
       });
 
       const data = await response.json();
+      closeDialog();
       if (data.success) {
         setAssignedTo([...assignedTo, newAssignee]);
         setNewAssignee("");
-        Swal.fire({
-          icon: 'success',
-          title: 'Success',
-          text: 'Assignee added successfully'
-        });
+        showSuccessToast("Success", "Assignee added successfully");
         if (onUpdate) onUpdate();
       } else {
         const msg = data.error || "Failed to add assignee";
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: msg
-        });
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       const msg = "Error adding assignee: " + err.message;
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: msg
-      });
+      showErrorToast("Error", msg);
     } finally {
       setLoading(false);
     }
@@ -97,6 +95,7 @@ const TaskAssignmentManager = ({
     try {
       setLoading(true);
       setError(null);
+      showLoadingToast("Removing Assignee...", "Please wait...");
 
       const response = await fetch(`/api/tasks/${task._id}/assign`, {
         method: "DELETE",
@@ -108,29 +107,19 @@ const TaskAssignmentManager = ({
       });
 
       const data = await response.json();
+      closeDialog();
       if (data.success) {
         setAssignedTo(assignedTo.filter((id) => id !== assigneeId));
-        Swal.fire({
-          icon: 'success',
-          title: 'Success',
-          text: 'Assignee removed successfully'
-        });
+        showSuccessToast("Success", "Assignee removed successfully");
         if (onUpdate) onUpdate();
       } else {
         const msg = data.error || "Failed to remove assignee";
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: msg
-        });
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       const msg = "Error removing assignee: " + err.message;
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: msg
-      });
+      showErrorToast("Error", msg);
     } finally {
       setLoading(false);
     }
@@ -142,6 +131,7 @@ const TaskAssignmentManager = ({
     try {
       setLoading(true);
       setError(null);
+      showLoadingToast("Assigning Team...", "Please wait...");
 
       const response = await fetch(`/api/tasks/${task._id}/assign`, {
         method: "POST",
@@ -154,39 +144,38 @@ const TaskAssignmentManager = ({
       });
 
       const data = await response.json();
+      closeDialog();
       if (data.success) {
         setAssignedTeams([...assignedTeams, newTeam]);
         setNewTeam("");
-        Swal.fire({
-          icon: 'success',
-          title: 'Success',
-          text: 'Team assigned successfully'
-        });
+        showSuccessToast("Success", "Team assigned successfully");
         if (onUpdate) onUpdate();
       } else {
         const msg = data.error || "Failed to assign team";
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: msg
-        });
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       const msg = "Error assigning team: " + err.message;
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: msg
-      });
+      showErrorToast("Error", msg);
     } finally {
       setLoading(false);
     }
   };
 
   const handleRemoveTeam = async (teamId) => {
+    const teamName = getTeamName(teamId);
+    const result = await showDeleteConfirmDialog(
+      "Remove Team from Task",
+      `Are you sure you want to remove "${teamName}" from this task?`,
+      "Yes, remove"
+    );
+    if (!result.isConfirmed) return;
+
     try {
       setLoading(true);
       setError(null);
+      showLoadingToast("Removing Team...", "Please wait...");
 
       const response = await fetch(`/api/tasks/${task._id}/assign`, {
         method: "DELETE",
@@ -198,29 +187,19 @@ const TaskAssignmentManager = ({
       });
 
       const data = await response.json();
+      closeDialog();
       if (data.success) {
         setAssignedTeams(assignedTeams.filter((id) => id !== teamId));
-        Swal.fire({
-          icon: 'success',
-          title: 'Success',
-          text: 'Team removed successfully'
-        });
+        showSuccessToast("Success", "Team removed successfully");
         if (onUpdate) onUpdate();
       } else {
         const msg = data.error || "Failed to remove team";
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: msg
-        });
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       const msg = "Error removing team: " + err.message;
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: msg
-      });
+      showErrorToast("Error", msg);
     } finally {
       setLoading(false);
     }
@@ -230,6 +209,7 @@ const TaskAssignmentManager = ({
     try {
       setLoading(true);
       setError(null);
+      showLoadingToast("Updating Ownership...", "Please wait...");
 
       const response = await fetch(`/api/tasks/${task._id}`, {
         method: "PUT",
@@ -242,14 +222,20 @@ const TaskAssignmentManager = ({
       });
 
       const data = await response.json();
+      closeDialog();
       if (data.success) {
         setSuccess("Ownership updated successfully");
+        showSuccessToast("Success", "Ownership updated successfully");
         if (onUpdate) onUpdate();
       } else {
-        setError(data.error || "Failed to update ownership");
+        const msg = data.error || "Failed to update ownership";
+        setError(msg);
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       setError("Error updating ownership: " + err.message);
+      showErrorToast("Error", "Error updating ownership: " + err.message);
     } finally {
       setLoading(false);
     }

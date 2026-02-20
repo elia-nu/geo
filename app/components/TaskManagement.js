@@ -3,6 +3,13 @@
 import { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import {
+  showLoadingToast,
+  showSuccessToast,
+  showErrorToast,
+  closeDialog,
+  showDeleteConfirmDialog,
+} from "../utils/sweetAlert";
+import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -250,6 +257,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     }
 
     try {
+      showLoadingToast("Creating Task...", "Please wait...");
       const payload = {
         ...formData,
         projectId: currentProjectId,
@@ -275,33 +283,23 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       });
 
       const data = await response.json();
+      closeDialog();
 
       if (data.success) {
         await fetchTasks();
         setShowCreateDialog(false);
         resetForm();
-        Swal.fire({
-          icon: "success",
-          title: "Success",
-          text: "Task created successfully",
-        });
+        showSuccessToast("Success", "Task created successfully");
       } else {
         const msg = data.error || "Failed to create task";
         setError(msg);
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: msg,
-        });
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       const msg = "Error creating task: " + err.message;
       setError(msg);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: msg,
-      });
+      showErrorToast("Error", msg);
     }
   };
 
@@ -392,6 +390,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     }
 
     try {
+      showLoadingToast("Updating Task...", "Please wait...");
       const payload = {
         ...formData,
         updatedBy: "admin", // TODO: Get from auth context
@@ -410,78 +409,64 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       });
 
       const data = await response.json();
+      closeDialog();
 
       if (data.success) {
         await fetchTasks();
         setShowEditDialog(false);
         setSelectedTask(null);
         resetForm();
-        Swal.fire({
-          icon: "success",
-          title: "Success",
-          text: "Task updated",
-        });
+        showSuccessToast("Success", "Task updated");
       } else {
         const msg = data.error || "Failed to update task";
         setError(msg);
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: msg,
-        });
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       const msg = "Error updating task: " + err.message;
       setError(msg);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: msg,
-      });
+      showErrorToast("Error", msg);
     }
   };
 
   const handleDeleteTask = async (taskId) => {
-    const proceed = window.confirm("Delete this task? This cannot be undone.");
-    if (!proceed) return;
+    const result = await showDeleteConfirmDialog(
+      "Delete Task",
+      "Are you sure you want to delete this task? This action cannot be undone.",
+      "Yes, delete it!"
+    );
+    if (!result.isConfirmed) return;
 
     try {
+      showLoadingToast("Deleting Task...", "Please wait...");
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: "DELETE",
       });
 
       const data = await response.json();
+      closeDialog();
 
       if (data.success) {
         await fetchTasks();
-        Swal.fire({
-          icon: "success",
-          title: "Success",
-          text: "Task deleted",
-        });
+        showSuccessToast("Success", "Task deleted");
       } else {
         const msg = data.error || "Failed to delete task";
         setError(msg);
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: msg,
-        });
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       const msg = "Error deleting task: " + err.message;
       setError(msg);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: msg,
-      });
+      showErrorToast("Error", msg);
     }
   };
 
   const handleProgressUpdate = async (taskId, newProgress) => {
     try {
       setError(null);
+      showLoadingToast("Updating Progress...", "Please wait...");
 
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: "PUT",
@@ -493,34 +478,24 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       });
 
       const data = await response.json();
+      closeDialog();
 
       if (data.success) {
         await fetchTasks();
         setShowProgressDialog(false);
         setSelectedTask(null);
         setProgressUpdate(0);
-        Swal.fire({
-          icon: "success",
-          title: "Success",
-          text: "Progress updated",
-        });
+        showSuccessToast("Success", "Progress updated");
       } else {
         const msg = data.error || "Failed to update progress";
         setError(msg);
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: msg,
-        });
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       const msg = "Error updating progress: " + err.message;
       setError(msg);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: msg,
-      });
+      showErrorToast("Error", msg);
     }
   };
 

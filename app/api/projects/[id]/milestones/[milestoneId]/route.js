@@ -92,9 +92,26 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Prepare update data
+    // Validate due date is within project dates when provided
     const { title, description, dueDate, status, progress, completedDate } =
       data;
+    if (dueDate !== undefined) {
+      const due = new Date(dueDate);
+      if (project.startDate && due < new Date(project.startDate)) {
+        return NextResponse.json(
+          { error: "Milestone due date must be on or after project start date" },
+          { status: 400 }
+        );
+      }
+      if (project.endDate && due > new Date(project.endDate)) {
+        return NextResponse.json(
+          { error: "Milestone due date must be on or before project end date" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Prepare update data
     const updateData = {};
 
     // Only update fields that are provided

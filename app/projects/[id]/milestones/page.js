@@ -10,6 +10,13 @@ import {
 } from "@mui/icons-material";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
+import {
+  showLoadingToast,
+  showSuccessToast,
+  showErrorToast,
+  closeDialog,
+  showDeleteConfirmDialog,
+} from "../../../utils/sweetAlert";
 
 const ProjectMilestonesPage = ({ params }) => {
   const { id: projectId } = use(params);
@@ -20,6 +27,8 @@ const ProjectMilestonesPage = ({ params }) => {
   const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [currentMilestone, setCurrentMilestone] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -38,23 +47,25 @@ const ProjectMilestonesPage = ({ params }) => {
   const fetchProjectData = async () => {
     try {
       setLoading(true);
+      setError(null);
 
-      // Fetch project details
       const projectResponse = await fetch(`/api/projects/${projectId}`);
       const projectData = await projectResponse.json();
 
       if (projectData.success) {
         setProject(projectData.project);
-
-        // Extract milestones from project data
         if (projectData.project.milestones) {
           setMilestones(projectData.project.milestones);
         }
       } else {
-        setError(projectData.error || "Failed to fetch project details");
+        const msg = projectData.error || "Failed to fetch project details";
+        setError(msg);
+        showErrorToast("Failed to load", msg);
       }
     } catch (err) {
-      setError("Error fetching project data: " + err.message);
+      const msg = "Error fetching project data: " + err.message;
+      setError(msg);
+      showErrorToast("Error", msg);
     } finally {
       setLoading(false);
     }
@@ -104,63 +115,126 @@ const ProjectMilestonesPage = ({ params }) => {
   };
 
   const handleSubmit = async () => {
+    if (!project) return;
+
+    const projectStart = project.startDate ? new Date(project.startDate) : null;
+    const projectEnd = project.endDate ? new Date(project.endDate) : null;
+    if (formData.dueDate && projectStart && projectEnd) {
+      const due = new Date(formData.dueDate);
+      if (due < projectStart) {
+        showErrorToast(
+          "Invalid date",
+          `Due date must be on or after project start (${format(projectStart, "MMM d, yyyy")}).`
+        );
+        return;
+      }
+      if (due > projectEnd) {
+        showErrorToast(
+          "Invalid date",
+          `Due date must be on or before project end (${format(projectEnd, "MMM d, yyyy")}).`
+        );
+        return;
+      }
+    }
+
     try {
+      setSaving(true);
+      setError(null);
+      showLoadingToast("Saving...", "Please wait.");
+
       const payload = {
         ...formData,
         dueDate: formData.dueDate?.toISOString(),
       };
 
       let url, method;
-
       if (currentMilestone) {
-        // Update existing milestone
         url = `/api/projects/${projectId}/milestones/${currentMilestone._id}`;
         method = "PUT";
       } else {
-        // Create new milestone
         url = `/api/projects/${projectId}/milestones`;
         method = "POST";
       }
 
       const response = await fetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       const data = await response.json();
+      closeDialog();
+
+      // Defer toast so SweetAlert can close loading popup first
+      const showSaveToast = () => {
+        if (data.success) {
+          showSuccessToast(
+            currentMilestone ? "Milestone updated" : "Milestone added",
+            data.message || (currentMilestone ? "Milestone has been updated." : "Milestone has been added.")
+          );
+        } else {
+          const msg = data.error || "Failed to save milestone";
+          setError(msg);
+          showErrorToast("Failed to save", msg);
+        }
+      };
+      setTimeout(showSaveToast, 50);
 
       if (data.success) {
-        fetchProjectData();
+        await fetchProjectData();
         handleCloseDialog();
-      } else {
-        setError(data.error || "Failed to save milestone");
       }
     } catch (err) {
-      setError("Error saving milestone: " + err.message);
+      closeDialog();
+      const msg = "Error saving milestone: " + err.message;
+      setError(msg);
+      setTimeout(() => showErrorToast("Error", msg), 50);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDeleteMilestone = async (milestoneId) => {
+    const confirm = await showDeleteConfirmDialog(
+      "Delete milestone",
+      "Are you sure you want to delete this milestone? This cannot be undone."
+    );
+    if (!confirm.isConfirmed) return;
+
     try {
+      setDeletingId(milestoneId);
+      setError(null);
+      showLoadingToast("Deleting...", "Please wait.");
+
       const response = await fetch(
         `/api/projects/${projectId}/milestones/${milestoneId}`,
-        {
-          method: "DELETE",
-        }
+        { method: "DELETE" }
       );
-
       const data = await response.json();
+      closeDialog();
+
+      // Defer toast to next tick so SweetAlert can close loading popup first
+      const showResultToast = () => {
+        if (data.success) {
+          showSuccessToast("Milestone deleted", "Milestone has been deleted successfully.");
+        } else {
+          const msg = data.error || "Failed to delete milestone";
+          setError(msg);
+          showErrorToast("Failed to delete", msg);
+        }
+      };
+      setTimeout(showResultToast, 50);
 
       if (data.success) {
-        fetchProjectData();
-      } else {
-        setError(data.error || "Failed to delete milestone");
+        await fetchProjectData();
       }
     } catch (err) {
-      setError("Error deleting milestone: " + err.message);
+      closeDialog();
+      const msg = "Error deleting milestone: " + err.message;
+      setError(msg);
+      setTimeout(() => showErrorToast("Error", msg), 50);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -398,11 +472,16 @@ const ProjectMilestonesPage = ({ params }) => {
                           <EditIcon className="h-4 w-4" />
                         </button>
                         <button
-                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50 transition-colors"
+                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           onClick={() => handleDeleteMilestone(milestone._id)}
                           title="Delete milestone"
+                          disabled={deletingId === milestone._id}
                         >
-                          <DeleteIcon className="h-4 w-4" />
+                          {deletingId === milestone._id ? (
+                            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                          ) : (
+                            <DeleteIcon className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -494,13 +573,23 @@ const ProjectMilestonesPage = ({ params }) => {
                         htmlFor="dueDate"
                         className="block text-sm font-medium text-gray-700 mb-1"
                       >
-                        Due Date
+                        Due Date (within project timeline)
                       </label>
                       <input
                         type="date"
                         id="dueDate"
                         name="dueDate"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        min={
+                          project?.startDate
+                            ? new Date(project.startDate).toISOString().split("T")[0]
+                            : undefined
+                        }
+                        max={
+                          project?.endDate
+                            ? new Date(project.endDate).toISOString().split("T")[0]
+                            : undefined
+                        }
                         value={
                           formData.dueDate
                             ? formData.dueDate.toISOString().split("T")[0]
@@ -555,9 +644,17 @@ const ProjectMilestonesPage = ({ params }) => {
                     <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse mt-6 -mx-4 -mb-4 sm:-mx-6 sm:-mb-4">
                       <button
                         type="submit"
-                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+                        disabled={saving}
+                        className="w-full inline-flex justify-center items-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                       >
-                        {currentMilestone ? "Update" : "Add"}
+                        {saving ? (
+                          <>
+                            <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                            Saving...
+                          </>
+                        ) : (
+                          currentMilestone ? "Update" : "Add"
+                        )}
                       </button>
                       <button
                         type="button"

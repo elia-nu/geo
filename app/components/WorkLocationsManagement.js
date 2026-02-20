@@ -14,6 +14,13 @@ import {
   Filter,
   X,
 } from "lucide-react";
+import {
+  showLoadingToast,
+  showSuccessToast,
+  showErrorToast,
+  closeDialog,
+  showDeleteConfirmDialog,
+} from "../utils/sweetAlert";
 
 export default function WorkLocationsManagement() {
   const [locations, setLocations] = useState([]);
@@ -112,8 +119,8 @@ export default function WorkLocationsManagement() {
     }
 
     setLoading(true);
-
     try {
+      showLoadingToast("Creating Location...", "Please wait...");
       const response = await fetch("/api/work-locations", {
         method: "POST",
         headers: {
@@ -123,13 +130,16 @@ export default function WorkLocationsManagement() {
       });
 
       const result = await response.json();
+      closeDialog();
 
       if (!response.ok) {
-        showMessage(result.error || "Failed to create location", "error");
+        const msg = result.error || "Failed to create location";
+        showMessage(msg, "error");
+        showErrorToast("Error", msg);
         return;
       }
 
-      showMessage("Work location created successfully!", "success");
+      showSuccessToast("Success", "Work location created successfully!");
       setShowCreateModal(false);
       setLocationForm({
         name: "",
@@ -141,8 +151,10 @@ export default function WorkLocationsManagement() {
       });
       fetchLocations();
     } catch (error) {
+      closeDialog();
       console.error("Error creating location:", error);
       showMessage("Failed to create location", "error");
+      showErrorToast("Error", "Failed to create location");
     } finally {
       setLoading(false);
     }
@@ -154,8 +166,8 @@ export default function WorkLocationsManagement() {
     if (!selectedLocation) return;
 
     setLoading(true);
-
     try {
+      showLoadingToast("Updating Location...", "Please wait...");
       const response = await fetch(
         `/api/work-locations/${selectedLocation._id}`,
         {
@@ -168,48 +180,61 @@ export default function WorkLocationsManagement() {
       );
 
       const result = await response.json();
+      closeDialog();
 
       if (!response.ok) {
-        showMessage(result.error || "Failed to update location", "error");
+        const msg = result.error || "Failed to update location";
+        showMessage(msg, "error");
+        showErrorToast("Error", msg);
         return;
       }
 
-      showMessage("Work location updated successfully!", "success");
+      showSuccessToast("Success", "Work location updated successfully!");
       setShowEditModal(false);
       setSelectedLocation(null);
       fetchLocations();
     } catch (error) {
+      closeDialog();
       console.error("Error updating location:", error);
       showMessage("Failed to update location", "error");
+      showErrorToast("Error", "Failed to update location");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteLocation = async (locationId) => {
-    if (!confirm("Are you sure you want to delete this work location?")) {
-      return;
-    }
+    const result = await showDeleteConfirmDialog(
+      "Delete Work Location",
+      "Are you sure you want to delete this work location? This action cannot be undone.",
+      "Yes, delete it!"
+    );
+    if (!result.isConfirmed) return;
 
     setLoading(true);
-
     try {
+      showLoadingToast("Deleting Location...", "Please wait...");
       const response = await fetch(`/api/work-locations/${locationId}`, {
         method: "DELETE",
       });
 
-      const result = await response.json();
+      const result2 = await response.json();
+      closeDialog();
 
       if (!response.ok) {
-        showMessage(result.error || "Failed to delete location", "error");
+        const msg = result2.error || "Failed to delete location";
+        showMessage(msg, "error");
+        showErrorToast("Error", msg);
         return;
       }
 
-      showMessage("Work location deleted successfully!", "success");
+      showSuccessToast("Success", "Work location deleted successfully!");
       fetchLocations();
     } catch (error) {
+      closeDialog();
       console.error("Error deleting location:", error);
       showMessage("Failed to delete location", "error");
+      showErrorToast("Error", "Failed to delete location");
     } finally {
       setLoading(false);
     }
@@ -224,8 +249,8 @@ export default function WorkLocationsManagement() {
     }
 
     setLoading(true);
-
     try {
+      showLoadingToast("Assigning Employees...", "Please wait...");
       const response = await fetch(
         `/api/work-locations/${selectedLocation._id}/assign-employees`,
         {
@@ -238,20 +263,25 @@ export default function WorkLocationsManagement() {
       );
 
       const result = await response.json();
+      closeDialog();
 
       if (!response.ok) {
-        showMessage(result.error || "Failed to assign employees", "error");
+        const msg = result.error || "Failed to assign employees";
+        showMessage(msg, "error");
+        showErrorToast("Error", msg);
         return;
       }
 
-      showMessage(result.message, "success");
+      showSuccessToast("Success", result.message || "Employees assigned successfully.");
       setShowAssignModal(false);
       setSelectedLocation(null);
       setAssignForm({ employeeIds: [] });
       fetchLocations();
     } catch (error) {
+      closeDialog();
       console.error("Error assigning employees:", error);
       showMessage("Failed to assign employees", "error");
+      showErrorToast("Error", "Failed to assign employees");
     } finally {
       setLoading(false);
     }

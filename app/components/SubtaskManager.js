@@ -15,6 +15,14 @@ import {
   Cancel as CancelIcon,
   MoreVert as MoreVertIcon,
 } from "@mui/icons-material";
+import {
+  showLoadingToast,
+  showSuccessToast,
+  showErrorToast,
+  closeDialog,
+  showDeleteConfirmDialog,
+  showWarningToast,
+} from "../utils/sweetAlert";
 
 const SubtaskManager = ({
   task,
@@ -59,15 +67,56 @@ const SubtaskManager = ({
     }
   }, [task, isOpen]);
 
+  // Validate subtask dates are within parent task date range
+  const validateSubtaskDates = (startDateStr, dueDateStr, context = "add") => {
+    const taskStart = task?.startDate
+      ? new Date(task.startDate).toISOString().split("T")[0]
+      : null;
+    const taskEnd = task?.dueDate
+      ? new Date(task.dueDate).toISOString().split("T")[0]
+      : null;
+    if (startDateStr) {
+      if (taskStart && startDateStr < taskStart) {
+        return `Subtask start date must be on or after task start date (${new Date(task.startDate).toLocaleDateString()}).`;
+      }
+      if (taskEnd && startDateStr > taskEnd) {
+        return `Subtask start date must be on or before task due date (${new Date(task.dueDate).toLocaleDateString()}).`;
+      }
+    }
+    if (dueDateStr) {
+      if (taskStart && dueDateStr < taskStart) {
+        return `Subtask due date must be on or after task start date (${new Date(task.startDate).toLocaleDateString()}).`;
+      }
+      if (taskEnd && dueDateStr > taskEnd) {
+        return `Subtask due date must be on or before task due date (${new Date(task.dueDate).toLocaleDateString()}).`;
+      }
+    }
+    if (startDateStr && dueDateStr && dueDateStr < startDateStr) {
+      return "Due date must be on or after start date.";
+    }
+    return null;
+  };
+
   const handleAddSubtask = async () => {
     if (!formData.title.trim()) {
       setError("Subtask title is required");
+      showErrorToast("Validation", "Subtask title is required");
+      return;
+    }
+    const dateError = validateSubtaskDates(
+      formData.startDate || null,
+      formData.dueDate || null
+    );
+    if (dateError) {
+      setError(dateError);
+      showWarningToast("Invalid dates", dateError);
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
+      showLoadingToast("Adding Subtask...", "Please wait...");
 
       const newSubtask = {
         title: formData.title.trim(),
@@ -96,6 +145,7 @@ const SubtaskManager = ({
       });
 
       const data = await response.json();
+      closeDialog();
       if (data.success) {
         // Fetch fresh task to get server-assigned ObjectIds for new subtasks
         try {
@@ -120,21 +170,51 @@ const SubtaskManager = ({
         });
         setShowAddForm(false);
         setSuccess("Subtask added successfully");
+        showSuccessToast("Success", "Subtask added successfully");
         if (onUpdate) onUpdate();
       } else {
-        setError(data.error || "Failed to add subtask");
+        const msg = data.error || "Failed to add subtask";
+        setError(msg);
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       setError("Error adding subtask: " + err.message);
+      showErrorToast("Error", "Error adding subtask: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleUpdateSubtask = async (subtaskId, updates) => {
+    if ("startDate" in updates || "dueDate" in updates) {
+      const current = subtasks.find((st) => st._id === subtaskId);
+      const currentStart = current?.startDate
+        ? new Date(current.startDate).toISOString().split("T")[0]
+        : null;
+      const currentDue = current?.dueDate
+        ? new Date(current.dueDate).toISOString().split("T")[0]
+        : null;
+      const startStr =
+        updates.startDate !== undefined && updates.startDate !== null
+          ? String(updates.startDate).trim() || null
+          : currentStart;
+      const dueStr =
+        updates.dueDate !== undefined && updates.dueDate !== null
+          ? String(updates.dueDate).trim() || null
+          : currentDue;
+      const dateError = validateSubtaskDates(startStr, dueStr, "update");
+      if (dateError) {
+        setError(dateError);
+        showWarningToast("Invalid dates", dateError);
+        return;
+      }
+    }
+
     try {
       setLoading(true);
       setError(null);
+      showLoadingToast("Updating Subtask...", "Please wait...");
 
       const updatedSubtasks = subtasks.map((subtask) =>
         subtask._id === subtaskId
@@ -152,6 +232,7 @@ const SubtaskManager = ({
       });
 
       const data = await response.json();
+      closeDialog();
       if (data.success) {
         // Refresh from server to ensure we have canonical subtasks with _id
         try {
@@ -167,23 +248,34 @@ const SubtaskManager = ({
         }
         setEditingSubtask(null);
         setSuccess("Subtask updated successfully");
+        showSuccessToast("Success", "Subtask updated successfully");
         if (onUpdate) onUpdate();
       } else {
-        setError(data.error || "Failed to update subtask");
+        const msg = data.error || "Failed to update subtask";
+        setError(msg);
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       setError("Error updating subtask: " + err.message);
+      showErrorToast("Error", "Error updating subtask: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteSubtask = async (subtaskId) => {
-    if (!confirm("Are you sure you want to delete this subtask?")) return;
+    const result = await showDeleteConfirmDialog(
+      "Delete Subtask",
+      "Are you sure you want to delete this subtask? This action cannot be undone.",
+      "Yes, delete it!"
+    );
+    if (!result.isConfirmed) return;
 
     try {
       setLoading(true);
       setError(null);
+      showLoadingToast("Deleting Subtask...", "Please wait...");
 
       const updatedSubtasks = subtasks.filter(
         (subtask) => subtask._id !== subtaskId
@@ -199,6 +291,7 @@ const SubtaskManager = ({
       });
 
       const data = await response.json();
+      closeDialog();
       if (data.success) {
         // Refresh from server to ensure we have canonical subtasks with _id
         try {
@@ -213,12 +306,17 @@ const SubtaskManager = ({
           setSubtasks(updatedSubtasks);
         }
         setSuccess("Subtask deleted successfully");
+        showSuccessToast("Success", "Subtask deleted successfully");
         if (onUpdate) onUpdate();
       } else {
-        setError(data.error || "Failed to delete subtask");
+        const msg = data.error || "Failed to delete subtask";
+        setError(msg);
+        showErrorToast("Error", msg);
       }
     } catch (err) {
+      closeDialog();
       setError("Error deleting subtask: " + err.message);
+      showErrorToast("Error", "Error deleting subtask: " + err.message);
     } finally {
       setLoading(false);
     }

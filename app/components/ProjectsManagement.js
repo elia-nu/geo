@@ -16,6 +16,13 @@ import {
   DollarSign as CurrencyDollarIcon,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import Swal from "sweetalert2";
+import {
+  showLoadingToast,
+  showSuccessToast,
+  showErrorToast,
+  closeDialog,
+} from "../utils/sweetAlert";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
@@ -83,6 +90,10 @@ export default function ProjectsManagement() {
   const [selectedProjectForProgress, setSelectedProjectForProgress] =
     useState(null);
   const [progressValue, setProgressValue] = useState(0);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [progressLoading, setProgressLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // For closing menu on outside click
   const menuRef = useRef(null);
@@ -196,6 +207,11 @@ export default function ProjectsManagement() {
   async function handleSubmit(e) {
     if (e) e.preventDefault();
     setError(null);
+    setSubmitLoading(true);
+    showLoadingToast(
+      currentProject ? "Updating Project..." : "Creating Project...",
+      "Please wait..."
+    );
     try {
       const payload = {
         ...formData,
@@ -216,33 +232,69 @@ export default function ProjectsManagement() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
+      closeDialog();
       if (data.success) {
+        showSuccessToast(
+          currentProject ? "Project Updated" : "Project Created",
+          currentProject
+            ? "Project has been updated successfully."
+            : "Project has been created successfully."
+        );
         fetchProjects();
         handleCloseDialog();
       } else {
+        showErrorToast("Failed to save project", data.error || "Failed to save project");
         setError(data.error || "Failed to save project");
       }
     } catch (err) {
-      setError("Error saving project: " + (err?.message || err));
+      closeDialog();
+      const msg = "Error saving project: " + (err?.message || err);
+      showErrorToast("Error", msg);
+      setError(msg);
+    } finally {
+      setSubmitLoading(false);
     }
   }
 
   async function handleDeleteProject() {
-    if (!selectedProjectId) return;
+    const projectId = selectedProjectId;
+    if (!projectId) return;
+    const project = projects.find((p) => p._id === projectId);
+    handleCloseMenu();
+    const result = await Swal.fire({
+      title: "Delete Project",
+      text: `Are you sure you want to delete "${project?.name || "this project"}"? This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+    });
+    if (!result.isConfirmed) return;
+    setDeleteLoading(true);
+    showLoadingToast("Deleting Project...", "Please wait...");
     try {
-      const res = await fetch(`/api/projects/${selectedProjectId}`, {
+      const res = await fetch(`/api/projects/${projectId}`, {
         method: "DELETE",
       });
       const data = await res.json();
+      closeDialog();
       if (data.success) {
+        showSuccessToast("Project Deleted", "Project has been deleted successfully.");
         fetchProjects();
       } else {
+        showErrorToast("Failed to delete project", data.error || "Failed to delete project");
         setError(data.error || "Failed to delete project");
       }
     } catch (err) {
-      setError("Error deleting project: " + (err?.message || err));
+      closeDialog();
+      const msg = "Error deleting project: " + (err?.message || err);
+      showErrorToast("Error", msg);
+      setError(msg);
+    } finally {
+      setDeleteLoading(false);
     }
-    handleCloseMenu();
   }
 
   function handleOpenStatusDialog() {
@@ -259,6 +311,8 @@ export default function ProjectsManagement() {
 
   async function handleStatusChange(newStatus) {
     if (!selectedProjectForStatus) return;
+    setStatusLoading(true);
+    showLoadingToast("Updating Status...", "Please wait...");
     try {
       setError(null);
       const res = await fetch(`/api/projects/${selectedProjectForStatus._id}`, {
@@ -267,14 +321,22 @@ export default function ProjectsManagement() {
         body: JSON.stringify({ status: newStatus }),
       });
       const data = await res.json();
+      closeDialog();
       if (data.success) {
+        showSuccessToast("Status Updated", "Project status has been updated successfully.");
         fetchProjects();
         handleCloseStatusDialog();
       } else {
+        showErrorToast("Failed to update status", data.error || "Failed to update project status");
         setError(data.error || "Failed to update project status");
       }
     } catch (err) {
-      setError("Error updating project status: " + (err?.message || err));
+      closeDialog();
+      const msg = "Error updating project status: " + (err?.message || err);
+      showErrorToast("Error", msg);
+      setError(msg);
+    } finally {
+      setStatusLoading(false);
     }
   }
 
@@ -294,6 +356,8 @@ export default function ProjectsManagement() {
 
   async function handleProgressUpdate() {
     if (!selectedProjectForProgress) return;
+    setProgressLoading(true);
+    showLoadingToast("Updating Progress...", "Please wait...");
     try {
       setError(null);
       const res = await fetch(
@@ -305,14 +369,22 @@ export default function ProjectsManagement() {
         }
       );
       const data = await res.json();
+      closeDialog();
       if (data.success) {
+        showSuccessToast("Progress Updated", "Project progress has been updated successfully.");
         fetchProjects();
         handleCloseProgressDialog();
       } else {
+        showErrorToast("Failed to update progress", data.error || "Failed to update project progress");
         setError(data.error || "Failed to update project progress");
       }
     } catch (err) {
-      setError("Error updating project progress: " + (err?.message || err));
+      closeDialog();
+      const msg = "Error updating project progress: " + (err?.message || err);
+      showErrorToast("Error", msg);
+      setError(msg);
+    } finally {
+      setProgressLoading(false);
     }
   }
 
@@ -707,10 +779,10 @@ export default function ProjectsManagement() {
             <TimelineIcon /> Update Progress
           </div>
           <div
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 cursor-pointer transition-colors"
-            onClick={handleDeleteProject}
+            className={`px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors ${deleteLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+            onClick={deleteLoading ? undefined : handleDeleteProject}
           >
-            <DeleteIcon /> Delete
+            <DeleteIcon /> {deleteLoading ? "Deleting..." : "Delete"}
           </div>
         </div>
       )}
@@ -833,15 +905,23 @@ export default function ProjectsManagement() {
                 className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md font-medium transition-colors"
                 onClick={handleCloseDialog}
                 type="button"
+                disabled={submitLoading}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleSubmit}
                 type="submit"
+                disabled={submitLoading}
               >
-                {currentProject ? "Update" : "Create"}
+                {submitLoading
+                  ? currentProject
+                    ? "Updating..."
+                    : "Creating..."
+                  : currentProject
+                    ? "Update"
+                    : "Create"}
               </button>
             </div>
           </div>
@@ -880,10 +960,10 @@ export default function ProjectsManagement() {
             <TimelineIcon /> Update Progress
           </div>
           <div
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 cursor-pointer transition-colors"
-            onClick={handleDeleteProject}
+            className={`px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors ${deleteLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+            onClick={deleteLoading ? undefined : handleDeleteProject}
           >
-            <DeleteIcon /> Delete
+            <DeleteIcon /> {deleteLoading ? "Deleting..." : "Delete"}
           </div>
         </div>
       )}
@@ -913,9 +993,9 @@ export default function ProjectsManagement() {
                           isCurrent
                             ? "bg-blue-50 border-blue-200 text-blue-700"
                             : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                        }`}
+                        } ${statusLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                         onClick={() => handleStatusChange(option.value)}
-                        disabled={isCurrent}
+                        disabled={isCurrent || statusLoading}
                         type="button"
                       >
                         <span className="text-sm font-medium">
@@ -994,15 +1074,17 @@ export default function ProjectsManagement() {
                 className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md font-medium"
                 onClick={handleCloseProgressDialog}
                 type="button"
+                disabled={progressLoading}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleProgressUpdate}
                 type="button"
+                disabled={progressLoading}
               >
-                Update Progress
+                {progressLoading ? "Updating..." : "Update Progress"}
               </button>
             </div>
           </div>
