@@ -159,6 +159,7 @@ const ProjectBudgetPage = ({ params }) => {
         <ProjectFinancialManagement
           projectId={projectId}
           projectName={project.name}
+          project={project}
         />
       </div>
     </Layout>

@@ -32,9 +32,12 @@ import {
   projectToasts,
   showValidationErrors,
   showDeleteConfirmDialog,
+  showWarningToast,
+  showLoadingToast,
+  closeDialog,
 } from "../utils/sweetAlert";
 
-const ProjectFinancialManagement = ({ projectId, projectName }) => {
+const ProjectFinancialManagement = ({ projectId, projectName, project: projectProp }) => {
   function getStatusColor(status) {
     switch ((status || "").toLowerCase()) {
       case "not_started":
@@ -68,6 +71,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   }
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
+  const [budgetSectionLoading, setBudgetSectionLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // Data states
@@ -137,6 +141,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     expectedAmount: "",
     clientName: "",
     dueDate: "",
+    categoryId: "",
     description: "",
     notes: "",
     status: "pending",
@@ -146,6 +151,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [showExpectedPaymentModal, setShowExpectedPaymentModal] =
     useState(false);
+  const [paymentDetailsIncome, setPaymentDetailsIncome] = useState(null);
 
   const [allocationForm, setAllocationForm] = useState({
     name: "",
@@ -272,6 +278,41 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
+  // Check allocation start/end dates against project dates; show warning toast if outside range
+  const checkAllocationDatesAgainstProject = (allocationForm) => {
+    const project = projectProp;
+    if (!project?.startDate && !project?.endDate) return;
+    const projectStart = project.startDate ? new Date(project.startDate) : null;
+    const projectEnd = project.endDate ? new Date(project.endDate) : null;
+    const allocStart = allocationForm.startDate ? new Date(allocationForm.startDate) : null;
+    const allocEnd = allocationForm.endDate ? new Date(allocationForm.endDate) : null;
+    if (!allocStart && !allocEnd) return;
+    if (projectStart && allocStart && allocStart < projectStart) {
+      showWarningToast(
+        "Allocation date outside project",
+        "Allocation start date is before project start date."
+      );
+    }
+    if (projectEnd && allocEnd && allocEnd > projectEnd) {
+      showWarningToast(
+        "Allocation date outside project",
+        "Allocation end date is after project end date."
+      );
+    }
+    if (projectStart && allocEnd && allocEnd < projectStart) {
+      showWarningToast(
+        "Allocation date outside project",
+        "Allocation end date is before project start date."
+      );
+    }
+    if (projectEnd && allocStart && allocStart > projectEnd) {
+      showWarningToast(
+        "Allocation date outside project",
+        "Allocation start date is after project end date."
+      );
+    }
+  };
+
   const handleCreateBudget = async () => {
     // Validate form data
     const errors = validateBudgetForm(budgetForm);
@@ -300,6 +341,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     };
 
     try {
+      setBudgetSectionLoading(true);
       await handleFormSubmission(submitFunction, {
         loadingTitle: "Creating Budget...",
         loadingText: "Please wait while we create your project budget",
@@ -316,27 +358,42 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     } catch (error) {
       console.error("Error creating budget:", error);
       // Error handling is done by handleFormSubmission
+    } finally {
+      setBudgetSectionLoading(false);
     }
   };
 
   const handleEditBudget = async () => {
-    try {
+    const submitFunction = async () => {
+      const { approvedBy: _a, approvalDate: _b, ...rest } = budgetForm;
       const response = await fetch(`/api/projects/${projectId}/budget`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(budgetForm),
+        body: JSON.stringify(rest),
       });
-
       const data = await response.json();
-      if (data.success) {
-        setShowEditBudgetModal(false);
-        fetchFinancialData();
-        resetBudgetForm();
-      } else {
-        setError(data.error);
+      if (!data.success) {
+        throw new Error(data.error || "Failed to update budget");
       }
+      return data;
+    };
+    try {
+      setBudgetSectionLoading(true);
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Updating budget...",
+        loadingText: "Please wait while we update the budget",
+        successTitle: "Budget updated",
+        successText: "Project budget has been updated successfully",
+        errorTitle: "Budget error",
+        errorText: "Failed to update budget. Please try again.",
+      });
+      setShowEditBudgetModal(false);
+      fetchFinancialData();
+      resetBudgetForm();
     } catch (err) {
-      setError("Failed to update budget: " + err.message);
+      // Error already shown by handleFormSubmission
+    } finally {
+      setBudgetSectionLoading(false);
     }
   };
 
@@ -407,61 +464,81 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleAddIncome = async () => {
-    try {
+    const submitFunction = async () => {
       const response = await fetch(`/api/projects/${projectId}/income`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(incomeForm),
       });
-
       const data = await response.json();
-      if (data.success) {
-        setShowIncomeModal(false);
-        fetchFinancialData();
-        resetIncomeForm();
-      } else {
-        setError(data.error);
+      if (!data.success) {
+        throw new Error(data.error || "Failed to add income");
       }
+      return data;
+    };
+    try {
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Adding income...",
+        loadingText: "Please wait.",
+        successTitle: "Income added",
+        successText: "Income has been added successfully",
+        errorTitle: "Error",
+        errorText: "Failed to add income. Please try again.",
+      });
+      setShowIncomeModal(false);
+      fetchFinancialData();
+      resetIncomeForm();
     } catch (err) {
-      setError("Failed to add income: " + err.message);
+      // Error shown by handleFormSubmission
     }
   };
 
   const handleAddExpectedPayment = async () => {
-    try {
-      const payload = {
-        title: expectedPaymentForm.title,
-        expectedAmount: expectedPaymentForm.expectedAmount,
-        clientName: expectedPaymentForm.clientName,
-        dueDate: expectedPaymentForm.dueDate,
-        description: expectedPaymentForm.description,
-        notes: expectedPaymentForm.notes,
-        status: expectedPaymentForm.status || "pending",
-      };
+    const payload = {
+      title: expectedPaymentForm.title,
+      expectedAmount: expectedPaymentForm.expectedAmount,
+      clientName: expectedPaymentForm.clientName,
+      dueDate: expectedPaymentForm.dueDate,
+      categoryId: expectedPaymentForm.categoryId || undefined,
+      description: expectedPaymentForm.description,
+      notes: expectedPaymentForm.notes,
+      status: expectedPaymentForm.status || "pending",
+    };
+    const submitFunction = async () => {
       const response = await fetch(`/api/projects/${projectId}/income`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       const data = await response.json();
-      if (data.success) {
-        setShowExpectedPaymentModal(false);
-        fetchFinancialData();
-        setExpectedPaymentForm({
-          title: "",
-          expectedAmount: "",
-          clientName: "",
-          dueDate: "",
-          description: "",
-          notes: "",
-          status: "pending",
-        });
-      } else {
-        setError(data.error);
+      if (!data.success) {
+        throw new Error(data.error || "Failed to add expected payment");
       }
+      return data;
+    };
+    try {
+      await handleFormSubmission(submitFunction, {
+        loadingTitle: "Adding expected payment...",
+        loadingText: "Please wait.",
+        successTitle: "Expected payment added",
+        successText: "Expected payment has been added successfully",
+        errorTitle: "Error",
+        errorText: "Failed to add expected payment. Please try again.",
+      });
+      setShowExpectedPaymentModal(false);
+      fetchFinancialData();
+      setExpectedPaymentForm({
+        title: "",
+        expectedAmount: "",
+        clientName: "",
+        dueDate: "",
+        categoryId: "",
+        description: "",
+        notes: "",
+        status: "pending",
+      });
     } catch (err) {
-      setError("Failed to add expected payment: " + err.message);
+      // Error shown by handleFormSubmission
     }
   };
 
@@ -479,6 +556,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         : "",
       paymentMethod: inc.paymentMethod || "bank_transfer",
       clientName: inc.clientName || "",
+      categoryId: inc.categoryId || "",
       invoiceNumber: inc.invoiceNumber || "",
       status: inc.status || "pending",
       paymentReference: inc.paymentReference || "",
@@ -486,6 +564,63 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     });
     setEditingIncomeId(inc._id);
     setShowIncomeModal(true);
+  };
+
+  const handleOpenPaymentDetails = (inc) => {
+    setPaymentDetailsIncome(inc);
+    setPaymentDetailsPopup(null);
+  };
+
+  const handleUpdateIncomeField = async (incomeId, field, value) => {
+    if (!incomeId || !projectId) return;
+    try {
+      const payload = { [field]: value };
+      const response = await fetch(
+        `/api/projects/${projectId}/income/${incomeId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        setPaymentDetailsPopup(null);
+        setPaymentDetailsIncome((prev) =>
+          prev && prev._id === incomeId ? { ...prev, [field]: value } : prev
+        );
+        fetchFinancialData();
+      } else {
+        setError(data.error || "Failed to update");
+      }
+    } catch (err) {
+      setError("Failed to update: " + err.message);
+    }
+  };
+
+  const handleUpdateIncomeDetails = async (incomeId, details) => {
+    if (!incomeId || !projectId) return;
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/income/${incomeId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(details),
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        setPaymentDetailsIncome((prev) =>
+          prev && prev._id === incomeId ? { ...prev, ...details } : prev
+        );
+        fetchFinancialData();
+      } else {
+        setError(data.error || "Failed to update");
+      }
+    } catch (err) {
+      setError("Failed to update: " + err.message);
+    }
   };
 
   const handleOpenEditExpense = (expense) => {
@@ -662,6 +797,9 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     // Clear any existing errors
     setAllocationFormErrors({});
 
+    // Warn if allocation dates are outside project date range
+    checkAllocationDatesAgainstProject(allocationForm);
+
     if (editingAllocationId) {
       // Update existing allocation
       await handleUpdateAllocation();
@@ -685,7 +823,12 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleUpdateAllocation = async () => {
+    // Warn if allocation dates are outside project date range
+    checkAllocationDatesAgainstProject(allocationForm);
+
     try {
+      setBudgetSectionLoading(true);
+      showLoadingToast("Updating allocation...", "Please wait.");
       const inferredType =
         allocationForm.allocationType ||
         (allocationForm.departmentId
@@ -726,17 +869,23 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       );
 
       const data = await response.json();
+      closeDialog();
       if (data.success) {
         setShowAllocationModal(false);
         setShowAllocationEditModal(false);
         setEditingAllocationId(null);
         resetAllocationForm();
         fetchFinancialData(); // Refresh the budget data
+        projectToasts.allocationUpdated();
       } else {
-        setError(data.error);
+        projectToasts.allocationError(data.error);
       }
     } catch (err) {
+      closeDialog();
+      projectToasts.allocationError(err.message);
       setError("Failed to update allocation: " + err.message);
+    } finally {
+      setBudgetSectionLoading(false);
     }
   };
 
@@ -756,8 +905,12 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         taskId: allocation.taskId || "",
         activityId: allocation.activityId || "",
         milestoneId: allocation.milestoneId || "",
-        startDate: allocation.startDate || "",
-        endDate: allocation.endDate || "",
+        startDate: allocation.startDate
+          ? new Date(allocation.startDate).toISOString().split("T")[0]
+          : "",
+        endDate: allocation.endDate
+          ? new Date(allocation.endDate).toISOString().split("T")[0]
+          : "",
         allocationType:
           allocation.allocationType ||
           (allocation.departmentId
@@ -780,11 +933,16 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleDeleteAllocation = async (allocationId) => {
-    if (!confirm("Are you sure you want to delete this allocation?")) {
-      return;
-    }
+    const result = await showDeleteConfirmDialog(
+      "Delete allocation",
+      "Are you sure you want to delete this allocation? This action cannot be undone.",
+      "Yes, delete it"
+    );
+    if (!result.isConfirmed) return;
 
     try {
+      setBudgetSectionLoading(true);
+      showLoadingToast("Deleting allocation...", "Please wait.");
       const response = await fetch(
         `/api/projects/${projectId}/budget/allocations/${allocationId}`,
         {
@@ -793,13 +951,19 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       );
 
       const data = await response.json();
+      closeDialog();
       if (data.success) {
         fetchFinancialData(); // Refresh the budget data
+        projectToasts.allocationDeleted();
       } else {
-        setError(data.error);
+        projectToasts.allocationError(data.error);
       }
     } catch (err) {
+      closeDialog();
+      projectToasts.allocationError(err.message);
       setError("Failed to delete allocation: " + err.message);
+    } finally {
+      setBudgetSectionLoading(false);
     }
   };
 
@@ -1069,33 +1233,30 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
       {/* Expected Payment Modal */}
       {showExpectedPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-xl">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
-              <h3 className="text-base sm:text-lg font-semibold text-black">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-5 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
                 Add Expected Payment
               </h3>
             </div>
-            <div className="p-4 sm:p-6 space-y-4">
+            <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Title *
                 </label>
                 <input
                   type="text"
                   value={expectedPaymentForm.title}
                   onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      title: e.target.value,
-                    }))
+                    setExpectedPaymentForm((p) => ({ ...p, title: e.target.value }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="e.g., Phase 1 Payment"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Expected Amount *
                 </label>
                 <input
@@ -1103,103 +1264,120 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                   step="0.01"
                   value={expectedPaymentForm.expectedAmount}
                   onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      expectedAmount: e.target.value,
-                    }))
+                    setExpectedPaymentForm((p) => ({ ...p, expectedAmount: e.target.value }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="0.00"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Client Name
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category
+                </label>
+                <select
+                  value={expectedPaymentForm.categoryId}
+                  onChange={(e) =>
+                    setExpectedPaymentForm((p) => ({ ...p, categoryId: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select category</option>
+                  {incomeCategories.map((cat) => (
+                    <option key={cat._id} value={cat._id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Client name
                 </label>
                 <input
                   type="text"
                   value={expectedPaymentForm.clientName}
                   onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      clientName: e.target.value,
-                    }))
+                    setExpectedPaymentForm((p) => ({ ...p, clientName: e.target.value }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Client name"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Due Date
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Due date
                 </label>
                 <input
                   type="date"
                   value={expectedPaymentForm.dueDate}
                   onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      dueDate: e.target.value,
-                    }))
+                    setExpectedPaymentForm((p) => ({ ...p, dueDate: e.target.value }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description
                 </label>
                 <textarea
                   rows={2}
                   value={expectedPaymentForm.description}
                   onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      description: e.target.value,
-                    }))
+                    setExpectedPaymentForm((p) => ({ ...p, description: e.target.value }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Describe the payment"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Notes
                 </label>
                 <textarea
                   rows={2}
                   value={expectedPaymentForm.notes}
                   onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      notes: e.target.value,
-                    }))
+                    setExpectedPaymentForm((p) => ({ ...p, notes: e.target.value }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Any additional notes"
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 p-4 sm:p-6 border-t border-gray-200">
+            <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
               <button
+                type="button"
                 onClick={() => setShowExpectedPaymentModal(false)}
-                className="px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAddExpectedPayment}
                 disabled={
-                  !expectedPaymentForm.title ||
-                  !expectedPaymentForm.expectedAmount
+                  !expectedPaymentForm.title || !expectedPaymentForm.expectedAmount
                 }
-                className="px-4 py-2 text-sm sm:text-base text-white rounded-md bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add Expected Payment
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Income Payment Details Modal (set when paid, payment method, status, etc.) */}
+      {paymentDetailsIncome && (
+        <IncomePaymentDetailsModal
+          income={paymentDetailsIncome}
+          incomeCategories={incomeCategories}
+          formatCurrency={formatCurrency}
+          formatDate={formatDate}
+          onClose={() => setPaymentDetailsIncome(null)}
+          onSave={handleUpdateIncomeDetails}
+        />
       )}
 
       {/* Tab Content */}
@@ -1233,6 +1411,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             onCreateBudget={() => setShowBudgetModal(true)}
             handleEditAllocation={handleEditAllocation}
             handleDeleteAllocation={handleDeleteAllocation}
+            budgetSectionLoading={budgetSectionLoading}
           />
         )}
 
@@ -1251,11 +1430,13 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         {activeTab === "income" && (
           <IncomeTab
             income={income}
+            incomeCategories={incomeCategories}
             formatCurrency={formatCurrency}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
             onEditIncome={handleOpenEditIncome}
             onDeleteIncome={handleDeleteIncome}
+            onOpenPaymentDetails={handleOpenPaymentDetails}
           />
         )}
 
@@ -2047,7 +2228,25 @@ const BudgetTab = ({
   onCreateBudget,
   handleEditAllocation,
   handleDeleteAllocation,
+  budgetSectionLoading,
 }) => {
+  const [activeView, setActiveView] = useState("summary");
+  const allocations = budgetData?.allocations || [];
+  const summary = budgetData?.summary || {};
+  const metrics = budgetData?.metrics || {};
+  const totalAllocated = allocations.reduce(
+    (sum, allocation) => sum + (allocation.budgetedAmount || 0),
+    0
+  );
+  const totalSpent = allocations.reduce(
+    (sum, allocation) => sum + (allocation.spentAmount || 0),
+    0
+  );
+  const totalRemaining = allocations.reduce(
+    (sum, allocation) => sum + (allocation.remainingAmount || 0),
+    0
+  );
+
   if (!budgetData) {
     return (
       <div className="text-center py-8 sm:py-12 px-4">
@@ -2070,162 +2269,540 @@ const BudgetTab = ({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Budget Summary */}
-      <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-        <h3 className="text-base sm:text-lg font-semibold text-black mb-3 sm:mb-4">
-          Budget Information
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          <div>
-            <p className="text-xs sm:text-sm text-gray-600">Total Budget</p>
-            <p className="text-xl sm:text-2xl font-bold text-black">
-              {formatCurrency(budgetData.totalAmount, budgetData.currency)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm text-gray-600">Approved By</p>
-            <p className="text-sm sm:text-lg font-medium text-black">
-              {budgetData.approvedBy || "Not specified"}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm text-gray-600">Approval Date</p>
-            <p className="text-sm sm:text-lg font-medium text-black">
-              {formatDate(budgetData.approvalDate)}
-            </p>
-          </div>
+    <div className="relative space-y-4 sm:space-y-6">
+      {budgetSectionLoading && (
+        <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center rounded-lg min-h-[200px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
         </div>
-        {budgetData.description && (
-          <div className="mt-3 sm:mt-4">
-            <p className="text-xs sm:text-sm text-gray-600">Description</p>
-            <p className="text-sm sm:text-base text-black">
-              {budgetData.description}
-            </p>
-          </div>
-        )}
+      )}
+      {/* Local tabs to separate Budget vs Allocations */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h3 className="text-base sm:text-lg font-semibold text-black">
+            Budget Management
+          </h3>
+          <p className="text-xs sm:text-sm text-gray-600">
+            Switch between the high-level budget and the detailed allocation
+            breakdown.
+          </p>
+        </div>
+        <div className="inline-flex rounded-full bg-gray-100 p-1 self-start">
+          <button
+            type="button"
+            onClick={() => setActiveView("summary")}
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-colors ${
+              activeView === "summary"
+                ? "bg-white text-blue-700 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Budget
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveView("allocations")}
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-colors ${
+              activeView === "allocations"
+                ? "bg-white text-blue-700 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Allocations
+          </button>
+        </div>
       </div>
 
-      {/* Budget Allocations */}
-      {budgetData.allocations && budgetData.allocations.length > 0 && (
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-base sm:text-lg font-semibold text-black mb-3 sm:mb-4">
-            Budget Allocations
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Allocation
-                  </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+      {/* Budget view */}
+      {activeView === "summary" && (
+        <div className="space-y-4 sm:space-y-6">
+          {/* Top-level budget + allocation cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            {/* Budget card */}
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-start justify-between gap-3 mb-3 sm:mb-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-500">
                     Budget
-                  </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Spent
-                  </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Remaining
-                  </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Utilization
-                  </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {budgetData.allocations.map((allocation) => (
-                  <tr key={allocation._id}>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                      <div className="text-xs sm:text-sm font-medium text-black">
-                        {allocation.name || "Unnamed"}
-                      </div>
-                      {allocation.description && (
-                        <div className="text-xs sm:text-sm text-gray-500">
-                          {allocation.description}
-                        </div>
+                  </p>
+                  <h4 className="text-sm sm:text-base font-semibold text-black">
+                    Project Budget Overview
+                  </h4>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[11px] font-medium text-blue-700">
+                  {budgetData.currency || "ETB"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Total Budget
+                  </p>
+                  <p className="text-xl sm:text-2xl font-bold text-black">
+                    {formatCurrency(budgetData.totalAmount, budgetData.currency)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Remaining:{" "}
+                    <span className="font-medium text-green-700">
+                      {formatCurrency(
+                        summary.remainingBudget ?? totalRemaining,
+                        budgetData.currency
                       )}
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        {allocation.category}
+                    </span>
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      Utilization
+                    </p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-gray-100">
+                        <div
+                          className={`h-1.5 rounded-full ${
+                            (summary.budgetUtilization || 0) > 100
+                              ? "bg-red-500"
+                              : (summary.budgetUtilization || 0) > 90
+                              ? "bg-yellow-500"
+                              : "bg-blue-500"
+                          }`}
+                          style={{
+                            width: `${Math.min(
+                              summary.budgetUtilization || 0,
+                              100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-medium text-gray-800">
+                        {(summary.budgetUtilization || 0).toFixed(1)}%
                       </span>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
-                      {formatCurrency(allocation.budgetedAmount)}
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-red-600">
-                      {formatCurrency(allocation.spentAmount)}
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
-                      {formatCurrency(allocation.remainingAmount)}
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-12 sm:w-16 bg-gray-200 rounded-full h-2 mr-1 sm:mr-2">
-                          <div
-                            className={`h-2 rounded-full ${
-                              allocation.utilization > 100
-                                ? "bg-red-500"
-                                : allocation.utilization > 90
-                                ? "bg-yellow-500"
-                                : "bg-blue-500"
-                            }`}
-                            style={{
-                              width: `${Math.min(
-                                allocation.utilization || 0,
-                                100
-                              )}%`,
-                            }}
-                          ></div>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      Profit / Loss
+                    </p>
+                    <p
+                      className={`text-sm sm:text-base font-semibold ${
+                        (summary.profitLoss || 0) >= 0
+                          ? "text-green-700"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {formatCurrency(summary.profitLoss || 0, budgetData.currency)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {budgetData.description && (
+                <div className="mt-3 sm:mt-4 border-t border-gray-100 pt-3 sm:pt-4">
+                  <p className="text-xs sm:text-sm text-gray-600">Description</p>
+                  <p className="text-sm sm:text-base text-black">
+                    {budgetData.description}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] text-gray-500">
+                  Last updated:{" "}
+                  {budgetData.updatedAt
+                    ? `${budgetData.approvedBy || "—"} · ${formatDate(
+                        budgetData.updatedAt
+                      )}`
+                    : budgetData.approvedBy
+                    ? `${budgetData.approvedBy}`
+                    : "—"}
+                </p>
+                <button
+                  type="button"
+                  onClick={onCreateBudget}
+                  className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                  {budgetData ? "Adjust Budget & Allocations" : "Create Budget"}
+                </button>
+              </div>
+            </div>
+
+            {/* Budget allocation card */}
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-start justify-between gap-3 mb-3 sm:mb-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-500">
+                    Budget Allocation
+                  </p>
+                  <h4 className="text-sm sm:text-base font-semibold text-black">
+                    Allocation Summary
+                  </h4>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-[11px] font-medium text-purple-700">
+                  {metrics.totalAllocations || allocations.length} allocations
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-3 sm:px-4 sm:py-4">
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Total Allocated
+                  </p>
+                  <p className="text-sm sm:text-base font-semibold text-blue-700">
+                    {formatCurrency(totalAllocated, budgetData.currency)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-3 sm:px-4 sm:py-4">
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Overrun Allocations
+                  </p>
+                  <p className="text-sm sm:text-base font-semibold text-red-600">
+                    {metrics.overrunAllocations || 0}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-3 sm:px-4 sm:py-4">
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Avg. Utilization
+                  </p>
+                  <p className="text-sm sm:text-base font-semibold text-gray-900">
+                    {(metrics.averageUtilization || 0).toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+
+              {metrics.highestUtilization !== undefined && (
+                <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      Highest utilization
+                    </p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {metrics.highestUtilization.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      Lowest utilization
+                    </p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {metrics.lowestUtilization.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <p className="mt-3 text-[11px] text-gray-500">
+                Switch to the Allocations view to manage individual allocation
+                lines and see detailed utilization per category.
+              </p>
+            </div>
+          </div>
+
+          {/* Budget management audit log (high-level activity) */}
+          <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h4 className="text-sm sm:text-base font-semibold text-black mb-3 sm:mb-4">
+              Budget Management Activity
+            </h4>
+            <ul className="space-y-2 text-xs sm:text-sm text-gray-700">
+              {budgetData.createdAt && (
+                <li>
+                  <span className="font-semibold text-gray-900">Budget created:</span>{" "}
+                  {formatDate(budgetData.createdAt)}
+                </li>
+              )}
+              {budgetData.updatedAt && (
+                <li>
+                  <span className="font-semibold text-gray-900">Last updated:</span>{" "}
+                  {formatDate(budgetData.updatedAt)}{" "}
+                  {budgetData.approvedBy && `by ${budgetData.approvedBy}`}
+                </li>
+              )}
+              <li>
+                <span className="font-semibold text-gray-900">
+                  Total budget changes logged:
+                </span>{" "}
+                {/* This uses metrics / allocations as a proxy since audit entries are stored server-side */}
+                {(metrics.totalAllocations || allocations.length) +
+                  (metrics.overrunAllocations || 0)}
+              </li>
+              {!budgetData.createdAt && !budgetData.updatedAt && (
+                <li className="text-gray-500">
+                  Detailed audit entries are recorded server-side and can be
+                  surfaced here when needed.
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Allocations view */}
+      {activeView === "allocations" && (
+        <>
+          {allocations.length === 0 ? (
+            <div className="bg-white p-4 sm:p-6 rounded-lg border border-dashed border-gray-300 text-center">
+              <h4 className="text-sm sm:text-base font-semibold text-black mb-2">
+                No allocations defined
+              </h4>
+              <p className="text-xs sm:text-sm text-gray-600 mb-4">
+                Use the budget editor to add allocations and distribute your
+                total budget across categories.
+              </p>
+              <button
+                type="button"
+                onClick={onCreateBudget}
+                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Add Allocations
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 sm:mb-4">
+                <div>
+                  <h4 className="text-sm sm:text-base font-semibold text-black">
+                    Budget Allocations
+                  </h4>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Track how your budget is distributed and utilized across key
+                    categories.
+                  </p>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 self-start">
+                  {allocations.length} allocation
+                  {allocations.length === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              {/* Mobile-friendly budget-style cards */}
+              <div className="space-y-3 sm:space-y-4 lg:hidden">
+                {allocations.map((allocation) => (
+                  <div
+                    key={allocation._id}
+                    className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white via-white to-blue-50/60 p-3 sm:p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-500">
+                          Budget Allocation
                         </div>
-                        <span className="text-xs sm:text-sm text-black">
+                        <div className="text-sm font-semibold text-black">
+                          {allocation.name || "Unnamed"}
+                        </div>
+                        {allocation.description && (
+                          <div className="text-xs text-gray-600 line-clamp-2">
+                            {allocation.description}
+                          </div>
+                        )}
+                      </div>
+                      {allocation.status && (
+                        <span
+                          className={`px-2 py-0.5 inline-flex text-[11px] leading-5 font-semibold rounded-full border ${getStatusColor(
+                            allocation.status
+                          )}`}
+                        >
+                          {allocation.status}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {allocation.category && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700">
+                          {allocation.category}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div>
+                        <p className="text-[11px] text-gray-500">Budget</p>
+                        <p className="text-xs font-semibold text-blue-800">
+                          {formatCurrency(allocation.budgetedAmount)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-gray-500">Spent</p>
+                        <p className="text-xs font-semibold text-red-600">
+                          {formatCurrency(allocation.spentAmount)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-gray-500">Remaining</p>
+                        <p className="text-xs font-semibold text-green-700">
+                          {formatCurrency(allocation.remainingAmount)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[11px] text-gray-500">Utilization</p>
+                        <span className="text-[11px] text-black">
                           {allocation.utilization?.toFixed(1)}%
                         </span>
                       </div>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
-                          allocation.status
-                        )}`}
-                      >
-                        {allocation.status}
-                      </span>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
-                      <div className="flex space-x-1 sm:space-x-2">
-                        <button
-                          onClick={() => handleEditAllocation(allocation)}
-                          className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-50"
-                          title="Edit Allocation"
-                        >
-                          <PencilIcon className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteAllocation(allocation._id)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50"
-                          title="Delete Allocation"
-                        >
-                          <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </button>
+                      <div className="w-full bg-gray-100 rounded-full h-1.5">
+                        <div
+                          className={`h-1.5 rounded-full ${
+                            allocation.utilization > 100
+                              ? "bg-red-500"
+                              : allocation.utilization > 90
+                              ? "bg-yellow-500"
+                              : "bg-blue-500"
+                          }`}
+                          style={{
+                            width: `${Math.min(
+                              allocation.utilization || 0,
+                              100
+                            )}%`,
+                          }}
+                        ></div>
                       </div>
-                    </td>
-                  </tr>
+                    </div>
+
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button
+                        onClick={() => handleEditAllocation(allocation)}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        <PencilIcon className="h-3 w-3" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAllocation(allocation._id)}
+                        className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2.5 py-1 text-[11px] font-medium text-red-700 hover:bg-red-50"
+                      >
+                        <TrashIcon className="h-3 w-3" />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto mt-3">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Allocation
+                      </th>
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Category
+                      </th>
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Budget
+                      </th>
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Spent
+                      </th>
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Remaining
+                      </th>
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Utilization
+                      </th>
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {allocations.map((allocation) => (
+                      <tr key={allocation._id}>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                          <div className="text-xs sm:text-sm font-medium text-black">
+                            {allocation.name || "Unnamed"}
+                          </div>
+                          {allocation.description && (
+                            <div className="text-xs sm:text-sm text-gray-500">
+                              {allocation.description}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                          {allocation.category && (
+                            <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              {allocation.category}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
+                          {formatCurrency(allocation.budgetedAmount)}
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-red-600">
+                          {formatCurrency(allocation.spentAmount)}
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
+                          {formatCurrency(allocation.remainingAmount)}
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-12 sm:w-16 bg-gray-200 rounded-full h-2 mr-1 sm:mr-2">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  allocation.utilization > 100
+                                    ? "bg-red-500"
+                                    : allocation.utilization > 90
+                                    ? "bg-yellow-500"
+                                    : "bg-blue-500"
+                                }`}
+                                style={{
+                                  width: `${Math.min(
+                                    allocation.utilization || 0,
+                                    100
+                                  )}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <span className="text-xs sm:text-sm text-black">
+                              {allocation.utilization?.toFixed(1)}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                          {allocation.status && (
+                            <span
+                              className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
+                                allocation.status
+                              )}`}
+                            >
+                              {allocation.status}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
+                          <div className="flex space-x-1 sm:space-x-2">
+                            <button
+                              onClick={() => handleEditAllocation(allocation)}
+                              className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-50"
+                              title="Edit Allocation"
+                            >
+                              <PencilIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAllocation(allocation._id)}
+                              className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50"
+                              title="Delete Allocation"
+                            >
+                              <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -2382,11 +2959,13 @@ const ExpensesTab = ({
 // Income Tab Component
 const IncomeTab = ({
   income,
+  incomeCategories = [],
   formatCurrency,
   getStatusColor,
   formatDate,
   onEditIncome,
   onDeleteIncome,
+  onOpenPaymentDetails,
 }) => {
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -2443,7 +3022,7 @@ const IncomeTab = ({
                   Income
                 </th>
                 <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
+                  Expected / Received
                 </th>
                 <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Client
@@ -2475,8 +3054,14 @@ const IncomeTab = ({
                       </div>
                     )}
                   </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600">
-                    {formatCurrency(inc.amount)}
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(inc.expectedAmount ?? 0)}
+                    </span>
+                    <span className="text-gray-500"> / </span>
+                    <span className="font-semibold text-green-600">
+                      {formatCurrency(inc.amount ?? 0)}
+                    </span>
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                     <div className="text-xs sm:text-sm text-black">
@@ -2507,9 +3092,19 @@ const IncomeTab = ({
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
                     <div className="flex items-center space-x-1 sm:space-x-2">
+                      {onOpenPaymentDetails && (
+                        <button
+                          onClick={() => onOpenPaymentDetails(inc)}
+                          className="text-purple-600 hover:text-purple-900"
+                          title="Set payment details (when paid, method, status, invoice, etc.)"
+                        >
+                          <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => onEditIncome && onEditIncome(inc)}
                         className="text-blue-600 hover:text-blue-900"
+                        title="Edit income"
                       >
                         <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
@@ -2518,6 +3113,7 @@ const IncomeTab = ({
                           onDeleteIncome && onDeleteIncome(inc._id)
                         }
                         className="text-red-600 hover:text-red-900"
+                        title="Delete"
                       >
                         <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
@@ -2986,13 +3582,6 @@ const BudgetModal = ({
   budgetAllocationCategories,
   isEdit = false,
 }) => {
-  const totalAllocated = budgetForm.budgetAllocations.reduce(
-    (sum, alloc) => sum + (alloc.amount || 0),
-    0
-  );
-  const remainingBudget =
-    parseFloat(budgetForm.totalAmount || 0) - totalAllocated;
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
@@ -3077,135 +3666,6 @@ const BudgetModal = ({
               <p className="text-xs text-red-600 mt-1">
                 {budgetFormErrors.description}
               </p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Approved By
-              </label>
-              <input
-                type="text"
-                value={budgetForm.approvedBy}
-                onChange={(e) =>
-                  handleBudgetFormChange("approvedBy", e.target.value)
-                }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  budgetFormErrors.approvedBy
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-                placeholder="Approver name"
-              />
-              {budgetFormErrors.approvedBy && (
-                <p className="text-xs text-red-600 mt-1">
-                  {budgetFormErrors.approvedBy}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Approval Date
-              </label>
-              <input
-                type="date"
-                value={budgetForm.approvalDate}
-                onChange={(e) =>
-                  handleBudgetFormChange("approvalDate", e.target.value)
-                }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  budgetFormErrors.approvalDate
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-              />
-              {budgetFormErrors.approvalDate && (
-                <p className="text-xs text-red-600 mt-1">
-                  {budgetFormErrors.approvalDate}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Budget Allocations */}
-          <div>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4">
-              <h4 className="text-sm sm:text-md font-semibold text-black">
-                Budget Allocations
-              </h4>
-              <button
-                onClick={() => setShowAllocationModal(true)}
-                className="px-3 py-1 text-xs sm:text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 self-start sm:self-auto"
-              >
-                Add Allocation
-              </button>
-            </div>
-
-            {budgetForm.budgetAllocations.length > 0 && (
-              <div className="space-y-2 mb-4">
-                {budgetForm.budgetAllocations.map((allocation, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-md gap-2 sm:gap-0"
-                  >
-                    <div className="flex-1">
-                      <span className="font-medium text-sm sm:text-base">
-                        {allocation.name}
-                      </span>
-                      <span className="text-xs sm:text-sm text-gray-600 ml-0 sm:ml-2 block sm:inline">
-                        ({allocation.category})
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between sm:justify-end gap-2">
-                      <span className="font-semibold text-sm sm:text-base">
-                        ${allocation.amount.toFixed(2)}
-                      </span>
-                      <button
-                        onClick={() => {
-                          setBudgetForm((prev) => ({
-                            ...prev,
-                            budgetAllocations: prev.budgetAllocations.filter(
-                              (_, i) => i !== index
-                            ),
-                          }));
-                        }}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {budgetForm.totalAmount && (
-              <div className="p-3 bg-blue-50 rounded-md">
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span>Total Budget:</span>
-                  <span className="font-semibold">
-                    ${parseFloat(budgetForm.totalAmount || 0).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span>Total Allocated:</span>
-                  <span className="font-semibold">
-                    ${totalAllocated.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span>Remaining:</span>
-                  <span
-                    className={`font-semibold ${
-                      remainingBudget < 0 ? "text-red-600" : "text-green-600"
-                    }`}
-                  >
-                    ${remainingBudget.toFixed(2)}
-                  </span>
-                </div>
-              </div>
             )}
           </div>
         </div>
@@ -3879,6 +4339,284 @@ const ExpenseModal = ({
             {isEdit ? "Update Expense" : "Add Expense"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// Income Payment Details Modal – normal form: read-only summary + editable fields + Save
+const IncomePaymentDetailsModal = ({
+  income,
+  incomeCategories,
+  formatCurrency,
+  formatDate,
+  onClose,
+  onSave,
+}) => {
+  const getCategoryName = (categoryId) => {
+    if (!categoryId) return "—";
+    const cat = incomeCategories.find((c) => c._id === categoryId);
+    return cat ? cat.name : "—";
+  };
+
+  const [form, setForm] = useState(() => ({
+    amount:
+      income.amount != null && income.amount !== ""
+        ? String(income.amount)
+        : income.expectedAmount != null
+          ? String(income.expectedAmount)
+          : "",
+    paymentMethod: income.paymentMethod || "bank_transfer",
+    status: income.status || "pending",
+    receivedDate: income.receivedDate
+      ? new Date(income.receivedDate).toISOString().split("T")[0]
+      : "",
+    invoiceNumber: income.invoiceNumber || "",
+    paymentReference: income.paymentReference || "",
+    notes: income.notes || "",
+  }));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setForm({
+      amount:
+        income.amount != null && income.amount !== ""
+          ? String(income.amount)
+          : income.expectedAmount != null
+            ? String(income.expectedAmount)
+            : "",
+      paymentMethod: income.paymentMethod || "bank_transfer",
+      status: income.status || "pending",
+      receivedDate: income.receivedDate
+        ? new Date(income.receivedDate).toISOString().split("T")[0]
+        : "",
+      invoiceNumber: income.invoiceNumber || "",
+      paymentReference: income.paymentReference || "",
+      notes: income.notes || "",
+    });
+  }, [income._id, income.amount, income.expectedAmount]);
+
+  const handleChange = (field, value) => {
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      const expected = parseFloat(income.expectedAmount);
+      if (field === "amount" && value !== "" && !Number.isNaN(parseFloat(value)) && parseFloat(value) >= expected) {
+        next.status = "collected";
+      }
+      if (field === "receivedDate" && value) {
+        next.status = "collected";
+      }
+      return next;
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const amountNum = form.amount ? parseFloat(form.amount) : undefined;
+      await onSave(income._id, {
+        ...(amountNum != null && !Number.isNaN(amountNum) && amountNum > 0 && { amount: amountNum }),
+        paymentMethod: form.paymentMethod,
+        status: form.status,
+        receivedDate: form.receivedDate || undefined,
+        invoiceNumber: form.invoiceNumber,
+        paymentReference: form.paymentReference,
+        notes: form.notes,
+      });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-5 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Payment details
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+          <div className="rounded-md bg-gray-50 border border-gray-200 p-4">
+            <p className="text-sm font-medium text-gray-500 mb-3">
+              Income (read-only)
+            </p>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <div>
+                <dt className="text-gray-500">Income name</dt>
+                <dd className="font-medium text-gray-900 mt-0.5">{income.title || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Expected amount</dt>
+                <dd className="font-medium text-gray-900 mt-0.5">
+                  {formatCurrency(income.expectedAmount ?? 0)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Received amount</dt>
+                <dd className="font-medium text-gray-900 mt-0.5">
+                  {formatCurrency(income.amount ?? 0)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Category</dt>
+                <dd className="font-medium text-gray-900 mt-0.5">{getCategoryName(income.categoryId)}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Client name</dt>
+                <dd className="font-medium text-gray-900 mt-0.5">{income.clientName || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Due date</dt>
+                <dd className="font-medium text-gray-900 mt-0.5">
+                  {income.dueDate ? formatDate(income.dueDate) : "—"}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-gray-700">Payment information</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Received amount
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.amount}
+                    onChange={(e) => handleChange("amount", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder={String(income.expectedAmount ?? "")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleChange("amount", String(income.expectedAmount ?? ""))
+                    }
+                    className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 whitespace-nowrap"
+                  >
+                    Set to expected
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Expected: {formatCurrency(income.expectedAmount ?? 0)}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Payment method
+                </label>
+                <select
+                  value={form.paymentMethod}
+                  onChange={(e) => handleChange("paymentMethod", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="credit_card">Credit Card</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="check">Check</option>
+                  <option value="cash">Cash</option>
+                  <option value="wire_transfer">Wire Transfer</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  value={form.status}
+                  onChange={(e) => handleChange("status", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="collected">Collected</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Received date
+                </label>
+                <input
+                  type="date"
+                  value={form.receivedDate}
+                  onChange={(e) => handleChange("receivedDate", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Invoice number
+                </label>
+                <input
+                  type="text"
+                  value={form.invoiceNumber}
+                  onChange={(e) => handleChange("invoiceNumber", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g. INV-001"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Payment reference
+                </label>
+                <input
+                  type="text"
+                  value={form.paymentReference}
+                  onChange={(e) => handleChange("paymentReference", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Transaction ID or reference"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => handleChange("notes", e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Additional notes..."
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving..." : "Save changes"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

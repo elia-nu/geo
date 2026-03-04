@@ -159,6 +159,7 @@ export async function POST(request, { params }) {
       dueDate,
       paymentMethod,
       clientName,
+      categoryId,
       invoiceNumber,
       status = "pending",
       paymentReference,
@@ -221,7 +222,7 @@ export async function POST(request, { params }) {
       dueDate: dueDate ? new Date(dueDate) : null,
       paymentMethod: paymentMethod || "bank_transfer",
       clientName: clientName || "",
-
+      categoryId: categoryId || null,
       invoiceNumber: invoiceNumber || "",
       status: paymentStatus,
       paymentReference: paymentReference || "",
