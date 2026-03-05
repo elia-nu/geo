@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { getCurrentUser, checkPermission } from "../../../../../middleware/auth";
-import { createAuditLog } from "../../../../../../utils/audit";
+import { getCurrentUser, checkPermission } from "../../../../middleware/auth";
+import { createAuditLog } from "../../../../../utils/audit";
 
 export async function POST(request) {
   try {
