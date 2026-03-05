@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { RefreshCw, ClipboardList, Calendar, Download, CheckCircle } from "lucide-react";
-import * as XLSX from "xlsx";
 
 export default function CompletedActivitiesMasterAuditReport() {
   const [loading, setLoading] = useState(false);
@@ -54,8 +53,10 @@ export default function CompletedActivitiesMasterAuditReport() {
   const byModule = summary.byModule || {};
   const byStatus = summary.byStatus || {};
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!reportData) return;
+    const mod = await import("xlsx");
+    const XLSX = mod.default ?? mod;
     const wb = XLSX.utils.book_new();
     const summaryRows = [
       ["Completed Activities (Master Audit) - Export"],
