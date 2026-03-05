@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { getCurrentUser, checkPermission } from "../../../../../middleware/auth";
-import { createAuditLog } from "../../../../../../utils/audit";
+import { getCurrentUser, checkPermission } from "../../../../middleware/auth";
+import { createAuditLog } from "../../../../../utils/audit";
 
 // Export Workforce Distribution by Site Report
 export async function POST(request) {
@@ -220,7 +220,7 @@ function generateCSVExport(sites, summary, filters) {
     const escapeCSV = (v) => {
       if (v === null || v === undefined) return "";
       const s = String(v);
-      if (s includes "," || s.includes('"') || s.includes("\n")) {
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) {
         return `"${s.replace(/"/g, '""')}"`;
       }
       return s;
