@@ -13,6 +13,7 @@ import {
   Camera,
   FileText,
   History,
+  Bell,
 } from "lucide-react";
 
 export default function EmployeeDashboard({ employeeId, employeeName }) {
@@ -25,10 +26,39 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
     averageHours: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
+    if (employeeId) {
+      fetchNotifications();
+      // Poll for new notifications every 30 seconds
+      const interval = setInterval(() => {
+        fetchNotifications();
+      }, 30000);
+      return () => clearInterval(interval);
+    }
   }, [employeeId]);
+
+  // Close notifications dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showNotifications &&
+        !event.target.closest(".notification-dropdown") &&
+        !event.target.closest("button[title='Notifications']")
+      ) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showNotifications]);
 
   const fetchDashboardData = async () => {
     try {
@@ -83,6 +113,64 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
       console.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch(
+        `/api/notifications/employee?employeeId=${employeeId}&status=all&limit=20`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
+  const markAsRead = async (notificationIds) => {
+    try {
+      const response = await fetch("/api/notifications/employee", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId,
+          notificationIds: Array.isArray(notificationIds)
+            ? notificationIds
+            : [notificationIds],
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await fetchNotifications();
+      }
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch("/api/notifications/employee", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId,
+          markAllAsRead: true,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await fetchNotifications();
+      }
+    } catch (error) {
+      console.error("Error marking all as read:", error);
     }
   };
 
@@ -151,20 +239,116 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
               Here's your work status overview
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl sm:text-3xl font-bold">
-              {new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+          <div className="flex items-center gap-4">
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 rounded-full hover:bg-blue-500 transition-colors"
+                title="Notifications"
+              >
+                <Bell className="w-6 h-6" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notifications Dropdown */}
+              {showNotifications && (
+                <div className="notification-dropdown absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col">
+                  <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                    <h3 className="font-semibold text-black">
+                      Notifications
+                    </h3>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+                  <div className="overflow-y-auto max-h-80">
+                    {notifications.length > 0 ? (
+                      notifications.map((notification) => (
+                        <div
+                          key={notification._id}
+                          className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                            !notification.isRead ? "bg-blue-50" : ""
+                          }`}
+                          onClick={() => {
+                            if (!notification.isRead) {
+                              markAsRead(notification._id);
+                            }
+                            if (notification.actionUrl) {
+                              window.location.href = notification.actionUrl;
+                            }
+                            setShowNotifications(false);
+                          }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={`w-2 h-2 rounded-full mt-2 ${
+                                !notification.isRead
+                                  ? "bg-blue-600"
+                                  : "bg-transparent"
+                              }`}
+                            />
+                            <div className="flex-1">
+                              <p className="font-medium text-black text-sm">
+                                {notification.title}
+                              </p>
+                              <p className="text-xs text-gray-600 mt-1">
+                                {notification.message}
+                              </p>
+                              {notification.task && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Task: {notification.task.title}
+                                </p>
+                              )}
+                              {notification.project && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Project: {notification.project.name}
+                                </p>
+                              )}
+                              <p className="text-xs text-gray-400 mt-2">
+                                {new Date(
+                                  notification.createdAt
+                                ).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-gray-500">
+                        <Bell className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>No notifications</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="text-blue-100 text-xs sm:text-sm">
-              {new Date().toLocaleDateString([], {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+
+            <div className="text-right">
+              <div className="text-2xl sm:text-3xl font-bold">
+                {new Date().toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+              <div className="text-blue-100 text-xs sm:text-sm">
+                {new Date().toLocaleDateString([], {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -320,7 +504,7 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
               >
                 <div className="flex items-center space-x-4">
                   <div className="text-center">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-black">
                       {formatDate(record.date)}
                     </div>
                     <div className="text-xs text-gray-500">
@@ -350,7 +534,7 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-medium text-gray-900">
+                  <div className="text-sm font-medium text-black">
                     {record.workingHours ? `${record.workingHours}h` : "N/A"}
                   </div>
                   <div className="text-xs text-gray-500">

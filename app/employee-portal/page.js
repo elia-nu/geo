@@ -13,7 +13,7 @@ import EmployeeRequestStatus from "../components/EmployeeRequestStatus";
 import EmployeeProjects from "../components/EmployeeProjects";
 import EmployeeTasks from "../components/EmployeeTasks";
 import EmployeeMilestones from "../components/EmployeeMilestones";
-import { MapPin, Navigation, CheckCircle, Menu, X } from "lucide-react";
+import { MapPin, Navigation, CheckCircle, Menu, X, Bell } from "lucide-react";
 
 export default function EmployeePortal() {
   const isCollapsed = useSidebarStore((s) => s.isCollapsed);
@@ -21,6 +21,9 @@ export default function EmployeePortal() {
   const [workLocations, setWorkLocations] = useState([]);
   const [activeSection, setActiveSection] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Check for URL parameters to set initial section
   useEffect(() => {
@@ -80,6 +83,17 @@ export default function EmployeePortal() {
 
       // Always fetch fresh data from database to ensure we have the latest
       await fetchLatestEmployeeData(employeeId);
+
+      // Fetch notifications
+      if (employeeId) {
+        await fetchNotifications(employeeId);
+        // Poll for new notifications every 30 seconds
+        const interval = setInterval(() => {
+          fetchNotifications(employeeId);
+        }, 30000);
+        // Store interval ID for cleanup
+        window.notificationInterval = interval;
+      }
 
       setLoading(false);
     } catch (error) {
@@ -188,6 +202,93 @@ export default function EmployeePortal() {
     setMobileMenuOpen(false);
   };
 
+  const fetchNotifications = async (employeeId) => {
+    try {
+      const response = await fetch(
+        `/api/notifications/employee?employeeId=${employeeId}&status=all&limit=20`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
+  const markAsRead = async (notificationIds) => {
+    if (!employeeData?._id) return;
+    try {
+      const response = await fetch("/api/notifications/employee", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employeeData._id,
+          notificationIds: Array.isArray(notificationIds)
+            ? notificationIds
+            : [notificationIds],
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await fetchNotifications(employeeData._id);
+      }
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    if (!employeeData?._id) return;
+    try {
+      const response = await fetch("/api/notifications/employee", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employeeData._id,
+          markAllAsRead: true,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await fetchNotifications(employeeData._id);
+      }
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    }
+  };
+
+  // Close notifications dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showNotifications &&
+        !event.target.closest(".notification-dropdown") &&
+        !event.target.closest("button[title='Notifications']")
+      ) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showNotifications]);
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (window.notificationInterval) {
+        clearInterval(window.notificationInterval);
+      }
+    };
+  }, []);
+
   const renderActiveSection = () => {
     if (!employeeData) return null;
 
@@ -203,15 +304,15 @@ export default function EmployeePortal() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white rounded-xl shadow p-4">
                 <p className="text-sm text-gray-500">This Week - Present</p>
-                <p className="text-3xl font-bold text-gray-900">0 days</p>
+                <p className="text-3xl font-bold text-black">0 days</p>
               </div>
               <div className="bg-white rounded-xl shadow p-4">
                 <p className="text-sm text-gray-500">This Week - Absent</p>
-                <p className="text-3xl font-bold text-gray-900">7 days</p>
+                <p className="text-3xl font-bold text-black">7 days</p>
               </div>
               <div className="bg-white rounded-xl shadow p-4">
                 <p className="text-sm text-gray-500">Avg Hours</p>
-                <p className="text-3xl font-bold text-gray-900">0h</p>
+                <p className="text-3xl font-bold text-black">0h</p>
               </div>
             </div>
           </div>
@@ -264,7 +365,7 @@ export default function EmployeePortal() {
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-6">
+              <h1 className="text-2xl font-bold text-black mb-6">
                 My Profile
               </h1>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -277,26 +378,26 @@ export default function EmployeePortal() {
                       <span className="text-sm font-medium text-gray-600">
                         Name:
                       </span>
-                      <p className="text-gray-900">{employeeData.name}</p>
+                      <p className="text-black">{employeeData.name}</p>
                     </div>
                     <div>
                       <span className="text-sm font-medium text-gray-600">
                         Email:
                       </span>
-                      <p className="text-gray-900">{employeeData.email}</p>
+                      <p className="text-black">{employeeData.email}</p>
                     </div>
                     <div>
                       <span className="text-sm font-medium text-gray-600">
                         Employee ID:
                       </span>
-                      <p className="text-gray-900">{employeeData.employeeId}</p>
+                      <p className="text-black">{employeeData.employeeId}</p>
                     </div>
                     {employeeData.department && (
                       <div>
                         <span className="text-sm font-medium text-gray-600">
                           Department:
                         </span>
-                        <p className="text-gray-900">
+                        <p className="text-black">
                           {employeeData.department}
                         </p>
                       </div>
@@ -306,7 +407,7 @@ export default function EmployeePortal() {
                         <span className="text-sm font-medium text-gray-600">
                           Designation:
                         </span>
-                        <p className="text-gray-900">
+                        <p className="text-black">
                           {employeeData.designation}
                         </p>
                       </div>
@@ -324,7 +425,7 @@ export default function EmployeePortal() {
                           key={location._id}
                           className="p-3 bg-gray-50 rounded-lg border border-gray-200"
                         >
-                          <div className="font-medium text-gray-900">
+                          <div className="font-medium text-black">
                             {location.name}
                           </div>
                           <div className="text-sm text-gray-600">
@@ -418,7 +519,7 @@ export default function EmployeePortal() {
       >
         {/* Top bar with its own section for logout */}
         <div className="sticky top-0 z-40 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
-          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -428,9 +529,106 @@ export default function EmployeePortal() {
               <Menu className="w-5 h-5" />
               <span className="text-sm font-medium">Menu</span>
             </button>
+
+            {/* Notification Bell */}
+            {employeeData?._id && (
+              <div className="relative ml-auto">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  title="Notifications"
+                >
+                  <Bell className="w-6 h-6 text-gray-700" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notifications Dropdown */}
+                {showNotifications && (
+                  <div className="notification-dropdown absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col">
+                    <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                      <h3 className="font-semibold text-black">
+                        Notifications
+                      </h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    <div className="overflow-y-auto max-h-80">
+                      {notifications.length > 0 ? (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification._id}
+                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                              !notification.isRead ? "bg-blue-50" : ""
+                            }`}
+                            onClick={() => {
+                              if (!notification.isRead) {
+                                markAsRead(notification._id);
+                              }
+                              if (notification.actionUrl) {
+                                window.location.href = notification.actionUrl;
+                              }
+                              setShowNotifications(false);
+                            }}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={`w-2 h-2 rounded-full mt-2 ${
+                                  !notification.isRead
+                                    ? "bg-blue-600"
+                                    : "bg-transparent"
+                                }`}
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium text-black text-sm">
+                                  {notification.title}
+                                </p>
+                                <p className="text-xs text-gray-600 mt-1">
+                                  {notification.message}
+                                </p>
+                                {notification.task && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Task: {notification.task.title}
+                                  </p>
+                                )}
+                                {notification.project && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Project: {notification.project.name}
+                                  </p>
+                                )}
+                                <p className="text-xs text-gray-400 mt-2">
+                                  {new Date(
+                                    notification.createdAt
+                                  ).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-8 text-center text-gray-500">
+                          <Bell className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                          <p>No notifications</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <button
               onClick={handleLogout}
-              className="ml-auto px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow hover:from-blue-700 hover:to-purple-700 transition-all text-sm font-medium"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow hover:from-blue-700 hover:to-purple-700 transition-all text-sm font-medium"
             >
               Logout
             </button>
@@ -752,7 +950,7 @@ function EnhancedDailyAttendance({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="text-lg font-bold text-black flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-green-600" /> Work Locations (
                 {workLocations.length})
               </h3>
@@ -824,7 +1022,7 @@ function EnhancedDailyAttendance({
               {workLocations.length === 0 ? (
                 <div className="text-center py-12">
                   <MapPin className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  <h3 className="text-xl font-semibold text-black mb-2">
                     No Work Locations Assigned
                   </h3>
                   <p className="text-gray-600">
@@ -840,7 +1038,7 @@ function EnhancedDailyAttendance({
                       className="border border-gray-200 rounded-lg p-4"
                     >
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-lg font-semibold text-gray-900">
+                        <h4 className="text-lg font-semibold text-black">
                           {location.name}
                         </h4>
                         <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
@@ -852,7 +1050,7 @@ function EnhancedDailyAttendance({
                           <p className="text-gray-600 mb-1 font-medium">
                             📍 Address
                           </p>
-                          <p className="text-gray-900">
+                          <p className="text-black">
                             {location.address || "Not specified"}
                           </p>
                         </div>
@@ -860,7 +1058,7 @@ function EnhancedDailyAttendance({
                           <p className="text-gray-600 mb-1 font-medium">
                             🌍 Coordinates
                           </p>
-                          <p className="text-gray-900 font-mono text-xs">
+                          <p className="text-black font-mono text-xs">
                             {location.latitude && location.longitude
                               ? `${
                                   typeof location.latitude === "number"
@@ -878,7 +1076,7 @@ function EnhancedDailyAttendance({
                           <p className="text-gray-600 mb-1 font-medium">
                             📏 Check-in Radius
                           </p>
-                          <p className="text-gray-900">
+                          <p className="text-black">
                             {location.radius
                               ? `${
                                   typeof location.radius === "number"
@@ -893,7 +1091,7 @@ function EnhancedDailyAttendance({
                             <p className="text-gray-600 mb-1 font-medium">
                               📝 Description
                             </p>
-                            <p className="text-gray-900">
+                            <p className="text-black">
                               {location.description}
                             </p>
                           </div>

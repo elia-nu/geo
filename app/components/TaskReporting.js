@@ -97,7 +97,7 @@ const TaskReporting = ({ projectId = null }) => {
           className="mx-auto text-gray-400 mb-4"
           style={{ fontSize: 64 }}
         />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <h3 className="text-lg font-medium text-black mb-2">
           No data available
         </h3>
         <p className="text-gray-600">
@@ -112,7 +112,7 @@ const TaskReporting = ({ projectId = null }) => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-black mb-2">
             Task Analytics & Reporting
           </h1>
           <p className="text-gray-600">
@@ -153,7 +153,7 @@ const TaskReporting = ({ projectId = null }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Tasks</p>
-              <p className="text-3xl font-bold text-gray-900">
+              <p className="text-3xl font-bold text-black">
                 {reportData.totalTasks}
               </p>
             </div>
@@ -247,7 +247,7 @@ const TaskReporting = ({ projectId = null }) => {
         {/* Status Distribution */}
         <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-black">
               Task Status Distribution
             </h3>
             <PieChartIcon className="text-gray-400" />
@@ -304,7 +304,7 @@ const TaskReporting = ({ projectId = null }) => {
         {/* Priority Distribution */}
         <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-black">
               Priority Distribution
             </h3>
             <FlagIcon className="text-gray-400" />
@@ -362,7 +362,7 @@ const TaskReporting = ({ projectId = null }) => {
         {/* Top Performers */}
         <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-black">
               Top Performers
             </h3>
             <PersonIcon className="text-gray-400" />
@@ -376,7 +376,7 @@ const TaskReporting = ({ projectId = null }) => {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-black">
                       {performer.userName}
                     </span>
                     <span className="text-sm text-gray-600">
@@ -419,7 +419,7 @@ const TaskReporting = ({ projectId = null }) => {
         {/* Time Tracking Summary */}
         <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-black">
               Time Tracking Summary
             </h3>
             <ScheduleIcon className="text-gray-400" />
@@ -487,7 +487,7 @@ const TaskReporting = ({ projectId = null }) => {
       {/* Recent Activity */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-black">
             Recent Task Activity
           </h3>
           <TimelineIcon className="text-gray-400" />
@@ -503,7 +503,7 @@ const TaskReporting = ({ projectId = null }) => {
                 {activity.userName?.charAt(0) || "?"}
               </div>
               <div className="flex-1">
-                <p className="text-sm text-gray-900">
+                <p className="text-sm text-black">
                   <span className="font-medium">{activity.userName}</span>{" "}
                   {activity.action}
                   <span className="font-medium"> "{activity.taskTitle}"</span>

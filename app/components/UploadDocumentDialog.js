@@ -58,12 +58,12 @@ export default function UploadDocumentDialog({
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center ring-1 ring-blue-200">
                   <User className="w-5 h-5 text-blue-700" aria-hidden="true" />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-900">
+                <h4 className="text-lg font-semibold text-black">
                   Employee Selection
                 </h4>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   Select Employee <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -107,13 +107,13 @@ export default function UploadDocumentDialog({
                     aria-hidden="true"
                   />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-900">
+                <h4 className="text-lg font-semibold text-black">
                   Document Information
                 </h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                  <label className="block text-sm font-medium text-black mb-2">
                     Document Type <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -145,7 +145,7 @@ export default function UploadDocumentDialog({
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                  <label className="block text-sm font-medium text-black mb-2">
                     Document Title <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -171,7 +171,7 @@ export default function UploadDocumentDialog({
                   )}
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                  <label className="block text-sm font-medium text-black mb-2">
                     Description
                   </label>
                   <textarea
@@ -199,13 +199,13 @@ export default function UploadDocumentDialog({
                     aria-hidden="true"
                   />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-900">
+                <h4 className="text-lg font-semibold text-black">
                   File & Expiry Details
                 </h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                  <label className="block text-sm font-medium text-black mb-2">
                     Select File <span className="text-red-500">*</span>
                   </label>
                   <div
@@ -241,7 +241,7 @@ export default function UploadDocumentDialog({
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                  <label className="block text-sm font-medium text-black mb-2">
                     Expiry Date
                   </label>
                   <input

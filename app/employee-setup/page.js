@@ -299,7 +299,7 @@ export default function EmployeeSetupPage() {
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <h1 className="text-2xl font-bold text-black mb-2">
               Employee Setup Portal
             </h1>
             <p className="text-gray-600">
@@ -369,7 +369,7 @@ export default function EmployeeSetupPage() {
               <select
                 value={selectedEmployee}
                 onChange={(e) => setSelectedEmployee(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
               >
                 <option value="">Choose an employee...</option>
                 {employees.map((emp) => (
@@ -407,7 +407,7 @@ export default function EmployeeSetupPage() {
                           password: e.target.value,
                         }))
                       }
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                       placeholder="Enter password"
                       required
                     />
@@ -426,7 +426,7 @@ export default function EmployeeSetupPage() {
                           confirmPassword: e.target.value,
                         }))
                       }
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                       placeholder="Confirm password"
                       required
                     />
@@ -543,7 +543,7 @@ export default function EmployeeSetupPage() {
                                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                               />
                               <div className="flex-1">
-                                <p className="font-medium text-gray-900">
+                                <p className="font-medium text-black">
                                   {location.name}
                                 </p>
                                 <p className="text-sm text-gray-600">

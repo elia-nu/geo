@@ -125,7 +125,7 @@ export default function EmployeeAttendancePage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <h2 className="text-xl font-semibold text-black mb-2">
             Authentication Required
           </h2>
           <p className="text-gray-600 mb-6">
@@ -153,7 +153,7 @@ export default function EmployeeAttendancePage() {
                 <User className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">
+                <h1 className="text-xl font-semibold text-black">
                   Employee Attendance Portal
                 </h1>
                 <p className="text-sm text-gray-600">
@@ -165,7 +165,7 @@ export default function EmployeeAttendancePage() {
             <div className="flex items-center space-x-4">
               {/* Employee Info */}
               <div className="hidden md:block text-right">
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-black">
                   {employeeData.employeeId}
                 </p>
                 <p className="text-xs text-gray-500">
@@ -188,7 +188,7 @@ export default function EmployeeAttendancePage() {
               {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors"
+                className="flex items-center space-x-2 text-gray-600 hover:text-black hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden md:block">Logout</span>
@@ -299,7 +299,7 @@ export default function EmployeeAttendancePage() {
                     className="border border-gray-200 rounded-lg p-4"
                   >
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-medium text-gray-900">
+                      <h3 className="font-medium text-black">
                         {location.name}
                       </h3>
                       <span className="text-sm text-gray-500">
@@ -309,13 +309,13 @@ export default function EmployeeAttendancePage() {
                     <div className="grid md:grid-cols-2 gap-4 text-sm">
                       <div>
                         <p className="text-gray-600 mb-1">Address</p>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-black">
                           {location.address || "Not specified"}
                         </p>
                       </div>
                       <div>
                         <p className="text-gray-600 mb-1">Coordinates</p>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-black">
                           {location.latitude && location.longitude
                             ? `${
                                 typeof location.latitude === "number"
@@ -331,7 +331,7 @@ export default function EmployeeAttendancePage() {
                       </div>
                       <div>
                         <p className="text-gray-600 mb-1">Radius</p>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-black">
                           {location.radius
                             ? `${
                                 typeof location.radius === "number"
@@ -344,7 +344,7 @@ export default function EmployeeAttendancePage() {
                       {location.description && (
                         <div>
                           <p className="text-gray-600 mb-1">Description</p>
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-black">
                             {location.description}
                           </p>
                         </div>

@@ -365,7 +365,7 @@ const ProjectsPage = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6 mb-8 sm:mb-12 pb-4 sm:pb-6 border-b border-gray-100">
           <div className="space-y-1 sm:space-y-2">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black">
               Projects Dashboard
             </h1>
             <p className="text-gray-500 text-sm sm:text-base font-medium">
@@ -555,7 +555,7 @@ const ProjectsPage = () => {
                 <div className="flex-grow p-6 flex flex-col">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1 mr-4">
-                      <h2 className="font-extrabold mb-2 text-xl text-gray-900 leading-tight line-clamp-2 min-h-[3rem] group-hover:text-blue-700 transition-colors duration-200">
+                      <h2 className="font-extrabold mb-2 text-xl text-black leading-tight line-clamp-2 min-h-[3rem] group-hover:text-blue-700 transition-colors duration-200">
                         {project.name}222
                       </h2>
                       <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
@@ -703,7 +703,7 @@ const ProjectsPage = () => {
                       <div className="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
                         Team
                       </div>
-                      <div className="text-base font-bold text-gray-900">
+                      <div className="text-base font-bold text-black">
                         {project.assignedEmployees?.length || 0}
                       </div>
                       <div className="text-xs text-gray-500 mt-1 hidden sm:block">
@@ -719,7 +719,7 @@ const ProjectsPage = () => {
                       <div className="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
                         Start
                       </div>
-                      <div className="text-base font-bold text-gray-900">
+                      <div className="text-base font-bold text-black">
                         {project.startDate
                           ? (() => {
                               try {
@@ -755,7 +755,7 @@ const ProjectsPage = () => {
                       <div className="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
                         End
                       </div>
-                      <div className="text-base font-bold text-gray-900">
+                      <div className="text-base font-bold text-black">
                         {project.endDate
                           ? (() => {
                               try {
@@ -1083,7 +1083,7 @@ const ProjectsPage = () => {
                 <div className="mb-6">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-gray-700">Progress</span>
-                    <span className="text-sm font-bold text-gray-900">{progressValue}%</span>
+                    <span className="text-sm font-bold text-black">{progressValue}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
                     <div 

@@ -523,7 +523,7 @@ export default function ManagerLeaveApproval({
         ) : (
           <div className="text-center py-12 text-gray-500">
             <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-lg font-medium text-black mb-2">
               No leave requests found
             </h3>
             <p className="text-gray-600">

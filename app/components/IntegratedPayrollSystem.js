@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Calculator,
   Download,
@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Filter,
   Search,
+  Eye,
 } from "lucide-react";
 // Calendar UI removed to start fresh
 
@@ -34,6 +35,12 @@ export default function IntegratedPayrollSystem() {
     name: "",
     amount: 0,
     dates: [],
+  });
+
+  // Attendance / absence detail modal (eye button on working days column)
+  const [attendanceDetailModal, setAttendanceDetailModal] = useState({
+    open: false,
+    employee: null,
   });
 
   // Date filters
@@ -73,6 +80,25 @@ export default function IntegratedPayrollSystem() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  // Client-side Ethiopian Income Tax calculation (same brackets as backend)
+  const calculateIncomeTaxClient = (gross) => {
+    const monthlyGross = gross;
+
+    if (monthlyGross <= 2000) {
+      return 0;
+    } else if (monthlyGross <= 4000) {
+      return Math.max(0, monthlyGross * 0.15 - 300);
+    } else if (monthlyGross <= 7000) {
+      return Math.max(0, monthlyGross * 0.2 - 500);
+    } else if (monthlyGross <= 10000) {
+      return Math.max(0, monthlyGross * 0.25 - 850);
+    } else if (monthlyGross <= 14000) {
+      return Math.max(0, monthlyGross * 0.3 - 1350);
+    } else {
+      return Math.max(0, monthlyGross * 0.35 - 2050);
+    }
   };
 
   // Get status info for attendance
@@ -144,7 +170,20 @@ export default function IntegratedPayrollSystem() {
       const result = await response.json();
 
       if (result.success) {
-        setPayrollData(result.data.payrollData || []);
+        const rows = Array.isArray(result.data.payrollData)
+          ? result.data.payrollData
+          : [];
+
+        // Enhance each row with overtime & original values for later adjustment (all calcs based on Salary)
+        const enhancedRows = rows.map((row) => ({
+          ...row,
+          overtime: 0,
+          originalIncomeTax: row.incomeTax,
+          originalNetSalary: row.netSalary,
+          taxableIncome: row.salary ?? row.adjustedGross ?? row.grossSalary ?? 0,
+        }));
+
+        setPayrollData(enhancedRows);
         setSummary(result.data.summary || null);
         setPeriod(result.data.period || null);
         setActiveTab("calculator");
@@ -368,46 +407,84 @@ export default function IntegratedPayrollSystem() {
 
   // Export payroll to CSV
   const exportPayroll = () => {
-    if (!Array.isArray(payrollData) || !payrollData.length || !summary) return;
+    if (!Array.isArray(payrollData) || !payrollData.length) return;
 
     const csvHeaders = [
       "Employee Name",
       "Position",
       "Department",
-      "Gross Salary",
+      "Basic Salary",
+      "Salary",
       "Employee Pension (7%)",
       "Employer Pension (11%)",
+      "Taxable Income",
+      "Gross Payment",
       "Income Tax",
-      "Deductions",
+      "Total Deduction",
+      "No. of Working Days",
       "Transport Allowance",
+      "Telephone Allowance",
+      "POS Allowance",
+      "Overtime",
       "Net Salary",
     ];
+
+    const getSalary = (e) =>
+      e.salary ??
+      ((e.grossSalary || 0) / 30) *
+        Math.max(0, (e.workingDays || 0) - (e.deductionDays || 0));
+    const getTaxableIncome = (e) =>
+      e.taxableIncome ?? getSalary(e) + (e.overtime ?? 0);
 
     const csvRows = payrollData.map((employee) => [
       employee?.name || "",
       employee?.position || "",
       employee?.department || "",
       (employee?.grossSalary || 0).toFixed(2),
+      getSalary(employee).toFixed(2),
       (employee?.employeePension || 0).toFixed(2),
       (employee?.employerPension || 0).toFixed(2),
+      getTaxableIncome(employee).toFixed(2),
+      (
+        getTaxableIncome(employee) +
+        (employee?.transportAllowance || 0) +
+        (employee?.telephoneAllowance || 0) +
+        (employee?.posAllowance || 0)
+      ).toFixed(2),
       (employee?.incomeTax || 0).toFixed(2),
-      (employee?.deductionAmount || 0).toFixed(2),
+      ((employee?.employeePension || 0) + (employee?.incomeTax || 0)).toFixed(
+        2
+      ),
+      (employee?.workingDays != null
+        ? (employee?.workingDays || 0) - (employee?.deductionDays || 0)
+        : ""
+      ).toString(),
       (employee?.transportAllowance || 0).toFixed(2),
+      (employee?.telephoneAllowance || 0).toFixed(2),
+      (employee?.posAllowance || 0).toFixed(2),
+      (employee?.overtime || 0).toFixed(2),
       (employee?.netSalary || 0).toFixed(2),
     ]);
 
-    // Add totals row
+    // Add totals row (using computedSummary so it reflects overtime edits)
     csvRows.push([
       "TOTALS",
       "",
       "",
-      (summary?.totalGross || 0).toFixed(2),
-      (summary?.totalEmployeePension || 0).toFixed(2),
-      (summary?.totalEmployerPension || 0).toFixed(2),
-      (summary?.totalIncomeTax || 0).toFixed(2),
-      (summary?.totalDeductions || 0).toFixed(2),
-      (summary?.totalTransportAllowance || 0).toFixed(2),
-      (summary?.totalNet || 0).toFixed(2),
+      (computedSummary?.totalGross || 0).toFixed(2),
+      (computedSummary?.totalSalary || 0).toFixed(2),
+      (computedSummary?.totalEmployeePension || 0).toFixed(2),
+      (computedSummary?.totalEmployerPension || 0).toFixed(2),
+      (computedSummary?.totalTaxableIncome || 0).toFixed(2),
+      (computedSummary?.totalGrossPayment || 0).toFixed(2),
+      (computedSummary?.totalIncomeTax || 0).toFixed(2),
+      (computedSummary?.totalStatutoryDeduction || 0).toFixed(2),
+      (computedSummary?.totalWorkedDays || 0).toString(),
+      (computedSummary?.totalTransportAllowance || 0).toFixed(2),
+      (computedSummary?.totalTelephoneAllowance || 0).toFixed(2),
+      (computedSummary?.totalPosAllowance || 0).toFixed(2),
+      (computedSummary?.totalOvertime || 0).toFixed(2),
+      (computedSummary?.totalNet || 0).toFixed(2),
     ]);
 
     const csvContent = [csvHeaders, ...csvRows]
@@ -482,14 +559,137 @@ export default function IntegratedPayrollSystem() {
     setSummary(null);
     setPeriod(null);
     setError(null);
+    setAttendanceDetailModal({ open: false, employee: null });
   };
+
+  // Handle admin-edited Transport/Overtime per employee
+  const handleOvertimeChange = (employeeId, value) => {
+    const raw = parseFloat(value);
+    const overtime = Number.isNaN(raw) || raw < 0 ? 0 : raw;
+
+    setPayrollData((prev) =>
+      (prev || []).map((row, index) => {
+        const id = row.employeeId || row._id || index;
+        if (id !== employeeId) return row;
+
+        const updated = { ...row, overtime };
+
+        // If no overtime, fall back to backend-calculated values (based on Salary)
+        if (!overtime) {
+          return {
+            ...updated,
+            incomeTax: row.originalIncomeTax ?? row.incomeTax,
+            netSalary: row.originalNetSalary ?? row.netSalary,
+            taxableIncome: row.salary ?? row.adjustedGross ?? row.grossSalary ?? 0,
+          };
+        }
+
+        // Base taxable income on Salary (all other cols derive from Salary)
+        const salary =
+          typeof row.salary === "number" && !Number.isNaN(row.salary)
+            ? row.salary
+            : (row.grossSalary || 0) / 30 * Math.max(0, (row.workingDays || 0) - (row.deductionDays || 0));
+
+        // Taxable income includes Transport/Overtime as requested
+        const taxableIncome = salary + overtime;
+        const newIncomeTax = calculateIncomeTaxClient(taxableIncome);
+
+        const allowances =
+          (row.transportAllowance || 0) +
+          (row.telephoneAllowance || 0) +
+          (row.posAllowance || 0);
+
+        const net =
+          salary +
+          overtime -
+          (newIncomeTax + (row.employeePension || 0)) +
+          allowances;
+
+        return {
+          ...updated,
+          incomeTax: Math.round(newIncomeTax * 100) / 100,
+          netSalary: Math.round(net * 100) / 100,
+          taxableIncome,
+        };
+      })
+    );
+  };
+
+  // Recompute summary on client so UI matches any overtime edits
+  const computedSummary = useMemo(() => {
+    if (!Array.isArray(payrollData) || payrollData.length === 0) {
+      return summary;
+    }
+
+    const base = {
+      totalEmployees: payrollData.length,
+      totalGross: 0,
+      totalSalary: 0,
+      totalTaxableIncome: 0,
+      totalGrossPayment: 0,
+      totalStatutoryDeduction: 0,
+      totalWorkedDays: 0,
+      totalTransportAllowance: 0,
+      totalTelephoneAllowance: 0,
+      totalPosAllowance: 0,
+      totalEmployeePension: 0,
+      totalEmployerPension: 0,
+      totalIncomeTax: 0,
+      totalDeductions: 0,
+      totalOvertime: 0,
+      totalNet: 0,
+    };
+
+    payrollData.forEach((e) => {
+      const salaryBase = e.salary ?? e.adjustedGross ?? e.grossSalary ?? 0;
+      const taxable =
+        e.taxableIncome ?? salaryBase + (e.overtime ?? 0);
+      const allowances =
+        (e.transportAllowance || 0) +
+        (e.telephoneAllowance || 0) +
+        (e.posAllowance || 0);
+      const grossPayment = taxable + allowances;
+      const statutory = (e.employeePension || 0) + (e.incomeTax || 0);
+      const worked =
+        (e.workingDays || 0) - (e.deductionDays || 0) > 0
+          ? (e.workingDays || 0) - (e.deductionDays || 0)
+          : 0;
+
+      base.totalGross += e.grossSalary || 0;
+      base.totalSalary += e.salary ?? 0;
+      base.totalTaxableIncome += taxable;
+      base.totalGrossPayment += grossPayment;
+      base.totalStatutoryDeduction += statutory;
+      base.totalWorkedDays += worked;
+      base.totalTransportAllowance += e.transportAllowance || 0;
+      base.totalTelephoneAllowance += e.telephoneAllowance || 0;
+      base.totalPosAllowance += e.posAllowance || 0;
+      base.totalEmployeePension += e.employeePension || 0;
+      base.totalEmployerPension += e.employerPension || 0;
+      base.totalIncomeTax += e.incomeTax || 0;
+      base.totalDeductions += e.deductionAmount || 0;
+      base.totalOvertime += e.overtime || 0;
+      base.totalNet += e.netSalary || 0;
+    });
+
+    Object.keys(base).forEach((key) => {
+      if (typeof base[key] === "number") {
+        base[key] = Math.round(base[key] * 100) / 100;
+      }
+    });
+
+    return {
+      ...(summary || {}),
+      ...base,
+    };
+  }, [payrollData, summary]);
 
   return (
     <>
       {/* Main Interface */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-black flex items-center gap-2">
             <Calculator className="w-6 h-6 text-green-600" />
             Integrated Payroll System
           </h2>
@@ -774,10 +974,10 @@ export default function IntegratedPayrollSystem() {
                             index % 2 === 0 ? "bg-white" : "bg-gray-50"
                           }
                         >
-                          <td className="border border-gray-200 px-4 py-3 text-sm text-gray-900">
+                          <td className="border border-gray-200 px-4 py-3 text-sm text-black">
                             {record.date || "N/A"}
                           </td>
-                          <td className="border border-gray-200 px-4 py-3 text-sm font-medium text-gray-900">
+                          <td className="border border-gray-200 px-4 py-3 text-sm font-medium text-black">
                             {record.employeeName || "Unknown"}
                           </td>
                           <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700">
@@ -834,13 +1034,13 @@ export default function IntegratedPayrollSystem() {
         )}
       </div>
 
-      {/* Payroll Modal */}
+      {/* Payroll Modal - full screen */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/40 z-50">
+          <div className="bg-white w-full h-full flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="text-2xl font-bold text-black flex items-center gap-2">
                 <Calculator className="w-6 h-6 text-green-600" />
                 Payroll Calculation -{" "}
                 {new Date(selectedYear, selectedMonth - 1).toLocaleString(
@@ -857,9 +1057,9 @@ export default function IntegratedPayrollSystem() {
             </div>
 
             {/* Modal Body */}
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
               {/* Summary Cards */}
-              <div className="p-6 border-b border-gray-200">
+              <div className="p-6 border-b border-gray-200 bg-white">
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                   <div className="bg-blue-50 rounded-lg p-4 text-center">
                     <Users className="w-6 h-6 text-blue-600 mx-auto mb-2" />
@@ -867,17 +1067,17 @@ export default function IntegratedPayrollSystem() {
                       Total Employees
                     </h4>
                     <span className="text-2xl font-bold text-blue-600">
-                      {summary?.totalEmployees || 0}
+                      {computedSummary?.totalEmployees || 0}
                     </span>
                   </div>
 
                   <div className="bg-green-50 rounded-lg p-4 text-center">
                     <DollarSign className="w-6 h-6 text-green-600 mx-auto mb-2" />
                     <h4 className="text-sm font-medium text-gray-600">
-                      Total Gross
+                      Total Basic Salary
                     </h4>
                     <span className="text-lg font-bold text-green-600">
-                      {formatCurrency(summary?.totalGross || 0)}
+                      {formatCurrency(computedSummary?.totalGross || 0)}
                     </span>
                   </div>
 
@@ -887,7 +1087,7 @@ export default function IntegratedPayrollSystem() {
                       Income Tax
                     </h4>
                     <span className="text-lg font-bold text-red-600">
-                      {formatCurrency(summary?.totalIncomeTax || 0)}
+                      {formatCurrency(computedSummary?.totalIncomeTax || 0)}
                     </span>
                   </div>
 
@@ -897,7 +1097,9 @@ export default function IntegratedPayrollSystem() {
                       Employee Pension
                     </h4>
                     <span className="text-lg font-bold text-yellow-600">
-                      {formatCurrency(summary?.totalEmployeePension || 0)}
+                      {formatCurrency(
+                        computedSummary?.totalEmployeePension || 0
+                      )}
                     </span>
                   </div>
 
@@ -907,7 +1109,9 @@ export default function IntegratedPayrollSystem() {
                       Employer Pension
                     </h4>
                     <span className="text-lg font-bold text-purple-600">
-                      {formatCurrency(summary?.totalEmployerPension || 0)}
+                      {formatCurrency(
+                        computedSummary?.totalEmployerPension || 0
+                      )}
                     </span>
                   </div>
 
@@ -917,44 +1121,78 @@ export default function IntegratedPayrollSystem() {
                       Total Net
                     </h4>
                     <span className="text-lg font-bold text-emerald-600">
-                      {formatCurrency(summary?.totalNet || 0)}
+                      {formatCurrency(computedSummary?.totalNet || 0)}
+                    </span>
+                  </div>
+
+                  <div className="bg-orange-50 rounded-lg p-4 text-center md:col-span-2">
+                    <TrendingUp className="w-6 h-6 text-orange-600 mx-auto mb-2" />
+                    <h4 className="text-sm font-medium text-gray-600">
+                      Total Overtime
+                    </h4>
+                    <span className="text-lg font-bold text-orange-600">
+                      {formatCurrency(computedSummary?.totalOvertime || 0)}
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Payroll Table */}
-              <div className="flex-1 overflow-auto p-6">
-                <div className="overflow-x-auto">
+              <div className="flex-1 p-6 overflow-hidden">
+                <div className="overflow-x-auto overflow-y-auto max-h-full">
                   <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-700">
-                          Employee
+                    <thead className="sticky top-0 z-10 bg-gray-100">
+                      <tr className="border-b-2 border-orange-400">
+                        <th className="border border-gray-200 px-2 py-3 text-center text-sm font-medium text-gray-700 w-12">
+                          NO.
                         </th>
-                        <th className="border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-700">
-                          Position
+                        <th className="border border-gray-200 px-3 py-3 text-left text-sm font-medium text-gray-700">
+                          Date of Employee
                         </th>
-                        <th className="border border-gray-200 px-4 py-3 text-right text-sm font-medium text-gray-700">
-                          Gross Salary
+                        <th className="border border-gray-200 px-3 py-3 text-left text-sm font-medium text-gray-700">
+                          NAME OF EMPLOYEES
                         </th>
-                        <th className="border border-gray-200 px-4 py-3 text-right text-sm font-medium text-gray-700">
-                          Employee Pension (7%)
+                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                          Basic Salary
                         </th>
-                        <th className="border border-gray-200 px-4 py-3 text-right text-sm font-medium text-gray-700">
-                          Employer Pension (11%)
+                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                          No. of Working Days
                         </th>
-                        <th className="border border-gray-200 px-4 py-3 text-right text-sm font-medium text-gray-700">
+                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                          Overtime
+                        </th>
+                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                          Salary
+                        </th>
+                        <th className="border border-gray-200 px-2 py-3 text-right text-sm font-medium text-gray-600 bg-orange-50">
+                          Transport
+                        </th>
+                        <th className="border border-gray-200 px-2 py-3 text-right text-sm font-medium text-gray-600 bg-orange-50">
+                          Telephone
+                        </th>
+                        <th className="border border-gray-200 border-l-2 border-l-red-400 px-2 py-3 text-right text-sm font-medium text-gray-600 bg-orange-50">
+                          Pos Allowance
+                        </th>
+                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                          Taxable Income
+                        </th>
+                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700 bg-blue-200">
+                          Gross Payment
+                        </th>
+                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
                           Income Tax
                         </th>
-                        <th className="border border-gray-200 px-4 py-3 text-right text-sm font-medium text-gray-700">
-                          Deductions
+                        <th className="border border-gray-200 px-2 py-3 text-right text-sm font-medium text-gray-600 bg-purple-50">
+                          7%
                         </th>
-                        <th className="border border-gray-200 px-4 py-3 text-right text-sm font-medium text-gray-700">
-                          Transport Allowance
+                        <th className="border border-gray-200 px-2 py-3 text-right text-sm font-medium text-gray-600 bg-purple-50">
+                          11%
                         </th>
-                        <th className="border border-gray-200 px-4 py-3 text-right text-sm font-medium text-gray-700">
-                          Net Salary
+                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                          Total Deduction
+                        </th>
+                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                          Net Payment New
                         </th>
                       </tr>
                     </thead>
@@ -970,59 +1208,128 @@ export default function IntegratedPayrollSystem() {
                                 index % 2 === 0 ? "bg-white" : "bg-gray-50"
                               }
                             >
-                              <td className="border border-gray-200 px-4 py-3 text-sm font-medium text-gray-900">
+                              <td className="border border-gray-200 px-2 py-3 text-sm text-center text-gray-700">
+                                {index + 1}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-700">
+                                {employee.joiningDate
+                                  ? new Date(
+                                      employee.joiningDate
+                                    ).toLocaleDateString("en-CA", {
+                                      year: "numeric",
+                                      month: "2-digit",
+                                      day: "2-digit",
+                                    })
+                                  : "-"}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-3 text-sm font-medium text-black">
                                 {employee.name || "Unknown"}
                               </td>
-                              <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700">
-                                {employee.position || "N/A"}
-                              </td>
-                              <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700 text-right font-mono">
+                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-700 text-right font-mono">
                                 {formatCurrency(employee.grossSalary || 0)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700 text-right font-mono">
-                                {formatCurrency(employee.employeePension || 0)}
+                              <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
+                                <span className="inline-flex items-center justify-end gap-1 w-full">
+                                  <span>
+                                    {employee.workingDays != null
+                                      ? (employee.workingDays || 0) -
+                                        (employee.deductionDays || 0)
+                                      : "-"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setAttendanceDetailModal({
+                                        open: true,
+                                        employee,
+                                      })
+                                    }
+                                    className="p-1 rounded hover:bg-gray-200 text-gray-600 hover:text-black"
+                                    title="View attendance & absence details"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                </span>
                               </td>
-                              <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700 text-right font-mono">
-                                {formatCurrency(employee.employerPension || 0)}
+                              <td className="border border-gray-200 px-2 py-2 text-sm text-right">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={employee.overtime ?? 0}
+                                  onChange={(e) =>
+                                    handleOvertimeChange(
+                                      employee.employeeId || index,
+                                      e.target.value
+                                    )
+                                  }
+                                  onFocus={(e) => e.target.select()}
+                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm text-black"
+                                />
                               </td>
-                              <td className="border border-gray-200 px-4 py-3 text-sm text-red-600 text-right font-mono font-medium">
-                                {formatCurrency(employee.incomeTax || 0)}
-                              </td>
-                              <td className="border border-gray-200 px-4 py-3 text-sm text-right">
-                                {employee?.deductionAmount ? (
-                                  <div className="flex items-center justify-end gap-2">
-                                    <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-semibold">
-                                      {formatCurrency(employee.deductionAmount)}
-                                    </span>
-                                    {(employee.deductionDates || []).length >
-                                      0 && (
-                                      <button
-                                        onClick={() =>
-                                          setDeductionDetail({
-                                            open: true,
-                                            name: employee.name || "Employee",
-                                            amount: employee.deductionAmount,
-                                            dates:
-                                              employee.deductionDates || [],
-                                          })
-                                        }
-                                        className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300"
-                                        title="View deduction dates"
-                                      >
-                                        View dates
-                                      </button>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">-</span>
+                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-700 text-right font-mono">
+                                {formatCurrency(
+                                  employee.salary ??
+                                    ((employee.grossSalary || 0) / 30) *
+                                      Math.max(
+                                        0,
+                                        (employee.workingDays || 0) -
+                                          (employee.deductionDays || 0)
+                                      )
                                 )}
                               </td>
-                              <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700 text-right font-mono">
+                              <td className="border border-gray-200 px-2 py-3 text-sm text-gray-700 text-right font-mono">
                                 {formatCurrency(
                                   employee.transportAllowance || 0
                                 )}
                               </td>
-                              <td className="border border-gray-200 px-4 py-3 text-sm text-green-600 text-right font-mono font-bold">
+                              <td className="border border-gray-200 px-2 py-3 text-sm text-gray-700 text-right font-mono">
+                                {formatCurrency(
+                                  employee.telephoneAllowance || 0
+                                )}
+                              </td>
+                              <td className="border border-gray-200 border-l-2 border-l-red-400 px-2 py-3 text-sm text-gray-700 text-right font-mono">
+                                {formatCurrency(employee.posAllowance || 0)}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-800 text-right font-mono font-medium">
+                                {formatCurrency(
+                                  employee.taxableIncome ??
+                                    (employee.salary ??
+                                      employee.adjustedGross ??
+                                      employee.grossSalary ??
+                                      0) +
+                                      (employee.overtime ?? 0)
+                                )}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-800 text-right font-mono bg-blue-100">
+                                {formatCurrency(
+                                  (employee.taxableIncome ??
+                                    (employee.salary ??
+                                      employee.adjustedGross ??
+                                      employee.grossSalary ??
+                                      0) +
+                                      (employee.overtime ?? 0)) +
+                                    (employee.transportAllowance || 0) +
+                                    (employee.telephoneAllowance || 0) +
+                                    (employee.posAllowance || 0)
+                                )}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-3 text-sm text-red-600 text-right font-mono font-medium">
+                                {formatCurrency(employee.incomeTax || 0)}
+                              </td>
+                              <td className="border border-gray-200 px-2 py-3 text-sm text-gray-700 text-right font-mono">
+                                {formatCurrency(employee.employeePension || 0)}
+                              </td>
+                              <td className="border border-gray-200 px-2 py-3 text-sm text-gray-700 text-right font-mono">
+                                {formatCurrency(employee.employerPension || 0)}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-800 text-right font-mono">
+                                {formatCurrency(
+                                  (employee.employeePension || 0) +
+                                    (employee.incomeTax || 0)
+                                )}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-3 text-sm text-green-600 text-right font-mono font-bold">
                                 {formatCurrency(employee.netSalary || 0)}
                               </td>
                             </tr>
@@ -1030,35 +1337,72 @@ export default function IntegratedPayrollSystem() {
                         })}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-gray-100 font-bold">
+                      <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
                         <td
-                          className="border border-gray-200 px-4 py-3 text-sm text-gray-900"
-                          colSpan="2"
+                          className="border border-gray-200 px-2 py-3 text-sm text-black"
+                          colSpan="3"
                         >
                           TOTALS
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm text-gray-900 text-right font-mono">
-                          {formatCurrency(summary?.totalGross || 0)}
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
+                          {formatCurrency(computedSummary?.totalGross || 0)}
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm text-gray-900 text-right font-mono">
-                          {formatCurrency(summary?.totalEmployeePension || 0)}
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
+                          {computedSummary?.totalWorkedDays ?? ""}
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm text-gray-900 text-right font-mono">
-                          {formatCurrency(summary?.totalEmployerPension || 0)}
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                          {formatCurrency(computedSummary?.totalOvertime || 0)}
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm text-red-600 text-right font-mono">
-                          {formatCurrency(summary?.totalIncomeTax || 0)}
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
+                          {formatCurrency(computedSummary?.totalSalary || 0)}
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm text-gray-900 text-right font-mono">
-                          {formatCurrency(summary?.totalDeductions || 0)}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm text-gray-900 text-right font-mono">
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
                           {formatCurrency(
-                            summary?.totalTransportAllowance || 0
+                            computedSummary?.totalTransportAllowance || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm text-green-600 text-right font-mono">
-                          {formatCurrency(summary?.totalNet || 0)}
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                          {formatCurrency(
+                            computedSummary?.totalTelephoneAllowance || 0
+                          )}
+                        </td>
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                          {formatCurrency(
+                            computedSummary?.totalPosAllowance || 0
+                          )}
+                        </td>
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono font-medium">
+                          {formatCurrency(
+                            computedSummary?.totalTaxableIncome || 0
+                          )}
+                        </td>
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono bg-blue-100">
+                          {formatCurrency(
+                            computedSummary?.totalGrossPayment || 0
+                          )}
+                        </td>
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-red-600 text-right font-mono">
+                          {formatCurrency(
+                            computedSummary?.totalIncomeTax || 0
+                          )}
+                        </td>
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                          {formatCurrency(
+                            computedSummary?.totalEmployeePension || 0
+                          )}
+                        </td>
+                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                          {formatCurrency(
+                            computedSummary?.totalEmployerPension || 0
+                          )}
+                        </td>
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
+                          {formatCurrency(
+                            computedSummary?.totalStatutoryDeduction || 0
+                          )}
+                        </td>
+                        <td className="border border-gray-200 px-3 py-3 text-sm text-green-600 text-right font-mono">
+                          {formatCurrency(computedSummary?.totalNet || 0)}
                         </td>
                       </tr>
                     </tfoot>
@@ -1093,12 +1437,131 @@ export default function IntegratedPayrollSystem() {
         </div>
       )}
 
+      {/* Attendance & Absence Detail Modal (eye on working days) */}
+      {attendanceDetailModal.open && attendanceDetailModal.employee && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
+          onClick={() =>
+            setAttendanceDetailModal({ open: false, employee: null })
+          }
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <h3 className="text-lg font-semibold text-black flex items-center gap-2">
+                <Eye className="w-5 h-5 text-gray-600" />
+                Attendance & Absence Details
+              </h3>
+              <button
+                type="button"
+                onClick={() =>
+                  setAttendanceDetailModal({ open: false, employee: null })
+                }
+                className="p-1 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Employee</p>
+                <p className="text-base font-semibold text-black">
+                  {attendanceDetailModal.employee.name || "Unknown"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Period</p>
+                <p className="text-base text-black">
+                  {selectedMonth &&
+                    new Date(0, selectedMonth - 1).toLocaleString("default", {
+                      month: "long",
+                    })}{" "}
+                  {selectedYear}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Working days (in period so far)
+                  </p>
+                  <p className="text-xl font-bold text-black">
+                    {attendanceDetailModal.employee.workingDays ?? "-"}
+                  </p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Days worked
+                  </p>
+                  <p className="text-xl font-bold text-green-700">
+                    {attendanceDetailModal.employee.workingDays != null
+                      ? (attendanceDetailModal.employee.workingDays || 0) -
+                        (attendanceDetailModal.employee.deductionDays || 0)
+                      : "-"}
+                  </p>
+                </div>
+                <div className="bg-red-50 rounded-lg p-3">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Days deducted (absence)
+                  </p>
+                  <p className="text-xl font-bold text-red-700">
+                    {attendanceDetailModal.employee.deductionDays ?? 0}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Absence / deduction dates
+                </p>
+                {Array.isArray(
+                  attendanceDetailModal.employee.deductionDates
+                ) && attendanceDetailModal.employee.deductionDates.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-1 text-sm text-gray-800 max-h-40 overflow-y-auto">
+                    {attendanceDetailModal.employee.deductionDates
+                      .slice()
+                      .sort()
+                      .map((dateStr) => (
+                        <li key={dateStr}>
+                          {new Date(dateStr + "T12:00:00").toLocaleDateString(
+                            "en-GB",
+                            {
+                              weekday: "short",
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            }
+                          )}
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500">No absence or deduction dates in this period.</p>
+                )}
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+              <button
+                type="button"
+                onClick={() =>
+                  setAttendanceDetailModal({ open: false, employee: null })
+                }
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Deduction Detail Modal */}
       {deductionDetail.open && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
             <div className="px-4 py-3 border-b flex items-center justify-between">
-              <div className="font-semibold text-gray-900">
+              <div className="font-semibold text-black">
                 Deduction Details
               </div>
               <button

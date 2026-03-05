@@ -64,11 +64,33 @@ const Sidebar = ({
       activeSection === "attendance-daily" ||
       activeSection === "attendance-documents" ||
       activeSection === "attendance-legacy" ||
-      activeSection === "payroll-integration"
+      activeSection === "payroll-integration" ||
+      activeSection === "employee-master-report" ||
+      activeSection === "employee-reports" ||
+      activeSection === "employee-allocation-report" ||
+      activeSection === "employee-lifecycle-report" ||
+      activeSection === "employee-management-reports" ||
+      activeSection === "organization-management-reports" ||
+      activeSection === "document-management-reports" ||
+      activeSection === "work-location-management-reports" ||
+      activeSection === "document-access-audit-report" ||
+      activeSection === "document-stats" ||
+      activeSection === "site-location-master-report" ||
+      activeSection === "site-attendance-compliance-report" ||
+      activeSection === "workforce-distribution-report" ||
+      activeSection === "leave-reports" ||
+      activeSection === "payroll-reports" ||
+      activeSection === "project-reports" ||
+      activeSection === "executive-reports" ||
+      activeSection === "universal-system-reports" ||
+      activeSection === "completed-activities" ||
+      activeSection === "workflow-bottlenecks" ||
+      activeSection === "user-activity-security" ||
+      activeSection === "attendance-management-reports"
     ) {
       setExpandedMenus((prev) => ({
         ...prev,
-        attendance: true,
+        analytics: true,
       }));
     }
 
@@ -93,11 +115,13 @@ const Sidebar = ({
       activeSection === "project-alerts" ||
       activeSection === "project-reports" ||
       activeSection === "project-budget" ||
-      activeSection === "project-finances"
+      activeSection === "project-finances" ||
+      activeSection === "project-categories" ||
+      activeSection === "budget-management"
     ) {
       setExpandedMenus((prev) => ({
         ...prev,
-        "project-management": true,
+        project: true,
       }));
     }
   }, [activeSection]);
@@ -140,6 +164,11 @@ const Sidebar = ({
           id: "employee-location",
           label: "Employee Location",
           path: "/hrm?section=employee-location",
+        },
+        {
+          id: "contracts",
+          label: "Contracts",
+          path: "/hrm?section=contracts",
         },
       ],
     },
@@ -219,29 +248,35 @@ const Sidebar = ({
       ],
     },
     {
-      id: "projects",
-      label: "Projects",
+      id: "project",
+      label: "Project",
       icon: Briefcase,
-      path: "/hrm?section=projects",
+
+      submenu: [
+        {
+          id: "projects",
+          label: "Projects",
+          path: "/hrm?section=projects",
+        },
+        {
+          id: "category-management",
+          label: "Category Management",
+          path: "/hrm?section=project-categories",
+        },
+        {
+          id: "budget-management",
+          label: "Budget Management",
+          path: "/hrm?section=budget-management",
+        },
+      ],
     },
-    {
-      id: "category-management",
-      label: "Category Management",
-      icon: Settings,
-      path: "/category-management",
-    },
+
     // {
     //   id: "notifications",
     //   label: "Notifications",
     //   icon: Bell,
     //   path: "/hrm?section=notifications",
     // },
-    {
-      id: "calendar",
-      label: "Calendar",
-      icon: Calendar,
-      path: "/hrm?section=calendar",
-    },
 
     /*{
       id: "project-management",
@@ -274,10 +309,10 @@ const Sidebar = ({
       ],
     },*/
     {
-      id: "budget-management",
-      label: "Budget Management",
-      icon: DollarSign,
-      path: "/hrm?section=budget-management",
+      id: "calendar",
+      label: "Calendar",
+      icon: Calendar,
+      path: "/hrm?section=calendar",
     },
     {
       id: "analytics",
@@ -285,20 +320,71 @@ const Sidebar = ({
       icon: BarChart3,
       submenu: [
         {
-          id: "employee-stats",
-          label: "Employee Statistics",
-          path: "/hrm?section=employee-stats",
+          id: "attendance-management-reports",
+          label: "Attendance Management Reports",
+          path: "/hrm?section=attendance-management-reports",
         },
         {
-          id: "department-stats",
-          label: "Department Analytics",
-          path: "/hrm?section=department-stats",
+          id: "employee-management-reports",
+          label: "Employee Management Reports",
+          path: "/hrm?section=employee-management-reports",
         },
         {
-          id: "document-stats",
-          label: "Document Reports",
-          path: "/hrm?section=document-stats",
+          id: "organization-management-reports",
+          label: "Organization Management Reports",
+          path: "/hrm?section=organization-management-reports",
         },
+        {
+          id: "document-management-reports",
+          label: "Document Management Reports",
+          path: "/hrm?section=document-management-reports",
+        },
+        {
+          id: "work-location-management-reports",
+          label: "Work Location Management Reports",
+          path: "/hrm?section=work-location-management-reports",
+        },
+        {
+          id: "leave-reports",
+          label: "Leave Management Reports",
+          path: "/hrm?section=leave-reports",
+        },
+        {
+          id: "payroll-reports",
+          label: "Payroll Management Reports",
+          path: "/hrm?section=payroll-reports",
+        },
+        {
+          id: "project-reports",
+          label: "Project Management Reports",
+          path: "/hrm?section=project-reports",
+        },
+        {
+          id: "executive-reports",
+          label: "Cross-System & Executive Reports",
+          path: "/hrm?section=executive-reports",
+        },
+        {
+          id: "universal-system-reports",
+          label: "Universal System Reports",
+          path: "/hrm?section=universal-system-reports",
+        },
+        // The following report links are temporarily disabled in the sidebar:
+        // {
+        //   id: "employee-stats",
+        //   label: "Employee Statistics",
+        //   path: "/hrm?section=employee-stats",
+        // },
+        // {
+        //   id: "department-stats",
+        //   label: "Department Analytics",
+        //   path: "/hrm?section=department-stats",
+        // },
+        // {
+        //   id: "document-stats",
+        //   label: "Document Reports",
+        //   path: "/hrm?section=document-stats",
+        // },
       ],
     },
     /*{

@@ -100,7 +100,7 @@ const TaskCommunicationPanel = ({ taskId, currentUser, task, onUpdate }) => {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <ChatIcon className="text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900">
+              <h3 className="text-lg font-medium text-black">
                 Task Discussion
               </h3>
             </div>
@@ -119,7 +119,7 @@ const TaskCommunicationPanel = ({ taskId, currentUser, task, onUpdate }) => {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <FolderIcon className="text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900">
+              <h3 className="text-lg font-medium text-black">
                 File Attachments
               </h3>
             </div>

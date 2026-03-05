@@ -238,12 +238,12 @@ const ProjectMilestonesPage = ({ params }) => {
             {project.name}
           </Link>
           <span className="text-gray-400">›</span>
-          <span className="text-gray-900 font-medium">Milestones</span>
+          <span className="text-black font-medium">Milestones</span>
         </nav>
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4 sm:mb-0">
+          <h1 className="text-3xl font-bold text-black mb-4 sm:mb-0">
             Project Milestones
           </h1>
           <button
@@ -257,7 +257,7 @@ const ProjectMilestonesPage = ({ params }) => {
 
         {/* Project Info Card */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          <h2 className="text-xl font-semibold text-black mb-4">
             {project.name}
           </h2>
           <div className="flex flex-wrap gap-3 mb-4">
@@ -337,7 +337,7 @@ const ProjectMilestonesPage = ({ params }) => {
                     className="hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-black">
                         {milestone.title}
                       </div>
                       {milestone.description && (
@@ -346,7 +346,7 @@ const ProjectMilestonesPage = ({ params }) => {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                       {milestone.dueDate
                         ? format(parseISO(milestone.dueDate), "MMM d, yyyy")
                         : "Not set"}
@@ -416,7 +416,14 @@ const ProjectMilestonesPage = ({ params }) => {
         {/* Modal */}
         {openDialog && (
           <div className="fixed inset-0 z-[9999] overflow-y-auto">
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm transition-opacity"
+              onClick={handleCloseDialog}
+              aria-hidden="true"
+            ></div>
+
+            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0 relative z-10">
               <span
                 className="hidden sm:inline-block sm:align-middle sm:h-screen"
                 aria-hidden="true"
@@ -424,10 +431,10 @@ const ProjectMilestonesPage = ({ params }) => {
                 &#8203;
               </span>
 
-              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative z-10">
                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">
+                    <h3 className="text-lg font-medium text-black">
                       {currentMilestone
                         ? "Edit Milestone"
                         : "Add New Milestone"}

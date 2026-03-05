@@ -20,6 +20,7 @@ export default function EmployeeSetupModal({
 }) {
   const [setupType, setSetupType] = useState(defaultTab); // "password" | "location" | "salary"
   const [loading, setLoading] = useState(false);
+  const [savingStatus, setSavingStatus] = useState("");
 
   // Password setup form
   const [passwordForm, setPasswordForm] = useState({
@@ -36,6 +37,8 @@ export default function EmployeeSetupModal({
   const [salaryForm, setSalaryForm] = useState({
     grossSalary: "",
     transportAllowance: "",
+    telephoneAllowance: "",
+    posAllowance: "",
   });
 
   // Populate salary fields from existing employee data
@@ -47,6 +50,12 @@ export default function EmployeeSetupModal({
         employee?.transportAllowance ??
         employee?.salary?.transportAllowance ??
         "";
+      const existingTelephone =
+        employee?.telephoneAllowance ??
+        employee?.salary?.telephoneAllowance ??
+        "";
+      const existingPos =
+        employee?.posAllowance ?? employee?.salary?.posAllowance ?? "";
       setSalaryForm({
         grossSalary:
           existingGross === null || existingGross === undefined
@@ -56,16 +65,26 @@ export default function EmployeeSetupModal({
           existingTransport === null || existingTransport === undefined
             ? ""
             : String(existingTransport),
+        telephoneAllowance:
+          existingTelephone === null || existingTelephone === undefined
+            ? ""
+            : String(existingTelephone),
+        posAllowance:
+          existingPos === null || existingPos === undefined
+            ? ""
+            : String(existingPos),
       });
     } catch {}
   }, [employee]);
 
   useEffect(() => {
-    if (setupType === "location") {
+    if (setupType === "location" || setupType === "salary") {
       fetchWorkLocations();
-      fetchEmployeeWorkLocations();
+      if (employee?._id) {
+        fetchEmployeeWorkLocations();
+      }
     }
-  }, [setupType, employee]);
+  }, [setupType, employee?._id]);
 
   const fetchWorkLocations = async () => {
     try {
@@ -86,18 +105,31 @@ export default function EmployeeSetupModal({
       );
       const data = await response.json();
       if (data.success && data.workLocations) {
-        setEmployeeWorkLocations(data.workLocations || []);
-        setSelectedWorkLocations(
-          (data.workLocations || []).map((loc) => loc._id || loc.id)
-        );
+        const locations = data.workLocations || [];
+        setEmployeeWorkLocations(locations);
+        // Only update selectedWorkLocations if they're empty
+        // This preserves user selections when switching tabs
+        setSelectedWorkLocations((prev) => {
+          if (prev.length === 0) {
+            // If no selections, use existing employee locations
+            return locations
+              .map((loc) => {
+                const id = loc._id || loc.id;
+                return id ? String(id) : null;
+              })
+              .filter(Boolean);
+          }
+          // Keep existing selections
+          return prev;
+        });
       } else {
         setEmployeeWorkLocations([]);
-        setSelectedWorkLocations([]);
+        // Don't clear selectedWorkLocations - preserve user selections
       }
     } catch (error) {
       console.error("Error fetching employee work locations:", error);
       setEmployeeWorkLocations([]);
-      setSelectedWorkLocations([]);
+      // Don't clear selectedWorkLocations on error - preserve user selections
     }
   };
 
@@ -191,6 +223,14 @@ export default function EmployeeSetupModal({
   const handleSalarySubmit = async () => {
     const gross = Number(salaryForm.grossSalary);
     const transport = Number(salaryForm.transportAllowance);
+    const telephone = Number(
+      salaryForm.telephoneAllowance === ""
+        ? 0
+        : salaryForm.telephoneAllowance
+    );
+    const pos = Number(
+      salaryForm.posAllowance === "" ? 0 : salaryForm.posAllowance
+    );
 
     if (Number.isNaN(gross) || gross <= 0) {
       onError("Please enter a valid gross salary");
@@ -202,6 +242,16 @@ export default function EmployeeSetupModal({
       return;
     }
 
+    if (Number.isNaN(telephone) || telephone < 0) {
+      onError("Please enter a valid telephone allowance");
+      return;
+    }
+
+    if (Number.isNaN(pos) || pos < 0) {
+      onError("Please enter a valid POS allowance");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch(`/api/employee/${employee._id}`, {
@@ -210,6 +260,8 @@ export default function EmployeeSetupModal({
         body: JSON.stringify({
           grossSalary: gross,
           transportAllowance: transport,
+          telephoneAllowance: telephone,
+          posAllowance: pos,
         }),
       });
 
@@ -224,6 +276,254 @@ export default function EmployeeSetupModal({
       onError("Failed to save salary settings. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveAll = async () => {
+    console.log("Save All clicked", { loading, setupType });
+
+    if (loading) {
+      console.log("Already loading, ignoring click");
+      return;
+    }
+
+    const errors = [];
+    const shouldSavePassword =
+      passwordForm.password && passwordForm.confirmPassword;
+
+    // Validate password (only if provided)
+    if (shouldSavePassword) {
+      if (passwordForm.password !== passwordForm.confirmPassword) {
+        errors.push("Passwords do not match");
+      } else if (passwordForm.password.length < 6) {
+        errors.push("Password must be at least 6 characters long");
+      }
+    }
+
+    // Validate location - check if employee has locations or if new ones are selected
+    // Make this optional - if no locations, we'll skip location saving
+    const hasExistingLocations = employeeWorkLocations.length > 0;
+    const hasSelectedLocations = selectedWorkLocations.length > 0;
+    const shouldSaveLocations = hasExistingLocations || hasSelectedLocations;
+
+    // Validate salary
+    const gross = Number(salaryForm.grossSalary);
+    const transport = Number(salaryForm.transportAllowance);
+    const telephone = Number(
+      salaryForm.telephoneAllowance === ""
+        ? 0
+        : salaryForm.telephoneAllowance
+    );
+    const pos = Number(
+      salaryForm.posAllowance === "" ? 0 : salaryForm.posAllowance
+    );
+    if (Number.isNaN(gross) || gross <= 0) {
+      errors.push("Please enter a valid gross salary");
+    }
+    if (Number.isNaN(transport) || transport < 0) {
+      errors.push("Please enter a valid transport allowance");
+    }
+    if (Number.isNaN(telephone) || telephone < 0) {
+      errors.push("Please enter a valid telephone allowance");
+    }
+    if (Number.isNaN(pos) || pos < 0) {
+      errors.push("Please enter a valid POS allowance");
+    }
+
+    if (errors.length > 0) {
+      onError(errors.join(". "));
+      return;
+    }
+
+    setLoading(true);
+    setSavingStatus("Starting...");
+    const results = {
+      password: false,
+      location: false,
+      salary: false,
+    };
+    const errorMessages = [];
+    const savedItems = [];
+
+    try {
+      // Save password (only if provided)
+      if (shouldSavePassword) {
+        setSavingStatus("Saving password...");
+        try {
+          const passwordResponse = await fetch("/api/employee/setup-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              employeeId: employee._id,
+              password: passwordForm.password,
+            }),
+          });
+          const passwordData = await passwordResponse.json();
+          if (passwordData.success) {
+            results.password = true;
+            savedItems.push("Password");
+            setPasswordForm({ password: "", confirmPassword: "" });
+          } else {
+            errorMessages.push(
+              "Password: " + (passwordData.error || "Failed to setup password")
+            );
+          }
+        } catch (error) {
+          console.error("Password save error:", error);
+          errorMessages.push("Password: Failed to setup password");
+        }
+      }
+
+      // Save locations (only if we have locations to save)
+      if (shouldSaveLocations) {
+        setSavingStatus("Saving work locations...");
+        try {
+          // Determine which locations to assign
+          // Use selected locations if available, otherwise use existing employee locations
+          const locationsToAssign =
+            selectedWorkLocations.length > 0
+              ? selectedWorkLocations
+              : employeeWorkLocations
+                  .map((loc) => loc._id || loc.id)
+                  .filter(Boolean);
+
+          console.log("Locations to assign:", locationsToAssign);
+          console.log("Selected locations:", selectedWorkLocations);
+          console.log("Employee locations:", employeeWorkLocations);
+
+          if (locationsToAssign.length > 0) {
+            // Assign employee to each location
+            const assignmentPromises = locationsToAssign.map((locationId) => {
+              // Ensure locationId is a string
+              const locationIdStr =
+                typeof locationId === "string"
+                  ? locationId
+                  : String(locationId);
+              return fetch(
+                `/api/work-locations/${locationIdStr}/assign-employees`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ employeeIds: [employee._id] }),
+                }
+              );
+            });
+
+            const locationResponses = await Promise.all(assignmentPromises);
+            const locationResults = await Promise.all(
+              locationResponses.map(async (res) => {
+                if (!res.ok) {
+                  const errorText = await res.text();
+                  console.error("Location assignment error:", errorText);
+                  return { success: false, error: errorText };
+                }
+                return res.json();
+              })
+            );
+
+            const failedAssignments = locationResults.filter(
+              (result) => !result.success
+            );
+
+            if (failedAssignments.length === 0) {
+              results.location = true;
+              savedItems.push(
+                `Locations (${locationsToAssign.length} assigned)`
+              );
+              // Refresh employee locations to get updated list
+              await fetchEmployeeWorkLocations();
+            } else {
+              const successCount =
+                locationsToAssign.length - failedAssignments.length;
+              if (successCount > 0) {
+                results.location = true;
+                savedItems.push(
+                  `Locations (${successCount}/${locationsToAssign.length} assigned)`
+                );
+                errorMessages.push(
+                  `Location: Failed to assign ${failedAssignments.length} location(s)`
+                );
+                await fetchEmployeeWorkLocations();
+              } else {
+                errorMessages.push(
+                  `Location: Failed to assign all ${locationsToAssign.length} location(s)`
+                );
+              }
+            }
+          } else {
+            // No locations to assign
+            if (employeeWorkLocations.length > 0) {
+              // Employee already has locations, consider it successful
+              results.location = true;
+              savedItems.push("Locations (kept existing)");
+            } else {
+              errorMessages.push("Location: No locations selected or assigned");
+            }
+          }
+        } catch (error) {
+          console.error("Location save error:", error);
+          errorMessages.push(
+            "Location: Failed to assign work locations - " + error.message
+          );
+        }
+      } else {
+        // Skip location saving if no locations
+        savedItems.push("Locations (skipped - none selected)");
+      }
+
+      // Save salary
+      setSavingStatus("Saving salary...");
+      try {
+        const salaryResponse = await fetch(`/api/employee/${employee._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            grossSalary: gross,
+            transportAllowance: transport,
+            telephoneAllowance: telephone,
+            posAllowance: pos,
+          }),
+        });
+        const salaryData = await salaryResponse.json();
+        if (salaryResponse.ok && salaryData.success) {
+          results.salary = true;
+          savedItems.push("Salary");
+        } else {
+          errorMessages.push(
+            "Salary: " + (salaryData.error || "Failed to save salary settings")
+          );
+        }
+      } catch (error) {
+        console.error("Salary save error:", error);
+        errorMessages.push("Salary: Failed to save salary settings");
+      }
+
+      // Show success or partial success message
+      const successCount = Object.values(results).filter(Boolean).length;
+      const totalExpected =
+        (shouldSavePassword ? 1 : 0) + (shouldSaveLocations ? 1 : 0) + 1; // password + location + salary
+
+      setSavingStatus("");
+      if (successCount === totalExpected) {
+        onSuccess(
+          `All settings saved successfully! (${savedItems.join(", ")})`
+        );
+      } else if (successCount > 0) {
+        onError(
+          `Partially saved: ${savedItems.join(
+            ", "
+          )}. Errors: ${errorMessages.join(". ")}`
+        );
+      } else {
+        onError(`Failed to save: ${errorMessages.join(". ")}`);
+      }
+    } catch (error) {
+      console.error("Error saving all settings:", error);
+      setSavingStatus("");
+      onError("Failed to save all settings. Please try again.");
+    } finally {
+      setLoading(false);
+      setSavingStatus("");
     }
   };
 
@@ -304,7 +604,7 @@ export default function EmployeeSetupModal({
               className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
                 setupType === "password"
                   ? "border-b-2 border-purple-600 text-purple-600 bg-white"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  : "text-gray-600 hover:text-black hover:bg-gray-100"
               }`}
             >
               <div className="flex items-center justify-center space-x-2">
@@ -317,7 +617,7 @@ export default function EmployeeSetupModal({
               className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
                 setupType === "location"
                   ? "border-b-2 border-purple-600 text-purple-600 bg-white"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  : "text-gray-600 hover:text-black hover:bg-gray-100"
               }`}
             >
               <div className="flex items-center justify-center space-x-2">
@@ -330,7 +630,7 @@ export default function EmployeeSetupModal({
               className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
                 setupType === "salary"
                   ? "border-b-2 border-purple-600 text-purple-600 bg-white"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  : "text-gray-600 hover:text-black hover:bg-gray-100"
               }`}
             >
               <div className="flex items-center justify-center space-x-2">
@@ -358,7 +658,7 @@ export default function EmployeeSetupModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   New Password <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -371,12 +671,12 @@ export default function EmployeeSetupModal({
                     })
                   }
                   placeholder="Enter password (min. 6 characters)"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   Confirm Password <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -389,7 +689,7 @@ export default function EmployeeSetupModal({
                     })
                   }
                   placeholder="Re-enter password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
                 />
               </div>
             </div>
@@ -410,7 +710,7 @@ export default function EmployeeSetupModal({
               {/* Current Assigned Locations */}
               {employeeWorkLocations.length > 0 && (
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                  <h4 className="text-sm font-semibold text-black mb-3">
                     Currently Assigned Locations ({employeeWorkLocations.length}
                     )
                   </h4>
@@ -426,7 +726,7 @@ export default function EmployeeSetupModal({
                             strokeWidth={2.2}
                           />
                           <div>
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-black">
                               {location.name}
                             </p>
                             <p className="text-xs text-gray-500">
@@ -452,7 +752,7 @@ export default function EmployeeSetupModal({
 
               {/* Available Locations */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                <h4 className="text-sm font-semibold text-black mb-3">
                   Available Work Locations
                 </h4>
                 {workLocations.length === 0 ? (
@@ -478,7 +778,7 @@ export default function EmployeeSetupModal({
                           className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                         />
                         <div className="ml-3 flex-1">
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-black">
                             {location.name}
                           </p>
                           <p className="text-sm text-gray-500">
@@ -496,6 +796,16 @@ export default function EmployeeSetupModal({
             </div>
           ) : (
             <div className="space-y-6">
+              {loading && savingStatus && (
+                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+                  <div className="flex items-center space-x-3">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                    <p className="text-sm text-blue-800 font-medium">
+                      {savingStatus}
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
                 <div className="flex">
                   <div className="ml-3">
@@ -507,7 +817,7 @@ export default function EmployeeSetupModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   Gross Salary (ETB) <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -522,28 +832,70 @@ export default function EmployeeSetupModal({
                     })
                   }
                   placeholder="e.g. 15000"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Transport Allowance (ETB)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={salaryForm.transportAllowance}
-                  onChange={(e) =>
-                    setSalaryForm({
-                      ...salaryForm,
-                      transportAllowance: e.target.value,
-                    })
-                  }
-                  placeholder="e.g. 1000"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-black mb-2">
+                    Transport Allowance (ETB)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={salaryForm.transportAllowance}
+                    onChange={(e) =>
+                      setSalaryForm({
+                        ...salaryForm,
+                        transportAllowance: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. 1000"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black mb-2">
+                    Telephone Allowance (ETB)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={salaryForm.telephoneAllowance}
+                    onChange={(e) =>
+                      setSalaryForm({
+                        ...salaryForm,
+                        telephoneAllowance: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. 500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black mb-2">
+                    POS Allowance (ETB)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={salaryForm.posAllowance}
+                    onChange={(e) =>
+                      setSalaryForm({
+                        ...salaryForm,
+                        posAllowance: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. 300"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -558,35 +910,77 @@ export default function EmployeeSetupModal({
           >
             Cancel
           </button>
-          <button
-            onClick={
-              setupType === "password"
-                ? handlePasswordSubmit
-                : setupType === "location"
-                ? handleLocationSubmit
-                : handleSalarySubmit
-            }
-            disabled={loading}
-            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-5 h-5" />
-                <span>
-                  {setupType === "password"
-                    ? "Set Password"
-                    : setupType === "location"
-                    ? "Assign Locations"
-                    : "Save Salary"}
-                </span>
-              </>
-            )}
-          </button>
+          {setupType === "salary" ? (
+            <>
+              <button
+                onClick={handleSalarySubmit}
+                disabled={loading}
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    <span>Save Salary</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!loading) {
+                    handleSaveAll();
+                  }
+                }}
+                disabled={loading}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 cursor-pointer relative z-10"
+                type="button"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>{savingStatus || "Saving All..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    <span>Save All</span>
+                  </>
+                )}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={
+                setupType === "password"
+                  ? handlePasswordSubmit
+                  : handleLocationSubmit
+              }
+              disabled={loading}
+              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  <span>
+                    {setupType === "password"
+                      ? "Set Password"
+                      : "Assign Locations"}
+                  </span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

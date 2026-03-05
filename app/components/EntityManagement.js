@@ -117,7 +117,7 @@ const EntityManagement = ({ projectId, projectName }) => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-black mb-2">
               Activity Management
             </h2>
             <p className="text-gray-600">
@@ -170,16 +170,16 @@ const EntityManagement = ({ projectId, projectName }) => {
                 {getCurrentData().map((item) => (
                   <tr key={item._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-black">
                         {item.name || "Untitled"}
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 max-w-xs truncate">
+                      <div className="text-sm text-black max-w-xs truncate">
                         {item.description || "No description"}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                       {item.activityType || "development"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -283,7 +283,7 @@ const EntityManagement = ({ projectId, projectName }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
             <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-black">
                 {editingItem ? "Edit" : "Create"} Activity
               </h3>
             </div>

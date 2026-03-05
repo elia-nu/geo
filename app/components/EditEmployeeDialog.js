@@ -55,7 +55,7 @@ export default function EditEmployeeDialog({
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                   <User className="w-5 h-5 text-blue-600" />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-900">
+                <h4 className="text-lg font-semibold text-black">
                   Personal Information
                 </h4>
               </div>
@@ -162,12 +162,12 @@ export default function EditEmployeeDialog({
                     Address
                   </label>
                   <textarea
-                    value={selectedEmployee.personalDetails.address || ""}
+                    value={selectedEmployee.personalDetails?.address || ""}
                     onChange={(e) =>
                       setSelectedEmployee({
                         ...selectedEmployee,
                         personalDetails: {
-                          ...selectedEmployee.personalDetails,
+                          ...(selectedEmployee.personalDetails || {}),
                           address: e.target.value,
                         },
                       })
@@ -186,7 +186,7 @@ export default function EditEmployeeDialog({
                 <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                   <Building className="w-5 h-5 text-green-600" />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-900">
+                <h4 className="text-lg font-semibold text-black">
                   Employment Information
                 </h4>
               </div>
@@ -252,6 +252,89 @@ export default function EditEmployeeDialog({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Employee Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={
+                      selectedEmployee.personalDetails?.employeeType ||
+                      selectedEmployee.employeeType ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      setSelectedEmployee({
+                        ...selectedEmployee,
+                        personalDetails: {
+                          ...selectedEmployee.personalDetails,
+                          employeeType: e.target.value,
+                          // Clear contract expiry date if not contractual
+                          contractExpiryDate:
+                            e.target.value === "Contractual"
+                              ? selectedEmployee.personalDetails?.contractExpiryDate ||
+                                selectedEmployee.contractExpiryDate ||
+                                ""
+                              : "",
+                        },
+                        employeeType: e.target.value,
+                      })
+                    }
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+                      formErrors.employeeType
+                        ? "border-red-300 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-green-500"
+                    }`}
+                  >
+                    <option value="">Select Employee Type</option>
+                    <option value="Full Time">Full Time</option>
+                    <option value="Part Time">Part Time</option>
+                    <option value="Contractual">Contractual</option>
+                    <option value="Freelance">Freelance</option>
+                  </select>
+                  {formErrors.employeeType && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {formErrors.employeeType}
+                    </p>
+                  )}
+                </div>
+                {(selectedEmployee.personalDetails?.employeeType ===
+                  "Contractual" ||
+                  selectedEmployee.employeeType === "Contractual") && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contract Expiry Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={
+                        selectedEmployee.personalDetails?.contractExpiryDate ||
+                        selectedEmployee.contractExpiryDate ||
+                        ""
+                      }
+                      onChange={(e) =>
+                        setSelectedEmployee({
+                          ...selectedEmployee,
+                          personalDetails: {
+                            ...selectedEmployee.personalDetails,
+                            contractExpiryDate: e.target.value,
+                          },
+                          contractExpiryDate: e.target.value,
+                        })
+                      }
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+                        formErrors.contractExpiryDate
+                          ? "border-red-300 focus:ring-red-500"
+                          : "border-gray-300 focus:ring-green-500"
+                      }`}
+                      min={new Date().toISOString().split("T")[0]}
+                    />
+                    {formErrors.contractExpiryDate && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {formErrors.contractExpiryDate}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Work Location
                   </label>
                   <select
@@ -279,6 +362,74 @@ export default function EditEmployeeDialog({
                     <option value="Hybrid">Hybrid</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Employee Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedEmployee.personalDetails?.employeeType || selectedEmployee.employeeType || ""}
+                    onChange={(e) =>
+                      setSelectedEmployee({
+                        ...selectedEmployee,
+                        personalDetails: {
+                          ...(selectedEmployee.personalDetails || {}),
+                          employeeType: e.target.value,
+                          contractExpiryDate: e.target.value === "Contractual" ? (selectedEmployee.personalDetails?.contractExpiryDate || selectedEmployee.contractExpiryDate || "") : "",
+                        },
+                        employeeType: e.target.value,
+                        contractExpiryDate: e.target.value === "Contractual" ? (selectedEmployee.personalDetails?.contractExpiryDate || selectedEmployee.contractExpiryDate || "") : "",
+                      })
+                    }
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+                      formErrors.employeeType
+                        ? "border-red-300 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-green-500"
+                    }`}
+                  >
+                    <option value="">Select Employee Type</option>
+                    <option value="Full Time">Full Time</option>
+                    <option value="Part Time">Part Time</option>
+                    <option value="Contractual">Contractual</option>
+                    <option value="Freelance">Freelance</option>
+                  </select>
+                  {formErrors.employeeType && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {formErrors.employeeType}
+                    </p>
+                  )}
+                </div>
+                {(selectedEmployee.personalDetails?.employeeType === "Contractual" || selectedEmployee.employeeType === "Contractual") && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contract Expiry Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={selectedEmployee.personalDetails?.contractExpiryDate || selectedEmployee.contractExpiryDate || ""}
+                      onChange={(e) =>
+                        setSelectedEmployee({
+                          ...selectedEmployee,
+                          personalDetails: {
+                            ...(selectedEmployee.personalDetails || {}),
+                            contractExpiryDate: e.target.value,
+                          },
+                          contractExpiryDate: e.target.value,
+                        })
+                      }
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+                        formErrors.contractExpiryDate
+                          ? "border-red-300 focus:ring-red-500"
+                          : "border-gray-300 focus:ring-green-500"
+                      }`}
+                      min={new Date().toISOString().split("T")[0]}
+                    />
+                    {formErrors.contractExpiryDate && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {formErrors.contractExpiryDate}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -288,7 +439,7 @@ export default function EditEmployeeDialog({
                 <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                   <Award className="w-5 h-5 text-purple-600" />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-900">Skills</h4>
+                <h4 className="text-lg font-semibold text-black">Skills</h4>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

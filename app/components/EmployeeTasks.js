@@ -162,6 +162,78 @@ export default function EmployeeTasks({ employeeId }) {
     fetchTasks();
   };
 
+  const handleStatusUpdate = async (taskId, newStatus) => {
+    try {
+      const token = localStorage.getItem("employeeToken");
+      const employeeData = JSON.parse(localStorage.getItem("employeeData") || "{}");
+      
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          updatedBy: employeeId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchTasks();
+        // Show success message
+        const statusLabels = {
+          pending: "Pending",
+          in_progress: "In Progress",
+          review: "Review",
+          completed: "Completed",
+          blocked: "Blocked",
+          cancelled: "Cancelled",
+        };
+        // You can add a toast notification here if you have a toast library
+        console.log(`Task status updated to ${statusLabels[newStatus]}`);
+      } else {
+        setError(data.error || "Failed to update task status");
+      }
+    } catch (err) {
+      console.error("Error updating task status:", err);
+      setError("Error updating task status: " + err.message);
+    }
+  };
+
+  const handleProgressUpdate = async (taskId, newProgress) => {
+    try {
+      const token = localStorage.getItem("employeeToken");
+      const employeeData = JSON.parse(localStorage.getItem("employeeData") || "{}");
+      
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          progress: Math.min(100, Math.max(0, newProgress)),
+          updatedBy: employeeId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchTasks();
+        console.log(`Task progress updated to ${newProgress}%`);
+      } else {
+        setError(data.error || "Failed to update task progress");
+      }
+    } catch (err) {
+      console.error("Error updating task progress:", err);
+      setError("Error updating task progress: " + err.message);
+    }
+  };
+
   const filteredAndSortedTasks = tasks
     .filter((task) => {
       if (filter === "overdue") {
@@ -194,7 +266,7 @@ export default function EmployeeTasks({ employeeId }) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">My Tasks</h2>
+          <h2 className="text-xl font-semibold text-black">My Tasks</h2>
         </div>
         <div className="space-y-4">
           {[1, 2, 3, 4].map((i) => (
@@ -224,7 +296,7 @@ export default function EmployeeTasks({ employeeId }) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">My Tasks</h2>
+          <h2 className="text-xl font-semibold text-black">My Tasks</h2>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center">
@@ -241,7 +313,7 @@ export default function EmployeeTasks({ employeeId }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">My Tasks</h2>
+          <h2 className="text-2xl font-bold text-black">My Tasks</h2>
           <p className="text-gray-600 mt-1">
             Track and manage your assigned tasks
           </p>
@@ -295,7 +367,7 @@ export default function EmployeeTasks({ employeeId }) {
       {filteredAndSortedTasks.length === 0 ? (
         <div className="text-center py-12">
           <CheckSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-black mb-2">
             No tasks found
           </h3>
           <p className="text-gray-500">
@@ -313,7 +385,7 @@ export default function EmployeeTasks({ employeeId }) {
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-black mb-2">
                     {task.title}
                   </h3>
                   <p className="text-gray-600 text-sm line-clamp-2">
@@ -350,12 +422,34 @@ export default function EmployeeTasks({ employeeId }) {
                 </div>
               </div>
 
-              {/* Progress Bar */}
+              {/* Progress Bar with Update */}
               {task.progress !== undefined && (
                 <div className="mb-4">
                   <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
                     <span>Progress</span>
-                    <span>{task.progress}%</span>
+                    <div className="flex items-center gap-2">
+                      <span>{task.progress}%</span>
+                      <button
+                        onClick={() => {
+                          const newProgress = prompt(
+                            "Enter new progress (0-100):",
+                            task.progress
+                          );
+                          if (
+                            newProgress !== null &&
+                            !isNaN(newProgress) &&
+                            newProgress >= 0 &&
+                            newProgress <= 100
+                          ) {
+                            handleProgressUpdate(task._id, parseInt(newProgress));
+                          }
+                        }}
+                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                        title="Update Progress"
+                      >
+                        Update
+                      </button>
+                    </div>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
@@ -365,6 +459,25 @@ export default function EmployeeTasks({ employeeId }) {
                   </div>
                 </div>
               )}
+
+              {/* Status Update */}
+              <div className="mb-4 flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Status:
+                </label>
+                <select
+                  value={task.status}
+                  onChange={(e) => handleStatusUpdate(task._id, e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="review">Review</option>
+                  <option value="completed">Completed</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
 
               {/* Task Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">

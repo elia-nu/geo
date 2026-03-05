@@ -1,4 +1,5 @@
 import { getDb } from "../mongo";
+import { ObjectId } from "mongodb";
 
 // Calculate distance between two coordinates using Haversine formula
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -20,13 +21,69 @@ export async function GET(req) {
   const db = await getDb();
   const url = new URL(req.url, "http://localhost");
   const id = url.searchParams.get("id");
+  const employeeId = url.searchParams.get("employeeId");
+  const startDate = url.searchParams.get("startDate");
+  const endDate = url.searchParams.get("endDate");
+  const collection = url.searchParams.get("collection") || "attendance"; // Default to attendance collection
+
   if (id) {
-    const doc = await db.collection("attendance").findOne({ id });
+    const doc = await db.collection(collection).findOne({ id });
     if (!doc) return new Response("Not found", { status: 404 });
     return Response.json(doc);
   }
-  const docs = await db.collection("attendance").find({}).toArray();
-  return Response.json(docs);
+
+  // Build query
+  let query = {};
+  if (employeeId) {
+    query.employeeId = employeeId;
+  }
+  if (startDate && endDate) {
+    query.date = {
+      $gte: startDate,
+      $lte: endDate,
+    };
+  }
+
+  if (collection === "daily_attendance") {
+    // Get attendance records with employee details
+    const attendanceRecords = await db
+      .collection("daily_attendance")
+      .find(query)
+      .sort({ date: -1, checkInTime: -1 })
+      .toArray();
+
+    // Get employee details for each record
+    const employeeIds = [
+      ...new Set(attendanceRecords.map((record) => record.employeeId)),
+    ];
+    const employees = await db
+      .collection("employees")
+      .find({ _id: { $in: employeeIds.map((id) => new ObjectId(id)) } })
+      .toArray();
+
+    // Create employee lookup map
+    const employeeMap = {};
+    employees.forEach((emp) => {
+      employeeMap[emp._id.toString()] = {
+        name: emp.personalDetails?.name || emp.name || "Unknown",
+        email: emp.personalDetails?.email || emp.email || "",
+        department: emp.department || emp.personalDetails?.department || "",
+        designation: emp.designation || emp.personalDetails?.designation || "",
+      };
+    });
+
+    // Enhance attendance records with employee details
+    const enhancedRecords = attendanceRecords.map((record) => ({
+      ...record,
+      employee: employeeMap[record.employeeId] || { name: "Unknown Employee" },
+    }));
+
+    return Response.json(enhancedRecords);
+  } else {
+    // Original behavior for attendance collection
+    const docs = await db.collection("attendance").find(query).toArray();
+    return Response.json(docs);
+  }
 }
 
 export async function POST(req) {

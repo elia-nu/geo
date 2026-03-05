@@ -104,7 +104,7 @@ export default function EthiopianCalendar() {
   return (
     <div className="space-y-6 bg-white/20">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-gray-900">
+        <div className="flex items-center gap-2 text-black">
           <CalendarIcon className="w-6 h-6 text-blue-600" />
           <h2 className="text-2xl font-bold">Ethiopian Calendar — {etYear}</h2>
         </div>
@@ -153,7 +153,7 @@ export default function EthiopianCalendar() {
                   "h-8 flex items-center justify-center rounded text-xs border transition-colors text-black";
                 const isHoliday = !!cell.holiday;
                 let style =
-                  "bg-white border-gray-200 text-gray-900 hover:bg-gray-50";
+                  "bg-white border-gray-200 text-black hover:bg-gray-50";
                 if (isHoliday) {
                   style =
                     cell.category === "muslim"
@@ -210,7 +210,7 @@ export default function EthiopianCalendar() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue/40 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
             <div className="px-4 py-3 border-b flex items-center justify-between">
-              <div className="font-semibold text-gray-900">Holiday Details</div>
+              <div className="font-semibold text-black">Holiday Details</div>
               <button
                 className="text-gray-400 hover:text-gray-600"
                 onClick={() =>

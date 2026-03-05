@@ -649,7 +649,7 @@ export default function DailyAttendance({
               <Clock className="w-5 h-5 text-green-600" />
               <span className="font-medium text-gray-700">Check-in</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-black">
               {formatTime(todayRecord?.checkInTime)}
             </div>
             {todayRecord?.checkInLocation && (
@@ -680,7 +680,7 @@ export default function DailyAttendance({
               <Clock className="w-5 h-5 text-red-600" />
               <span className="font-medium text-gray-700">Check-out</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-black">
               {formatTime(todayRecord?.checkOutTime)}
             </div>
             {todayRecord?.checkOutLocation && (
@@ -707,13 +707,13 @@ export default function DailyAttendance({
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
               <div className="bg-white rounded border border-gray-200 p-2">
                 <div className="text-gray-500">Lunch Out</div>
-                <div className="font-semibold text-gray-900">
+                <div className="font-semibold text-black">
                   {formatTime(todayRecord?.lunchOutTime)}
                 </div>
               </div>
               <div className="bg-white rounded border border-gray-200 p-2">
                 <div className="text-gray-500">Lunch In</div>
-                <div className="font-semibold text-gray-900">
+                <div className="font-semibold text-black">
                   {formatTime(todayRecord?.lunchInTime)}
                 </div>
               </div>
@@ -726,7 +726,7 @@ export default function DailyAttendance({
               <Timer className="w-5 h-5 text-blue-600" />
               <span className="font-medium text-gray-700">Working Hours</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-black">
               {getWorkingHoursDisplay()}
             </div>
             {todayRecord?.checkInTime && !todayRecord?.checkOutTime && (
@@ -908,7 +908,7 @@ export default function DailyAttendance({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Add any notes about your attendance (e.g., late arrival reason, early departure request, etc.)"
-          className="w-full p-3 border border-gray-300 rounded-lg resize-none text-gray-900 placeholder-gray-500"
+          className="w-full p-3 border border-gray-300 rounded-lg resize-none text-black placeholder-gray-500"
           rows={3}
           maxLength={500}
         />
@@ -964,6 +964,7 @@ export default function DailyAttendance({
               !todayRecord?.checkInTime ||
               !!todayRecord?.lunchOutTime ||
               !!todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
             }
             className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
@@ -971,6 +972,7 @@ export default function DailyAttendance({
               !todayRecord?.checkInTime ||
               !!todayRecord?.lunchOutTime ||
               !!todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-800"
@@ -981,7 +983,13 @@ export default function DailyAttendance({
             ) : (
               <>
                 <Timer className="w-5 h-5" />
-                <span>Lunch Out</span>
+                <span>
+                  {!isCameraActive
+                    ? "Enable Camera First"
+                    : !locationValidation?.isValid
+                    ? "Location Not Valid"
+                    : "Lunch Out"}
+                </span>
               </>
             )}
           </button>
@@ -995,6 +1003,7 @@ export default function DailyAttendance({
               !todayRecord?.lunchOutTime ||
               !!todayRecord?.lunchInTime ||
               !!todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
             }
             className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
@@ -1003,6 +1012,7 @@ export default function DailyAttendance({
               !todayRecord?.lunchOutTime ||
               !!todayRecord?.lunchInTime ||
               !!todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-amber-600 hover:bg-amber-700 active:bg-amber-800"
@@ -1013,7 +1023,13 @@ export default function DailyAttendance({
             ) : (
               <>
                 <Timer className="w-5 h-5" />
-                <span>Lunch In</span>
+                <span>
+                  {!isCameraActive
+                    ? "Enable Camera First"
+                    : !locationValidation?.isValid
+                    ? "Location Not Valid"
+                    : "Lunch In"}
+                </span>
               </>
             )}
           </button>
@@ -1025,14 +1041,15 @@ export default function DailyAttendance({
               loadingAction !== null ||
               !todayRecord?.checkInTime ||
               todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
             }
             className={`flex-1 py-4 px-6 rounded-lg font-semibold text-white flex items-center justify-center space-x-2 ${
               loadingAction !== null ||
               !todayRecord?.checkInTime ||
+              todayRecord?.checkOutTime ||
+              !isCameraActive ||
               !locationValidation?.isValid
-                ? "bg-gray-400 cursor-not-allowed"
-                : todayRecord?.checkOutTime
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-red-600 hover:bg-red-700 active:bg-red-800"
             }`}
@@ -1042,7 +1059,15 @@ export default function DailyAttendance({
             ) : (
               <>
                 <XCircle className="w-5 h-5" />
-                <span>Check Out</span>
+                <span>
+                  {todayRecord?.checkOutTime
+                    ? "Already Checked Out"
+                    : !isCameraActive
+                    ? "Enable Camera First"
+                    : !locationValidation?.isValid
+                    ? "Location Not Valid"
+                    : "Check Out"}
+                </span>
               </>
             )}
           </button>

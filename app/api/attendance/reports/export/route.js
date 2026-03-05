@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import * as XLSX from "xlsx";
 
-// Export attendance report to text file
+// Export attendance report to Excel file
 export async function POST(request) {
   try {
     const data = await request.json();
@@ -15,8 +16,8 @@ export async function POST(request) {
       );
     }
 
-    // Generate text report
-    const reportText = generateTextReport(
+    // Generate Excel workbook
+    const workbook = generateExcelReport(
       { summary, records, stats },
       reportType,
       startDate,
@@ -27,19 +28,31 @@ export async function POST(request) {
     let fileName;
     switch (reportType) {
       case "daily":
-        fileName = `daily_attendance_${startDate}.txt`;
+        fileName = `daily_attendance_${startDate}.xlsx`;
         break;
       case "weekly":
-        fileName = `weekly_attendance_${startDate}_to_${endDate}.txt`;
+        fileName = `weekly_attendance_${startDate}_to_${endDate}.xlsx`;
         break;
       case "monthly":
-        fileName = `monthly_attendance_${startDate.substring(0, 7)}.txt`;
+        fileName = `monthly_attendance_${startDate.substring(0, 7)}.xlsx`;
         break;
+      case "random":
+        fileName = `random_attendance_${startDate}_to_${endDate}.xlsx`;
+        break;
+      default:
+        fileName = `attendance_report_${startDate}.xlsx`;
     }
 
-    return new NextResponse(reportText, {
+    // Convert workbook to buffer
+    const excelBuffer = XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+    });
+
+    return new NextResponse(excelBuffer, {
       headers: {
-        "Content-Type": "text/plain",
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="${fileName}"`,
         "Cache-Control": "no-cache",
       },
@@ -53,106 +66,148 @@ export async function POST(request) {
   }
 }
 
-function generateTextReport(reportData, reportType, startDate, endDate) {
-  const lines = [];
+function generateExcelReport(reportData, reportType, startDate, endDate) {
+  const workbook = XLSX.utils.book_new();
 
-  // Header
-  lines.push("=".repeat(60));
-  lines.push("ATTENDANCE REPORT");
-  lines.push("=".repeat(60));
-  lines.push("");
+  // Summary Sheet
+  const summaryData = [
+    ["ATTENDANCE REPORT"],
+    [],
+    [
+      "Report Type",
+      reportType.charAt(0).toUpperCase() + reportType.slice(1) + " Report",
+    ],
+    ["Period", `${startDate} - ${endDate}`],
+    ["Generated on", new Date().toLocaleString()],
+    [],
+    ["SUMMARY"],
+    [],
+    ["Metric", "Value"],
+    ["Total Records", reportData.summary.totalRecords],
+    ["Unique Employees", reportData.summary.uniqueEmployees],
+    ["Total Check-ins", reportData.summary.totalCheckIns],
+    ["Total Check-outs", reportData.summary.totalCheckOuts],
+    ["Total Working Hours", reportData.summary.totalWorkingHours],
+    ["Face Verified", reportData.summary.totalFaceVerified],
+    ["Location Verified", reportData.summary.totalLocationVerified],
+    ["Average Working Hours", reportData.summary.averageWorkingHours],
+  ];
 
-  // Report Type and Period
-  lines.push(
-    `Report Type: ${
-      reportType.charAt(0).toUpperCase() + reportType.slice(1)
-    } Report`
-  );
-  lines.push(`Period: ${startDate} - ${endDate}`);
-  lines.push(`Generated on: ${new Date().toLocaleString()}`);
-  lines.push("");
-
-  // Summary
-  lines.push("-".repeat(40));
-  lines.push("SUMMARY");
-  lines.push("-".repeat(40));
-  const summary = reportData.summary;
-  lines.push(`Total Records: ${summary.totalRecords}`);
-  lines.push(`Unique Employees: ${summary.uniqueEmployees}`);
-  lines.push(`Total Check-ins: ${summary.totalCheckIns}`);
-  lines.push(`Total Check-outs: ${summary.totalCheckOuts}`);
-  lines.push(`Total Working Hours: ${summary.totalWorkingHours}`);
-  lines.push(`Face Verified: ${summary.totalFaceVerified}`);
-  lines.push(`Location Verified: ${summary.totalLocationVerified}`);
-  lines.push(`Average Working Hours: ${summary.averageWorkingHours}`);
-  if (summary.uniqueDepartments) {
-    lines.push(`Unique Departments: ${summary.uniqueDepartments}`);
+  if (reportData.summary.uniqueDepartments) {
+    summaryData.push([
+      "Unique Departments",
+      reportData.summary.uniqueDepartments,
+    ]);
   }
-  lines.push("");
 
-  // Statistics
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+  XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+
+  // Statistics Sheet
   if (reportData.stats && reportData.stats.length > 0) {
-    lines.push("-".repeat(40));
-    lines.push("STATISTICS");
-    lines.push("-".repeat(40));
+    const statsHeaders = [
+      "Period",
+      "Check-ins",
+      "Check-outs",
+      "Working Hours",
+      "Face Verified",
+      "Location Verified",
+      "Unique Employees",
+    ];
 
-    reportData.stats.forEach((stat, index) => {
+    // Add optional columns
+    const hasActiveDays = reportData.stats.some(
+      (s) => s.activeDays !== undefined
+    );
+    const hasDepartments = reportData.stats.some(
+      (s) => s.uniqueDepartments !== undefined
+    );
+
+    if (hasActiveDays) statsHeaders.push("Active Days");
+    if (hasDepartments) statsHeaders.push("Departments");
+
+    const statsRows = [statsHeaders];
+
+    reportData.stats.forEach((stat) => {
       const period = stat.date || stat.weekStart || stat.monthKey;
-      lines.push(`Period: ${period}`);
-      lines.push(`  Check-ins: ${stat.checkIns}`);
-      lines.push(`  Check-outs: ${stat.checkOuts}`);
-      lines.push(`  Working Hours: ${stat.workingHours}`);
-      lines.push(`  Face Verified: ${stat.faceVerified}`);
-      lines.push(`  Location Verified: ${stat.locationVerified}`);
-      lines.push(`  Unique Employees: ${stat.uniqueEmployees}`);
-      if (stat.activeDays) lines.push(`  Active Days: ${stat.activeDays}`);
-      if (stat.uniqueDepartments)
-        lines.push(`  Departments: ${stat.uniqueDepartments}`);
-      lines.push("");
+      const row = [
+        period,
+        stat.checkIns,
+        stat.checkOuts,
+        stat.workingHours,
+        stat.faceVerified,
+        stat.locationVerified,
+        stat.uniqueEmployees,
+      ];
+
+      if (hasActiveDays) row.push(stat.activeDays || "");
+      if (hasDepartments) row.push(stat.uniqueDepartments || "");
+
+      statsRows.push(row);
     });
+
+    const statsSheet = XLSX.utils.aoa_to_sheet(statsRows);
+    XLSX.utils.book_append_sheet(workbook, statsSheet, "Statistics");
   }
 
-  // Detailed Records (first 20 records only)
+  // Detailed Records Sheet
   if (reportData.records && reportData.records.length > 0) {
-    lines.push("-".repeat(40));
-    lines.push("DETAILED RECORDS");
-    lines.push("-".repeat(40));
+    const recordsHeaders = [
+      "Employee Name",
+      "Employee ID",
+      "Date",
+      "Department",
+      "Check-in Time",
+      "Check-out Time",
+      "Working Hours",
+      "Work Location",
+      "Face Verified",
+      "Location Verified",
+      "Approval Status",
+    ];
 
-    reportData.records.slice(0, 20).forEach((record, index) => {
-      lines.push(`${index + 1}. ${record.employeeName} - ${record.date}`);
-      lines.push(`   Department: ${record.department}`);
-      lines.push(
-        `   Check-in: ${
-          record.checkInTime
-            ? new Date(record.checkInTime).toLocaleTimeString()
-            : "N/A"
-        }`
-      );
-      lines.push(
-        `   Check-out: ${
-          record.checkOutTime
-            ? new Date(record.checkOutTime).toLocaleTimeString()
-            : "N/A"
-        }`
-      );
-      lines.push(`   Working Hours: ${record.workingHours || "N/A"}`);
-      lines.push(`   Location: ${record.workLocationName}`);
-      lines.push(`   Face Verified: ${record.faceVerified ? "Yes" : "No"}`);
-      lines.push(`   Approval Status: ${record.approvalStatus}`);
-      lines.push("");
+    const recordsRows = [recordsHeaders];
+
+    reportData.records.forEach((record) => {
+      recordsRows.push([
+        record.employeeName || "N/A",
+        record.employeeId || "N/A",
+        record.date || "N/A",
+        record.department || "N/A",
+        record.checkInTime
+          ? new Date(record.checkInTime).toLocaleString()
+          : "N/A",
+        record.checkOutTime
+          ? new Date(record.checkOutTime).toLocaleString()
+          : "N/A",
+        record.workingHours || "N/A",
+        record.workLocationName || "N/A",
+        record.faceVerified ? "Yes" : "No",
+        record.locationVerified ? "Yes" : "No",
+        record.approvalStatus || "N/A",
+      ]);
     });
 
-    if (reportData.records.length > 20) {
-      lines.push(`... and ${reportData.records.length - 20} more records`);
-      lines.push("");
-    }
+    const recordsSheet = XLSX.utils.aoa_to_sheet(recordsRows);
+
+    // Set column widths for better readability
+    const colWidths = [
+      { wch: 20 }, // Employee Name
+      { wch: 15 }, // Employee ID
+      { wch: 12 }, // Date
+      { wch: 15 }, // Department
+      { wch: 20 }, // Check-in Time
+      { wch: 20 }, // Check-out Time
+      { wch: 15 }, // Working Hours
+      { wch: 20 }, // Work Location
+      { wch: 12 }, // Face Verified
+      { wch: 15 }, // Location Verified
+      { wch: 15 }, // Approval Status
+    ];
+    recordsSheet["!cols"] = colWidths;
+
+    XLSX.utils.book_append_sheet(workbook, recordsSheet, "Detailed Records");
   }
 
-  // Footer
-  lines.push("-".repeat(40));
-  lines.push("This report is for record-keeping and compliance purposes.");
-  lines.push("Generated by HRM System");
-  lines.push("=".repeat(60));
-
-  return lines.join("\n");
+  return workbook;
 }

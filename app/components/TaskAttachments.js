@@ -284,7 +284,7 @@ const TaskAttachments = ({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
-                  <h4 className="text-sm font-medium text-gray-900 truncate">
+                  <h4 className="text-sm font-medium text-black truncate">
                     {attachment.originalName}1111
                   </h4>
                   <div className="flex items-center space-x-1">

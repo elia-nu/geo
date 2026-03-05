@@ -261,8 +261,26 @@ export async function POST(request) {
         nearestLocation: nearestLocation,
       };
 
-      // Reject if not at any work location
+      // Reject if not at any work location, but also record a violation event
       if (!foundValid) {
+        const today = getTodayDate();
+        const now = new Date();
+
+        try {
+          await db.collection("attendance_violations").insertOne({
+            employeeId,
+            employeeName,
+            date: today,
+            action,
+            latitude,
+            longitude,
+            geofenceValidation,
+            createdAt: now,
+          });
+        } catch (e) {
+          console.error("Failed to record attendance violation:", e);
+        }
+
         return NextResponse.json(
           {
             error: `You must be at one of your designated work locations to check in/out. Nearest location: ${

@@ -12,7 +12,6 @@ import {
   Group as GroupIcon,
   Comment as CommentIcon,
   AttachFile as AttachFileIcon,
-  AccessTime as TimeIcon,
   Flag as FlagIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
@@ -23,10 +22,12 @@ import {
   MoreVert as MoreVertIcon,
   Timeline as TimelineIcon,
   ArrowBack as ArrowBackIcon,
+  History as HistoryIcon,
 } from "@mui/icons-material";
 import TaskCommunicationPanel from "./TaskCommunicationPanel";
 import TaskAssignmentManager from "./TaskAssignmentManager";
 import TaskMonitoringDashboard from "./TaskMonitoringDashboard";
+import TaskProgressAudits from "./TaskProgressAudits";
 import SubtaskManager from "./SubtaskManager";
 import TaskDependencyManager from "./TaskDependencyManager";
 import Link from "next/link";
@@ -34,6 +35,7 @@ import Link from "next/link";
 const TaskManagement = ({ projectId, milestoneId = null }) => {
   const [tasks, setTasks] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [projectMembers, setProjectMembers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [taskCategories, setTaskCategories] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(projectId);
@@ -65,6 +67,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
   // New dialog states
   const [showAssignmentManager, setShowAssignmentManager] = useState(false);
   const [showMonitoringDashboard, setShowMonitoringDashboard] = useState(false);
+  const [showProgressAudits, setShowProgressAudits] = useState(false);
   const [showSubtaskManager, setShowSubtaskManager] = useState(false);
   const [showDependencyManager, setShowDependencyManager] = useState(false);
 
@@ -78,7 +81,6 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     status: "pending",
     startDate: "",
     dueDate: "",
-    estimatedHours: 0,
     tags: [],
     dependencies: [],
     subtasks: [],
@@ -92,6 +94,12 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     fetchTaskCategories();
     if (!projectId) {
       fetchProjects();
+    }
+    const currentProjectId = projectId || selectedProjectId;
+    if (currentProjectId) {
+      fetchProjectMembers(currentProjectId);
+    } else {
+      setProjectMembers([]);
     }
   }, [
     projectId,
@@ -177,6 +185,21 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       }
     } catch (err) {
       console.error("Error fetching task categories:", err);
+    }
+  };
+
+  const fetchProjectMembers = async (projectIdToFetch) => {
+    try {
+      const response = await fetch(
+        `/api/projects/${projectIdToFetch}/assign-employees`
+      );
+      const data = await response.json();
+      if (data.success) {
+        setProjectMembers(data.assignedEmployees || []);
+      }
+    } catch (err) {
+      console.error("Error fetching project members:", err);
+      setProjectMembers([]);
     }
   };
 
@@ -287,6 +310,86 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
     if (!selectedTask) return;
 
     setError(null);
+
+    // Validate dates are within project date range
+    if (currentProject) {
+      const projectStart = currentProject.startDate
+        ? new Date(currentProject.startDate).toISOString().split("T")[0]
+        : null;
+      const projectEnd = currentProject.endDate
+        ? new Date(currentProject.endDate).toISOString().split("T")[0]
+        : null;
+
+      if (formData.startDate) {
+        if (projectStart && formData.startDate < projectStart) {
+          const msg = `Task start date must be on or after project start date (${new Date(
+            currentProject.startDate
+          ).toLocaleDateString()})`;
+          setError(msg);
+          Swal.fire({
+            icon: "warning",
+            title: "Invalid Date",
+            text: msg,
+          });
+          return;
+        }
+        if (projectEnd && formData.startDate > projectEnd) {
+          const msg = `Task start date must be on or before project end date (${new Date(
+            currentProject.endDate
+          ).toLocaleDateString()})`;
+          setError(msg);
+          Swal.fire({
+            icon: "warning",
+            title: "Invalid Date",
+            text: msg,
+          });
+          return;
+        }
+      }
+
+      if (formData.dueDate) {
+        if (projectStart && formData.dueDate < projectStart) {
+          const msg = `Task due date must be on or after project start date (${new Date(
+            currentProject.startDate
+          ).toLocaleDateString()})`;
+          setError(msg);
+          Swal.fire({
+            icon: "warning",
+            title: "Invalid Date",
+            text: msg,
+          });
+          return;
+        }
+        if (projectEnd && formData.dueDate > projectEnd) {
+          const msg = `Task due date must be on or before project end date (${new Date(
+            currentProject.endDate
+          ).toLocaleDateString()})`;
+          setError(msg);
+          Swal.fire({
+            icon: "warning",
+            title: "Invalid Date",
+            text: msg,
+          });
+          return;
+        }
+      }
+
+      // Validate due date is after start date
+      if (
+        formData.startDate &&
+        formData.dueDate &&
+        formData.dueDate < formData.startDate
+      ) {
+        const msg = "Due date must be on or after start date";
+        setError(msg);
+        Swal.fire({
+          icon: "warning",
+          title: "Invalid Date",
+          text: msg,
+        });
+        return;
+      }
+    }
 
     try {
       const payload = {
@@ -437,7 +540,6 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       status: "pending",
       startDate: "",
       dueDate: "",
-      estimatedHours: 0,
       tags: [],
       dependencies: [],
       subtasks: [],
@@ -448,10 +550,14 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
   const openEditDialog = (task) => {
     setSelectedTask(task);
+    // Normalize assignedTo IDs to strings for consistent comparison
+    const normalizedAssignedTo = (task.assignedTo || []).map((id) =>
+      id?.toString ? id.toString() : String(id)
+    );
     setFormData({
       title: task.title,
       description: task.description,
-      assignedTo: task.assignedTo || [],
+      assignedTo: normalizedAssignedTo,
       assignedTeams: task.assignedTeams || [],
       priority: task.priority,
       status: task.status,
@@ -461,7 +567,6 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       dueDate: task.dueDate
         ? new Date(task.dueDate).toISOString().split("T")[0]
         : "",
-      estimatedHours: task.estimatedHours || 0,
       tags: task.tags || [],
       dependencies: task.dependencies || [],
       subtasks: task.subtasks || [],
@@ -559,14 +664,14 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
           </>
         )}
         <span className="text-gray-400">›</span>
-        <span className="text-gray-900 font-medium">
+        <span className="text-black font-medium">
           {milestoneId ? "Milestone Tasks" : "Tasks"}
         </span>
       </nav>
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-1">
+          <h1 className="text-2xl font-semibold text-black mb-1">
             Task Management
           </h1>
           <p className="text-gray-600 text-sm">
@@ -604,13 +709,22 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
           <AddIcon />
           Create Task
         </button>
-        <button
-          onClick={() => setShowMonitoringDashboard(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-        >
-          <TimelineIcon fontSize="small" />
-          Monitoring Dashboard
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowMonitoringDashboard(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+          >
+            <TimelineIcon fontSize="small" />
+            Monitoring Dashboard
+          </button>
+          <button
+            onClick={() => setShowProgressAudits(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+          >
+            <HistoryIcon fontSize="small" />
+            Progress Audits
+          </button>
+        </div>
       </div>
 
       {/* Filters and Search */}
@@ -682,7 +796,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
             {/* Task Header */}
             <div className="p-4 border-b border-gray-100">
               <div className="flex justify-between items-start mb-2">
-                <h3 className="text-lg font-semibold text-gray-900 truncate">
+                <h3 className="text-lg font-semibold text-black truncate">
                   {task.title}
                 </h3>
                 <div className="flex items-center gap-1">
@@ -815,14 +929,6 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 </div>
               )}
 
-              {/* Time Tracking */}
-              <div className="flex items-center gap-2 mb-3">
-                <TimeIcon className="text-gray-400" fontSize="small" />
-                <span className="text-sm text-gray-600">
-                  {task.actualHours || 0}h / {task.estimatedHours || 0}h
-                </span>
-              </div>
-
               {/* Comments and Attachments */}
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
@@ -921,7 +1027,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       {/* Empty State */}
       {filteredTasks.length === 0 && !loading && (
         <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-black mb-2">
             No tasks found
           </h3>
           <p className="text-gray-600 mb-4">
@@ -930,13 +1036,22 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
               : "Get started by creating your first task"}
           </p>
           <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => setShowMonitoringDashboard(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-            >
-              <TimelineIcon fontSize="small" />
-              Monitoring Dashboard
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowMonitoringDashboard(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                <TimelineIcon fontSize="small" />
+                Monitoring Dashboard
+              </button>
+              <button
+                onClick={() => setShowProgressAudits(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                <HistoryIcon fontSize="small" />
+                Progress Audits
+              </button>
+            </div>
             <button
               onClick={() => setShowCreateDialog(true)}
               className="px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
@@ -1041,16 +1156,87 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Start Date
+                    {currentProject?.startDate && (
+                      <span className="text-xs text-gray-500 ml-2">
+                        (Project:{" "}
+                        {new Date(
+                          currentProject.startDate
+                        ).toLocaleDateString()}{" "}
+                        -{" "}
+                        {currentProject.endDate
+                          ? new Date(
+                              currentProject.endDate
+                            ).toLocaleDateString()
+                          : "N/A"}
+                        )
+                      </span>
+                    )}
                   </label>
                   <input
                     type="date"
                     value={formData.startDate}
-                    onChange={(e) =>
+                    min={
+                      currentProject?.startDate
+                        ? new Date(currentProject.startDate)
+                            .toISOString()
+                            .split("T")[0]
+                        : undefined
+                    }
+                    max={
+                      currentProject?.endDate
+                        ? new Date(currentProject.endDate)
+                            .toISOString()
+                            .split("T")[0]
+                        : undefined
+                    }
+                    onChange={(e) => {
+                      const selectedDate = e.target.value;
+                      const projectStart = currentProject?.startDate
+                        ? new Date(currentProject.startDate)
+                            .toISOString()
+                            .split("T")[0]
+                        : null;
+                      const projectEnd = currentProject?.endDate
+                        ? new Date(currentProject.endDate)
+                            .toISOString()
+                            .split("T")[0]
+                        : null;
+
+                      // Validate date is within project range
+                      if (projectStart && selectedDate < projectStart) {
+                        setError(
+                          `Start date must be on or after project start date (${new Date(
+                            currentProject.startDate
+                          ).toLocaleDateString()})`
+                        );
+                        return;
+                      }
+                      if (projectEnd && selectedDate > projectEnd) {
+                        setError(
+                          `Start date must be on or before project end date (${new Date(
+                            currentProject.endDate
+                          ).toLocaleDateString()})`
+                        );
+                        return;
+                      }
+
+                      // If due date is set and is before new start date, clear it
+                      if (formData.dueDate && selectedDate > formData.dueDate) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          startDate: selectedDate,
+                          dueDate: "",
+                        }));
+                        setError(null);
+                        return;
+                      }
+
                       setFormData((prev) => ({
                         ...prev,
-                        startDate: e.target.value,
-                      }))
-                    }
+                        startDate: selectedDate,
+                      }));
+                      setError(null);
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -1058,35 +1244,87 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Due Date
+                    {currentProject?.startDate && (
+                      <span className="text-xs text-gray-500 ml-2">
+                        (Project:{" "}
+                        {new Date(
+                          currentProject.startDate
+                        ).toLocaleDateString()}{" "}
+                        -{" "}
+                        {currentProject.endDate
+                          ? new Date(
+                              currentProject.endDate
+                            ).toLocaleDateString()
+                          : "N/A"}
+                        )
+                      </span>
+                    )}
                   </label>
                   <input
                     type="date"
                     value={formData.dueDate}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        dueDate: e.target.value,
-                      }))
+                    min={
+                      formData.startDate
+                        ? formData.startDate
+                        : currentProject?.startDate
+                        ? new Date(currentProject.startDate)
+                            .toISOString()
+                            .split("T")[0]
+                        : undefined
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                    max={
+                      currentProject?.endDate
+                        ? new Date(currentProject.endDate)
+                            .toISOString()
+                            .split("T")[0]
+                        : undefined
+                    }
+                    onChange={(e) => {
+                      const selectedDate = e.target.value;
+                      const projectStart = currentProject?.startDate
+                        ? new Date(currentProject.startDate)
+                            .toISOString()
+                            .split("T")[0]
+                        : null;
+                      const projectEnd = currentProject?.endDate
+                        ? new Date(currentProject.endDate)
+                            .toISOString()
+                            .split("T")[0]
+                        : null;
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Estimated Hours
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={formData.estimatedHours}
-                    onChange={(e) =>
+                      // Validate date is within project range
+                      if (projectStart && selectedDate < projectStart) {
+                        setError(
+                          `Due date must be on or after project start date (${new Date(
+                            currentProject.startDate
+                          ).toLocaleDateString()})`
+                        );
+                        return;
+                      }
+                      if (projectEnd && selectedDate > projectEnd) {
+                        setError(
+                          `Due date must be on or before project end date (${new Date(
+                            currentProject.endDate
+                          ).toLocaleDateString()})`
+                        );
+                        return;
+                      }
+
+                      // Validate due date is after start date
+                      if (
+                        formData.startDate &&
+                        selectedDate < formData.startDate
+                      ) {
+                        setError("Due date must be on or after start date");
+                        return;
+                      }
+
                       setFormData((prev) => ({
                         ...prev,
-                        estimatedHours: parseFloat(e.target.value) || 0,
-                      }))
-                    }
+                        dueDate: selectedDate,
+                      }));
+                      setError(null);
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -1117,52 +1355,82 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Assign to Employees
+                    {projectId || selectedProjectId ? (
+                      <span className="text-xs text-gray-500 ml-2">
+                        (Project members only)
+                      </span>
+                    ) : null}
                   </label>
-                  <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-2">
-                    {employees.map((employee) => (
-                      <label
-                        key={employee._id}
-                        className="flex items-center space-x-2 p-1 hover:bg-gray-50 rounded cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.assignedTo.includes(employee._id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setFormData((prev) => ({
-                                ...prev,
-                                assignedTo: [...prev.assignedTo, employee._id],
-                              }));
-                            } else {
-                              setFormData((prev) => ({
-                                ...prev,
-                                assignedTo: prev.assignedTo.filter(
-                                  (id) => id !== employee._id
-                                ),
-                              }));
-                            }
-                          }}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {employee.personalDetails?.name ||
-                            employee.name ||
-                            "Unknown"}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          (
-                          {employee.personalDetails?.email ||
-                            employee.email ||
-                            "No email"}
-                          )
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  {formData.assignedTo.length > 0 && (
-                    <div className="mt-2">
+                  {projectId || selectedProjectId ? (
+                    projectMembers.length > 0 ? (
+                      <>
+                        <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-2">
+                          {projectMembers.map((employee) => {
+                            const employeeId = employee._id?.toString
+                              ? employee._id.toString()
+                              : String(employee._id);
+                            const isChecked = formData.assignedTo.some(
+                              (id) => String(id) === employeeId
+                            );
+                            return (
+                              <label
+                                key={employeeId}
+                                className="flex items-center space-x-2 p-1 hover:bg-gray-50 rounded cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        assignedTo: [
+                                          ...prev.assignedTo,
+                                          employeeId,
+                                        ],
+                                      }));
+                                    } else {
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        assignedTo: prev.assignedTo.filter(
+                                          (id) => String(id) !== employeeId
+                                        ),
+                                      }));
+                                    }
+                                  }}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">
+                                  {employee.name || "Unknown"}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  ({employee.email || "No email"})
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        {formData.assignedTo.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-sm text-gray-600">
+                              Selected: {formData.assignedTo.length} employee(s)
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="border border-gray-300 rounded-lg p-4 text-center">
+                        <p className="text-sm text-gray-600">
+                          No team members assigned to this project yet. Please
+                          assign employees to the project first.
+                        </p>
+                      </div>
+                    )
+                  ) : (
+                    <div className="border border-gray-300 rounded-lg p-4 text-center">
                       <p className="text-sm text-gray-600">
-                        Selected: {formData.assignedTo.length} employee(s)
+                        Please select a project first to assign employees to
+                        tasks.
                       </p>
                     </div>
                   )}
@@ -1200,7 +1468,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                <h2 className="text-2xl font-bold text-black mb-2">
                   {selectedTask.title}
                 </h2>
                 <div className="flex items-center gap-2">
@@ -1236,7 +1504,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
               <div className="lg:col-span-2 space-y-6">
                 {/* Description */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-black mb-2">
                     Description
                   </h3>
                   <p className="text-gray-600 whitespace-pre-wrap">
@@ -1258,7 +1526,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 {selectedTask.assignedEmployees &&
                   selectedTask.assignedEmployees.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      <h3 className="text-lg font-semibold text-black mb-2">
                         Assigned Employees
                       </h3>
                       <div className="space-y-2">
@@ -1271,7 +1539,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                               {emp.name.charAt(0)}
                             </div>
                             <div>
-                              <p className="font-medium text-gray-900">
+                              <p className="font-medium text-black">
                                 {emp.name}
                               </p>
                               <p className="text-sm text-gray-500">
@@ -1288,7 +1556,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 <div className="grid grid-cols-2 gap-4">
                   {selectedTask.startDate && (
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-1">
+                      <h4 className="font-medium text-black mb-1">
                         Start Date
                       </h4>
                       <p className="text-gray-600">
@@ -1298,7 +1566,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                   )}
                   {selectedTask.dueDate && (
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-1">
+                      <h4 className="font-medium text-black mb-1">
                         Due Date
                       </h4>
                       <p className="text-gray-600">
@@ -1314,7 +1582,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                 {/* Progress */}
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-black">
                       Progress
                     </h3>
                     <button
@@ -1350,33 +1618,10 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
                   </div>
                 </div>
 
-                {/* Time Tracking */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Time Tracking
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-1">
-                        Estimated
-                      </h4>
-                      <p className="text-gray-600">
-                        {selectedTask.estimatedHours || 0}h
-                      </p>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-1">Actual</h4>
-                      <p className="text-gray-600">
-                        {selectedTask.actualHours || 0}h
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Subtasks */}
                 {selectedTask.subtasks && selectedTask.subtasks.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <h3 className="text-lg font-semibold text-black mb-2">
                       Subtasks (
                       {
                         selectedTask.subtasks.filter(
@@ -1416,7 +1661,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
                 {/* Category and Tags */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-black mb-2">
                     Details
                   </h3>
                   <div className="space-y-2">
@@ -1479,7 +1724,7 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
       {showProgressDialog && selectedTask && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
+            <h2 className="text-xl font-bold text-black mb-4">
               Update Task Progress
             </h2>
 
@@ -1646,14 +1891,47 @@ const TaskManagement = ({ projectId, milestoneId = null }) => {
 
       {/* Task Monitoring Dashboard */}
       {showMonitoringDashboard && (
-        <div className=" pt-10">
-          <TaskMonitoringDashboard
-            projectId={selectedProjectId}
-            tasks={tasks}
-            employees={employees}
-            teams={[]} // TODO: Add teams data
-            onRefresh={fetchTasks}
-          />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-7xl max-h-[90vh] overflow-y-auto m-4">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-black">
+                Task Monitoring Dashboard
+              </h2>
+              <button
+                onClick={() => setShowMonitoringDashboard(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <CancelIcon />
+              </button>
+            </div>
+            <TaskMonitoringDashboard
+              projectId={selectedProjectId}
+              tasks={tasks}
+              employees={employees}
+              teams={[]} // TODO: Add teams data
+              onRefresh={fetchTasks}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Task Progress Audits */}
+      {showProgressAudits && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-7xl max-h-[90vh] overflow-y-auto m-4">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-black">
+                Task Progress Audits
+              </h2>
+              <button
+                onClick={() => setShowProgressAudits(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <CancelIcon />
+              </button>
+            </div>
+            <TaskProgressAudits projectId={selectedProjectId} />
+          </div>
         </div>
       )}
 

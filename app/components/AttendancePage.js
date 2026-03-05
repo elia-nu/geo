@@ -321,7 +321,7 @@ export default function AttendancePage({ user, onLogout }) {
       )}
       {/* Header */}
       <header className="w-full max-w-2xl mx-auto text-center mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-2">
+        <h1 className="text-3xl sm:text-4xl font-bold text-black tracking-tight mb-2">
           Attendance <span className="text-blue-600">FaceID</span>
         </h1>
         <p className="text-gray-500 text-base sm:text-lg mb-2">

@@ -87,21 +87,33 @@ export async function POST(request) {
     // Compute working days for the selected month using LOCAL dates and integrated holiday check
     const startLocalForCount = new Date(targetYear, targetMonth - 1, 1);
     const endLocalForCount = new Date(targetYear, targetMonth, 0);
-    let totalWorkingDays = 0;
+    let totalWorkingDays = 0; // working days in the full month
+    let workingDaysSoFar = 0; // working days from the 1st up to (and including) today
+    const todayLocalForCount = new Date();
+    todayLocalForCount.setHours(0, 0, 0, 0);
+
     for (
       let t = startLocalForCount.getTime();
       t <= endLocalForCount.getTime();
       t += 24 * 60 * 60 * 1000
     ) {
       const dLocal = new Date(t);
-      const dow = dLocal.getDay();
-      const isWeekday = dow !== 0 && dow !== 6;
       const hol = isHoliday(dLocal);
       const isHol =
         hol === true || (hol && (hol.isHoliday || hol.name || hol.type));
-      if (isWeekday && !isHol) totalWorkingDays += 1;
+
+      // Business rule: no weekend breaks. Every calendar day is a working day
+      // except official holidays.
+      if (!isHol) {
+        totalWorkingDays += 1;
+        if (dLocal <= todayLocalForCount) {
+          workingDaysSoFar += 1;
+        }
+      }
     }
-    const totalDaysInMonth = endDate.getUTCDate();
+    // Number of calendar days in the month (28, 29, 30, or 31)
+    const totalDaysInMonth = endLocalForCount.getDate();
+
     try {
       const origin = new URL(request.url).origin;
       const apiUrl = `${origin}/api/ethiopian-calendar?action=holidays&year=${targetYear}&month=${targetMonth}`;
@@ -138,6 +150,27 @@ export async function POST(request) {
         if (isHol) holidayIsoSet.add(iso);
       }
     }
+
+    // When no holidays were found via API/set: working days = all days in month (28–31).
+    // Override only so working days = days in month, not a fixed 30.
+    if (holidayIsoSet.size === 0) {
+      totalWorkingDays = totalDaysInMonth;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const sameMonth =
+        today.getFullYear() === targetYear &&
+        today.getMonth() === targetMonth - 1;
+
+      if (today < startLocalForCount) {
+        workingDaysSoFar = 0;
+      } else if (today > endLocalForCount || !sameMonth) {
+        workingDaysSoFar = totalDaysInMonth;
+      } else {
+        const dayOfMonth = today.getDate();
+        workingDaysSoFar = Math.min(dayOfMonth, totalDaysInMonth);
+      }
+    }
     const holidays = Array.from(holidayIsoSet).map((iso) => ({
       date: new Date(`${iso}T00:00:00Z`),
       name: "Holiday",
@@ -161,7 +194,18 @@ export async function POST(request) {
       .toArray();
     console.log(`Found ${employees.length} employees for payroll calculation`);
 
-    if (employees.length === 0) {
+    // Filter employees to only those who existed during the selected period.
+    // If an employee's joiningDate is after the period end, we exclude them
+    // from this month's payroll.
+    const employeesForPeriod = employees.filter((employee) => {
+      const jdStr =
+        employee.joiningDate || employee.personalDetails?.joiningDate;
+      if (!jdStr) return true;
+      const jd = new Date(`${jdStr}T00:00:00Z`);
+      return jd <= endDate;
+    });
+
+    if (employeesForPeriod.length === 0) {
       return NextResponse.json({
         success: true,
         data: {
@@ -169,10 +213,13 @@ export async function POST(request) {
           summary: {
             totalEmployees: 0,
             totalGross: 0,
+            totalSalary: 0,
             totalEmployeePension: 0,
             totalEmployerPension: 0,
             totalIncomeTax: 0,
             totalTransportAllowance: 0,
+            totalTelephoneAllowance: 0,
+            totalPosAllowance: 0,
             totalNet: 0,
           },
           period: { month: targetMonth, year: targetYear },
@@ -181,7 +228,9 @@ export async function POST(request) {
     }
 
     // Preload attendance for the month for these employees
-    const employeeIdSet = new Set(employees.map((e) => e._id.toString()));
+    const employeeIdSet = new Set(
+      employeesForPeriod.map((e) => e._id.toString())
+    );
     const attendanceRecords = await db
       .collection("daily_attendance")
       .find({
@@ -262,12 +311,20 @@ export async function POST(request) {
     });
 
     // Calculate payroll for each employee
-    const payrollData = employees.map((employee) => {
+    const payrollData = employeesForPeriod.map((employee) => {
       // Get salary information
       const grossSalary = parseFloat(
         employee.grossSalary || employee.baseSalary || 0
       );
-      const transportAllowance = parseFloat(employee.transportAllowance || 0);
+      const transportAllowance = parseFloat(
+        employee.transportAllowance ?? employee.personalDetails?.transportAllowance ?? 0
+      );
+      const telephoneAllowance = parseFloat(
+        employee.telephoneAllowance ?? employee.personalDetails?.telephoneAllowance ?? 0
+      );
+      const posAllowance = parseFloat(
+        employee.posAllowance ?? employee.personalDetails?.posAllowance ?? 0
+      );
 
       // Compute deduction days based on pending/denied leave with no attendance
       let deductionDays = 0;
@@ -306,37 +363,45 @@ export async function POST(request) {
         const attKey = `${empIdStr}|${dateIso}`;
         const att = attendanceByEmpDate.get(attKey);
         const hasAttendance = att && att.checkInTime;
+        const approvalStatus = att?.adminApproval?.status;
 
-        // If there is an attendance record explicitly rejected/denied by admin,
-        // count this day as a deduction regardless of check-in/out times.
-        if (
-          att &&
-          (att.adminApproval?.status === "rejected" ||
-            att.adminApproval?.status === "denied")
-        ) {
-          if (
-            employee.name?.toLowerCase().includes("mamo elias") ||
-            empIdStr === "68e564a00d8e863db2a9b421"
-          ) {
-            console.log(
-              "[payroll][debug-day]",
-              employee.name,
-              dateIso,
-              "deduct: rejected/denied attendance"
-            );
-          }
-          deductionDays += 1;
-          deductionDates.push(dateIso);
-          continue;
-        }
+        // Determine if this calendar day is a \"working\" day for payroll:
+        // no weekend logic; any non-holiday calendar day counts.
+        const dUtc = new Date(`${dateIso}T00:00:00Z`);
+        const dLocalCheck = new Date(
+          dUtc.getUTCFullYear(),
+          dUtc.getUTCMonth(),
+          dUtc.getUTCDate()
+        );
+        const holInfo = isHoliday(dLocalCheck);
+        const isHolidayDay =
+          holidayIsoSet.has(dateIso) || (holInfo && holInfo.isHoliday);
+        const isPayrollWorkingDay = !isHolidayDay;
 
+        // NEW RULE:
+        // For an employee to have a working day, they must have an *approved* attendance.
+        // Any attendance that is not explicitly approved is treated as absence.
         if (hasAttendance) {
-          // Treat check-in without check-out as full-day absence
-          if (att && att.checkInTime && !att.checkOutTime) {
-            deductionDays += 1;
-            deductionDates.push(dateIso);
+          if (approvalStatus !== "approved") {
+            // Attendance exists but not approved (pending / rejected / denied / other) → absence
+            if (isPayrollWorkingDay) {
+              deductionDays += 1;
+              deductionDates.push(dateIso);
+            }
             continue;
           }
+
+          // Approved attendance exists:
+          // If check-in without check-out, still treat as full-day absence.
+          if (att.checkInTime && !att.checkOutTime) {
+            if (isPayrollWorkingDay) {
+              deductionDays += 1;
+              deductionDates.push(dateIso);
+            }
+            continue;
+          }
+
+          // Approved and complete attendance → counted as worked day, no deduction
           continue;
         }
 
@@ -359,45 +424,40 @@ export async function POST(request) {
           return new Date(dateIso) >= s && new Date(dateIso) <= e;
         });
         if (hasPendOrDeniedLeave) {
-          deductionDays += 1;
-          deductionDates.push(dateIso);
+          if (isPayrollWorkingDay) {
+            deductionDays += 1;
+            deductionDates.push(dateIso);
+          }
           continue;
         }
 
-        // Otherwise, pure absence: deduct only on working non-holiday days (UTC-safe)
-        const dUtc = new Date(`${dateIso}T00:00:00Z`);
-        const dow = dUtc.getUTCDay();
-        const isWeekday = dow !== 0 && dow !== 6;
-        // Cross-check: holiday from set OR direct calendar helper
-        const dLocalCheck = new Date(
-          dUtc.getUTCFullYear(),
-          dUtc.getUTCMonth(),
-          dUtc.getUTCDate()
-        );
-        const holInfo = isHoliday(dLocalCheck);
-        const isHolidayDay =
-          holidayIsoSet.has(dateIso) || (holInfo && holInfo.isHoliday);
-
-        if (isWeekday && !isHolidayDay) {
+        // Otherwise, pure absence: deduct only on working (non-holiday) days
+        if (isPayrollWorkingDay) {
           deductionDays += 1;
           deductionDates.push(dateIso);
         }
       }
 
-      // Apply deduction from gross based on working day rate
-      const dailyRate =
-        totalWorkingDays > 0 ? grossSalary / totalWorkingDays : 0;
-      const deductionAmount = dailyRate * deductionDays;
-      const adjustedGross = Math.max(0, grossSalary - deductionAmount);
+      // Salary = (Basic Salary / 30) * No. of working days (use same "so far" days as UI column)
+      const noOfWorkingDays = Math.max(
+        0,
+        (workingDaysSoFar || 0) - (deductionDays || 0)
+      );
+      const salary =
+        (grossSalary / 30) * noOfWorkingDays;
 
-      // Calculate deductions and contributions on adjusted gross
-      const employeePension = adjustedGross * 0.07; // 7% employee contribution
-      const employerPension = adjustedGross * 0.11; // 11% employer contribution
-      const incomeTax = calculateIncomeTax(adjustedGross);
+      // Calculate deductions and contributions from Basic Salary (grossSalary)
+      const employeePension = grossSalary * 0.07; // 7% employee contribution
+      const employerPension = grossSalary * 0.11; // 11% employer contribution
+      // Income tax is calculated from Taxable Income (Salary + overtime; overtime is 0 on backend)
+      const taxableIncome = salary;
+      const incomeTax = calculateIncomeTax(taxableIncome);
 
-      // Calculate net salary
+      // Net salary from Salary (all allowances added to net)
+      const totalAllowances =
+        transportAllowance + telephoneAllowance + posAllowance;
       const netSalary =
-        adjustedGross - (incomeTax + employeePension) + transportAllowance;
+        salary - (incomeTax + employeePension) + totalAllowances;
 
       const result = {
         employeeId: employee._id.toString(),
@@ -410,12 +470,14 @@ export async function POST(request) {
           employee.personalDetails?.department ||
           employee.department ||
           "Unknown",
-        grossSalary,
-        adjustedGross,
+        grossSalary, // displayed as "Basic Salary"
+        salary,
+        taxableIncome,
         deductionDays,
-        deductionAmount,
         deductionDates,
         transportAllowance,
+        telephoneAllowance,
+        posAllowance,
         employeePension,
         employerPension,
         incomeTax,
@@ -425,7 +487,9 @@ export async function POST(request) {
         joiningDate:
           employee.joiningDate || employee.personalDetails?.joiningDate,
         // Ethiopian calendar info
-        workingDays: totalWorkingDays,
+        // For per-employee stats and the \"No. of Working Days\" column, we show
+        // working days only up to *today* so future days are not counted as worked.
+        workingDays: workingDaysSoFar,
         totalDays: totalDaysInMonth,
         holidaysInMonth: holidays.length,
       };
@@ -433,11 +497,14 @@ export async function POST(request) {
       return result;
     });
 
-    // Calculate summary totals
+    // Calculate summary totals (totalGross = sum of Basic Salary; totalSalary = sum of Salary)
     const summary = payrollData.reduce(
       (acc, employee) => {
         acc.totalGross += employee.grossSalary;
+        acc.totalSalary += employee.salary ?? 0;
         acc.totalTransportAllowance += employee.transportAllowance;
+        acc.totalTelephoneAllowance += employee.telephoneAllowance;
+        acc.totalPosAllowance += employee.posAllowance;
         acc.totalEmployeePension += employee.employeePension;
         acc.totalEmployerPension += employee.employerPension;
         acc.totalIncomeTax += employee.incomeTax;
@@ -448,7 +515,10 @@ export async function POST(request) {
       {
         totalEmployees: payrollData.length,
         totalGross: 0,
+        totalSalary: 0,
         totalTransportAllowance: 0,
+        totalTelephoneAllowance: 0,
+        totalPosAllowance: 0,
         totalEmployeePension: 0,
         totalEmployerPension: 0,
         totalIncomeTax: 0,
@@ -460,8 +530,13 @@ export async function POST(request) {
     // Round all amounts to 2 decimal places
     payrollData.forEach((employee) => {
       employee.grossSalary = Math.round(employee.grossSalary * 100) / 100;
+      employee.salary = Math.round((employee.salary ?? 0) * 100) / 100;
       employee.transportAllowance =
         Math.round(employee.transportAllowance * 100) / 100;
+      employee.telephoneAllowance =
+        Math.round(employee.telephoneAllowance * 100) / 100;
+      employee.posAllowance =
+        Math.round(employee.posAllowance * 100) / 100;
       employee.employeePension =
         Math.round(employee.employeePension * 100) / 100;
       employee.employerPension =
@@ -488,10 +563,14 @@ export async function POST(request) {
       data: {
         payrollData,
         summary,
-        period: { month: targetMonth, year: targetYear },
+        period: {
+          month: targetMonth,
+          year: targetYear,
+          workingDays: totalWorkingDays,
+          totalDaysInMonth,
+        },
         calculatedAt: new Date().toISOString(),
-        // Ethiopian calendar info
-        workingDays: totalWorkingDays,
+        workingDays: workingDaysSoFar,
         totalDays: totalDaysInMonth,
         holidays: holidays.map((holiday) => ({
           date: holiday.date.toISOString(),
@@ -538,6 +617,7 @@ export async function GET(request) {
     );
     const totalDaysInMonth = endDate.getDate();
     const holidays = getHolidaysForMonth(targetYear, targetMonth);
+    const workingDaysSoFar = totalWorkingDays;
 
     // Build employee query
     let employeeQuery = { status: "active" };
@@ -550,8 +630,16 @@ export async function GET(request) {
       .collection("employees")
       .find(employeeQuery)
       .toArray();
+    // Filter employees to only those who existed during the selected period.
+    const employeesForPeriod = employees.filter((employee) => {
+      const jdStr =
+        employee.joiningDate || employee.personalDetails?.joiningDate;
+      if (!jdStr) return true;
+      const jd = new Date(`${jdStr}T00:00:00Z`);
+      return jd <= endDate;
+    });
 
-    if (employees.length === 0) {
+    if (employeesForPeriod.length === 0) {
       return NextResponse.json({
         success: true,
         data: {
@@ -563,6 +651,8 @@ export async function GET(request) {
             totalEmployerPension: 0,
             totalIncomeTax: 0,
             totalTransportAllowance: 0,
+            totalTelephoneAllowance: 0,
+            totalPosAllowance: 0,
             totalNet: 0,
           },
           period: { month: targetMonth, year: targetYear },
@@ -571,16 +661,26 @@ export async function GET(request) {
     }
 
     // Calculate payroll for each employee
-    const payrollData = employees.map((employee) => {
+    const payrollData = employeesForPeriod.map((employee) => {
       const grossSalary = parseFloat(
         employee.grossSalary || employee.baseSalary || 0
       );
-      const transportAllowance = parseFloat(employee.transportAllowance || 0);
+      const transportAllowance = parseFloat(
+        employee.transportAllowance ?? employee.personalDetails?.transportAllowance ?? 0
+      );
+      const telephoneAllowance = parseFloat(
+        employee.telephoneAllowance ?? employee.personalDetails?.telephoneAllowance ?? 0
+      );
+      const posAllowance = parseFloat(
+        employee.posAllowance ?? employee.personalDetails?.posAllowance ?? 0
+      );
       const employeePension = grossSalary * 0.07;
       const employerPension = grossSalary * 0.11;
       const incomeTax = calculateIncomeTax(grossSalary);
+      const totalAllowances =
+        transportAllowance + telephoneAllowance + posAllowance;
       const netSalary =
-        grossSalary - (incomeTax + employeePension) + transportAllowance;
+        grossSalary - (incomeTax + employeePension) + totalAllowances;
 
       return {
         employeeId: employee._id.toString(),
@@ -595,6 +695,8 @@ export async function GET(request) {
           "Unknown",
         grossSalary: Math.round(grossSalary * 100) / 100,
         transportAllowance: Math.round(transportAllowance * 100) / 100,
+        telephoneAllowance: Math.round(telephoneAllowance * 100) / 100,
+        posAllowance: Math.round(posAllowance * 100) / 100,
         employeePension: Math.round(employeePension * 100) / 100,
         employerPension: Math.round(employerPension * 100) / 100,
         incomeTax: Math.round(incomeTax * 100) / 100,
@@ -603,7 +705,7 @@ export async function GET(request) {
         joiningDate:
           employee.joiningDate || employee.personalDetails?.joiningDate,
         // Ethiopian calendar info
-        workingDays: totalWorkingDays,
+        workingDays: workingDaysSoFar,
         totalDays: totalDaysInMonth,
         holidaysInMonth: holidays.length,
       };
@@ -614,6 +716,8 @@ export async function GET(request) {
       (acc, employee) => {
         acc.totalGross += employee.grossSalary;
         acc.totalTransportAllowance += employee.transportAllowance;
+        acc.totalTelephoneAllowance += employee.telephoneAllowance;
+        acc.totalPosAllowance += employee.posAllowance;
         acc.totalEmployeePension += employee.employeePension;
         acc.totalEmployerPension += employee.employerPension;
         acc.totalIncomeTax += employee.incomeTax;
@@ -624,6 +728,8 @@ export async function GET(request) {
         totalEmployees: payrollData.length,
         totalGross: 0,
         totalTransportAllowance: 0,
+        totalTelephoneAllowance: 0,
+        totalPosAllowance: 0,
         totalEmployeePension: 0,
         totalEmployerPension: 0,
         totalIncomeTax: 0,
@@ -643,10 +749,14 @@ export async function GET(request) {
       data: {
         payrollData,
         summary,
-        period: { month: targetMonth, year: targetYear },
+        period: {
+          month: targetMonth,
+          year: targetYear,
+          workingDays: totalWorkingDays,
+          totalDaysInMonth,
+        },
         calculatedAt: new Date().toISOString(),
-        // Ethiopian calendar info
-        workingDays: totalWorkingDays,
+        workingDays: workingDaysSoFar,
         totalDays: totalDaysInMonth,
         holidays: holidays.map((holiday) => ({
           date: holiday.date.toISOString(),

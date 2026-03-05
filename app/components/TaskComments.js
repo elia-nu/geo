@@ -263,7 +263,7 @@ const TaskComments = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center space-x-2">
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-black">
                       {comment.userName || comment.author?.name || "Unknown"}
                     </span>
                     <span className="text-sm text-gray-500">

@@ -101,7 +101,7 @@ const Layout = ({
         <header className="bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4 sticky top-0 z-40">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 capitalize truncate max-w-[180px] sm:max-w-none">
+              <h2 className="text-xl sm:text-2xl font-bold text-black capitalize truncate max-w-[180px] sm:max-w-none">
                 {activeSection === "employee-database"
                   ? "Employee Database"
                   : activeSection === "document-list"
@@ -116,7 +116,7 @@ const Layout = ({
                 <nav className="flex space-x-1" aria-label="Breadcrumb">
                   <span className="text-sm text-gray-500">HRM System</span>
                   <span className="text-sm text-gray-400">/</span>
-                  <span className="text-sm font-medium text-gray-900 capitalize">
+                  <span className="text-sm font-medium text-black capitalize">
                     {formatSectionName(activeSection)}
                   </span>
                 </nav>
@@ -161,7 +161,7 @@ const Layout = ({
                 {isNotifOpen && (
                   <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                     <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-sm font-semibold text-black">
                         Document Alerts
                       </p>
                       <p className="text-xs text-gray-500">
@@ -185,7 +185,7 @@ const Layout = ({
                           >
                             <div className="mt-0.5 w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />
                             <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">
+                              <p className="text-sm font-medium text-black truncate">
                                 {doc.title || doc.originalName || "Document"}
                               </p>
                               <p className="text-xs text-gray-600">
@@ -224,7 +224,7 @@ const Layout = ({
                   <User className="w-4 h-4 text-white" />
                 </div>
                 <div className="hidden md:block">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-black">
                     {user ? user.name : "Admin User"}
                   </p>
                   <p className="text-xs text-gray-500">

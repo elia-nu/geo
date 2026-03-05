@@ -182,7 +182,7 @@ const CategoryManagement = () => {
   return (
     <div className="p-6 bg-white rounded-lg shadow-sm">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">
+        <h2 className="text-2xl font-bold text-black">
           Category Management
         </h2>
         <button
@@ -204,8 +204,8 @@ const CategoryManagement = () => {
               onClick={() => setActiveTab(key)}
               className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === key
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-gray-600 hover:text-black"
               }`}
             >
               <Icon className="w-4 h-4 mr-2" />
@@ -283,7 +283,7 @@ const CategoryManagement = () => {
                           </span>
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-black">
                             {category.name}
                           </div>
                         </div>
@@ -329,7 +329,7 @@ const CategoryManagement = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-black">
                 {editingCategory ? "Edit Category" : "Create Category"}
               </h3>
               <button

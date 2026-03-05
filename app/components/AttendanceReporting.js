@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FileText,
   Download,
@@ -44,6 +44,74 @@ export default function AttendanceReporting() {
       setMessage("");
     }, 5000);
   };
+
+  // Function to format date as YYYY-MM-DD for input fields
+  const formatDateForInput = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Function to get dates based on report type
+  const getDatesForReportType = (reportType) => {
+    const today = new Date();
+    let startDate, endDate;
+
+    switch (reportType) {
+      case "daily":
+        startDate = new Date(today);
+        endDate = new Date(today);
+        break;
+      case "weekly":
+        // Get start of week (Monday)
+        const dayOfWeek = today.getDay();
+        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
+        startDate = new Date(today);
+        startDate.setDate(diff);
+        startDate.setHours(0, 0, 0, 0);
+        // Get end of week (Sunday)
+        endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6);
+        break;
+      case "monthly":
+        // Get first day of current month
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        // Get last day of current month
+        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        break;
+      case "random":
+        // For random, don't auto-fill
+        return { startDate: "", endDate: "" };
+      default:
+        startDate = new Date(today);
+        endDate = new Date(today);
+    }
+
+    return {
+      startDate: formatDateForInput(startDate),
+      endDate: formatDateForInput(endDate),
+    };
+  };
+
+  // Auto-fill dates when report type changes
+  useEffect(() => {
+    if (reportForm.reportType !== "random") {
+      const dates = getDatesForReportType(reportForm.reportType);
+      setReportForm((prev) => ({
+        ...prev,
+        startDate: dates.startDate,
+        endDate: dates.endDate,
+      }));
+    } else {
+      // Clear dates for random type
+      setReportForm((prev) => ({
+        ...prev,
+        startDate: "",
+        endDate: "",
+      }));
+    }
+  }, [reportForm.reportType]);
 
   const handleGenerateReport = async () => {
     if (!reportForm.startDate || !reportForm.endDate) {
@@ -107,19 +175,22 @@ export default function AttendanceReporting() {
         let fileName;
         switch (currentReport.reportType) {
           case "daily":
-            fileName = `daily_attendance_${currentReport.startDate}.txt`;
+            fileName = `daily_attendance_${currentReport.startDate}.xlsx`;
             break;
           case "weekly":
-            fileName = `weekly_attendance_${currentReport.startDate}_to_${currentReport.endDate}.txt`;
+            fileName = `weekly_attendance_${currentReport.startDate}_to_${currentReport.endDate}.xlsx`;
             break;
           case "monthly":
             fileName = `monthly_attendance_${currentReport.startDate.substring(
               0,
               7
-            )}.txt`;
+            )}.xlsx`;
+            break;
+          case "random":
+            fileName = `random_attendance_${currentReport.startDate}_to_${currentReport.endDate}.xlsx`;
             break;
           default:
-            fileName = `attendance_report_${currentReport.startDate}.txt`;
+            fileName = `attendance_report_${currentReport.startDate}.xlsx`;
         }
 
         a.download = fileName;
@@ -127,7 +198,7 @@ export default function AttendanceReporting() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        showMessage("Report exported to text file successfully", "success");
+        showMessage("Report exported to Excel file successfully", "success");
       } else {
         const errorData = await response.json();
         showMessage(errorData.error || "Failed to export report", "error");
@@ -206,12 +277,12 @@ export default function AttendanceReporting() {
       {currentReport && (
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-black">
               Current Report
             </h3>
             <button
               onClick={clearCurrentReport}
-              className="text-sm text-gray-700 hover:text-gray-900"
+              className="text-sm text-gray-700 hover:text-black"
             >
               Clear Report
             </button>
@@ -298,7 +369,7 @@ export default function AttendanceReporting() {
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  <span>Export to Text File</span>
+                  <span>Export to Excel</span>
                 </>
               )}
             </button>
@@ -318,7 +389,7 @@ export default function AttendanceReporting() {
             <div className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Report Type
                   </label>
                   <select
@@ -334,11 +405,17 @@ export default function AttendanceReporting() {
                     <option value="daily">Daily Report</option>
                     <option value="weekly">Weekly Report</option>
                     <option value="monthly">Monthly Report</option>
+                    <option value="random">Random</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Start Date
+                    {reportForm.reportType !== "random" && (
+                      <span className="text-gray-500 text-xs ml-1">
+                        (Auto-filled)
+                      </span>
+                    )}
                   </label>
                   <input
                     type="date"
@@ -353,8 +430,13 @@ export default function AttendanceReporting() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     End Date
+                    {reportForm.reportType !== "random" && (
+                      <span className="text-gray-500 text-xs ml-1">
+                        (Auto-filled)
+                      </span>
+                    )}
                   </label>
                   <input
                     type="date"
@@ -369,7 +451,7 @@ export default function AttendanceReporting() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Employee ID (Optional)
                   </label>
                   <input
@@ -386,7 +468,7 @@ export default function AttendanceReporting() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-black mb-1">
                     Department (Optional)
                   </label>
                   <input
@@ -415,7 +497,7 @@ export default function AttendanceReporting() {
                       }
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-900">
+                    <span className="ml-2 text-sm text-black">
                       Include Photos
                     </span>
                   </label>
@@ -431,7 +513,7 @@ export default function AttendanceReporting() {
                       }
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-900">
+                    <span className="ml-2 text-sm text-black">
                       Include Location Data
                     </span>
                   </label>

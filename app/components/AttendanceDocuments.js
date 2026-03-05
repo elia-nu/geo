@@ -294,7 +294,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
       {/* Documents List */}
       <div className="bg-white rounded-xl shadow-lg">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-black">
             Your Requests & Documents
           </h2>
           <p className="text-gray-600 mt-1">
@@ -313,7 +313,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
           ) : documents.length === 0 ? (
             <div className="p-12 text-center text-gray-500">
               <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-black mb-2">
                 No documents submitted
               </h3>
               <p className="text-gray-600 mb-4">
@@ -367,17 +367,17 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                               </div>
                             </div>
                             <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-medium text-black">
                                 {getTypeLabel(doc.type)}
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                           {formatDate(doc.requestDate)}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 max-w-xs truncate">
+                          <div className="text-sm text-black max-w-xs truncate">
                             {doc.reason}
                           </div>
                           {doc.description && (
@@ -386,7 +386,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                             </div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                           <div className="flex items-center space-x-1">
                             <Paperclip className="w-4 h-4 text-gray-400" />
                             <span>{doc.files?.length || 0} files</span>
@@ -419,7 +419,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-black">
                   Submit Attendance Request
                 </h3>
                 <button
@@ -436,7 +436,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex items-center space-x-2">
                   <User className="w-5 h-5 text-gray-600" />
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-black">
                     {employeeName}
                   </span>
                 </div>
@@ -451,7 +451,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                   name="type"
                   value={formData.type}
                   onChange={handleInputChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black"
                   required
                 >
                   {documentTypes.map((type) => (
@@ -472,7 +472,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                   name="requestDate"
                   value={formData.requestDate}
                   onChange={handleInputChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black"
                   required
                 />
               </div>
@@ -489,7 +489,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                       name="startDate"
                       value={formData.startDate}
                       onChange={handleInputChange}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black"
                     />
                   </div>
                   <div>
@@ -501,7 +501,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                       name="endDate"
                       value={formData.endDate}
                       onChange={handleInputChange}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black"
                     />
                   </div>
                 </div>
@@ -518,7 +518,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                   value={formData.reason}
                   onChange={handleInputChange}
                   placeholder="Brief reason for your request..."
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900 placeholder-gray-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black placeholder-gray-500"
                   required
                 />
               </div>
@@ -534,7 +534,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                   onChange={handleInputChange}
                   placeholder="Provide additional details about your request..."
                   rows={3}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900 placeholder-gray-500 resize-none"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black placeholder-gray-500 resize-none"
                 />
               </div>
 
@@ -579,7 +579,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                       >
                         <div className="flex items-center space-x-2">
                           <Paperclip className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-900">
+                          <span className="text-sm text-black">
                             {file.name}
                           </span>
                           <span className="text-xs text-gray-500">

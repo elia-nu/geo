@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../utils/audit.js";
+import { sendTaskAssignmentEmail } from "../../../utils/email.js";
 
 // Bulk assign tasks to users or teams
 export async function POST(request) {
@@ -100,7 +101,55 @@ export async function POST(request) {
       });
     }
 
-    // TODO: Send notifications to newly assigned users if notifyAssignees is true
+    // Send email notifications to assigned users when notifyAssignees is true
+    if (notifyAssignees && assignedToObjectIds.length > 0) {
+      const assignedEmployees = await db
+        .collection("employees")
+        .find({ _id: { $in: assignedToObjectIds } })
+        .toArray();
+
+      const projectIds = [...new Set((existingTasks || []).map((t) => t.projectId?.toString()).filter(Boolean))];
+      const projects = await db
+        .collection("projects")
+        .find({ _id: { $in: projectIds.map((pid) => new ObjectId(pid)) } })
+        .toArray();
+      const projectMap = Object.fromEntries(projects.map((p) => [p._id.toString(), p]));
+
+      for (const task of existingTasks) {
+        const project = task.projectId ? projectMap[task.projectId.toString()] : null;
+        for (const employee of assignedEmployees) {
+          try {
+            await sendTaskAssignmentEmail(employee, task, project);
+          } catch (err) {
+            console.error(`Error sending task assignment email to ${employee._id} for task ${task._id}:`, err);
+          }
+        }
+      }
+
+      if (assignedEmployees.length > 0) {
+        const notifications = [];
+        for (const task of existingTasks) {
+          for (const employee of assignedEmployees) {
+            notifications.push({
+              _id: new ObjectId(),
+              userId: employee._id,
+              taskId: task._id,
+              projectId: task.projectId,
+              type: "task_assignment",
+              title: `New Task Assigned: ${task.title}`,
+              message: `You have been assigned to task "${task.title}" in project "${(projectMap[task.projectId?.toString()] || {}).name || "N/A"}"`,
+              actionUrl: `/employee-portal?section=tasks`,
+              isRead: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+        }
+        if (notifications.length > 0) {
+          await db.collection("notifications").insertMany(notifications);
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
