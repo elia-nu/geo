@@ -1,9 +1,11 @@
 import { MongoClient } from "mongodb";
 
 // const uri = "mongodb://localhost:27017/geo";
-const uri =
-  "mongodb+srv://uercur_db_user:Umie0ELR8T5ejKpD@cluster0.vjsrjzh.mongodb.net/geo";
+//const uri =
+  //"mongodb+srv://uercur_db_user:Umie0ELR8T5ejKpD@cluster0.vjsrjzh.mongodb.net/geo";
 
+const uri =
+  "mongodb+srv://uercur_db_user:yWRxSLzFG2MAGBta@geo-upwork.zjmcmlc.mongodb.net/?appName=geo-upwork";
 const options = {
   useNewUrlParser: true,
   useUnifiedTopology: true,
