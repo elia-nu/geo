@@ -31,6 +31,7 @@ import {
   Task as TaskIcon,
   MonetizationOn as MonetizationOnIcon,
   Refresh as RefreshIcon,
+  Description as DescriptionIcon,
 } from "@mui/icons-material";
 import Link from "next/link";
 import {
@@ -718,6 +719,13 @@ const ProjectDetailPage = ({ params }) => {
                   >
                     <TrendingUpIcon className="w-4 h-4" />
                     Milestones
+                  </Link>
+                  <Link
+                    href={`/projects/${projectId}/documents`}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-800 transition-colors text-sm flex-1 lg:flex-none justify-center"
+                  >
+                    <DescriptionIcon className="w-4 h-4" />
+                    Documents
                   </Link>
                   <Link
                     href={`/project-alerts?projectId=${projectId}`}

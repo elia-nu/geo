@@ -18,6 +18,31 @@ export async function POST(request) {
         console.log("Running scheduled notifications...");
 
         try {
+          // Call the project contractor document expiry notification endpoint
+          const projectDocResponse = await fetch(
+            `${
+              process.env.NEXTAUTH_URL || "http://localhost:3000"
+            }/api/notifications/project-documents-expiry`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (projectDocResponse.ok) {
+            const projectDocResult = await projectDocResponse.json();
+            console.log(
+              "Project document expiry notifications sent:",
+              projectDocResult
+            );
+          } else {
+            console.error(
+              "Failed to send project document expiry notifications"
+            );
+          }
+
           // Call the document expiry notification endpoint
           const docResponse = await fetch(
             `${

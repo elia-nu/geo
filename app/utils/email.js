@@ -276,6 +276,107 @@ export const sendTaskAssignmentEmail = async (employee, task, project) => {
 };
 
 /**
+ * Send project contractor document expiry email (with attachment).
+ */
+export const sendProjectDocumentExpiryEmail = async ({
+  contractorName,
+  contractorEmail,
+  projectName,
+  documentTitle,
+  expiryDate,
+  daysUntilExpiry,
+  filePath,
+  originalName,
+}) => {
+  const transporter = createTransporter();
+  if (!transporter) return false;
+
+  if (!contractorEmail) return false;
+
+  const isExpired = daysUntilExpiry <= 0;
+  const subject = isExpired
+    ? `Document expired: ${documentTitle}`
+    : `Document expiring soon: ${documentTitle}`;
+
+  const safeExpiry = expiryDate ? new Date(expiryDate) : null;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #111827; }
+        .container { max-width: 680px; margin: 0 auto; padding: 20px; }
+        .header { background: ${isExpired ? "#DC2626" : "#F59E0B"}; color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+        .content { background: #F9FAFB; padding: 20px; border: 1px solid #E5E7EB; border-top: 0; border-radius: 0 0 10px 10px; }
+        .card { background: white; border: 1px solid #E5E7EB; border-radius: 10px; padding: 16px; margin: 16px 0; }
+        .muted { color: #6B7280; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h2 style="margin:0;">${isExpired ? "Document expired" : "Document expiry reminder"}</h2>
+          <p style="margin:6px 0 0;">Project: ${projectName || "Project"}</p>
+        </div>
+        <div class="content">
+          <p>Dear ${contractorName || "Contractor"},</p>
+          <p>
+            ${
+              isExpired
+                ? `The document <strong>${documentTitle}</strong> has expired.`
+                : `This is a reminder that the document <strong>${documentTitle}</strong> will expire in <strong>${daysUntilExpiry}</strong> days.`
+            }
+          </p>
+
+          <div class="card">
+            <div><strong>Document</strong>: ${documentTitle}</div>
+            <div><strong>Expiry date</strong>: ${
+              safeExpiry ? safeExpiry.toLocaleDateString() : "—"
+            }</div>
+            <div class="muted" style="margin-top:8px;">The current copy is attached for your reference.</div>
+          </div>
+
+          <p>Please renew/update the document before the expiry date.</p>
+          <p>Regards,<br/>Project Management System</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  let attachments = [];
+  try {
+    if (filePath) {
+      const { readFile } = await import("fs/promises");
+      const buf = await readFile(filePath);
+      attachments = [
+        {
+          filename: originalName || "document",
+          content: buf,
+        },
+      ];
+    }
+  } catch (e) {
+    console.warn("Failed to attach document file:", e);
+  }
+
+  try {
+    await transporter.sendMail({
+      from: `"Project Management System" <${emailConfig.auth.user}>`,
+      to: contractorEmail,
+      subject,
+      html,
+      attachments,
+    });
+    return true;
+  } catch (error) {
+    console.error("Failed to send project document expiry email:", error);
+    return false;
+  }
+};
+
+/**
  * Send project assignment email to employee
  */
 export const sendProjectAssignmentEmail = async (employee, project) => {
