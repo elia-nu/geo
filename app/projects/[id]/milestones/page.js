@@ -7,9 +7,68 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   ArrowBack as ArrowBackIcon,
+  Close as CloseIcon,
+  Flag as FlagIcon,
+  CalendarToday as CalendarIcon,
+  TrendingUp as TrendingUpIcon,
 } from "@mui/icons-material";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isValid } from "date-fns";
 import Link from "next/link";
+import {
+  projectToasts,
+  showErrorToast,
+  showWarningToast,
+  showDeleteConfirmDialog,
+} from "../../../utils/sweetAlert";
+
+const STATUS_OPTIONS = [
+  { value: "not_started", label: "Not Started" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "completed", label: "Completed" },
+  { value: "on_hold", label: "On Hold" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const statusBadge = {
+  not_started: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
+  in_progress: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+  completed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  on_hold: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  cancelled: "bg-red-50 text-red-700 ring-1 ring-red-200",
+  active: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+};
+
+const formatStatus = (status) =>
+  (status || "not_started")
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+const formatDate = (dateValue) => {
+  if (!dateValue) return "Not set";
+  try {
+    const date =
+      typeof dateValue === "string"
+        ? parseISO(dateValue)
+        : new Date(dateValue);
+    return isValid(date) ? format(date, "MMM d, yyyy") : "Not set";
+  } catch {
+    return "Not set";
+  }
+};
+
+const toDateInputValue = (dateValue) => {
+  if (!dateValue) return "";
+  try {
+    const date =
+      typeof dateValue === "string"
+        ? parseISO(dateValue)
+        : new Date(dateValue);
+    return isValid(date) ? date.toISOString().split("T")[0] : "";
+  } catch {
+    return "";
+  }
+};
 
 const ProjectMilestonesPage = ({ params }) => {
   const { id: projectId } = use(params);
@@ -17,11 +76,11 @@ const ProjectMilestonesPage = ({ params }) => {
   const [project, setProject] = useState(null);
   const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [currentMilestone, setCurrentMilestone] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
-  // Form state
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -30,7 +89,6 @@ const ProjectMilestonesPage = ({ params }) => {
     progress: 0,
   });
 
-  // Fetch project and milestones on component mount
   useEffect(() => {
     fetchProjectData();
   }, [projectId]);
@@ -39,22 +97,23 @@ const ProjectMilestonesPage = ({ params }) => {
     try {
       setLoading(true);
 
-      // Fetch project details
       const projectResponse = await fetch(`/api/projects/${projectId}`);
       const projectData = await projectResponse.json();
 
       if (projectData.success) {
         setProject(projectData.project);
-
-        // Extract milestones from project data
-        if (projectData.project.milestones) {
-          setMilestones(projectData.project.milestones);
-        }
+        setMilestones(projectData.project.milestones || []);
       } else {
-        setError(projectData.error || "Failed to fetch project details");
+        showErrorToast(
+          "Load Failed",
+          projectData.error || "Failed to fetch project details"
+        );
       }
     } catch (err) {
-      setError("Error fetching project data: " + err.message);
+      showErrorToast(
+        "Load Failed",
+        err.message || "Error fetching project data"
+      );
     } finally {
       setLoading(false);
     }
@@ -64,7 +123,7 @@ const ProjectMilestonesPage = ({ params }) => {
     if (milestone) {
       setCurrentMilestone(milestone);
       setFormData({
-        title: milestone.title,
+        title: milestone.title || "",
         description: milestone.description || "",
         dueDate: milestone.dueDate ? new Date(milestone.dueDate) : null,
         status: milestone.status || "not_started",
@@ -84,6 +143,7 @@ const ProjectMilestonesPage = ({ params }) => {
   };
 
   const handleCloseDialog = () => {
+    if (saving) return;
     setOpenDialog(false);
   };
 
@@ -103,24 +163,32 @@ const ProjectMilestonesPage = ({ params }) => {
     }));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+
+    if (!formData.title.trim()) {
+      showWarningToast("Missing Title", "Please enter a milestone title");
+      return;
+    }
+
+    if (!formData.dueDate) {
+      showWarningToast("Missing Due Date", "Please select a due date");
+      return;
+    }
+
     try {
+      setSaving(true);
+
       const payload = {
         ...formData,
+        title: formData.title.trim(),
         dueDate: formData.dueDate?.toISOString(),
       };
 
-      let url, method;
-
-      if (currentMilestone) {
-        // Update existing milestone
-        url = `/api/projects/${projectId}/milestones/${currentMilestone._id}`;
-        method = "PUT";
-      } else {
-        // Create new milestone
-        url = `/api/projects/${projectId}/milestones`;
-        method = "POST";
-      }
+      const url = currentMilestone
+        ? `/api/projects/${projectId}/milestones/${currentMilestone._id}`
+        : `/api/projects/${projectId}/milestones`;
+      const method = currentMilestone ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
@@ -133,20 +201,37 @@ const ProjectMilestonesPage = ({ params }) => {
       const data = await response.json();
 
       if (data.success) {
-        fetchProjectData();
-        handleCloseDialog();
+        if (currentMilestone) {
+          projectToasts.milestoneUpdated();
+        } else {
+          projectToasts.milestoneCreated();
+        }
+        await fetchProjectData();
+        setOpenDialog(false);
       } else {
-        setError(data.error || "Failed to save milestone");
+        projectToasts.milestoneError(data.error || "Failed to save milestone");
       }
     } catch (err) {
-      setError("Error saving milestone: " + err.message);
+      projectToasts.milestoneError(err.message || "Error saving milestone");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDeleteMilestone = async (milestoneId) => {
+  const handleDeleteMilestone = async (milestone) => {
+    const result = await showDeleteConfirmDialog(
+      "Delete milestone?",
+      `Delete "${milestone.title}"? This cannot be undone.`,
+      "Yes, delete it"
+    );
+
+    if (!result.isConfirmed) return;
+
     try {
+      setDeletingId(milestone._id);
+
       const response = await fetch(
-        `/api/projects/${projectId}/milestones/${milestoneId}`,
+        `/api/projects/${projectId}/milestones/${milestone._id}`,
         {
           method: "DELETE",
         }
@@ -155,44 +240,39 @@ const ProjectMilestonesPage = ({ params }) => {
       const data = await response.json();
 
       if (data.success) {
-        fetchProjectData();
+        projectToasts.milestoneDeleted();
+        await fetchProjectData();
       } else {
-        setError(data.error || "Failed to delete milestone");
+        projectToasts.milestoneError(
+          data.error || "Failed to delete milestone"
+        );
       }
     } catch (err) {
-      setError("Error deleting milestone: " + err.message);
+      projectToasts.milestoneError(err.message || "Error deleting milestone");
+    } finally {
+      setDeletingId(null);
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "not_started":
-        return "default";
-      case "in_progress":
-        return "primary";
-      case "completed":
-        return "success";
-      case "on_hold":
-        return "warning";
-      case "cancelled":
-        return "error";
-      default:
-        return "default";
-    }
-  };
-
-  const formatStatus = (status) => {
-    return status
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
+  const completedCount = milestones.filter(
+    (m) => m.status === "completed"
+  ).length;
+  const avgProgress =
+    milestones.length > 0
+      ? Math.round(
+          milestones.reduce((sum, m) => sum + (m.progress || 0), 0) /
+            milestones.length
+        )
+      : 0;
 
   if (loading) {
     return (
       <Layout activeSection="projects">
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col justify-center items-center min-h-[70vh] gap-3">
+          <div className="h-11 w-11 rounded-full border-2 border-blue-900/20 border-t-blue-900 animate-spin" />
+          <p className="text-sm text-slate-500 animate-pulse">
+            Loading milestones…
+          </p>
         </div>
       </Layout>
     );
@@ -201,375 +281,517 @@ const ProjectMilestonesPage = ({ params }) => {
   if (!project) {
     return (
       <Layout activeSection="projects">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center py-12">
-            <div className="text-red-600 text-lg font-medium mb-4">
-              Project not found or you don't have permission to view it.
-            </div>
-            <Link
-              href="/projects"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <ArrowBackIcon className="mr-2" />
-              Back to Projects
-            </Link>
+        <div className="p-6 max-w-lg mx-auto mt-16 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-500">
+            <FlagIcon />
           </div>
+          <h2 className="text-xl font-semibold text-slate-800 mb-2">
+            Project not found
+          </h2>
+          <p className="text-slate-500 mb-6">
+            This project may have been removed, or you don’t have permission to
+            view it.
+          </p>
+          <Link
+            href="/projects"
+            className="inline-flex items-center px-4 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-all duration-200"
+          >
+            <ArrowBackIcon className="mr-2 !text-lg" />
+            Back to Projects
+          </Link>
         </div>
       </Layout>
     );
   }
 
+  const projectStatusKey = (project.status || "active").toLowerCase();
+
   return (
     <Layout activeSection="projects">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Breadcrumb */}
-        <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-6">
-          <Link
-            href="/projects"
-            className="hover:text-blue-600 transition-colors"
-          >
-            Projects
-          </Link>
-          <span className="text-gray-400">›</span>
-          <Link
-            href={`/projects/${projectId}`}
-            className="hover:text-blue-600 transition-colors"
-          >
-            {project.name}
-          </Link>
-          <span className="text-gray-400">›</span>
-          <span className="text-black font-medium">Milestones</span>
-        </nav>
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-blue-50/40">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+          {/* Breadcrumb */}
+          <nav className="mb-6" aria-label="Breadcrumb">
+            <ol className="flex flex-wrap items-center gap-1 text-sm text-slate-500">
+              <li>
+                <Link
+                  href="/projects"
+                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 hover:bg-white hover:text-blue-900 transition-colors"
+                >
+                  <ArrowBackIcon className="!text-base" />
+                  Projects
+                </Link>
+              </li>
+              <li className="text-slate-300">/</li>
+              <li>
+                <Link
+                  href={`/projects/${projectId}`}
+                  className="rounded-md px-1.5 py-1 hover:bg-white hover:text-blue-900 transition-colors"
+                >
+                  {project.name}
+                </Link>
+              </li>
+              <li className="text-slate-300">/</li>
+              <li className="px-1.5 py-1 font-medium text-slate-700">
+                Milestones
+              </li>
+            </ol>
+          </nav>
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-          <h1 className="text-3xl font-bold text-black mb-4 sm:mb-0">
-            Project Milestones
-          </h1>
-          <button
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-            onClick={() => handleOpenDialog()}
-          >
-            <AddIcon className="mr-2 h-4 w-4" />
-            Add Milestone
-          </button>
-        </div>
-
-        {/* Project Info Card */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-black mb-4">
-            {project.name}
-          </h2>
-          <div className="flex flex-wrap gap-3 mb-4">
-            <span
-              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                getStatusColor(project.status || "not_started") === "success"
-                  ? "bg-green-100 text-green-800"
-                  : getStatusColor(project.status || "not_started") ===
-                    "warning"
-                  ? "bg-yellow-100 text-yellow-800"
-                  : getStatusColor(project.status || "not_started") === "error"
-                  ? "bg-red-100 text-red-800"
-                  : getStatusColor(project.status || "not_started") === "info"
-                  ? "bg-blue-100 text-blue-800"
-                  : "bg-gray-100 text-gray-800"
-              }`}
+          {/* Header */}
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-900 text-white shadow-sm shadow-blue-900/20">
+                  <FlagIcon className="!text-xl" />
+                </span>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+                  Project Milestones
+                </h1>
+              </div>
+              <p className="text-sm text-slate-500">
+                Track key deliverables and progress for this project
+              </p>
+            </div>
+            <button
+              onClick={() => handleOpenDialog()}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-900/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-md active:scale-[0.98]"
             >
-              {formatStatus(project.status || "not_started")}
-            </span>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-              Progress: {project.progress || 0}%
-            </span>
+              <AddIcon className="!text-lg" />
+              Add Milestone
+            </button>
           </div>
-          <div className="text-sm text-gray-600">
-            <span className="font-medium">Timeline:</span>{" "}
-            {project.startDate
-              ? format(parseISO(project.startDate), "MMM d, yyyy")
-              : "Not set"}{" "}
-            -
-            {project.endDate
-              ? format(parseISO(project.endDate), "MMM d, yyyy")
-              : "Not set"}
+
+          {/* Project summary */}
+          <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm backdrop-blur-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="truncate text-lg font-semibold text-slate-900">
+                  {project.name}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarIcon className="!text-base text-blue-900" />
+                    {formatDate(project.startDate)} –{" "}
+                    {formatDate(project.endDate)}
+                  </span>
+                </div>
+              </div>
+              <span
+                className={`inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+                  statusBadge[projectStatusKey] || statusBadge.active
+                }`}
+              >
+                {(project.status || "active").replace(/_/g, " ")}
+              </span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                <p className="text-xs text-slate-500">Milestones</p>
+                <p className="text-lg font-semibold text-slate-900">
+                  {milestones.length}
+                </p>
+              </div>
+              <div className="rounded-xl bg-emerald-50/80 px-3 py-2.5">
+                <p className="text-xs text-emerald-700/70">Completed</p>
+                <p className="text-lg font-semibold text-emerald-800">
+                  {completedCount}
+                </p>
+              </div>
+              <div className="rounded-xl bg-blue-50/80 px-3 py-2.5">
+                <p className="text-xs text-blue-700/70">Avg Progress</p>
+                <p className="text-lg font-semibold text-blue-900">
+                  {avgProgress}%
+                </p>
+              </div>
+            </div>
           </div>
+
+          {/* Milestones list */}
+          {milestones.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-16 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                <FlagIcon className="!text-4xl" />
+              </div>
+              <h3 className="text-lg font-medium text-slate-700">
+                No milestones yet
+              </h3>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+                Add your first milestone to track project progress and
+                deliverables.
+              </p>
+              <button
+                onClick={() => handleOpenDialog()}
+                className="mt-6 inline-flex items-center gap-2 rounded-xl border border-blue-900/20 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-900 transition-all duration-200 hover:bg-blue-100 active:scale-[0.98]"
+              >
+                <AddIcon className="!text-lg" />
+                Add Milestone
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-blue-900 to-blue-800 px-5 py-3.5 text-white">
+                <div className="flex items-center gap-2">
+                  <TrendingUpIcon className="!text-xl opacity-90" />
+                  <h3 className="font-medium">
+                    Milestones
+                    <span className="ml-2 rounded-full bg-white/15 px-2 py-0.5 text-xs">
+                      {milestones.length}
+                    </span>
+                  </h3>
+                </div>
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <th className="px-5 py-3">Title</th>
+                      <th className="px-5 py-3">Due Date</th>
+                      <th className="px-5 py-3">Status</th>
+                      <th className="px-5 py-3">Progress</th>
+                      <th className="px-5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {milestones.map((milestone) => {
+                      const isDeleting = deletingId === milestone._id;
+                      const statusKey = milestone.status || "not_started";
+
+                      return (
+                        <tr
+                          key={milestone._id}
+                          className="transition-colors hover:bg-slate-50/80"
+                        >
+                          <td className="px-5 py-4">
+                            <div className="font-medium text-slate-900">
+                              {milestone.title}
+                            </div>
+                            {milestone.description && (
+                              <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">
+                                {milestone.description}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap text-sm text-slate-600">
+                            {formatDate(milestone.dueDate)}
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                                statusBadge[statusKey] ||
+                                statusBadge.not_started
+                              }`}
+                            >
+                              {formatStatus(statusKey)}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex min-w-[8rem] items-center gap-2">
+                              <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                  className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                                  style={{
+                                    width: `${milestone.progress || 0}%`,
+                                  }}
+                                />
+                              </div>
+                              <span className="w-9 text-right text-xs font-medium text-slate-600">
+                                {milestone.progress || 0}%
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex justify-end gap-1">
+                              <button
+                                onClick={() => handleOpenDialog(milestone)}
+                                disabled={deletingId !== null}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-blue-700 transition-all duration-200 hover:bg-blue-50 disabled:opacity-50"
+                                title="Edit milestone"
+                              >
+                                <EditIcon className="!text-lg" />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDeleteMilestone(milestone)
+                                }
+                                disabled={isDeleting || deletingId !== null}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Delete milestone"
+                              >
+                                {isDeleting ? (
+                                  <span className="h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
+                                ) : (
+                                  <DeleteIcon className="!text-lg" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="divide-y divide-slate-100 md:hidden">
+                {milestones.map((milestone) => {
+                  const isDeleting = deletingId === milestone._id;
+                  const statusKey = milestone.status || "not_started";
+
+                  return (
+                    <div key={milestone._id} className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-slate-900">
+                            {milestone.title}
+                          </p>
+                          {milestone.description && (
+                            <p className="mt-0.5 line-clamp-2 text-sm text-slate-500">
+                              {milestone.description}
+                            </p>
+                          )}
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                statusBadge[statusKey] ||
+                                statusBadge.not_started
+                              }`}
+                            >
+                              {formatStatus(statusKey)}
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                              <CalendarIcon className="!text-sm" />
+                              {formatDate(milestone.dueDate)}
+                            </span>
+                          </div>
+                          <div className="mt-3 flex items-center gap-2">
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                                style={{
+                                  width: `${milestone.progress || 0}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium text-slate-600">
+                              {milestone.progress || 0}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-col gap-1">
+                          <button
+                            onClick={() => handleOpenDialog(milestone)}
+                            disabled={deletingId !== null}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-blue-700 transition-all hover:bg-blue-50 disabled:opacity-50"
+                          >
+                            <EditIcon className="!text-lg" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMilestone(milestone)}
+                            disabled={isDeleting || deletingId !== null}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition-all hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {isDeleting ? (
+                              <span className="h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
+                            ) : (
+                              <DeleteIcon className="!text-lg" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="text-red-800 text-sm">{error}</div>
-          </div>
-        )}
-
-        {/* Milestones Content */}
-        {milestones.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg">
-            <p className="text-gray-600 text-lg">
-              No milestones found. Add your first milestone to track project
-              progress.
-            </p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Title
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Due Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Progress
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {milestones.map((milestone) => (
-                  <tr
-                    key={milestone._id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-black">
-                        {milestone.title}
-                      </div>
-                      {milestone.description && (
-                        <div className="text-sm text-gray-500 mt-1">
-                          {milestone.description}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                      {milestone.dueDate
-                        ? format(parseISO(milestone.dueDate), "MMM d, yyyy")
-                        : "Not set"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          getStatusColor(milestone.status || "not_started") ===
-                          "success"
-                            ? "bg-green-100 text-green-800"
-                            : getStatusColor(
-                                milestone.status || "not_started"
-                              ) === "warning"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : getStatusColor(
-                                milestone.status || "not_started"
-                              ) === "error"
-                            ? "bg-red-100 text-red-800"
-                            : getStatusColor(
-                                milestone.status || "not_started"
-                              ) === "info"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {formatStatus(milestone.status || "not_started")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-full bg-gray-200 rounded-full h-2 mr-3">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${milestone.progress || 0}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm text-gray-600 min-w-[3rem]">
-                          {milestone.progress || 0}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
-                          onClick={() => handleOpenDialog(milestone)}
-                          title="Edit milestone"
-                        >
-                          <EditIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50 transition-colors"
-                          onClick={() => handleDeleteMilestone(milestone._id)}
-                          title="Delete milestone"
-                        >
-                          <DeleteIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Modal */}
+        {/* Add / Edit modal */}
         {openDialog && (
-          <div className="fixed inset-0 z-[9999] overflow-y-auto">
-            {/* Backdrop */}
+          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
             <div
-              className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm transition-opacity"
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
               onClick={handleCloseDialog}
-              aria-hidden="true"
-            ></div>
+            />
+            <div className="relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:mx-4 sm:max-w-lg sm:rounded-2xl">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    {currentMilestone ? "Edit Milestone" : "Add Milestone"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {currentMilestone
+                      ? "Update milestone details"
+                      : "Create a new project milestone"}
+                  </p>
+                </div>
+                <button
+                  onClick={handleCloseDialog}
+                  disabled={saving}
+                  className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
 
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0 relative z-10">
-              <span
-                className="hidden sm:inline-block sm:align-middle sm:h-screen"
-                aria-hidden="true"
+              <form
+                onSubmit={handleSubmit}
+                className="flex flex-1 flex-col overflow-hidden"
               >
-                &#8203;
-              </span>
-
-              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative z-10">
-                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-black">
-                      {currentMilestone
-                        ? "Edit Milestone"
-                        : "Add New Milestone"}
-                    </h3>
-                    <button
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
-                      onClick={handleCloseDialog}
+                <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+                  <div>
+                    <label
+                      htmlFor="title"
+                      className="mb-1.5 block text-sm font-medium text-slate-700"
                     >
-                      <span className="text-2xl">×</span>
-                    </button>
+                      Milestone Title *
+                    </label>
+                    <input
+                      type="text"
+                      id="title"
+                      name="title"
+                      disabled={saving}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                      value={formData.title}
+                      onChange={handleInputChange}
+                      placeholder="e.g. Design phase complete"
+                      required
+                    />
                   </div>
 
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleSubmit();
-                    }}
-                    className="space-y-4"
-                  >
+                  <div>
+                    <label
+                      htmlFor="description"
+                      className="mb-1.5 block text-sm font-medium text-slate-700"
+                    >
+                      Description
+                    </label>
+                    <textarea
+                      id="description"
+                      name="description"
+                      disabled={saving}
+                      rows={3}
+                      className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                      value={formData.description}
+                      onChange={handleInputChange}
+                      placeholder="Optional details…"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label
-                        htmlFor="title"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        htmlFor="dueDate"
+                        className="mb-1.5 block text-sm font-medium text-slate-700"
                       >
-                        Milestone Title *
+                        Due Date *
                       </label>
                       <input
-                        type="text"
-                        id="title"
-                        name="title"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        value={formData.title}
-                        onChange={handleInputChange}
+                        type="date"
+                        id="dueDate"
+                        name="dueDate"
+                        disabled={saving}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                        value={toDateInputValue(formData.dueDate)}
+                        onChange={handleDateChange}
                         required
                       />
                     </div>
 
                     <div>
                       <label
-                        htmlFor="description"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Description
-                      </label>
-                      <textarea
-                        id="description"
-                        name="description"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        rows={3}
-                        value={formData.description}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="dueDate"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Due Date
-                      </label>
-                      <input
-                        type="date"
-                        id="dueDate"
-                        name="dueDate"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        value={
-                          formData.dueDate
-                            ? formData.dueDate.toISOString().split("T")[0]
-                            : ""
-                        }
-                        onChange={handleDateChange}
-                      />
-                    </div>
-
-                    <div>
-                      <label
                         htmlFor="status"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        className="mb-1.5 block text-sm font-medium text-slate-700"
                       >
                         Status
                       </label>
                       <select
                         id="status"
                         name="status"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        disabled={saving}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
                         value={formData.status}
                         onChange={handleInputChange}
                       >
-                        <option value="not_started">Not Started</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="completed">Completed</option>
-                        <option value="on_hold">On Hold</option>
-                        <option value="cancelled">Cancelled</option>
+                        {STATUS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
+                  </div>
 
-                    <div>
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
                       <label
                         htmlFor="progress"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        className="text-sm font-medium text-slate-700"
                       >
-                        Progress: {formData.progress}%
+                        Progress
                       </label>
-                      <input
-                        type="range"
-                        id="progress"
-                        name="progress"
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                        min="0"
-                        max="100"
-                        step="5"
-                        value={formData.progress}
-                        onChange={handleInputChange}
+                      <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-900">
+                        {formData.progress}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      id="progress"
+                      name="progress"
+                      disabled={saving}
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={formData.progress}
+                      onChange={handleInputChange}
+                      className="w-full accent-blue-900 disabled:opacity-60"
+                    />
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                        style={{ width: `${formData.progress}%` }}
                       />
                     </div>
-
-                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse mt-6 -mx-4 -mb-4 sm:-mx-6 sm:-mb-4">
-                      <button
-                        type="submit"
-                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
-                      >
-                        {currentMilestone ? "Update" : "Add"}
-                      </button>
-                      <button
-                        type="button"
-                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
-                        onClick={handleCloseDialog}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
+                  </div>
                 </div>
-              </div>
+
+                <div className="flex gap-3 border-t border-slate-100 px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseDialog}
+                    disabled={saving}
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-all duration-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving || !formData.title.trim()}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-900/50 active:scale-[0.98]"
+                  >
+                    {saving ? (
+                      <>
+                        <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        <span>
+                          {currentMilestone ? "Updating…" : "Saving…"}
+                        </span>
+                      </>
+                    ) : currentMilestone ? (
+                      "Update"
+                    ) : (
+                      <>
+                        <AddIcon className="!text-lg" />
+                        Add Milestone
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

@@ -1,28 +1,45 @@
 import { MongoClient } from "mongodb";
 
-// const uri = "mongodb://localhost:27017/geo";
-//const uri =
-  //"mongodb+srv://uercur_db_user:Umie0ELR8T5ejKpD@cluster0.vjsrjzh.mongodb.net/geo";
-
+// Prefer env; fall back to the known Atlas URI used by this project.
 const uri =
-  "mongodb+srv://uercur_db_user:yWRxSLzFG2MAGBta@geo-upwork.zjmcmlc.mongodb.net/?appName=geo-upwork";
+  process.env.MONGODB_URI ||
+  "mongodb+srv://uercur_db_user:Umie0ELR8T5ejKpD@cluster0.vjsrjzh.mongodb.net/geo?appName=geo-upwork";
+
 const options = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+  // Keep a warm pool so subsequent API routes don't pay full TLS/handshake cost.
+  maxPoolSize: 10,
+  minPoolSize: 1,
+  maxIdleTimeMS: 60_000,
+  serverSelectionTimeoutMS: 8_000,
+  connectTimeoutMS: 10_000,
 };
 
-let client;
 let clientPromise;
 
+function createClientPromise() {
+  const client = new MongoClient(uri, options);
+  return client.connect().catch((err) => {
+    // Clear cache so the next request can retry.
+    global._mongoClientPromise = null;
+    throw err;
+  });
+}
+
 if (!global._mongoClientPromise) {
-  client = new MongoClient(uri, options);
-  global._mongoClientPromise = client.connect();
+  global._mongoClientPromise = createClientPromise();
 }
 clientPromise = global._mongoClientPromise;
 
 export async function getDb() {
-  const client = await clientPromise;
-  return client.db(); // default DB, can specify name if needed
+  try {
+    const client = await clientPromise;
+    return client.db("geo");
+  } catch (err) {
+    global._mongoClientPromise = createClientPromise();
+    clientPromise = global._mongoClientPromise;
+    const client = await clientPromise;
+    return client.db("geo");
+  }
 }
 
 export const employeeSchema = {

@@ -31,28 +31,24 @@ const Layout = ({
       .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
   };
 
-  // Fetch documents and compute expiring list
+  // Lightweight expiring-docs fetch for the header badge (not the full documents list).
   React.useEffect(() => {
-    const fetchAndCompute = async () => {
+    let cancelled = false;
+
+    const fetchExpiring = async () => {
       try {
-        const res = await fetch("/api/documents");
-        if (!res.ok) return;
+        const res = await fetch("/api/documents/expiring?days=30");
+        if (!res.ok || cancelled) return;
         const data = await res.json();
-        // API may return array or an object; normalize to array
-        const docs = Array.isArray(data?.documents)
-          ? data.documents
-          : Array.isArray(data)
-          ? data
-          : [];
+        const docs = Array.isArray(data?.documents) ? data.documents : [];
         setExpiringDocs(computeExpiring(docs));
       } catch {}
     };
 
-    fetchAndCompute();
-
-    const onFocus = () => fetchAndCompute();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    fetchExpiring();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   React.useEffect(() => {
@@ -110,6 +106,8 @@ const Layout = ({
                   ? "Dashboard"
                   : activeSection === "project-finances"
                   ? "Financial Management"
+                  : activeSection === "budget-management"
+                  ? "Budget Management"
                   : formatSectionName(activeSection)}
               </h2>
               <div className="hidden md:block">

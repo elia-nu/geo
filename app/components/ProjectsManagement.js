@@ -9,13 +9,22 @@ import {
   Users as PeopleIcon,
   Activity as TimelineIcon,
   Bell as NotificationsIcon,
-  Calendar as CalendarIcon,
   Search as SearchIcon,
   Flag as FlagIcon,
   Eye as VisibilityIcon,
   DollarSign as CurrencyDollarIcon,
+  FolderKanban,
+  X as CloseIcon,
+  Loader2,
 } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isValid } from "date-fns";
+import {
+  projectToasts,
+  showErrorToast,
+  showWarningToast,
+  showDeleteConfirmDialog,
+  showSuccessToast,
+} from "../utils/sweetAlert";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
@@ -26,24 +35,13 @@ const STATUS_OPTIONS = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
-const CATEGORY_OPTIONS = [{ value: "all", label: "All Categories" }];
-
-function getStatusColor(status) {
-  switch (status) {
-    case "not_started":
-      return "default";
-    case "in_progress":
-      return "primary";
-    case "completed":
-      return "success";
-    case "on_hold":
-      return "warning";
-    case "cancelled":
-      return "error";
-    default:
-      return "default";
-  }
-}
+const statusBadge = {
+  not_started: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
+  in_progress: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+  completed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  on_hold: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  cancelled: "bg-red-50 text-red-700 ring-1 ring-red-200",
+};
 
 function formatStatus(status) {
   if (!status || typeof status !== "string") return "";
@@ -51,6 +49,17 @@ function formatStatus(status) {
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+function formatDateSafe(dateValue) {
+  if (!dateValue) return "Not set";
+  try {
+    const date =
+      typeof dateValue === "string" ? parseISO(dateValue) : new Date(dateValue);
+    return isValid(date) ? format(date, "MMM d, yyyy") : "Not set";
+  } catch {
+    return "Not set";
+  }
 }
 
 const initialFormData = {
@@ -66,7 +75,6 @@ export default function ProjectsManagement() {
   const [projects, setProjects] = useState([]);
   const [projectCategories, setProjectCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [currentProject, setCurrentProject] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -84,14 +92,17 @@ export default function ProjectsManagement() {
     useState(null);
   const [progressValue, setProgressValue] = useState(0);
 
-  // For closing menu on outside click
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [updatingProgress, setUpdatingProgress] = useState(false);
+
   const menuRef = useRef(null);
 
   useEffect(() => {
     fetchProjects();
     fetchProjectCategories();
 
-    // Budget banner logic
     const urlParams = new URLSearchParams(window.location.search);
     if (
       urlParams.get("from") === "budget" ||
@@ -118,16 +129,21 @@ export default function ProjectsManagement() {
   async function fetchProjects() {
     try {
       setLoading(true);
-      setError(null);
       const res = await fetch("/api/projects");
       const data = await res.json();
       if (data.success) {
         setProjects(data.projects);
       } else {
-        setError(data.error || "Failed to fetch projects");
+        showErrorToast(
+          "Load Failed",
+          data.error || "Failed to fetch projects"
+        );
       }
     } catch (err) {
-      setError("Error fetching projects: " + (err?.message || err));
+      showErrorToast(
+        "Load Failed",
+        "Error fetching projects: " + (err?.message || err)
+      );
     } finally {
       setLoading(false);
     }
@@ -180,6 +196,7 @@ export default function ProjectsManagement() {
   }
 
   function handleCloseDialog() {
+    if (saving) return;
     setOpenDialog(false);
     setCurrentProject(null);
     setFormData(initialFormData);
@@ -195,10 +212,22 @@ export default function ProjectsManagement() {
 
   async function handleSubmit(e) {
     if (e) e.preventDefault();
-    setError(null);
+    if (saving) return;
+
+    if (!formData.name.trim()) {
+      showWarningToast("Missing Name", "Please enter a project name");
+      return;
+    }
+    if (!formData.categoryId) {
+      showWarningToast("Missing Category", "Please select a category");
+      return;
+    }
+
     try {
+      setSaving(true);
       const payload = {
         ...formData,
+        name: formData.name.trim(),
         startDate: formData.startDate
           ? new Date(formData.startDate).toISOString()
           : null,
@@ -217,32 +246,62 @@ export default function ProjectsManagement() {
       });
       const data = await res.json();
       if (data.success) {
-        fetchProjects();
-        handleCloseDialog();
+        if (currentProject) {
+          projectToasts.projectUpdated();
+        } else {
+          projectToasts.projectCreated();
+        }
+        await fetchProjects();
+        setOpenDialog(false);
+        setCurrentProject(null);
+        setFormData(initialFormData);
       } else {
-        setError(data.error || "Failed to save project");
+        projectToasts.projectError(data.error || "Failed to save project");
       }
     } catch (err) {
-      setError("Error saving project: " + (err?.message || err));
+      projectToasts.projectError(
+        "Error saving project: " + (err?.message || err)
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
   async function handleDeleteProject() {
     if (!selectedProjectId) return;
+
+    const project = projects.find((p) => p._id === selectedProjectId);
+    const result = await showDeleteConfirmDialog(
+      "Delete project?",
+      `Delete "${project?.name || "this project"}"? This cannot be undone.`,
+      "Yes, delete it"
+    );
+
+    if (!result.isConfirmed) {
+      handleCloseMenu();
+      return;
+    }
+
     try {
+      setDeleting(true);
       const res = await fetch(`/api/projects/${selectedProjectId}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (data.success) {
-        fetchProjects();
+        projectToasts.projectDeleted();
+        await fetchProjects();
       } else {
-        setError(data.error || "Failed to delete project");
+        projectToasts.projectError(data.error || "Failed to delete project");
       }
     } catch (err) {
-      setError("Error deleting project: " + (err?.message || err));
+      projectToasts.projectError(
+        "Error deleting project: " + (err?.message || err)
+      );
+    } finally {
+      setDeleting(false);
+      handleCloseMenu();
     }
-    handleCloseMenu();
   }
 
   function handleOpenStatusDialog() {
@@ -253,14 +312,15 @@ export default function ProjectsManagement() {
   }
 
   function handleCloseStatusDialog() {
+    if (updatingStatus) return;
     setOpenStatusDialog(false);
     setSelectedProjectForStatus(null);
   }
 
   async function handleStatusChange(newStatus) {
-    if (!selectedProjectForStatus) return;
+    if (!selectedProjectForStatus || updatingStatus) return;
     try {
-      setError(null);
+      setUpdatingStatus(true);
       const res = await fetch(`/api/projects/${selectedProjectForStatus._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -268,13 +328,24 @@ export default function ProjectsManagement() {
       });
       const data = await res.json();
       if (data.success) {
-        fetchProjects();
-        handleCloseStatusDialog();
+        showSuccessToast(
+          "Status Updated!",
+          `Project status changed to ${formatStatus(newStatus)}`
+        );
+        await fetchProjects();
+        setOpenStatusDialog(false);
+        setSelectedProjectForStatus(null);
       } else {
-        setError(data.error || "Failed to update project status");
+        projectToasts.projectError(
+          data.error || "Failed to update project status"
+        );
       }
     } catch (err) {
-      setError("Error updating project status: " + (err?.message || err));
+      projectToasts.projectError(
+        "Error updating project status: " + (err?.message || err)
+      );
+    } finally {
+      setUpdatingStatus(false);
     }
   }
 
@@ -287,15 +358,16 @@ export default function ProjectsManagement() {
   }
 
   function handleCloseProgressDialog() {
+    if (updatingProgress) return;
     setOpenProgressDialog(false);
     setSelectedProjectForProgress(null);
     setProgressValue(0);
   }
 
   async function handleProgressUpdate() {
-    if (!selectedProjectForProgress) return;
+    if (!selectedProjectForProgress || updatingProgress) return;
     try {
-      setError(null);
+      setUpdatingProgress(true);
       const res = await fetch(
         `/api/projects/${selectedProjectForProgress._id}`,
         {
@@ -306,17 +378,28 @@ export default function ProjectsManagement() {
       );
       const data = await res.json();
       if (data.success) {
-        fetchProjects();
-        handleCloseProgressDialog();
+        showSuccessToast(
+          "Progress Updated!",
+          `Progress set to ${progressValue}%`
+        );
+        await fetchProjects();
+        setOpenProgressDialog(false);
+        setSelectedProjectForProgress(null);
+        setProgressValue(0);
       } else {
-        setError(data.error || "Failed to update project progress");
+        projectToasts.projectError(
+          data.error || "Failed to update project progress"
+        );
       }
     } catch (err) {
-      setError("Error updating project progress: " + (err?.message || err));
+      projectToasts.projectError(
+        "Error updating project progress: " + (err?.message || err)
+      );
+    } finally {
+      setUpdatingProgress(false);
     }
   }
 
-  // Filtering logic
   const filteredProjects = projects
     .filter(
       (project) => statusFilter === "all" || project.status === statusFilter
@@ -336,35 +419,42 @@ export default function ProjectsManagement() {
           project.name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
+  const getCategoryName = (project) =>
+    project.category ||
+    (project.categoryId &&
+      projectCategories.find((cat) => cat._id === project.categoryId)?.name) ||
+    "Uncategorized";
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="border-4 border-gray-200 w-10 h-10 rounded-full border-l-blue-600 animate-spin"></div>
+      <div className="flex flex-col justify-center items-center min-h-[50vh] gap-3">
+        <div className="h-11 w-11 rounded-full border-2 border-blue-900/20 border-t-blue-900 animate-spin" />
+        <p className="text-sm text-slate-500 animate-pulse">Loading projects…</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 bg-white min-h-screen">
-      {/* Budget Management Banner */}
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 -m-6 p-6">
       {showBudgetBanner && (
-        <div className="mb-6 bg-gray-50 border border-gray-200 p-4 rounded-lg relative">
+        <div className="mb-6 relative overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
           <button
             onClick={() => setShowBudgetBanner(false)}
-            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors"
+            className="absolute top-3 right-3 rounded-lg p-1 text-slate-400 hover:bg-white hover:text-slate-600 transition-colors"
             aria-label="Close budget banner"
           >
-            ×
+            <CloseIcon className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-3">
-            <CurrencyDollarIcon className="w-5 h-5 text-gray-600" />
+          <div className="flex items-center gap-3 pr-8">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-900 text-white">
+              <CurrencyDollarIcon className="w-5 h-5" />
+            </span>
             <div>
-              <h3 className="text-lg font-medium text-black">
+              <h3 className="text-base font-semibold text-slate-900">
                 Budget & Financial Management
               </h3>
-              <p className="text-gray-600 text-sm">
-                Select a project below to manage its budget, track expenses, and
-                monitor financial performance.
+              <p className="text-sm text-slate-600">
+                Select a project below to manage its budget and track expenses.
               </p>
             </div>
           </div>
@@ -372,23 +462,30 @@ export default function ProjectsManagement() {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-gray-200">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-black">Projects</h1>
-          <p className="text-gray-600 text-sm mt-1">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-900 text-white shadow-sm shadow-blue-900/20">
+              <FolderKanban className="w-5 h-5" />
+            </span>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+              Projects
+            </h1>
+          </div>
+          <p className="text-sm text-slate-500">
             Manage and track your project portfolio
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           <a
-            className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 border border-blue-200"
+            className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-800 transition-all hover:bg-blue-100"
             href="/hrm?section=budget-management"
           >
             <CurrencyDollarIcon className="w-4 h-4" />
             Budget
           </a>
           <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-900/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-md active:scale-[0.98]"
             onClick={() => handleOpenDialog()}
             type="button"
           >
@@ -399,36 +496,32 @@ export default function ProjectsManagement() {
       </div>
 
       {/* Filters */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Search Field */}
+      <div className="mb-6 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-sm">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Search Projects
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Search
             </label>
             <div className="relative">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search projects…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 pl-10 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
               />
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                <SearchIcon className="w-4 h-4" />
-              </div>
             </div>
           </div>
 
-          {/* Status Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Status
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -438,21 +531,16 @@ export default function ProjectsManagement() {
             </select>
           </div>
 
-          {/* Category Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Category
             </label>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
             >
-              {CATEGORY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
+              <option value="all">All Categories</option>
               {projectCategories.map((category) => (
                 <option key={category._id} value={category.name}>
                   {category.name}
@@ -461,482 +549,454 @@ export default function ProjectsManagement() {
             </select>
           </div>
         </div>
-
-        <div className="mt-3 text-sm text-gray-600">
-          {filteredProjects.length} projects found
-        </div>
+        <p className="mt-3 text-sm text-slate-500">
+          <span className="font-medium text-slate-700">
+            {filteredProjects.length}
+          </span>{" "}
+          project{filteredProjects.length === 1 ? "" : "s"} found
+        </p>
       </div>
 
-      {/* Error Banner */}
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <div className="text-red-800 font-medium mb-1">
-            Error Loading Projects
+      {/* Empty / list */}
+      {projects.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-16 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+            <FolderKanban className="h-8 w-8" />
           </div>
-          <p className="text-red-600 text-sm">{error}</p>
-        </div>
-      )}
-
-      {/* No Projects / Results */}
-      {projects.length === 0 && !loading ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-medium text-black mb-2">
-            No Projects Found
-          </h3>
-          <p className="text-gray-600 mb-4">
+          <h3 className="text-lg font-medium text-slate-700">No projects yet</h3>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
             Create your first project to get started.
           </p>
           <button
             onClick={() => handleOpenDialog()}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl border border-blue-900/20 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-900 transition-all hover:bg-blue-100 active:scale-[0.98]"
             type="button"
           >
+            <AddIcon className="w-4 h-4" />
             Create Project
           </button>
         </div>
       ) : filteredProjects.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-medium text-black mb-2">
-            No Projects Found
-          </h3>
-          <p className="text-gray-600">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center">
+          <h3 className="text-lg font-medium text-slate-700">No matches</h3>
+          <p className="mt-1 text-sm text-slate-500">
             Try adjusting your filters or search terms.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredProjects.map((project) => (
-            <div
-              key={project._id}
-              className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <h2 className="text-lg font-semibold text-black mb-1">
-                      {project.name}
-                    </h2>
-                    <div className="text-xs text-gray-500 mb-3">
-                      #{project._id.slice(-6)}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {filteredProjects.map((project) => {
+            const statusKey = project.status || "not_started";
+            return (
+              <div
+                key={project._id}
+                className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-md"
+              >
+                <div className="p-5">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="truncate text-lg font-semibold text-slate-900">
+                        {project.name}
+                      </h2>
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        #{project._id.slice(-6)}
+                      </p>
                     </div>
+                    <button
+                      className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                      onClick={(e) => handleOpenMenu(e, project._id)}
+                      type="button"
+                      disabled={deleting}
+                      aria-label="Project menu"
+                    >
+                      {deleting && selectedProjectId === project._id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <MoreVertIcon className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
-                  <button
-                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    onClick={(e) => handleOpenMenu(e, project._id)}
-                    type="button"
-                    aria-label="Project menu"
-                  >
-                    <MoreVertIcon className="w-4 h-4" />
-                  </button>
-                </div>
 
-                {/* Detail Button */}
-                <div className="mb-4 flex justify-end">
-                  <a
-                    className="text-sm bg-blue-900 text-white hover:bg-blue-800 px-2 py-2  rounded-md no-underline flex items-center gap-1 transition-colors"
-                    href={`/projects/${project._id}`}
-                  >
-                    <VisibilityIcon className="w-4 h-4" />
-                    <span>View Details</span>
-                  </a>
-                </div>
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                      {getCategoryName(project)}
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                        statusBadge[statusKey] || statusBadge.not_started
+                      }`}
+                    >
+                      {formatStatus(statusKey)}
+                    </span>
+                  </div>
 
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md">
-                    {project.category ||
-                      (project.categoryId &&
-                        projectCategories.find(
-                          (cat) => cat._id === project.categoryId
-                        )?.name) ||
-                      "Uncategorized"}
-                  </span>
-                  <span
-                    className={`px-2 py-1 text-xs rounded-md ${
-                      getStatusColor(project.status || "not_started") ===
-                      "success"
-                        ? "bg-green-100 text-green-700"
-                        : getStatusColor(project.status || "not_started") ===
-                          "warning"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : getStatusColor(project.status || "not_started") ===
-                          "error"
-                        ? "bg-red-100 text-red-700"
-                        : getStatusColor(project.status || "not_started") ===
-                          "primary"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {formatStatus(project.status || "not_started")}
-                  </span>
-                </div>
-
-                <div className="mb-4">
-                  <p className="text-gray-600 text-sm leading-relaxed">
+                  <p className="mb-4 line-clamp-2 text-sm text-slate-500">
                     {project.description || "No description available."}
                   </p>
-                </div>
 
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">
-                      Progress
-                    </span>
-                    <span className="text-sm font-medium text-black">
-                      {project.progress || 0}%
-                    </span>
+                  <div className="mb-4">
+                    <div className="mb-1.5 flex justify-between text-sm">
+                      <span className="font-medium text-slate-600">
+                        Progress
+                      </span>
+                      <span className="font-semibold text-slate-900">
+                        {project.progress || 0}%
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                        style={{ width: `${project.progress || 0}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${project.progress || 0}%` }}
-                    ></div>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-black">
-                      {project.assignedEmployees?.length || 0}
+                  <div className="mb-4 grid grid-cols-3 gap-2 rounded-xl bg-slate-50 p-3">
+                    <div className="text-center">
+                      <div className="text-base font-semibold text-slate-900">
+                        {project.assignedEmployees?.length || 0}
+                      </div>
+                      <div className="text-[11px] text-slate-500">Team</div>
                     </div>
-                    <div className="text-xs text-gray-500">Team Members</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-black">
-                      {project.startDate
-                        ? (() => {
-                            try {
-                              return format(
-                                parseISO(project.startDate),
-                                "MMM d, yyyy"
-                              );
-                            } catch {
-                              return "Not set";
-                            }
-                          })()
-                        : "Not set"}
+                    <div className="text-center">
+                      <div className="text-xs font-medium text-slate-800">
+                        {formatDateSafe(project.startDate)}
+                      </div>
+                      <div className="text-[11px] text-slate-500">Start</div>
                     </div>
-                    <div className="text-xs text-gray-500">Start Date</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-black">
-                      {project.endDate
-                        ? (() => {
-                            try {
-                              return format(
-                                parseISO(project.endDate),
-                                "MMM d, yyyy"
-                              );
-                            } catch {
-                              return "Not set";
-                            }
-                          })()
-                        : "Not set"}
+                    <div className="text-center">
+                      <div className="text-xs font-medium text-slate-800">
+                        {formatDateSafe(project.endDate)}
+                      </div>
+                      <div className="text-[11px] text-slate-500">End</div>
                     </div>
-                    <div className="text-xs text-gray-500">End Date</div>
                   </div>
-                </div>
-              </div>
 
-              <div className="border-t border-gray-200 p-4 bg-gray-50">
-                <div className="grid grid-cols-2 gap-2">
                   <a
-                    className="bg-orange-600 hover:bg-orange-300 text-white text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-900 px-3 py-2.5 text-sm font-medium text-white transition-all hover:bg-blue-800 active:scale-[0.98]"
+                    href={`/projects/${project._id}`}
+                  >
+                    <VisibilityIcon className="h-4 w-4" />
+                    View Details
+                  </a>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 border-t border-slate-200 bg-slate-50 p-3">
+                  <a
+                    className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border-2 border-slate-300 bg-white px-2 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-900 hover:bg-blue-50 hover:text-blue-900 hover:shadow active:scale-[0.98]"
                     href={`/projects/${project._id}/milestones`}
                   >
-                    <TimelineIcon className="w-4 h-4" />
-                    <span>Milestones</span>
+                    <TimelineIcon className="h-3.5 w-3.5" />
+                    Milestones
                   </a>
                   <a
-                    className="bg-blue-800 hover:bg-blue-600 text-white text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
+                    className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border-2 border-slate-300 bg-white px-2 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-900 hover:bg-blue-50 hover:text-blue-900 hover:shadow active:scale-[0.98]"
                     href={`/projects/${project._id}/team`}
                   >
-                    <PeopleIcon className="w-4 h-4" />
-                    <span>Team</span>
+                    <PeopleIcon className="h-3.5 w-3.5" />
+                    Team
                   </a>
                   <a
-                    className="bg-green-800 hover:bg-green-600 text-white text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
+                    className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border-2 border-slate-300 bg-white px-2 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-900 hover:bg-blue-50 hover:text-blue-900 hover:shadow active:scale-[0.98]"
                     href={`/project-budget/${project._id}`}
                   >
-                    <CurrencyDollarIcon className="w-4 h-4" />
-                    <span>Budget</span>
+                    <CurrencyDollarIcon className="h-3.5 w-3.5" />
+                    Budget
                   </a>
                   <a
-                    className="bg-red-800 hover:bg-red-600 text-white text-sm font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 no-underline border border-gray-300"
+                    className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border-2 border-slate-300 bg-white px-2 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-900 hover:bg-blue-50 hover:text-blue-900 hover:shadow active:scale-[0.98]"
                     href={`/project-alerts?projectId=${project._id}`}
                   >
-                    <NotificationsIcon className="w-4 h-4" />
-                    <span>Alerts</span>
+                    <NotificationsIcon className="h-3.5 w-3.5" />
+                    Alerts
                   </a>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Project Menu */}
+      {/* Context menu */}
       {anchorEl && (
         <div
           ref={menuRef}
-          className="bg-white shadow-md border border-gray-100 rounded-md absolute z-50"
+          className="absolute z-50 min-w-[180px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
           style={{
-            top: anchorEl.getBoundingClientRect().bottom + window.scrollY,
-            left: anchorEl.getBoundingClientRect().left + window.scrollX,
+            top: anchorEl.getBoundingClientRect().bottom + window.scrollY + 4,
+            left: Math.min(
+              anchorEl.getBoundingClientRect().left + window.scrollX,
+              window.innerWidth - 200
+            ),
           }}
         >
-          <div
-            className="px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
             onClick={() => {
               const project = projects.find((p) => p._id === selectedProjectId);
               handleOpenDialog(project);
             }}
           >
-            <EditIcon /> Edit
-          </div>
-          <div
-            className="px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
+            <EditIcon className="h-4 w-4" /> Edit
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
             onClick={handleOpenStatusDialog}
           >
-            <FlagIcon /> Change Status
-          </div>
-          <div
-            className="px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
+            <FlagIcon className="h-4 w-4" /> Change Status
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
             onClick={handleOpenProgressDialog}
           >
-            <TimelineIcon /> Update Progress
-          </div>
-          <div
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 cursor-pointer transition-colors"
+            <TimelineIcon className="h-4 w-4" /> Update Progress
+          </button>
+          <button
+            type="button"
+            disabled={deleting}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
             onClick={handleDeleteProject}
           >
-            <DeleteIcon /> Delete
-          </div>
+            {deleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <DeleteIcon className="h-4 w-4" />
+            )}
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
         </div>
       )}
 
-      {/* Project Dialog */}
+      {/* Create / Edit modal */}
       {openDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-black">
-                {currentProject ? "Edit Project" : "Create New Project"}
-              </h2>
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
+            onClick={handleCloseDialog}
+          />
+          <div className="relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:mx-4 sm:max-w-lg sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {currentProject ? "Edit Project" : "Create Project"}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  {currentProject
+                    ? "Update project details"
+                    : "Add a new project to your portfolio"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseDialog}
+                disabled={saving}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+              >
+                <CloseIcon className="h-5 w-5" />
+              </button>
             </div>
+
             <form
-              className="p-6 space-y-4"
               onSubmit={handleSubmit}
+              className="flex flex-1 flex-col overflow-hidden"
               autoComplete="off"
             >
-              <div>
-                <label
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                  htmlFor="name"
-                >
-                  Project Name
-                </label>
-                <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Enter project name..."
-                  required
-                />
-              </div>
-
-              <div>
-                <label
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                  htmlFor="description"
-                >
-                  Description
-                </label>
-                <textarea
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 resize-vertical"
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Describe your project..."
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                  htmlFor="categoryId"
-                >
-                  Category
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
-                  id="categoryId"
-                  name="categoryId"
-                  value={formData.categoryId}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {projectCategories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
                 <div>
                   <label
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                    htmlFor="startDate"
+                    className="mb-1.5 block text-sm font-medium text-slate-700"
+                    htmlFor="name"
                   >
-                    Start Date
+                    Project Name *
                   </label>
                   <input
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
-                    type="date"
-                    id="startDate"
-                    name="startDate"
-                    value={formData.startDate}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
                     onChange={handleInputChange}
-                    max={formData.endDate || undefined}
+                    placeholder="Enter project name…"
+                    required
+                    disabled={saving}
                   />
                 </div>
 
                 <div>
                   <label
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                    htmlFor="endDate"
+                    className="mb-1.5 block text-sm font-medium text-slate-700"
+                    htmlFor="description"
                   >
-                    End Date
+                    Description
                   </label>
-                  <input
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
-                    type="date"
-                    id="endDate"
-                    name="endDate"
-                    value={formData.endDate}
+                  <textarea
+                    className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                    id="description"
+                    name="description"
+                    value={formData.description}
                     onChange={handleInputChange}
-                    min={formData.startDate || undefined}
+                    placeholder="Describe your project…"
+                    rows={3}
+                    disabled={saving}
                   />
                 </div>
+
+                <div>
+                  <label
+                    className="mb-1.5 block text-sm font-medium text-slate-700"
+                    htmlFor="categoryId"
+                  >
+                    Category *
+                  </label>
+                  <select
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                    id="categoryId"
+                    name="categoryId"
+                    value={formData.categoryId}
+                    onChange={handleInputChange}
+                    required
+                    disabled={saving}
+                  >
+                    <option value="">Select Category</option>
+                    {projectCategories.map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      className="mb-1.5 block text-sm font-medium text-slate-700"
+                      htmlFor="startDate"
+                    >
+                      Start Date
+                    </label>
+                    <input
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                      type="date"
+                      id="startDate"
+                      name="startDate"
+                      value={formData.startDate}
+                      onChange={handleInputChange}
+                      max={formData.endDate || undefined}
+                      disabled={saving}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      className="mb-1.5 block text-sm font-medium text-slate-700"
+                      htmlFor="endDate"
+                    >
+                      End Date
+                    </label>
+                    <input
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                      type="date"
+                      id="endDate"
+                      name="endDate"
+                      value={formData.endDate}
+                      onChange={handleInputChange}
+                      min={formData.startDate || undefined}
+                      disabled={saving}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 border-t border-slate-100 px-5 py-4">
+                <button
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50"
+                  onClick={handleCloseDialog}
+                  type="button"
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-900/50 active:scale-[0.98]"
+                  type="submit"
+                  disabled={saving || !formData.name.trim()}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {currentProject ? "Updating…" : "Creating…"}
+                    </>
+                  ) : currentProject ? (
+                    "Update"
+                  ) : (
+                    <>
+                      <AddIcon className="h-4 w-4" />
+                      Create
+                    </>
+                  )}
+                </button>
               </div>
             </form>
-            <div className="flex justify-end gap-3 px-6 pb-6 pt-4 border-t border-gray-200">
-              <button
-                className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md font-medium transition-colors"
-                onClick={handleCloseDialog}
-                type="button"
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"
-                onClick={handleSubmit}
-                type="submit"
-              >
-                {currentProject ? "Update" : "Create"}
-              </button>
-            </div>
           </div>
         </div>
       )}
 
-      {/* Project Context Menu */}
-      {anchorEl && (
-        <div
-          ref={menuRef}
-          className="bg-white shadow-md border border-gray-100 rounded-md absolute z-50"
-          style={{
-            top: anchorEl.getBoundingClientRect().bottom + window.scrollY,
-            left: anchorEl.getBoundingClientRect().left + window.scrollX,
-          }}
-        >
-          <div
-            className="px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
-            onClick={() => {
-              const project = projects.find((p) => p._id === selectedProjectId);
-              handleOpenDialog(project);
-            }}
-          >
-            <EditIcon /> Edit
-          </div>
-          <div
-            className="px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
-            onClick={handleOpenStatusDialog}
-          >
-            <FlagIcon /> Change Status
-          </div>
-          <div
-            className="px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
-            onClick={handleOpenProgressDialog}
-          >
-            <TimelineIcon /> Update Progress
-          </div>
-          <div
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 cursor-pointer transition-colors"
-            onClick={handleDeleteProject}
-          >
-            <DeleteIcon /> Delete
-          </div>
-        </div>
-      )}
-      {/* Status Change Dialog */}
+      {/* Status dialog */}
       {openStatusDialog && selectedProjectForStatus && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full border border-gray-200">
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <FlagIcon className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-black">
-                  Change Project Status
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
+            onClick={handleCloseStatusDialog}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-t-2xl bg-white shadow-2xl sm:mx-4 sm:rounded-2xl">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <FlagIcon className="h-5 w-5 text-blue-900" />
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Change Status
                 </h2>
               </div>
-              <p className="text-gray-600 mb-4">
-                Update the status for "{selectedProjectForStatus.name}"
+              <p className="mt-1 text-sm text-slate-500">
+                Update status for &quot;{selectedProjectForStatus.name}&quot;
               </p>
-              <div className="space-y-2">
-                {STATUS_OPTIONS.filter((o) => o.value !== "all").map(
-                  (option) => {
-                    const isCurrent =
-                      selectedProjectForStatus.status === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        className={`w-full p-3 rounded-md border text-left flex items-center gap-3 transition-colors ${
-                          isCurrent
-                            ? "bg-blue-50 border-blue-200 text-blue-700"
-                            : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                        }`}
-                        onClick={() => handleStatusChange(option.value)}
-                        disabled={isCurrent}
-                        type="button"
-                      >
-                        <span className="text-sm font-medium">
-                          {option.label}
-                        </span>
-                        {isCurrent && (
-                          <span className="ml-auto text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                            Current
-                          </span>
-                        )}
-                      </button>
-                    );
-                  }
-                )}
-              </div>
             </div>
-            <div className="flex justify-end gap-3 px-6 pb-6 pt-4 border-t border-gray-200">
+            <div className="space-y-2 px-5 py-4">
+              {STATUS_OPTIONS.filter((o) => o.value !== "all").map((option) => {
+                const isCurrent =
+                  selectedProjectForStatus.status === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left text-sm transition-all disabled:opacity-60 ${
+                      isCurrent
+                        ? "border-blue-200 bg-blue-50 text-blue-800"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                    onClick={() => handleStatusChange(option.value)}
+                    disabled={isCurrent || updatingStatus}
+                    type="button"
+                  >
+                    {updatingStatus && !isCurrent ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-blue-900" />
+                    ) : null}
+                    <span className="font-medium">{option.label}</span>
+                    {isCurrent && (
+                      <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                        Current
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="border-t border-slate-100 px-5 py-4">
               <button
-                className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md font-medium"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                 onClick={handleCloseStatusDialog}
                 type="button"
+                disabled={updatingStatus}
               >
                 Cancel
               </button>
@@ -945,64 +1005,77 @@ export default function ProjectsManagement() {
         </div>
       )}
 
-      {/* Progress Update Dialog */}
+      {/* Progress dialog */}
       {openProgressDialog && selectedProjectForProgress && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full border border-gray-200">
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <TimelineIcon className="w-5 h-5 text-green-600" />
-                <h2 className="text-lg font-semibold text-black">
-                  Update Project Progress
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
+            onClick={handleCloseProgressDialog}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-t-2xl bg-white shadow-2xl sm:mx-4 sm:rounded-2xl">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <TimelineIcon className="h-5 w-5 text-blue-900" />
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Update Progress
                 </h2>
               </div>
-              <p className="text-gray-600 mb-4">
-                Update the progress for "{selectedProjectForProgress.name}"
+              <p className="mt-1 text-sm text-slate-500">
+                Update progress for &quot;{selectedProjectForProgress.name}
+                &quot;
               </p>
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-700">Progress</span>
-                  <span className="text-sm font-medium text-black">
-                    {progressValue}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 mb-3">
-                  <div
-                    className="bg-green-600 h-3 rounded-full transition-all"
-                    style={{ width: `${progressValue}%` }}
-                  ></div>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={progressValue}
-                  onChange={(e) => setProgressValue(parseInt(e.target.value))}
-                  className="w-full"
+            </div>
+            <div className="px-5 py-4">
+              <div className="mb-2 flex justify-between text-sm">
+                <span className="text-slate-600">Progress</span>
+                <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-900">
+                  {progressValue}%
+                </span>
+              </div>
+              <div className="mb-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-all"
+                  style={{ width: `${progressValue}%` }}
                 />
-                <div className="flex justify-between text-xs text-gray-500 mt-2">
-                  <span>0%</span>
-                  <span>25%</span>
-                  <span>50%</span>
-                  <span>75%</span>
-                  <span>100%</span>
-                </div>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={progressValue}
+                onChange={(e) => setProgressValue(parseInt(e.target.value, 10))}
+                disabled={updatingProgress}
+                className="w-full accent-blue-900 disabled:opacity-60"
+              />
+              <div className="mt-2 flex justify-between text-xs text-slate-400">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
               </div>
             </div>
-            <div className="flex justify-end gap-3 px-6 pb-6 pt-4 border-t border-gray-200">
+            <div className="flex gap-3 border-t border-slate-100 px-5 py-4">
               <button
-                className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md font-medium"
+                className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                 onClick={handleCloseProgressDialog}
                 type="button"
+                disabled={updatingProgress}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-900/50 active:scale-[0.98]"
                 onClick={handleProgressUpdate}
                 type="button"
+                disabled={updatingProgress}
               >
-                Update Progress
+                {updatingProgress ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Updating…
+                  </>
+                ) : (
+                  "Update Progress"
+                )}
               </button>
             </div>
           </div>

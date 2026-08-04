@@ -25,19 +25,16 @@ export async function GET(request) {
       filter.status = status;
     }
 
-    // Get total count
-    const total = await db
-      .collection("projectCategories")
-      .countDocuments(filter);
-
-    // Get categories with pagination
-    const categories = await db
-      .collection("projectCategories")
-      .find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .toArray();
+    const [total, categories] = await Promise.all([
+      db.collection("projectCategories").countDocuments(filter),
+      db
+        .collection("projectCategories")
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .toArray(),
+    ]);
 
     return NextResponse.json({
       success: true,

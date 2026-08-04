@@ -36,7 +36,7 @@ const ProjectBudgetPage = ({ params }) => {
 
   if (loading) {
     return (
-      <Layout>
+      <Layout activeSection="budget-management">
         <div className="flex justify-center items-center h-screen">
           <div className="flex flex-col items-center space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -49,7 +49,7 @@ const ProjectBudgetPage = ({ params }) => {
 
   if (error) {
     return (
-      <Layout>
+      <Layout activeSection="budget-management">
         <div className="flex justify-center items-center h-screen">
           <div className="text-center">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
@@ -62,7 +62,7 @@ const ProjectBudgetPage = ({ params }) => {
 
   if (!project) {
     return (
-      <Layout>
+      <Layout activeSection="budget-management">
         <div className="flex justify-center items-center h-screen">
           <div className="text-center">
             <div className="text-gray-400 text-6xl mb-4">📁</div>
@@ -82,7 +82,7 @@ const ProjectBudgetPage = ({ params }) => {
   }
 
   return (
-    <Layout>
+    <Layout activeSection="budget-management">
       <div className="p-6 bg-white min-h-screen">
         {/* Breadcrumbs */}
         <nav className="mb-4">

@@ -66,6 +66,8 @@ import {
   handleFormSubmission,
   projectToasts,
   showValidationErrors,
+  showErrorToast,
+  showSuccessToast,
 } from "../../utils/sweetAlert";
 
 const ProjectDetailPage = ({ params }) => {
@@ -188,9 +190,11 @@ const ProjectDetailPage = ({ params }) => {
     fetchAllProjectData();
   }, [projectId]);
 
-  const fetchAllProjectData = async () => {
+  const fetchAllProjectData = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
 
       // Fetch core data in parallel for better performance (alerts loaded separately)
@@ -208,6 +212,8 @@ const ProjectDetailPage = ({ params }) => {
         setProject(projectData.project);
         if (projectData.project.milestones?.length > 0) {
           setMilestones(projectData.project.milestones);
+        } else {
+          setMilestones([]);
         }
       } else {
         throw new Error(projectData.error || "Failed to fetch project details");
@@ -261,11 +267,17 @@ const ProjectDetailPage = ({ params }) => {
 
       // Generate activity timeline from real data
       generateActivityTimeline(projectData.project, projectTasks);
+      return true;
     } catch (err) {
       console.error("Error fetching project data:", err);
-      setError("Error fetching project data: " + err.message);
+      const message = "Error fetching project data: " + err.message;
+      setError(message);
+      showErrorToast("Load Failed", err.message || "Failed to load project");
+      return false;
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -367,7 +379,10 @@ const ProjectDetailPage = ({ params }) => {
 
   const refreshData = async () => {
     setRefreshing(true);
-    await fetchAllProjectData();
+    const ok = await fetchAllProjectData({ silent: true });
+    if (ok) {
+      showSuccessToast("Refreshed!", "Project data has been updated");
+    }
     setRefreshing(false);
   };
 
@@ -485,6 +500,7 @@ const ProjectDetailPage = ({ params }) => {
     };
 
     try {
+      const existingBudget = getBudgetAmount(project.budget);
       await handleFormSubmission(submitFunction, {
         loadingTitle: "Saving Budget...",
         loadingText: "Please wait while we save your budget information",
@@ -503,7 +519,7 @@ const ProjectDetailPage = ({ params }) => {
         budget: parseFloat(budgetForm.totalAmount) || 0,
       }));
       setIsEditingBudget(false);
-      await refreshData(); // Refresh all data
+      await fetchAllProjectData({ silent: true });
     } catch (error) {
       console.error("Error saving budget:", error);
       // Error handling is done by handleFormSubmission
@@ -528,17 +544,12 @@ const ProjectDetailPage = ({ params }) => {
   // Loading state
   if (loading) {
     return (
-      <Layout>
-        <div className="flex justify-center items-center min-h-screen bg-gray-50">
-          <div className="flex flex-col items-center space-y-4 p-8">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
-            <p className="text-xl text-gray-600 font-medium">
-              Loading project details...
-            </p>
-            <p className="text-sm text-gray-500">
-              Please wait while we fetch the latest data
-            </p>
-          </div>
+      <Layout activeSection="projects">
+        <div className="flex flex-col justify-center items-center min-h-[70vh] gap-3">
+          <div className="h-11 w-11 rounded-full border-2 border-blue-900/20 border-t-blue-900 animate-spin" />
+          <p className="text-sm text-slate-500 animate-pulse">
+            Loading project details…
+          </p>
         </div>
       </Layout>
     );
@@ -547,19 +558,29 @@ const ProjectDetailPage = ({ params }) => {
   // Error state
   if (error) {
     return (
-      <Layout>
-        <div className="flex justify-center items-center min-h-screen bg-gray-50">
-          <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
-            <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+      <Layout activeSection="projects">
+        <div className="flex justify-center items-center min-h-[70vh]">
+          <div className="mx-4 max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-500">
+              <WarningIcon />
+            </div>
+            <h2 className="mb-2 text-xl font-semibold text-slate-800">
               Error Loading Project
             </h2>
-            <p className="text-lg text-red-600 font-medium mb-4">{error}</p>
+            <p className="mb-6 text-sm text-slate-500">{error}</p>
             <button
               onClick={refreshData}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={refreshing}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-blue-800 disabled:opacity-50 active:scale-[0.98]"
             >
-              Try Again
+              {refreshing ? (
+                <>
+                  <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  Retrying…
+                </>
+              ) : (
+                "Try Again"
+              )}
             </button>
           </div>
         </div>
@@ -570,20 +591,24 @@ const ProjectDetailPage = ({ params }) => {
   // Project not found
   if (!project) {
     return (
-      <Layout>
-        <div className="flex justify-center items-center min-h-screen bg-gray-50">
-          <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
-            <div className="text-gray-400 text-6xl mb-4">📁</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+      <Layout activeSection="projects">
+        <div className="flex justify-center items-center min-h-[70vh]">
+          <div className="mx-4 max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <AssignmentIcon />
+            </div>
+            <h2 className="mb-2 text-xl font-semibold text-slate-800">
               Project Not Found
             </h2>
-            <p className="text-lg text-gray-600 font-medium mb-4">
-              The project you're looking for doesn't exist or has been removed.
+            <p className="mb-6 text-sm text-slate-500">
+              The project you&apos;re looking for doesn&apos;t exist or has been
+              removed.
             </p>
             <Link
               href="/projects"
-              className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-blue-800"
             >
+              <ArrowBackIcon className="!text-lg" />
               Back to Projects
             </Link>
           </div>
@@ -594,37 +619,25 @@ const ProjectDetailPage = ({ params }) => {
 
   return (
     <Layout activeSection="projects">
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-blue-50/40">
         {/* Header Section */}
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="border-b border-slate-200/80 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Breadcrumbs */}
-            <nav className="py-4">
-              <ol className="flex items-center space-x-2 text-sm">
+            <nav className="py-4" aria-label="Breadcrumb">
+              <ol className="flex flex-wrap items-center gap-1 text-sm text-slate-500">
                 <li>
                   <Link
                     href="/projects"
-                    className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 hover:bg-slate-100 hover:text-blue-900 transition-colors"
                   >
-                    <ArrowBackIcon className="mr-1 text-lg" />
+                    <ArrowBackIcon className="!text-base" />
                     Projects
                   </Link>
                 </li>
-                <li className="flex items-center">
-                  <svg
-                    className="w-4 h-4 text-gray-400 mx-2"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="text-gray-700 font-medium truncate">
-                    {project.name}
-                  </span>
+                <li className="text-slate-300">/</li>
+                <li className="px-1.5 py-1 font-medium text-slate-700 truncate max-w-[240px]">
+                  {project.name}
                 </li>
               </ol>
             </nav>
@@ -634,13 +647,13 @@ const ProjectDetailPage = ({ params }) => {
               <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-3">
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black truncate">
+                    <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900 truncate">
                       {project.name}
                     </h1>
                     <button
                       onClick={refreshData}
                       disabled={refreshing}
-                      className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-black rounded-lg transition-colors disabled:opacity-50 border border-gray-300"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-all hover:bg-slate-50 hover:text-blue-900 disabled:cursor-wait disabled:opacity-50"
                       title="Refresh data"
                     >
                       <RefreshIcon
@@ -653,14 +666,15 @@ const ProjectDetailPage = ({ params }) => {
 
                   <div className="flex flex-wrap items-center gap-2 mb-4">
                     <span
-                      className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      className={`px-3 py-1 text-xs font-semibold rounded-full ring-1 ${
                         project.status === "completed"
-                          ? "bg-green-100 text-green-800"
+                          ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
                           : project.status === "in_progress"
-                          ? "bg-blue-100 text-blue-800"
-                          : project.status === "pending"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-gray-100 text-gray-800"
+                          ? "bg-sky-50 text-sky-700 ring-sky-200"
+                          : project.status === "on_hold" ||
+                            project.status === "pending"
+                          ? "bg-amber-50 text-amber-700 ring-amber-200"
+                          : "bg-slate-100 text-slate-700 ring-slate-200"
                       }`}
                     >
                       {project.status
@@ -674,54 +688,54 @@ const ProjectDetailPage = ({ params }) => {
                         : "Active"}
                     </span>
                     {project.category && (
-                      <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                      <span className="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-full ring-1 ring-slate-200">
                         {project.category.charAt(0).toUpperCase() +
                           project.category.slice(1)}
                       </span>
                     )}
-                    <span className="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-full">
+                    <span className="px-3 py-1 bg-blue-50 text-blue-900 text-xs font-semibold rounded-full ring-1 ring-blue-100">
                       {taskStats.progress || 0}% Complete
                     </span>
                   </div>
 
-                  <p className="text-gray-600 text-sm sm:text-base leading-relaxed max-w-4xl">
+                  <p className="text-slate-500 text-sm sm:text-base leading-relaxed max-w-4xl">
                     {project.description}
                   </p>
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-wrap gap-2 lg:flex-col lg:w-auto w-full">
+                <div className="flex flex-wrap gap-2 lg:flex-col lg:w-44 w-full">
                   <Link
                     href={`/projects/${projectId}/team`}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors text-sm flex-1 lg:flex-none justify-center"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-900 text-white font-medium rounded-xl hover:bg-blue-800 transition-all text-sm flex-1 lg:flex-none justify-center active:scale-[0.98]"
                   >
                     <PeopleIcon className="w-4 h-4" />
                     Team
                   </Link>
                   <Link
                     href={`/task-management?projectId=${projectId}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors text-sm flex-1 lg:flex-none justify-center"
+                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-all text-sm flex-1 lg:flex-none justify-center"
                   >
                     <AssignmentIcon className="w-4 h-4" />
                     Tasks
                   </Link>
                   <Link
                     href={`/project-budget/${projectId}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors text-sm flex-1 lg:flex-none justify-center"
+                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-all text-sm flex-1 lg:flex-none justify-center"
                   >
                     <AttachMoneyIcon className="w-4 h-4" />
                     Budget
                   </Link>
                   <Link
                     href={`/projects/${project._id}/milestones`}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors text-sm flex-1 lg:flex-none justify-center"
+                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-all text-sm flex-1 lg:flex-none justify-center"
                   >
                     <TrendingUpIcon className="w-4 h-4" />
                     Milestones
                   </Link>
                   <Link
                     href={`/project-alerts?projectId=${projectId}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors text-sm flex-1 lg:flex-none justify-center"
+                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-all text-sm flex-1 lg:flex-none justify-center"
                   >
                     <NotificationsIcon className="w-4 h-4" />
                     Alerts
@@ -925,11 +939,11 @@ const ProjectDetailPage = ({ params }) => {
             <div className="xl:col-span-2 space-y-8">
               {/* Team Members Section */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center">
-                      <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                        <PeopleIcon className="w-5 h-5 text-black" />
+                      <div className="p-2 bg-white/15 rounded-lg mr-3">
+                        <PeopleIcon className="w-5 h-5 text-white" />
                       </div>
                       <h2 className="text-xl font-semibold text-white">
                         Team Members
@@ -1011,7 +1025,7 @@ const ProjectDetailPage = ({ params }) => {
               <div className="grid grid-cols-1  gap-6">
                 {/* Task Status Distribution Chart */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                  <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
                     <div className="flex items-center">
                       <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
                         <BarChartIcon className="w-5 h-5 text-black" />
@@ -1059,7 +1073,7 @@ const ProjectDetailPage = ({ params }) => {
 
                 {/* Budget Utilization Chart */}
                 {/*} <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4">
+                  <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
                     <div className="flex items-center">
                       <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
                         <AttachMoneyIcon className="w-5 h-5 text-black" />
@@ -1111,7 +1125,7 @@ const ProjectDetailPage = ({ params }) => {
                 {/* Category Progress Bar Chart */}
                 {prepareCategoryProgressData().length > 0 && (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
-                    <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
+                    <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
                       <div className="flex items-center">
                         <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
                           <BarChartIcon className="w-5 h-5 text-black" />
@@ -1157,7 +1171,7 @@ const ProjectDetailPage = ({ params }) => {
                 {/* Project Timeline Chart */}
                 {prepareTimelineData().length > 0 && (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
-                    <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4">
+                    <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
                       <div className="flex items-center">
                         <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
                           <CalendarIcon className="w-5 h-5 text-black" />
@@ -1205,11 +1219,11 @@ const ProjectDetailPage = ({ params }) => {
             <div className="space-y-8">
               {/* Milestones Section */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
+                <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center">
-                      <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                        <TimelineIcon className="w-5 h-5 text-black" />
+                      <div className="p-2 bg-white/15 rounded-lg mr-3">
+                        <TimelineIcon className="w-5 h-5 text-white" />
                       </div>
                       <h2 className="text-xl font-semibold text-white">
                         Milestones
@@ -1325,11 +1339,11 @@ const ProjectDetailPage = ({ params }) => {
 
               {/* Alerts Section */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-orange-600 to-orange-700 px-6 py-4">
+                <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center">
-                      <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                        <NotificationsIcon className="w-5 h-5 text-black" />
+                      <div className="p-2 bg-white/15 rounded-lg mr-3">
+                        <NotificationsIcon className="w-5 h-5 text-white" />
                       </div>
                       <h2 className="text-xl font-semibold text-white">
                         Project Alerts
@@ -1448,7 +1462,7 @@ const ProjectDetailPage = ({ params }) => {
 
               {/* Activity Timeline */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4">
+                <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
                   <div className="flex items-center">
                     <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
                       <HistoryIcon className="w-5 h-5 text-black" />

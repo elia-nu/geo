@@ -1,16 +1,6 @@
 import nodemailer from "nodemailer";
 
 // Email configuration - in production, use environment variables
-// Log environment variables on module load for debugging
-console.log("📧 Email Configuration Check:");
-console.log("EMAIL_HOST:", process.env.EMAIL_HOST || "NOT SET");
-console.log("EMAIL_PORT:", process.env.EMAIL_PORT || "NOT SET");
-console.log("EMAIL_USER:", process.env.EMAIL_USER || "NOT SET");
-console.log(
-  "EMAIL_PASSWORD:",
-  process.env.EMAIL_PASSWORD ? "***SET***" : "NOT SET"
-);
-
 const emailConfig = {
   host: process.env.EMAIL_HOST || process.env.SMTP_HOST || "smtp.gmail.com",
   port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || "587"),

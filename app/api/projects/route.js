@@ -135,6 +135,7 @@ export async function GET(request) {
     const category = searchParams.get("category");
     const status = searchParams.get("status");
     const employeeId = searchParams.get("employeeId");
+    const includeEmployees = searchParams.get("includeEmployees") === "true";
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 50;
 
@@ -149,112 +150,117 @@ export async function GET(request) {
 
     const skip = (page - 1) * limit;
 
-    // Fetch projects with lookup for employee details
-    const pipeline = [
-      { $match: query },
-      {
-        $lookup: {
-          from: "employees",
-          localField: "assignedEmployees",
-          foreignField: "_id",
-          as: "assignedEmployeeDetails",
+    // List view skips the heavy employee $lookup by default — callers that need
+    // full employee details can pass includeEmployees=true.
+    const pipeline = [{ $match: query }];
+
+    if (includeEmployees) {
+      pipeline.push(
+        {
+          $lookup: {
+            from: "employees",
+            localField: "assignedEmployees",
+            foreignField: "_id",
+            pipeline: [
+              {
+                $project: {
+                  "personalDetails.name": 1,
+                  "personalDetails.fullName": 1,
+                  "personalDetails.firstName": 1,
+                  "personalDetails.lastName": 1,
+                  "personalDetails.email": 1,
+                  "personalDetails.department": 1,
+                  name: 1,
+                  fullName: 1,
+                  firstName: 1,
+                  lastName: 1,
+                  email: 1,
+                  department: 1,
+                },
+              },
+            ],
+            as: "assignedEmployeeDetails",
+          },
         },
-      },
-      {
-        $addFields: {
-          assignedEmployeeDetails: {
-            $map: {
-              input: "$assignedEmployeeDetails",
-              as: "employee",
-              in: {
-                _id: "$$employee._id",
-                name: {
-                  $ifNull: [
-                    "$$employee.personalDetails.name",
-                    "$$employee.name",
-                    "$$employee.personalDetails.fullName",
-                    "$$employee.fullName",
-                    {
-                      $cond: {
-                        if: {
-                          $and: [
-                            {
-                              $ne: [
-                                "$$employee.personalDetails.firstName",
-                                null,
-                              ],
-                            },
-                            {
-                              $ne: [
-                                "$$employee.personalDetails.lastName",
-                                null,
-                              ],
-                            },
-                          ],
-                        },
-                        then: {
-                          $concat: [
-                            "$$employee.personalDetails.firstName",
-                            " ",
-                            "$$employee.personalDetails.lastName",
-                          ],
-                        },
-                        else: {
-                          $cond: {
-                            if: {
-                              $and: [
-                                { $ne: ["$$employee.firstName", null] },
-                                { $ne: ["$$employee.lastName", null] },
-                              ],
-                            },
-                            then: {
-                              $concat: [
-                                "$$employee.firstName",
-                                " ",
-                                "$$employee.lastName",
-                              ],
-                            },
-                            else: {
-                              $concat: [
-                                "Employee ",
-                                {
-                                  $substr: [
-                                    { $toString: "$$employee._id" },
-                                    -6,
-                                    -1,
-                                  ],
-                                },
-                              ],
-                            },
+        {
+          $addFields: {
+            assignedEmployeeDetails: {
+              $map: {
+                input: "$assignedEmployeeDetails",
+                as: "employee",
+                in: {
+                  _id: "$$employee._id",
+                  name: {
+                    $ifNull: [
+                      "$$employee.personalDetails.name",
+                      "$$employee.name",
+                      "$$employee.personalDetails.fullName",
+                      "$$employee.fullName",
+                      {
+                        $trim: {
+                          input: {
+                            $concat: [
+                              {
+                                $ifNull: [
+                                  "$$employee.personalDetails.firstName",
+                                  "$$employee.firstName",
+                                  "",
+                                ],
+                              },
+                              " ",
+                              {
+                                $ifNull: [
+                                  "$$employee.personalDetails.lastName",
+                                  "$$employee.lastName",
+                                  "",
+                                ],
+                              },
+                            ],
                           },
                         },
                       },
-                    },
-                  ],
-                },
-                email: {
-                  $ifNull: [
-                    "$$employee.personalDetails.email",
-                    "$$employee.email",
-                    "",
-                  ],
-                },
-                department: {
-                  $ifNull: [
-                    "$$employee.department",
-                    "$$employee.personalDetails.department",
-                    "",
-                  ],
+                    ],
+                  },
+                  email: {
+                    $ifNull: [
+                      "$$employee.personalDetails.email",
+                      "$$employee.email",
+                      "",
+                    ],
+                  },
+                  department: {
+                    $ifNull: [
+                      "$$employee.department",
+                      "$$employee.personalDetails.department",
+                      "",
+                    ],
+                  },
                 },
               },
             },
           },
+        }
+      );
+    } else {
+      // Keep assignedEmployeeDetails.length working for existing UI without a join.
+      pipeline.push({
+        $addFields: {
+          assignedEmployeeDetails: {
+            $map: {
+              input: { $ifNull: ["$assignedEmployees", []] },
+              as: "id",
+              in: { _id: "$$id" },
+            },
+          },
         },
-      },
+      });
+    }
+
+    pipeline.push(
       { $sort: { updatedAt: -1 } },
       { $skip: skip },
-      { $limit: limit },
-    ];
+      { $limit: limit }
+    );
 
     const [projects, totalCount] = await Promise.all([
       db.collection("projects").aggregate(pipeline).toArray(),

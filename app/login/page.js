@@ -1,8 +1,11 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Lock, User } from "lucide-react";
-import Image from "next/image";
+import { Eye, EyeOff, Lock, User, Loader2 } from "lucide-react";
+import {
+  showSuccessToast,
+  showErrorToast,
+} from "../utils/sweetAlert";
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -20,13 +23,15 @@ export default function LoginPage() {
       ...prev,
       [name]: value,
     }));
+    if (error) setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
+
     setLoading(true);
     setError("");
-    console.log("Form Data:", formData);
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -37,28 +42,34 @@ export default function LoginPage() {
         body: JSON.stringify(formData),
       });
 
-      console.log("response", response);
       const result = await response.json();
-      console.log("Response parsed:", result);
+
       if (result.success) {
-        // Store token in localStorage
         localStorage.setItem("authToken", result.data.token);
 
-        // Check if user has admin role
         if (result.data.employee.role === "ADMIN") {
+          showSuccessToast("Welcome back!", "Signing you in…");
+          // Brief pause so the toast and loading state feel smooth
+          await new Promise((resolve) => setTimeout(resolve, 400));
           router.push("/hrm/protected");
-        } else {
-          setError(
-            "Access denied. Admin role required to access HRM dashboard."
-          );
-          localStorage.removeItem("authToken");
+          return;
         }
+
+        localStorage.removeItem("authToken");
+        const msg =
+          "Access denied. Admin role required to access HRM dashboard.";
+        setError(msg);
+        showErrorToast("Access Denied", msg);
       } else {
-        setError(result.error || "Login failed");
+        const msg = result.error || "Login failed";
+        setError(msg);
+        showErrorToast("Login Failed", msg);
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      setError("Network error. Please try again.");
+    } catch (err) {
+      console.error("Login error:", err);
+      const msg = "Network error. Please try again.";
+      setError(msg);
+      showErrorToast("Connection Error", msg);
     } finally {
       setLoading(false);
     }
@@ -69,19 +80,13 @@ export default function LoginPage() {
       className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4"
       style={{
         background: "url('/4565.jpg') no-repeat center center fixed",
-        backgroundSize: "cover ",
+        backgroundSize: "cover",
       }}
     >
-      <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
-      <div className="max-w-md w-full">
-        {/* Header */}
-
-        {/* Login Form */}
+      <div className="absolute inset-0 bg-white/20 backdrop-blur-sm" />
+      <div className="relative max-w-md w-full">
         <div className="bg-white/50 rounded-xl shadow-lg p-8 backdrop-blur-lg">
           <div className="text-center mb-8">
-            {/*<div className="mx-auto w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-4">
-              <Lock className="w-8 h-8 text-white" />
-            </div>*/}
             <div className="flex items-center justify-center">
               <img
                 src="/newlogo.png"
@@ -89,15 +94,15 @@ export default function LoginPage() {
                 className="w-48 bg-white p-2 rounded-lg"
               />
             </div>
-            <h1 className="text-3xl font-bold text-blue-900 my-2 ">
+            <h1 className="text-3xl font-bold text-blue-900 my-2">
               EF Architects and Engineers Consulting plc
             </h1>
             <p className="text-blue-900">
               Sign in to access the Human Resource Management system
             </p>
           </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Employee ID Field */}
             <div>
               <label
                 htmlFor="employeeId"
@@ -116,13 +121,13 @@ export default function LoginPage() {
                   value={formData.employeeId}
                   onChange={handleInputChange}
                   required
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  disabled={loading}
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:bg-gray-50 disabled:opacity-70 disabled:cursor-not-allowed"
                   placeholder="Enter your Employee ID"
                 />
               </div>
             </div>
 
-            {/* Password Field */}
             <div>
               <label
                 htmlFor="password"
@@ -141,48 +146,56 @@ export default function LoginPage() {
                   value={formData.password}
                   onChange={handleInputChange}
                   required
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  disabled={loading}
+                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:bg-gray-50 disabled:opacity-70 disabled:cursor-not-allowed"
                   placeholder="Enter your password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  disabled={loading}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center disabled:opacity-50"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
                   )}
                 </button>
               </div>
             </div>
 
-            {/* Error Message */}
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 animate-[fadeIn_0.25s_ease-out]">
                 <p className="text-red-600 text-sm">{error}</p>
               </div>
             )}
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
+              className="relative w-full overflow-hidden bg-blue-600 hover:bg-blue-700 disabled:bg-blue-500 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 active:scale-[0.98] disabled:cursor-wait shadow-sm hover:shadow-md disabled:shadow-none"
             >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Signing In...
-                </>
-              ) : (
-                "Sign In"
+              <span
+                className={`flex items-center justify-center gap-2 transition-all duration-300 ${
+                  loading ? "opacity-100" : "opacity-100"
+                }`}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="animate-pulse">Signing In…</span>
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </span>
+              {loading && (
+                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_1.2s_ease-in-out_infinite]" />
               )}
             </button>
           </form>
 
-          {/* Additional Info */}
           <div className="mt-6 pt-6 border-t border-gray-200">
             <div className="bg-blue-50 rounded-lg p-4">
               <h3 className="text-sm font-medium text-blue-900 mb-2">
@@ -197,13 +210,33 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500">
             Need help? Contact your system administrator
           </p>
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }
