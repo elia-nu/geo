@@ -31,6 +31,7 @@ import {
   Task as TaskIcon,
   MonetizationOn as MonetizationOnIcon,
   Refresh as RefreshIcon,
+  Description as DescriptionIcon,
 } from "@mui/icons-material";
 import Link from "next/link";
 import {
@@ -234,7 +235,7 @@ const ProjectDetailPage = ({ params }) => {
             method: "PUT",
           });
           const ar = await fetch(
-            `/api/project-alerts?projectId=${projectId}&status=active`
+            `/api/project-alerts?projectId=${projectId}&status=active`,
           );
           const ad = await ar.json();
           if (ad.success) {
@@ -284,10 +285,10 @@ const ProjectDetailPage = ({ params }) => {
   const calculateTaskStatistics = (tasks) => {
     const total = tasks.length;
     const completed = tasks.filter(
-      (task) => task.status === "completed"
+      (task) => task.status === "completed",
     ).length;
     const inProgress = tasks.filter(
-      (task) => task.status === "in_progress"
+      (task) => task.status === "in_progress",
     ).length;
     const pending = tasks.filter((task) => task.status === "pending").length;
     const blocked = tasks.filter((task) => task.status === "blocked").length;
@@ -295,7 +296,7 @@ const ProjectDetailPage = ({ params }) => {
       (task) =>
         task.dueDate &&
         isAfter(new Date(), new Date(task.dueDate)) &&
-        task.status !== "completed"
+        task.status !== "completed",
     ).length;
 
     const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -744,7 +745,8 @@ const ProjectDetailPage = ({ params }) => {
     : "Active";
   const descriptionText =
     project.description &&
-    project.description.trim().toLowerCase() !== project.name?.trim().toLowerCase()
+    project.description.trim().toLowerCase() !==
+      project.name?.trim().toLowerCase()
       ? project.description
       : null;
   const daysLeft = project.endDate
@@ -800,11 +802,11 @@ const ProjectDetailPage = ({ params }) => {
                         project.status === "completed"
                           ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
                           : project.status === "in_progress"
-                          ? "bg-sky-50 text-sky-700 ring-sky-200"
-                          : project.status === "on_hold" ||
-                            project.status === "pending"
-                          ? "bg-amber-50 text-amber-700 ring-amber-200"
-                          : "bg-slate-100 text-slate-700 ring-slate-200"
+                            ? "bg-sky-50 text-sky-700 ring-sky-200"
+                            : project.status === "on_hold" ||
+                                project.status === "pending"
+                              ? "bg-amber-50 text-amber-700 ring-amber-200"
+                              : "bg-slate-100 text-slate-700 ring-slate-200"
                       }`}
                     >
                       {statusLabel}
@@ -838,12 +840,16 @@ const ProjectDetailPage = ({ params }) => {
               <div className="mb-4">
                 <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500">
                   <span className="font-medium">Overall progress</span>
-                  <span className="font-semibold text-blue-900">{progress}%</span>
+                  <span className="font-semibold text-blue-900">
+                    {progress}%
+                  </span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-blue-800 to-blue-600 transition-all duration-700 ease-out"
-                    style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                    style={{
+                      width: `${Math.min(100, Math.max(0, progress))}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -952,7 +958,7 @@ const ProjectDetailPage = ({ params }) => {
                 }).format(
                   financialData.totalExpenses ||
                     getTotalExpenses(project.expenses) ||
-                    0
+                    0,
                 )}
               </p>
               <p className="mt-2 text-xs font-medium text-slate-500">
@@ -976,7 +982,7 @@ const ProjectDetailPage = ({ params }) => {
                 {project.startDate && project.endDate
                   ? `${format(parseISO(project.startDate), "MMM dd")} – ${format(
                       parseISO(project.endDate),
-                      "MMM dd, yyyy"
+                      "MMM dd, yyyy",
                     )}`
                   : "Not specified"}
               </p>
@@ -1109,7 +1115,7 @@ const ProjectDetailPage = ({ params }) => {
                                   key={`cell-${index}`}
                                   fill={entry.color}
                                 />
-                              )
+                              ),
                             )}
                           </Pie>
                           <Tooltip />
@@ -1198,8 +1204,8 @@ const ProjectDetailPage = ({ params }) => {
                               name === "progress"
                                 ? "Progress"
                                 : name === "completed"
-                                ? "Completed"
-                                : "Total",
+                                  ? "Completed"
+                                  : "Total",
                             ]}
                           />
                           <Legend />
@@ -1303,10 +1309,10 @@ const ProjectDetailPage = ({ params }) => {
                                 milestone.status === "completed"
                                   ? "bg-emerald-50 text-emerald-700"
                                   : milestone.status === "in_progress"
-                                  ? "bg-sky-50 text-sky-700"
-                                  : milestone.status === "pending"
-                                  ? "bg-amber-50 text-amber-700"
-                                  : "bg-slate-100 text-slate-600"
+                                    ? "bg-sky-50 text-sky-700"
+                                    : milestone.status === "pending"
+                                      ? "bg-amber-50 text-amber-700"
+                                      : "bg-slate-100 text-slate-600"
                               }`}
                             >
                               {milestone.status}
@@ -1318,7 +1324,7 @@ const ProjectDetailPage = ({ params }) => {
                             Due{" "}
                             {format(
                               new Date(milestone.dueDate),
-                              "MMM dd, yyyy"
+                              "MMM dd, yyyy",
                             )}
                           </div>
 
@@ -1337,8 +1343,8 @@ const ProjectDetailPage = ({ params }) => {
                                   (milestone.progress || 0) < 30
                                     ? "bg-rose-500"
                                     : (milestone.progress || 0) < 70
-                                    ? "bg-amber-500"
-                                    : "bg-emerald-500"
+                                      ? "bg-amber-500"
+                                      : "bg-emerald-500"
                                 }`}
                                 style={{
                                   width: `${milestone.progress || 0}%`,
@@ -1417,10 +1423,10 @@ const ProjectDetailPage = ({ params }) => {
                             (alert.alertType || alert.type) === "warning"
                               ? "bg-yellow-50 border-yellow-200"
                               : (alert.alertType || alert.type) === "success"
-                              ? "bg-green-50 border-green-200"
-                              : (alert.alertType || alert.type) === "error"
-                              ? "bg-red-50 border-red-200"
-                              : "bg-blue-50 border-blue-200"
+                                ? "bg-green-50 border-green-200"
+                                : (alert.alertType || alert.type) === "error"
+                                  ? "bg-red-50 border-red-200"
+                                  : "bg-blue-50 border-blue-200"
                           }`}
                         >
                           <div className="flex items-start">
@@ -1429,11 +1435,12 @@ const ProjectDetailPage = ({ params }) => {
                                 (alert.alertType || alert.type) === "warning"
                                   ? "bg-yellow-100"
                                   : (alert.alertType || alert.type) ===
-                                    "success"
-                                  ? "bg-green-100"
-                                  : (alert.alertType || alert.type) === "error"
-                                  ? "bg-red-100"
-                                  : "bg-blue-100"
+                                      "success"
+                                    ? "bg-green-100"
+                                    : (alert.alertType || alert.type) ===
+                                        "error"
+                                      ? "bg-red-100"
+                                      : "bg-blue-100"
                               }`}
                             >
                               {getAlertIcon(alert.alertType || alert.type)}
@@ -1444,12 +1451,12 @@ const ProjectDetailPage = ({ params }) => {
                                   (alert.alertType || alert.type) === "warning"
                                     ? "text-yellow-800"
                                     : (alert.alertType || alert.type) ===
-                                      "success"
-                                    ? "text-green-800"
-                                    : (alert.alertType || alert.type) ===
-                                      "error"
-                                    ? "text-red-800"
-                                    : "text-blue-800"
+                                        "success"
+                                      ? "text-green-800"
+                                      : (alert.alertType || alert.type) ===
+                                          "error"
+                                        ? "text-red-800"
+                                        : "text-blue-800"
                                 }`}
                               >
                                 {(alert.alertType || alert.type)
@@ -1465,7 +1472,7 @@ const ProjectDetailPage = ({ params }) => {
                                 <span className="text-xs text-gray-500">
                                   {format(
                                     parseISO(alert.createdAt || alert.date),
-                                    "MMM dd, yyyy"
+                                    "MMM dd, yyyy",
                                   )}
                                 </span>
                               </div>
@@ -1521,10 +1528,10 @@ const ProjectDetailPage = ({ params }) => {
                               activity.color === "green"
                                 ? "bg-emerald-50 text-emerald-700"
                                 : activity.color === "blue"
-                                ? "bg-sky-50 text-sky-700"
-                                : activity.color === "orange"
-                                ? "bg-amber-50 text-amber-700"
-                                : "bg-slate-100 text-slate-600"
+                                  ? "bg-sky-50 text-sky-700"
+                                  : activity.color === "orange"
+                                    ? "bg-amber-50 text-amber-700"
+                                    : "bg-slate-100 text-slate-600"
                             }`}
                           >
                             {getTimelineIcon(activity.type)}
@@ -1539,7 +1546,7 @@ const ProjectDetailPage = ({ params }) => {
                             <span className="text-[11px] text-slate-400">
                               {format(
                                 new Date(activity.date),
-                                "MMM dd, yyyy 'at' h:mm a"
+                                "MMM dd, yyyy 'at' h:mm a",
                               )}
                             </span>
                           </div>
