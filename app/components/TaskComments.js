@@ -1,15 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Comment as CommentIcon,
   Send as SendIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  MoreVert as MoreVertIcon,
-  Person as PersonIcon,
   AccessTime as TimeIcon,
+  Sync as SyncIcon,
 } from "@mui/icons-material";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showDeleteConfirmDialog,
+} from "../utils/sweetAlert";
+
+const POLL_INTERVAL_MS = 5000;
 
 const TaskComments = ({
   taskId,
@@ -17,46 +23,157 @@ const TaskComments = ({
   onUpdate,
   showSuccessAlert,
   showErrorAlert,
+  onSuccess,
+  onError,
   setLoading: setParentLoading,
+  pollInterval = POLL_INTERVAL_MS,
 }) => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [actionId, setActionId] = useState(null);
   const [editingComment, setEditingComment] = useState(null);
   const [editContent, setEditContent] = useState("");
+  const [isPolling, setIsPolling] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+
+  const commentsRef = useRef([]);
+  const abortRef = useRef(null);
+  const mountedRef = useRef(true);
+  const busyRef = useRef(false);
 
   useEffect(() => {
-    if (taskId) {
-      fetchComments();
-    }
+    commentsRef.current = comments;
+  }, [comments]);
+
+  useEffect(() => {
+    busyRef.current = submitting || Boolean(actionId);
+  }, [submitting, actionId]);
+
+  const notifySuccess = useCallback(
+    (message) => {
+      if (showSuccessAlert) showSuccessAlert(message);
+      else if (onSuccess) onSuccess(message);
+      else showSuccessToast("Success", message);
+    },
+    [showSuccessAlert, onSuccess]
+  );
+
+  const notifyError = useCallback(
+    (message) => {
+      if (showErrorAlert) showErrorAlert(message);
+      else if (onError) onError(message);
+      else showErrorToast("Error", message);
+    },
+    [showErrorAlert, onError]
+  );
+
+  const fetchComments = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!taskId) return;
+
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        if (!silent) {
+          setInitialLoading(true);
+          setParentLoading?.(true);
+        } else {
+          setIsPolling(true);
+        }
+
+        const response = await fetch(`/api/tasks/${taskId}/comments`, {
+          signal: controller.signal,
+        });
+        const data = await response.json();
+
+        if (!mountedRef.current) return;
+
+        if (data.success) {
+          const next = [...(data.comments || [])].sort(
+            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+          );
+          const prev = commentsRef.current;
+          const changed =
+            next.length !== prev.length ||
+            next.some((c, i) => {
+              const p = prev[i];
+              return (
+                !p ||
+                String(c._id) !== String(p._id) ||
+                c.content !== p.content ||
+                String(c.updatedAt || "") !== String(p.updatedAt || "")
+              );
+            });
+
+          if (changed) {
+            setComments(next);
+          }
+          setLastSyncedAt(new Date());
+        } else if (!silent) {
+          notifyError(data.error || "Failed to fetch comments");
+        }
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        if (!silent && mountedRef.current) {
+          notifyError("Error fetching comments: " + err.message);
+        }
+      } finally {
+        if (mountedRef.current) {
+          if (!silent) {
+            setInitialLoading(false);
+            setParentLoading?.(false);
+          }
+          setIsPolling(false);
+        }
+      }
+    },
+    [taskId, notifyError, setParentLoading]
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!taskId) return;
+
+    setComments([]);
+    setEditingComment(null);
+    setEditContent("");
+    setNewComment("");
+    setInitialLoading(true);
+    fetchComments({ silent: false });
   }, [taskId]);
 
-  const fetchComments = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/tasks/${taskId}/comments`);
-      const data = await response.json();
+  useEffect(() => {
+    if (!taskId) return;
 
-      if (data.success) {
-        setComments(data.comments || []);
-      } else {
-        showErrorAlert &&
-          showErrorAlert(data.error || "Failed to fetch comments");
-      }
-    } catch (err) {
-      showErrorAlert &&
-        showErrorAlert("Error fetching comments: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const interval = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      if (busyRef.current) return;
+      fetchComments({ silent: true });
+    }, pollInterval);
+
+    return () => clearInterval(interval);
+  }, [taskId, pollInterval, fetchComments]);
 
   const handleAddComment = async (e) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
+    e?.preventDefault?.();
+    if (!newComment.trim() || submitting) return;
 
     try {
-      setLoading(true);
+      setSubmitting(true);
+      setParentLoading?.(true);
 
       const response = await fetch(`/api/tasks/${taskId}/comments`, {
         method: "POST",
@@ -65,7 +182,7 @@ const TaskComments = ({
           "x-employee-id": currentUser?.id || "",
         },
         body: JSON.stringify({
-          content: newComment,
+          content: newComment.trim(),
           userId: currentUser?.id || null,
           userName: currentUser?.name || "Unknown",
           userEmail: currentUser?.email || "",
@@ -76,24 +193,26 @@ const TaskComments = ({
 
       if (data.success) {
         setNewComment("");
-        await fetchComments(); // Refresh comments
-        onUpdate && onUpdate(); // Notify parent component
-        showSuccessAlert && showSuccessAlert("Comment added successfully!");
+        await fetchComments({ silent: true });
+        onUpdate?.();
+        notifySuccess("Comment posted");
       } else {
-        showErrorAlert && showErrorAlert(data.error || "Failed to add comment");
+        notifyError(data.error || "Failed to add comment");
       }
     } catch (err) {
-      showErrorAlert && showErrorAlert("Error adding comment: " + err.message);
+      notifyError("Error adding comment: " + err.message);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
+      setParentLoading?.(false);
     }
   };
 
   const handleEditComment = async (commentId) => {
-    if (!editContent.trim()) return;
+    if (!editContent.trim() || actionId) return;
 
     try {
-      setLoading(true);
+      setActionId(commentId);
+      setParentLoading?.(true);
 
       const response = await fetch(
         `/api/tasks/${taskId}/comments/${commentId}`,
@@ -104,7 +223,7 @@ const TaskComments = ({
             "x-employee-id": currentUser?.id || "",
           },
           body: JSON.stringify({
-            content: editContent,
+            content: editContent.trim(),
             userId: currentUser?.id || null,
           }),
         }
@@ -115,26 +234,31 @@ const TaskComments = ({
       if (data.success) {
         setEditingComment(null);
         setEditContent("");
-        await fetchComments(); // Refresh comments
-        onUpdate && onUpdate(); // Notify parent component
-        showSuccessAlert && showSuccessAlert("Comment updated successfully!");
+        await fetchComments({ silent: true });
+        onUpdate?.();
+        notifySuccess("Comment updated");
       } else {
-        showErrorAlert &&
-          showErrorAlert(data.error || "Failed to update comment");
+        notifyError(data.error || "Failed to update comment");
       }
     } catch (err) {
-      showErrorAlert &&
-        showErrorAlert("Error updating comment: " + err.message);
+      notifyError("Error updating comment: " + err.message);
     } finally {
-      setLoading(false);
+      setActionId(null);
+      setParentLoading?.(false);
     }
   };
 
   const handleDeleteComment = async (commentId) => {
-    if (!confirm("Are you sure you want to delete this comment?")) return;
+    const result = await showDeleteConfirmDialog(
+      "Delete comment?",
+      "This comment will be permanently removed.",
+      "Yes, delete it"
+    );
+    if (!result.isConfirmed) return;
 
     try {
-      setLoading(true);
+      setActionId(commentId);
+      setParentLoading?.(true);
 
       const response = await fetch(
         `/api/tasks/${taskId}/comments/${commentId}?userId=${
@@ -151,18 +275,17 @@ const TaskComments = ({
       const data = await response.json();
 
       if (data.success) {
-        await fetchComments(); // Refresh comments
-        onUpdate && onUpdate(); // Notify parent component
-        showSuccessAlert && showSuccessAlert("Comment deleted successfully!");
+        await fetchComments({ silent: true });
+        onUpdate?.();
+        notifySuccess("Comment deleted");
       } else {
-        showErrorAlert &&
-          showErrorAlert(data.error || "Failed to delete comment");
+        notifyError(data.error || "Failed to delete comment");
       }
     } catch (err) {
-      showErrorAlert &&
-        showErrorAlert("Error deleting comment: " + err.message);
+      notifyError("Error deleting comment: " + err.message);
     } finally {
-      setLoading(false);
+      setActionId(null);
+      setParentLoading?.(false);
     }
   };
 
@@ -182,14 +305,12 @@ const TaskComments = ({
     const diffInHours = (now - date) / (1000 * 60 * 60);
 
     if (diffInHours < 1) {
-      return "Just now";
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`;
-    } else if (diffInHours < 168) {
-      return `${Math.floor(diffInHours / 24)}d ago`;
-    } else {
-      return date.toLocaleDateString();
+      const mins = Math.max(1, Math.floor((now - date) / (1000 * 60)));
+      return mins < 2 ? "Just now" : `${mins}m ago`;
     }
+    if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`;
+    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
+    return date.toLocaleDateString();
   };
 
   const canEditComment = (comment) => {
@@ -200,148 +321,203 @@ const TaskComments = ({
     );
   };
 
+  const busy = submitting || Boolean(actionId);
+
   return (
-    <div className="space-y-4">
-      {/* Add Comment Form */}
+    <div className="space-y-5">
       <form onSubmit={handleAddComment} className="space-y-3">
-        <div className="flex items-start space-x-3">
-          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-            {currentUser?.name?.charAt(0) || "U"}
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-900 text-sm font-semibold text-white shadow-sm">
+            {currentUser?.name?.charAt(0)?.toUpperCase() || "U"}
           </div>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  handleAddComment(e);
+                }
+              }}
+              placeholder="Write a comment…"
+              className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
               rows={3}
-              disabled={loading}
+              disabled={submitting}
             />
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-xs text-gray-500">
-                Press Ctrl+Enter to submit
-              </span>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <span>Ctrl+Enter to post</span>
+                {lastSyncedAt && (
+                  <span className="inline-flex items-center gap-1">
+                    <SyncIcon
+                      className={`!text-sm ${isPolling ? "animate-spin" : ""}`}
+                    />
+                    Live · {formatDate(lastSyncedAt)}
+                  </span>
+                )}
+              </div>
               <button
                 type="submit"
-                disabled={!newComment.trim() || loading}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                disabled={!newComment.trim() || submitting}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-900 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-900/40 active:scale-[0.98]"
               >
-                <SendIcon fontSize="small" />
-                {loading ? "Posting..." : "Post Comment"}
+                {submitting ? (
+                  <>
+                    <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    Posting…
+                  </>
+                ) : (
+                  <>
+                    <SendIcon fontSize="small" />
+                    Post
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       </form>
 
-      {/* Comments List */}
-      <div className="space-y-4">
-        {loading && comments.length === 0 ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="space-y-3">
+        {initialLoading && comments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-10">
+            <div className="h-9 w-9 rounded-full border-2 border-blue-900/20 border-t-blue-900 animate-spin" />
+            <p className="text-sm text-slate-500 animate-pulse">
+              Loading comments…
+            </p>
           </div>
         ) : comments.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-10 text-center">
             <CommentIcon
-              className="mx-auto text-gray-300 mb-2"
-              style={{ fontSize: 48 }}
+              className="mx-auto mb-2 text-slate-300"
+              style={{ fontSize: 40 }}
             />
-            <p>No comments yet. Be the first to comment!</p>
-            <p>
-              You can add a comment by clicking the "Add Comment" button above.
+            <p className="text-sm font-medium text-slate-600">No comments yet</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Start the discussion — new comments appear live.
             </p>
           </div>
         ) : (
-          comments.map((comment) => (
-            <div
-              key={comment._id}
-              className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg"
-            >
-              <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                {comment.author?.name?.charAt(0) || "U"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium text-black">
-                      {comment.userName || comment.author?.name || "Unknown"}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {formatDate(comment.createdAt)}
-                    </span>
-                    {comment.isEdited && (
-                      <span className="text-xs text-gray-400">(edited)</span>
-                    )}
-                  </div>
-                  {canEditComment(comment) && (
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => startEditing(comment)}
-                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                        title="Edit comment"
-                      >
-                        <EditIcon fontSize="small" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteComment(comment._id)}
-                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                        title="Delete comment"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </button>
+          comments.map((comment) => {
+            const isActing = actionId === comment._id;
+            return (
+              <div
+                key={comment._id}
+                className={`group flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 transition-opacity ${
+                  isActing ? "opacity-60" : ""
+                }`}
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-400 text-xs font-semibold text-white">
+                  {(
+                    comment.userName ||
+                    comment.author?.name ||
+                    "U"
+                  )
+                    .charAt(0)
+                    .toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="truncate text-sm font-semibold text-slate-900">
+                        {comment.userName ||
+                          comment.author?.name ||
+                          "Unknown"}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {formatDate(comment.createdAt)}
+                      </span>
+                      {comment.isEdited && (
+                        <span className="text-[11px] text-slate-400">
+                          (edited)
+                        </span>
+                      )}
                     </div>
+                    {canEditComment(comment) &&
+                      editingComment !== comment._id && (
+                        <div className="flex shrink-0 items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => startEditing(comment)}
+                            disabled={busy}
+                            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white hover:text-blue-700 disabled:opacity-40"
+                            title="Edit comment"
+                          >
+                            <EditIcon fontSize="small" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteComment(comment._id)}
+                            disabled={busy}
+                            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white hover:text-red-600 disabled:opacity-40"
+                            title="Delete comment"
+                          >
+                            {isActing ? (
+                              <span className="inline-block h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
+                            ) : (
+                              <DeleteIcon fontSize="small" />
+                            )}
+                          </button>
+                        </div>
+                      )}
+                  </div>
+
+                  {editingComment === comment._id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                        rows={3}
+                        disabled={isActing}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={cancelEditing}
+                          disabled={isActing}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEditComment(comment._id)}
+                          disabled={!editContent.trim() || isActing}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
+                        >
+                          {isActing ? (
+                            <>
+                              <span className="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                              Saving…
+                            </>
+                          ) : (
+                            "Save"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                      {comment.content}
+                    </p>
                   )}
-                </div>
 
-                {editingComment === comment._id ? (
-                  <div className="space-y-2">
-                    <textarea
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                      rows={3}
-                    />
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={cancelEditing}
-                        className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleEditComment(comment._id)}
-                        disabled={!editContent.trim() || loading}
-                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-700 whitespace-pre-wrap">
-                    {comment.content}
-                  </p>
-                )}
-
-                {/* Comment metadata */}
-                <div className="flex justify-end space-x-4 mt-2 text-xs text-gray-500">
-                  {/*<span className="flex items-end justify-end space-x-1">
-                    <PersonIcon fontSize="small" />
-                    <span>{comment.author?.email || "No email"}</span>
-                  </span>*/}
-                  <span className="flex items-end justify-end space-x-1">
-                    <TimeIcon fontSize="small" />
-                    <span>
-                      {comment.updatedAt &&
-                      comment.updatedAt !== comment.createdAt
-                        ? `Updated ${formatDate(comment.updatedAt)}`
-                        : `Created ${formatDate(comment.createdAt)}`}
-                    </span>
-                  </span>
+                  {comment.updatedAt &&
+                    comment.updatedAt !== comment.createdAt &&
+                    editingComment !== comment._id && (
+                      <div className="mt-2 flex justify-end text-[11px] text-slate-400">
+                        <span className="inline-flex items-center gap-1">
+                          <TimeIcon className="!text-sm" />
+                          Updated {formatDate(comment.updatedAt)}
+                        </span>
+                      </div>
+                    )}
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

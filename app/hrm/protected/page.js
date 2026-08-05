@@ -186,12 +186,7 @@ export default function ProtectedHRMDashboard() {
           </div>
         );
       case "leave-balances":
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Leave Balances</h2>
-            <AdminLeaveBalanceManagement />
-          </div>
-        );
+        return <AdminLeaveBalanceManagement />;
       case "leave-reports":
         return <LeaveManagementReports />;
       case "payroll-reports":

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   PlusIcon,
   PencilIcon,
@@ -25,14 +26,275 @@ import {
   validateBudgetForm,
   validateExpenseForm,
   validateAllocationForm,
+  validateIncomeForm,
+  validateExpectedPaymentForm,
+  validateCollectPaymentForm,
   hasFormErrors,
 } from "../utils/formValidation";
 import {
-  handleFormSubmission,
   projectToasts,
   showValidationErrors,
   showDeleteConfirmDialog,
+  showSuccessToast,
+  showErrorToast,
 } from "../utils/sweetAlert";
+import {
+  formatCurrency as formatCurrencyUtil,
+  currencyTitle,
+} from "../utils/currency";
+import MetricCard from "./financial/MetricCard";
+import AmountCell from "./financial/AmountCell";
+
+const LoadingSpinner = ({ className = "h-4 w-4" }) => (
+  <span
+    className={`${className} rounded-full border-2 border-white/30 border-t-white animate-spin`}
+    aria-hidden="true"
+  />
+);
+
+const ActionButton = ({
+  onClick,
+  disabled,
+  loading,
+  loadingText,
+  children,
+  className = "",
+  type = "button",
+}) => (
+  <button
+    type={type}
+    onClick={onClick}
+    disabled={disabled || loading}
+    className={`relative inline-flex items-center justify-center gap-2 overflow-hidden transition-all duration-300 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70 ${className}`}
+  >
+    {loading ? (
+      <>
+        <LoadingSpinner />
+        <span className="animate-pulse">{loadingText || "Saving…"}</span>
+      </>
+    ) : (
+      children
+    )}
+    {loading && (
+      <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent animate-[shimmer_1.2s_ease-in-out_infinite]" />
+    )}
+  </button>
+);
+
+const modalOverlayClass =
+  "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-2 sm:p-4 animate-[fadeIn_0.2s_ease-out]";
+const modalOverlayNestedClass =
+  "fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-2 sm:p-4 animate-[fadeIn_0.2s_ease-out]";
+const modalPanelClass =
+  "bg-white rounded-xl shadow-xl w-full border border-slate-200 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto";
+const modalHeaderClass = "p-4 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white";
+const modalBodyClass = "p-4 sm:p-6 space-y-4 sm:space-y-5";
+const modalFooterClass =
+  "flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t border-slate-200 bg-slate-50/80";
+const cancelBtnClass =
+  "w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all duration-200 disabled:opacity-50";
+const primaryBtnClass =
+  "w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-all duration-200 disabled:opacity-50";
+
+const fieldInputClass = (hasError = false) =>
+  `w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm transition-colors disabled:bg-slate-50 disabled:cursor-not-allowed ${
+    hasError
+      ? "border-red-500 focus:ring-red-500"
+      : "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+  }`;
+
+const fieldLabelClass =
+  "block text-xs sm:text-sm font-medium text-slate-700 mb-1.5";
+const fieldErrorClass = "text-xs text-red-600 mt-1";
+
+const todayInputValue = () => new Date().toISOString().split("T")[0];
+
+const toDateInputValue = (value) => {
+  if (!value) return "";
+  const raw = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().split("T")[0];
+};
+
+const formatMoneyDisplay = (value, currency = "ETB") => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return `0.00 ${currency}`;
+  return `${amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} ${currency}`;
+};
+
+const BudgetAvailabilityCard = ({
+  total,
+  allocated,
+  remaining,
+  currency = "ETB",
+  overBudget = false,
+}) => {
+  const safeTotal = Math.max(0, Number(total) || 0);
+  const pct =
+    safeTotal > 0
+      ? Math.min(100, Math.max(0, ((Number(allocated) || 0) / safeTotal) * 100))
+      : 0;
+
+  return (
+    <div
+      className={`rounded-xl border p-3 sm:p-4 space-y-3 ${
+        overBudget
+          ? "bg-rose-50 border-rose-200"
+          : "bg-slate-50 border-slate-200"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Budget availability
+          </p>
+          <p
+            className={`mt-1 text-lg sm:text-xl font-semibold tabular-nums ${
+              overBudget ? "text-rose-700" : "text-slate-900"
+            }`}
+          >
+            {formatMoneyDisplay(remaining, currency)}
+          </p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {overBudget ? "Over-allocated — reduce amounts" : "Available to allocate"}
+          </p>
+        </div>
+        <div className="text-right text-xs text-slate-600 space-y-0.5">
+          <div>
+            Total{" "}
+            <span className="font-medium text-slate-800">
+              {formatMoneyDisplay(total, currency)}
+            </span>
+          </div>
+          <div>
+            Allocated{" "}
+            <span className="font-medium text-slate-800">
+              {formatMoneyDisplay(allocated, currency)}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${
+            overBudget
+              ? "bg-rose-500"
+              : pct > 90
+              ? "bg-amber-500"
+              : "bg-emerald-500"
+          }`}
+          style={{ width: `${overBudget ? 100 : pct}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const ModalChrome = ({
+  nested = false,
+  maxWidth = "max-w-2xl",
+  title,
+  subtitle,
+  children,
+  footer,
+  onClose,
+  closeDisabled = false,
+}) => (
+  <div
+    className={nested ? modalOverlayNestedClass : modalOverlayClass}
+    onMouseDown={(e) => {
+      if (e.target === e.currentTarget && onClose && !closeDisabled) onClose();
+    }}
+  >
+    <div
+      className={`${modalPanelClass} ${maxWidth}`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div className={`${modalHeaderClass} flex items-start justify-between gap-3`}>
+        <div className="min-w-0">
+          <h3
+            id="modal-title"
+            className="text-base sm:text-lg font-semibold text-slate-900"
+          >
+            {title}
+          </h3>
+          {subtitle ? (
+            <p className="mt-1 text-xs sm:text-sm text-slate-500">{subtitle}</p>
+          ) : null}
+        </div>
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={closeDisabled}
+            className="flex-shrink-0 rounded-lg p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50"
+            aria-label="Close"
+          >
+            <span className="block text-xl leading-none">&times;</span>
+          </button>
+        ) : null}
+      </div>
+      <div className={modalBodyClass}>{children}</div>
+      {footer ? <div className={modalFooterClass}>{footer}</div> : null}
+    </div>
+  </div>
+);
+
+const SectionPanel = ({
+  title,
+  subtitle,
+  action,
+  children,
+  className = "",
+  bodyClassName = "p-4 sm:p-5",
+}) => (
+  <div
+    className={`bg-white rounded-xl border border-slate-200 shadow-sm min-w-0 overflow-hidden ${className}`}
+  >
+    {(title || action) && (
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white">
+        <div className="min-w-0">
+          {title ? (
+            <h3 className="text-sm sm:text-base font-semibold text-slate-900">
+              {title}
+            </h3>
+          ) : null}
+          {subtitle ? (
+            <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
+          ) : null}
+        </div>
+        {action ? <div className="flex-shrink-0">{action}</div> : null}
+      </div>
+    )}
+    <div className={bodyClassName}>{children}</div>
+  </div>
+);
+
+const EmptyState = ({ icon: Icon, title, description, action }) => (
+  <div className="text-center py-10 sm:py-12 px-4">
+    {Icon ? (
+      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
+        <Icon className="h-6 w-6 text-slate-400" />
+      </div>
+    ) : null}
+    <h3 className="text-sm sm:text-base font-semibold text-slate-900">
+      {title}
+    </h3>
+    {description ? (
+      <p className="mt-1 text-sm text-slate-500 max-w-sm mx-auto">
+        {description}
+      </p>
+    ) : null}
+    {action ? <div className="mt-4">{action}</div> : null}
+  </div>
+);
 
 const ProjectFinancialManagement = ({ projectId, projectName }) => {
   function getStatusColor(status) {
@@ -47,10 +309,12 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       case "success":
       case "approved":
       case "paid":
+      case "collected":
         return "bg-green-50 text-green-700 border-green-200";
       case "on_hold":
       case "pending":
       case "warning":
+      case "partial":
         return "bg-yellow-50 text-yellow-700 border-yellow-200";
       case "cancelled":
       case "rejected":
@@ -68,6 +332,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   }
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null);
   const [error, setError] = useState(null);
 
   // Data states
@@ -114,6 +379,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [budgetFormErrors, setBudgetFormErrors] = useState({});
   const [expenseFormErrors, setExpenseFormErrors] = useState({});
   const [allocationFormErrors, setAllocationFormErrors] = useState({});
+  const [incomeFormErrors, setIncomeFormErrors] = useState({});
+  const [expectedPaymentFormErrors, setExpectedPaymentFormErrors] = useState(
+    {}
+  );
 
   const [incomeForm, setIncomeForm] = useState({
     title: "",
@@ -136,6 +405,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     title: "",
     expectedAmount: "",
     clientName: "",
+    categoryId: "",
     dueDate: "",
     description: "",
     notes: "",
@@ -146,6 +416,17 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [showExpectedPaymentModal, setShowExpectedPaymentModal] =
     useState(false);
+  const [showCollectModal, setShowCollectModal] = useState(false);
+  const [collectingIncome, setCollectingIncome] = useState(null);
+  const [collectForm, setCollectForm] = useState({
+    collectAmount: "",
+    receivedDate: new Date().toISOString().split("T")[0],
+    invoiceNumber: "",
+    paymentMethod: "bank_transfer",
+    paymentReference: "",
+    notes: "",
+  });
+  const [collectFormErrors, setCollectFormErrors] = useState({});
 
   const [allocationForm, setAllocationForm] = useState({
     name: "",
@@ -272,8 +553,36 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
+  const runAction = async (
+    key,
+    actionFn,
+    { successTitle, successText, errorTitle = "Error" } = {}
+  ) => {
+    if (actionLoading) return null;
+    setActionLoading(key);
+    setError(null);
+    const started = Date.now();
+    try {
+      const result = await actionFn();
+      const elapsed = Date.now() - started;
+      if (elapsed < 350) {
+        await new Promise((resolve) => setTimeout(resolve, 350 - elapsed));
+      }
+      if (successTitle) {
+        showSuccessToast(successTitle, successText || "");
+      }
+      return result;
+    } catch (err) {
+      const msg = err?.message || "Something went wrong. Please try again.";
+      setError(msg);
+      showErrorToast(errorTitle, msg);
+      return null;
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleCreateBudget = async () => {
-    // Validate form data
     const errors = validateBudgetForm(budgetForm);
     if (hasFormErrors(errors)) {
       setBudgetFormErrors(errors);
@@ -281,62 +590,71 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       return;
     }
 
-    // Clear any existing errors
     setBudgetFormErrors({});
 
-    const submitFunction = async () => {
-      const response = await fetch(`/api/projects/${projectId}/budget`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(budgetForm),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || "Failed to create budget");
-      }
-
-      return data;
-    };
-
-    try {
-      await handleFormSubmission(submitFunction, {
-        loadingTitle: "Creating Budget...",
-        loadingText: "Please wait while we create your project budget",
+    const result = await runAction(
+      "budget",
+      async () => {
+        const response = await fetch(`/api/projects/${projectId}/budget`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(budgetForm),
+        });
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to create budget");
+        }
+        return data;
+      },
+      {
         successTitle: "Budget Created!",
         successText: "Project budget has been created successfully",
         errorTitle: "Budget Error",
-        errorText: "Failed to create budget. Please try again.",
-      });
+      }
+    );
 
-      // Update UI on success
+    if (result?.success) {
       setShowBudgetModal(false);
       fetchFinancialData();
       resetBudgetForm();
-    } catch (error) {
-      console.error("Error creating budget:", error);
-      // Error handling is done by handleFormSubmission
     }
   };
 
   const handleEditBudget = async () => {
-    try {
-      const response = await fetch(`/api/projects/${projectId}/budget`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(budgetForm),
-      });
+    const errors = validateBudgetForm(budgetForm);
+    if (hasFormErrors(errors)) {
+      setBudgetFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
 
-      const data = await response.json();
-      if (data.success) {
-        setShowEditBudgetModal(false);
-        fetchFinancialData();
-        resetBudgetForm();
-      } else {
-        setError(data.error);
+    setBudgetFormErrors({});
+
+    const result = await runAction(
+      "budget",
+      async () => {
+        const response = await fetch(`/api/projects/${projectId}/budget`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(budgetForm),
+        });
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to update budget");
+        }
+        return data;
+      },
+      {
+        successTitle: "Budget Updated!",
+        successText: "Project budget has been updated successfully",
+        errorTitle: "Budget Error",
       }
-    } catch (err) {
-      setError("Failed to update budget: " + err.message);
+    );
+
+    if (result?.success) {
+      setShowEditBudgetModal(false);
+      fetchFinancialData();
+      resetBudgetForm();
     }
   };
 
@@ -347,17 +665,19 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         currency: budgetData.currency || "ETB",
         description: budgetData.description || "",
         approvedBy: budgetData.approvedBy || "",
-        approvalDate: budgetData.approvalDate
-          ? budgetData.approvalDate.split("T")[0]
-          : "",
-        budgetAllocations: budgetData.allocations || [],
+        approvalDate: toDateInputValue(budgetData.approvalDate),
+        budgetAllocations: (budgetData.allocations || []).map((alloc) => ({
+          ...alloc,
+          startDate: toDateInputValue(alloc.startDate),
+          endDate: toDateInputValue(alloc.endDate),
+        })),
       });
+      setBudgetFormErrors({});
       setShowEditBudgetModal(true);
     }
   };
 
   const handleAddExpense = async () => {
-    // Validate form data
     const errors = validateExpenseForm(expenseForm);
     if (hasFormErrors(errors)) {
       setExpenseFormErrors(errors);
@@ -365,103 +685,216 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       return;
     }
 
-    // Clear any existing errors
     setExpenseFormErrors({});
 
-    const submitFunction = async () => {
-      const response = await fetch(`/api/projects/${projectId}/expenses`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...expenseForm,
-          tags: expenseForm.tags.filter((tag) => tag.trim() !== ""),
-        }),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || "Failed to add expense");
-      }
-
-      return data;
-    };
-
-    try {
-      await handleFormSubmission(submitFunction, {
-        loadingTitle: "Adding Expense...",
-        loadingText: "Please wait while we add your expense",
+    const result = await runAction(
+      "expense",
+      async () => {
+        const response = await fetch(`/api/projects/${projectId}/expenses`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...expenseForm,
+            tags: expenseForm.tags.filter((tag) => tag.trim() !== ""),
+          }),
+        });
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to add expense");
+        }
+        return data;
+      },
+      {
         successTitle: "Expense Added!",
         successText: "Expense has been added successfully",
         errorTitle: "Expense Error",
-        errorText: "Failed to add expense. Please try again.",
-      });
+      }
+    );
 
-      // Update UI on success
+    if (result?.success) {
       setShowExpenseModal(false);
       fetchFinancialData();
       resetExpenseForm();
-    } catch (error) {
-      console.error("Error adding expense:", error);
-      // Error handling is done by handleFormSubmission
     }
   };
 
   const handleAddIncome = async () => {
-    try {
-      const response = await fetch(`/api/projects/${projectId}/income`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(incomeForm),
-      });
+    const errors = validateIncomeForm(incomeForm, { isEdit: false });
+    if (hasFormErrors(errors)) {
+      setIncomeFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
 
-      const data = await response.json();
-      if (data.success) {
-        setShowIncomeModal(false);
-        fetchFinancialData();
-        resetIncomeForm();
-      } else {
-        setError(data.error);
+    setIncomeFormErrors({});
+
+    const result = await runAction(
+      "income",
+      async () => {
+        const response = await fetch(`/api/projects/${projectId}/income`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(incomeForm),
+        });
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to add income");
+        }
+        return data;
+      },
+      {
+        successTitle: "Income Added!",
+        successText: "Income has been recorded successfully",
+        errorTitle: "Income Error",
       }
-    } catch (err) {
-      setError("Failed to add income: " + err.message);
+    );
+
+    if (result?.success) {
+      setShowIncomeModal(false);
+      fetchFinancialData();
+      resetIncomeForm();
     }
   };
 
   const handleAddExpectedPayment = async () => {
-    try {
-      const payload = {
-        title: expectedPaymentForm.title,
-        expectedAmount: expectedPaymentForm.expectedAmount,
-        clientName: expectedPaymentForm.clientName,
-        dueDate: expectedPaymentForm.dueDate,
-        description: expectedPaymentForm.description,
-        notes: expectedPaymentForm.notes,
-        status: expectedPaymentForm.status || "pending",
-      };
-      const response = await fetch(`/api/projects/${projectId}/income`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    const errors = validateExpectedPaymentForm(expectedPaymentForm);
+    if (hasFormErrors(errors)) {
+      setExpectedPaymentFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
 
-      const data = await response.json();
-      if (data.success) {
-        setShowExpectedPaymentModal(false);
-        fetchFinancialData();
-        setExpectedPaymentForm({
-          title: "",
-          expectedAmount: "",
-          clientName: "",
-          dueDate: "",
-          description: "",
-          notes: "",
+    setExpectedPaymentFormErrors({});
+
+    const result = await runAction(
+      "expected",
+      async () => {
+        const payload = {
+          title: expectedPaymentForm.title,
+          expectedAmount: expectedPaymentForm.expectedAmount,
+          clientName: expectedPaymentForm.clientName,
+          categoryId: expectedPaymentForm.categoryId || "",
+          dueDate: expectedPaymentForm.dueDate,
+          description: expectedPaymentForm.description,
+          notes: expectedPaymentForm.notes,
           status: "pending",
+        };
+        const response = await fetch(`/api/projects/${projectId}/income`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
-      } else {
-        setError(data.error);
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to add expected income");
+        }
+        return data;
+      },
+      {
+        successTitle: "Expected Income Set!",
+        successText:
+          "Waiting for collection. Status becomes overdue if the due date passes.",
+        errorTitle: "Payment Error",
       }
-    } catch (err) {
-      setError("Failed to add expected payment: " + err.message);
+    );
+
+    if (result?.success) {
+      setShowExpectedPaymentModal(false);
+      fetchFinancialData();
+      setExpectedPaymentForm({
+        title: "",
+        expectedAmount: "",
+        clientName: "",
+        categoryId: "",
+        dueDate: "",
+        description: "",
+        notes: "",
+        status: "pending",
+      });
+      setExpectedPaymentFormErrors({});
+      setActiveTab("income");
+    }
+  };
+
+  const openCollectModal = (inc) => {
+    const remaining = Math.max(
+      0,
+      (Number(inc.expectedAmount) || 0) - (Number(inc.amount) || 0)
+    );
+    setCollectingIncome(inc);
+    setCollectForm({
+      collectAmount: remaining > 0 ? remaining.toFixed(2) : "",
+      receivedDate: new Date().toISOString().split("T")[0],
+      invoiceNumber: inc.invoiceNumber || "",
+      paymentMethod: inc.paymentMethod || "bank_transfer",
+      paymentReference: "",
+      notes: "",
+    });
+    setCollectFormErrors({});
+    setShowCollectModal(true);
+  };
+
+  const handleCollectPayment = async () => {
+    if (!collectingIncome?._id) return;
+
+    const remaining = Math.max(
+      0,
+      (Number(collectingIncome.expectedAmount) || 0) -
+        (Number(collectingIncome.amount) || 0)
+    );
+    const errors = validateCollectPaymentForm(collectForm, {
+      remainingAmount: remaining > 0 ? remaining : Infinity,
+    });
+    if (hasFormErrors(errors)) {
+      setCollectFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
+
+    setCollectFormErrors({});
+
+    const result = await runAction(
+      "collect",
+      async () => {
+        const response = await fetch(
+          `/api/projects/${projectId}/income/${collectingIncome._id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "collect",
+              collectAmount: collectForm.collectAmount,
+              receivedDate: collectForm.receivedDate,
+              invoiceNumber: collectForm.invoiceNumber,
+              paymentMethod: collectForm.paymentMethod,
+              paymentReference: collectForm.paymentReference,
+              notes: collectForm.notes,
+            }),
+          }
+        );
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to collect payment");
+        }
+        return data;
+      },
+      {
+        successTitle:
+          Number(collectForm.collectAmount) >= remaining
+            ? "Fully Collected!"
+            : "Partial Collection Recorded!",
+        successText:
+          Number(collectForm.collectAmount) >= remaining
+            ? "This income is now marked as collected."
+            : "Remaining balance is still pending collection.",
+        errorTitle: "Collection Error",
+      }
+    );
+
+    if (result?.success) {
+      setShowCollectModal(false);
+      setCollectingIncome(null);
+      fetchFinancialData();
     }
   };
 
@@ -479,12 +912,14 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         : "",
       paymentMethod: inc.paymentMethod || "bank_transfer",
       clientName: inc.clientName || "",
+      categoryId: inc.categoryId || "",
       invoiceNumber: inc.invoiceNumber || "",
       status: inc.status || "pending",
       paymentReference: inc.paymentReference || "",
       notes: inc.notes || "",
     });
     setEditingIncomeId(inc._id);
+    setIncomeFormErrors({});
     setShowIncomeModal(true);
   };
 
@@ -509,34 +944,51 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
   const handleEditIncome = async () => {
     if (!editingIncomeId) return;
-    try {
-      const response = await fetch(
-        `/api/projects/${projectId}/income/${editingIncomeId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(incomeForm),
-        }
-      );
 
-      const data = await response.json();
-      if (data.success) {
-        setShowIncomeModal(false);
-        setEditingIncomeId(null);
-        fetchFinancialData();
-        resetIncomeForm();
-      } else {
-        setError(data.error);
+    const errors = validateIncomeForm(incomeForm, { isEdit: true });
+    if (hasFormErrors(errors)) {
+      setIncomeFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
+
+    setIncomeFormErrors({});
+
+    const result = await runAction(
+      "income",
+      async () => {
+        const response = await fetch(
+          `/api/projects/${projectId}/income/${editingIncomeId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(incomeForm),
+          }
+        );
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to update income");
+        }
+        return data;
+      },
+      {
+        successTitle: "Income Updated!",
+        successText: "Income has been updated successfully",
+        errorTitle: "Income Error",
       }
-    } catch (err) {
-      setError("Failed to update income: " + err.message);
+    );
+
+    if (result?.success) {
+      setShowIncomeModal(false);
+      setEditingIncomeId(null);
+      fetchFinancialData();
+      resetIncomeForm();
     }
   };
 
   const handleEditExpense = async () => {
     if (!editingExpenseId) return;
 
-    // Validate form data
     const errors = validateExpenseForm(expenseForm);
     if (hasFormErrors(errors)) {
       setExpenseFormErrors(errors);
@@ -544,48 +996,40 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       return;
     }
 
-    // Clear any existing errors
     setExpenseFormErrors({});
 
-    const submitFunction = async () => {
-      const response = await fetch(
-        `/api/projects/${projectId}/expenses/${editingExpenseId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...expenseForm,
-            tags: expenseForm.tags.filter((tag) => tag.trim() !== ""),
-          }),
+    const result = await runAction(
+      "expense",
+      async () => {
+        const response = await fetch(
+          `/api/projects/${projectId}/expenses/${editingExpenseId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...expenseForm,
+              tags: expenseForm.tags.filter((tag) => tag.trim() !== ""),
+            }),
+          }
+        );
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to update expense");
         }
-      );
-
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || "Failed to update expense");
-      }
-
-      return data;
-    };
-
-    try {
-      await handleFormSubmission(submitFunction, {
-        loadingTitle: "Updating Expense...",
-        loadingText: "Please wait while we update your expense",
+        return data;
+      },
+      {
         successTitle: "Expense Updated!",
         successText: "Expense has been updated successfully",
         errorTitle: "Expense Error",
-        errorText: "Failed to update expense. Please try again.",
-      });
+      }
+    );
 
-      // Update UI on success
+    if (result?.success) {
       setShowExpenseModal(false);
       setEditingExpenseId(null);
       fetchFinancialData();
       resetExpenseForm();
-    } catch (error) {
-      console.error("Error updating expense:", error);
-      // Error handling is done by handleFormSubmission
     }
   };
 
@@ -597,80 +1041,111 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       "Cancel"
     );
 
-    if (!confirmed) return;
+    if (!confirmed?.isConfirmed) return;
 
-    const submitFunction = async () => {
-      const response = await fetch(
-        `/api/projects/${projectId}/expenses/${expenseId}`,
-        {
-          method: "DELETE",
+    const result = await runAction(
+      "delete-expense",
+      async () => {
+        const response = await fetch(
+          `/api/projects/${projectId}/expenses/${expenseId}`,
+          { method: "DELETE" }
+        );
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to delete expense");
         }
-      );
-
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || "Failed to delete expense");
-      }
-
-      return data;
-    };
-
-    try {
-      await handleFormSubmission(submitFunction, {
-        loadingTitle: "Deleting Expense...",
-        loadingText: "Please wait while we delete the expense",
+        return data;
+      },
+      {
         successTitle: "Expense Deleted!",
         successText: "Expense has been deleted successfully",
         errorTitle: "Delete Error",
-        errorText: "Failed to delete expense. Please try again.",
-      });
+      }
+    );
 
-      // Update UI on success
+    if (result?.success) {
       fetchFinancialData();
-    } catch (error) {
-      console.error("Error deleting expense:", error);
-      // Error handling is done by handleFormSubmission
     }
   };
 
   const handleDeleteIncome = async (incomeId) => {
-    try {
-      const response = await fetch(
-        `/api/projects/${projectId}/income/${incomeId}`,
-        { method: "DELETE" }
-      );
-      const data = await response.json();
-      if (data.success) {
-        fetchFinancialData();
-      } else {
-        setError(data.error);
+    const confirmed = await showDeleteConfirmDialog(
+      "Delete Income",
+      "Are you sure you want to delete this income record? This action cannot be undone.",
+      "Delete",
+      "Cancel"
+    );
+
+    if (!confirmed?.isConfirmed) return;
+
+    const result = await runAction(
+      "delete-income",
+      async () => {
+        const response = await fetch(
+          `/api/projects/${projectId}/income/${incomeId}`,
+          { method: "DELETE" }
+        );
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to delete income");
+        }
+        return data;
+      },
+      {
+        successTitle: "Income Deleted!",
+        successText: "Income has been deleted successfully",
+        errorTitle: "Delete Error",
       }
-    } catch (err) {
-      setError("Failed to delete income: " + err.message);
+    );
+
+    if (result?.success) {
+      fetchFinancialData();
     }
   };
 
+  const getAvailableBudgetForNewAllocation = () => {
+    const total = Number(budgetForm.totalAmount) || 0;
+    const allocated = (budgetForm.budgetAllocations || []).reduce(
+      (sum, alloc) => sum + (Number(alloc.amount) || 0),
+      0
+    );
+    return total - allocated;
+  };
+
+  const getAvailableBudgetForEditAllocation = () => {
+    const total = Number(budgetData?.totalAmount) || 0;
+    const otherAllocated = (budgetData?.allocations || [])
+      .filter((alloc) => String(alloc._id) !== String(editingAllocationId))
+      .reduce((sum, alloc) => sum + (Number(alloc.amount) || 0), 0);
+    return total - otherAllocated;
+  };
+
   const handleAddAllocation = async () => {
-    // Validate form data
-    const errors = validateAllocationForm(allocationForm);
+    const availableAmount = getAvailableBudgetForNewAllocation();
+    const errors = validateAllocationForm(allocationForm, {
+      availableAmount,
+      currency: budgetForm.currency || "ETB",
+    });
     if (hasFormErrors(errors)) {
       setAllocationFormErrors(errors);
       showValidationErrors(errors);
       return;
     }
 
-    // Clear any existing errors
     setAllocationFormErrors({});
 
     if (editingAllocationId) {
-      // Update existing allocation
       await handleUpdateAllocation();
     } else {
-      // Add new allocation (existing logic for budget creation)
+      const selectedCategory = budgetAllocationCategories.find(
+        (c) => String(c._id) === String(allocationForm.categoryId)
+      );
       const newAllocation = {
         ...allocationForm,
+        category:
+          selectedCategory?.name || allocationForm.category || "general",
         amount: parseFloat(allocationForm.amount),
-        _id: Date.now().toString(), // Temporary ID for UI
+        _id: Date.now().toString(),
       };
 
       setBudgetForm((prev) => ({
@@ -685,68 +1160,107 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleUpdateAllocation = async () => {
-    try {
-      const inferredType =
-        allocationForm.allocationType ||
-        (allocationForm.departmentId
-          ? "department"
-          : allocationForm.taskId
-          ? "task"
-          : allocationForm.activityId
-          ? "activity"
-          : allocationForm.milestoneId
-          ? "milestone"
-          : "");
+    const currentAllocation = (budgetData?.allocations || []).find(
+      (alloc) => String(alloc._id) === String(editingAllocationId)
+    );
+    const spentAmount = Number(currentAllocation?.spentAmount) || 0;
+    const availableAmount = getAvailableBudgetForEditAllocation();
+    const errors = validateAllocationForm(allocationForm, {
+      availableAmount,
+      minAmount: spentAmount,
+      currency: budgetData?.currency || "ETB",
+    });
+    if (hasFormErrors(errors)) {
+      setAllocationFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
 
-      const body = {
-        name: allocationForm.name,
-        description: allocationForm.description,
-        category: allocationForm.category,
-        budgetedAmount: parseFloat(allocationForm.amount),
-        startDate: allocationForm.startDate || "",
-        endDate: allocationForm.endDate || "",
-        allocationType: inferredType,
-      };
+    setAllocationFormErrors({});
 
-      if (inferredType === "department")
-        body.departmentId = allocationForm.departmentId || "";
-      if (inferredType === "task") body.taskId = allocationForm.taskId || "";
-      if (inferredType === "activity")
-        body.activityId = allocationForm.activityId || "";
-      if (inferredType === "milestone")
-        body.milestoneId = allocationForm.milestoneId || "";
+    const result = await runAction(
+      "allocation",
+      async () => {
+        const inferredType =
+          allocationForm.allocationType ||
+          (allocationForm.departmentId
+            ? "department"
+            : allocationForm.taskId
+            ? "task"
+            : allocationForm.activityId
+            ? "activity"
+            : allocationForm.milestoneId
+            ? "milestone"
+            : "");
 
-      const response = await fetch(
-        `/api/projects/${projectId}/budget/allocations/${editingAllocationId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+        const selectedCategory = budgetAllocationCategories.find(
+          (c) => String(c._id) === String(allocationForm.categoryId)
+        );
+
+        const body = {
+          name: allocationForm.name,
+          description: allocationForm.description,
+          category:
+            selectedCategory?.name || allocationForm.category || "general",
+          categoryId: allocationForm.categoryId || "",
+          budgetedAmount: parseFloat(allocationForm.amount),
+          startDate: allocationForm.startDate || "",
+          endDate: allocationForm.endDate || "",
+          allocationType: inferredType,
+          priority: allocationForm.priority || "medium",
+        };
+
+        if (inferredType === "department")
+          body.departmentId = allocationForm.departmentId || "";
+        if (inferredType === "task") body.taskId = allocationForm.taskId || "";
+        if (inferredType === "activity")
+          body.activityId = allocationForm.activityId || "";
+        if (inferredType === "milestone")
+          body.milestoneId = allocationForm.milestoneId || "";
+
+        const response = await fetch(
+          `/api/projects/${projectId}/budget/allocations/${editingAllocationId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        );
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to update allocation");
         }
-      );
-
-      const data = await response.json();
-      if (data.success) {
-        setShowAllocationModal(false);
-        setShowAllocationEditModal(false);
-        setEditingAllocationId(null);
-        resetAllocationForm();
-        fetchFinancialData(); // Refresh the budget data
-      } else {
-        setError(data.error);
+        return data;
+      },
+      {
+        successTitle: "Allocation Updated!",
+        successText: "Budget allocation has been updated successfully",
+        errorTitle: "Allocation Error",
       }
-    } catch (err) {
-      setError("Failed to update allocation: " + err.message);
+    );
+
+    if (result?.success) {
+      setShowAllocationModal(false);
+      setShowAllocationEditModal(false);
+      setEditingAllocationId(null);
+      resetAllocationForm();
+      fetchFinancialData();
     }
   };
 
   const handleEditAllocation = async (allocation) => {
     try {
-      // Set the allocation form with current allocation data
+      const matchedCategory = budgetAllocationCategories.find(
+        (c) =>
+          String(c._id) === String(allocation.categoryId) ||
+          c.name === allocation.category
+      );
+
       setAllocationForm({
         name: allocation.name || "",
         description: allocation.description || "",
-        category: allocation.category || "",
+        category: allocation.category || matchedCategory?.name || "general",
+        categoryId: allocation.categoryId || matchedCategory?._id || "",
         amount: (
           allocation.amount ??
           allocation.budgetedAmount ??
@@ -756,8 +1270,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         taskId: allocation.taskId || "",
         activityId: allocation.activityId || "",
         milestoneId: allocation.milestoneId || "",
-        startDate: allocation.startDate || "",
-        endDate: allocation.endDate || "",
+        priority: allocation.priority || "medium",
+        startDate: toDateInputValue(allocation.startDate),
+        endDate: toDateInputValue(allocation.endDate),
+        tags: allocation.tags || [],
         allocationType:
           allocation.allocationType ||
           (allocation.departmentId
@@ -771,7 +1287,6 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             : "general"),
       });
 
-      // Store the allocation ID for updating
       setEditingAllocationId(allocation._id);
       setShowAllocationEditModal(true);
     } catch (err) {
@@ -780,26 +1295,37 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleDeleteAllocation = async (allocationId) => {
-    if (!confirm("Are you sure you want to delete this allocation?")) {
-      return;
-    }
+    const confirmed = await showDeleteConfirmDialog(
+      "Delete Allocation",
+      "Are you sure you want to delete this allocation? This action cannot be undone.",
+      "Delete",
+      "Cancel"
+    );
 
-    try {
-      const response = await fetch(
-        `/api/projects/${projectId}/budget/allocations/${allocationId}`,
-        {
-          method: "DELETE",
+    if (!confirmed?.isConfirmed) return;
+
+    const result = await runAction(
+      "delete-allocation",
+      async () => {
+        const response = await fetch(
+          `/api/projects/${projectId}/budget/allocations/${allocationId}`,
+          { method: "DELETE" }
+        );
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to delete allocation");
         }
-      );
-
-      const data = await response.json();
-      if (data.success) {
-        fetchFinancialData(); // Refresh the budget data
-      } else {
-        setError(data.error);
+        return data;
+      },
+      {
+        successTitle: "Allocation Deleted!",
+        successText: "Budget allocation has been deleted successfully",
+        errorTitle: "Delete Error",
       }
-    } catch (err) {
-      setError("Failed to delete allocation: " + err.message);
+    );
+
+    if (result?.success) {
+      fetchFinancialData();
     }
   };
 
@@ -823,10 +1349,11 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }));
 
     // Clear field-specific error when user starts typing
-    if (budgetFormErrors[field]) {
+    if (budgetFormErrors[field] || budgetFormErrors.budgetAllocations) {
       setBudgetFormErrors((prev) => ({
         ...prev,
         [field]: "",
+        ...(field === "totalAmount" ? { budgetAllocations: "" } : {}),
       }));
     }
   };
@@ -888,12 +1415,35 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       dueDate: "",
       paymentMethod: "bank_transfer",
       clientName: "",
-      clientEmail: "",
+      categoryId: "",
       invoiceNumber: "",
       status: "pending",
       paymentReference: "",
       notes: "",
     });
+    setIncomeFormErrors({});
+  };
+
+  const handleIncomeFormChange = (field, value) => {
+    setIncomeForm((prev) => ({ ...prev, [field]: value }));
+    if (incomeFormErrors[field]) {
+      setIncomeFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
+  const handleExpectedPaymentFormChange = (field, value) => {
+    setExpectedPaymentForm((prev) => ({ ...prev, [field]: value }));
+    if (expectedPaymentFormErrors[field]) {
+      setExpectedPaymentFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
   const resetAllocationForm = () => {
@@ -917,12 +1467,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     setEditingAllocationId(null);
   };
 
-  const formatCurrency = (amount, currency = "ETB") => {
-    return new Intl.NumberFormat("en-ET", {
-      style: "currency",
-      currency: "ETB",
-    }).format(amount || 0);
-  };
+  const formatCurrency = (amount, currency = "ETB") =>
+    formatCurrencyUtil(amount, currency);
 
   const formatDate = (date) => {
     if (!date) return "Not set";
@@ -936,132 +1482,108 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-11 w-11 rounded-full border-2 border-slate-200 border-t-blue-600 animate-spin" />
+          <p className="text-sm text-slate-500 animate-pulse">
+            Loading financial data…
+          </p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-7xl mx-auto p-3 sm:p-6 bg-white min-h-screen">
-      {/* Header */}
-      <div className="mb-6 sm:mb-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-black mb-2">
-              Financial Management
-            </h1>
-            <p className="text-gray-600 text-sm sm:text-base">{projectName}</p>
-          </div>
+  const financeTabs = [
+    { id: "overview", name: "Overview", icon: ChartBarIcon },
+    { id: "dashboard", name: "Dashboard", icon: ChartBarIcon },
+    { id: "entities", name: "Entities", icon: BuildingOfficeIcon },
+    { id: "budget", name: "Budget", icon: CurrencyDollarIcon },
+    { id: "expenses", name: "Expenses", icon: DocumentTextIcon },
+    { id: "income", name: "Income", icon: ArrowTrendingUpIcon },
+    { id: "reports", name: "Reports", icon: EyeIcon },
+  ];
 
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+  return (
+    <div className="w-full min-w-0 space-y-5 sm:space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-blue-50/40 p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Project finances
+            </p>
+            <p className="mt-1 text-lg sm:text-xl font-semibold text-slate-900 truncate">
+              {projectName}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {!budgetData ? (
               <button
                 onClick={() => setShowBudgetModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+                disabled={!!actionLoading}
+                className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 hover:shadow disabled:opacity-60"
               >
-                <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden xs:inline">Create Budget</span>
-                <span className="xs:hidden">Budget</span>
+                <PlusIcon className="w-4 h-4" />
+                Create Budget
               </button>
             ) : (
               <button
                 onClick={handleOpenEditBudget}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+                disabled={!!actionLoading}
+                className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 hover:shadow disabled:opacity-60"
               >
-                <PencilIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden xs:inline">Edit Budget</span>
-                <span className="xs:hidden">Budget</span>
+                <PencilIcon className="w-4 h-4" />
+                Edit Budget
               </button>
             )}
-
             <button
-              onClick={() => setShowExpenseModal(true)}
-              className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+              onClick={() => {
+                resetExpenseForm();
+                setEditingExpenseId(null);
+                setShowExpenseModal(true);
+              }}
+              disabled={!!actionLoading}
+              className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 hover:shadow disabled:opacity-60"
             >
-              <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden xs:inline">Add Expense</span>
-              <span className="xs:hidden">Expense</span>
+              <PlusIcon className="w-4 h-4" />
+              Add Expense
             </button>
-            {/*}
             <button
-              onClick={() => setShowIncomeModal(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+              onClick={() => {
+                setExpectedPaymentFormErrors({});
+                setShowExpectedPaymentModal(true);
+              }}
+              disabled={!!actionLoading}
+              className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 hover:shadow disabled:opacity-60"
             >
-              <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden xs:inline">Add Income</span>
-              <span className="xs:hidden">Income</span>
-            </button>*/}
-
-            <button
-              onClick={() => setShowExpectedPaymentModal(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
-            >
-              <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden xs:inline">Add Expected Payment</span>
-              <span className="xs:hidden">Expected Payment</span>
+              <PlusIcon className="w-4 h-4" />
+              Expected Income
             </button>
           </div>
         </div>
-
-        {error && (
-          <div className="mt-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center gap-2">
-              <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
-              <span className="text-red-700 text-sm sm:text-base">{error}</span>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="border-b border-gray-200 mb-4 sm:mb-6">
-        <nav className="flex overflow-x-auto scrollbar-hide space-x-2 sm:space-x-8 pb-2 sm:pb-0">
-          {[
-            { id: "overview", name: "Overview", icon: ChartBarIcon },
-            {
-              id: "dashboard",
-              name: "Financial Dashboard",
-              shortName: "Dashboard",
-              icon: ChartBarIcon,
-            },
-            {
-              id: "entities",
-              name: "Entity Management",
-              shortName: "Entities",
-              icon: BuildingOfficeIcon,
-            },
-            {
-              id: "budget",
-              name: "Budget & Allocations",
-              shortName: "Budget",
-              icon: CurrencyDollarIcon,
-            },
-            { id: "expenses", name: "Expenses", icon: DocumentTextIcon },
-            {
-              id: "income",
-              name: "Income & Payments",
-              shortName: "Income",
-              icon: ArrowTrendingUpIcon,
-            },
-            {
-              id: "reports",
-              name: "Reports & Analytics",
-              shortName: "Reports",
-              icon: EyeIcon,
-            },
-          ].map((tab) => (
+      {error && (
+        <div className="p-3 sm:p-4 bg-red-50 border border-red-200 rounded-xl animate-[fadeIn_0.25s_ease-out]">
+          <div className="flex items-center gap-2">
+            <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
+            <span className="text-red-700 text-sm sm:text-base">{error}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-xl border border-slate-200 bg-white p-1">
+        <nav className="flex overflow-x-auto gap-1 scrollbar-hide">
+          {financeTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 transition-colors whitespace-normal break-words flex-shrink-0 ${
+              className={`py-2.5 px-3 rounded-lg font-medium text-xs sm:text-sm inline-flex items-center gap-1.5 transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
               }`}
             >
-              <tab.icon className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">{tab.name}</span>
-              <span className="sm:hidden">{tab.shortName || tab.name}</span>
+              <tab.icon className="w-4 h-4" />
+              <span>{tab.name}</span>
             </button>
           ))}
         </nav>
@@ -1069,137 +1591,338 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
       {/* Expected Payment Modal */}
       {showExpectedPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-xl">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
-              <h3 className="text-base sm:text-lg font-semibold text-black">
-                Add Expected Payment
-              </h3>
-            </div>
-            <div className="p-4 sm:p-6 space-y-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Title *
-                </label>
-                <input
-                  type="text"
-                  value={expectedPaymentForm.title}
-                  onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      title: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="e.g., Phase 1 Payment"
-                />
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Expected Amount *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={expectedPaymentForm.expectedAmount}
-                  onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      expectedAmount: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Client Name
-                </label>
-                <input
-                  type="text"
-                  value={expectedPaymentForm.clientName}
-                  onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      clientName: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="Client name"
-                />
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Due Date
-                </label>
-                <input
-                  type="date"
-                  value={expectedPaymentForm.dueDate}
-                  onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      dueDate: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  rows={2}
-                  value={expectedPaymentForm.description}
-                  onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      description: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="Describe the payment"
-                />
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Notes
-                </label>
-                <textarea
-                  rows={2}
-                  value={expectedPaymentForm.notes}
-                  onChange={(e) =>
-                    setExpectedPaymentForm((p) => ({
-                      ...p,
-                      notes: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="Any additional notes"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 p-4 sm:p-6 border-t border-gray-200">
+        <ModalChrome
+          maxWidth="max-w-xl"
+          title="Set Expected Income"
+          subtitle="Due date is required. Collect later as partial or full payment."
+          footer={
+            <>
               <button
-                onClick={() => setShowExpectedPaymentModal(false)}
-                className="px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                onClick={() => {
+                  if (actionLoading === "expected") return;
+                  setShowExpectedPaymentModal(false);
+                  setExpectedPaymentFormErrors({});
+                }}
+                disabled={actionLoading === "expected"}
+                className={cancelBtnClass}
               >
                 Cancel
               </button>
-              <button
+              <ActionButton
                 onClick={handleAddExpectedPayment}
+                loading={actionLoading === "expected"}
+                loadingText="Saving…"
                 disabled={
                   !expectedPaymentForm.title ||
-                  !expectedPaymentForm.expectedAmount
+                  !expectedPaymentForm.expectedAmount ||
+                  !expectedPaymentForm.dueDate
                 }
-                className="px-4 py-2 text-sm sm:text-base text-white rounded-md bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 shadow-sm transition-all duration-200 disabled:opacity-50"
               >
-                Add Expected Payment
-              </button>
-            </div>
+                Set Expected Income
+              </ActionButton>
+            </>
+          }
+        >
+          <div>
+            <label className={fieldLabelClass}>Title *</label>
+            <input
+              type="text"
+              value={expectedPaymentForm.title}
+              onChange={(e) =>
+                handleExpectedPaymentFormChange("title", e.target.value)
+              }
+              disabled={actionLoading === "expected"}
+              className={fieldInputClass(!!expectedPaymentFormErrors.title)}
+              placeholder="e.g., Phase 1 Payment"
+            />
+            {expectedPaymentFormErrors.title && (
+              <p className={fieldErrorClass}>
+                {expectedPaymentFormErrors.title}
+              </p>
+            )}
           </div>
-        </div>
+          <div>
+            <label className={fieldLabelClass}>Expected Amount *</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={expectedPaymentForm.expectedAmount}
+              onChange={(e) =>
+                handleExpectedPaymentFormChange(
+                  "expectedAmount",
+                  e.target.value
+                )
+              }
+              disabled={actionLoading === "expected"}
+              className={fieldInputClass(
+                !!expectedPaymentFormErrors.expectedAmount
+              )}
+              placeholder="0.00"
+            />
+            {expectedPaymentFormErrors.expectedAmount && (
+              <p className={fieldErrorClass}>
+                {expectedPaymentFormErrors.expectedAmount}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Client Name</label>
+            <input
+              type="text"
+              value={expectedPaymentForm.clientName}
+              onChange={(e) =>
+                handleExpectedPaymentFormChange("clientName", e.target.value)
+              }
+              disabled={actionLoading === "expected"}
+              className={fieldInputClass()}
+              placeholder="Client name"
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Category</label>
+            <select
+              value={expectedPaymentForm.categoryId}
+              onChange={(e) =>
+                handleExpectedPaymentFormChange("categoryId", e.target.value)
+              }
+              disabled={actionLoading === "expected"}
+              className={fieldInputClass()}
+            >
+              <option value="">Select Category</option>
+              {incomeCategories.map((category) => (
+                <option key={category._id} value={category._id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Due Date *</label>
+            <input
+              type="date"
+              value={expectedPaymentForm.dueDate}
+              onChange={(e) =>
+                handleExpectedPaymentFormChange("dueDate", e.target.value)
+              }
+              disabled={actionLoading === "expected"}
+              className={fieldInputClass(!!expectedPaymentFormErrors.dueDate)}
+            />
+            {expectedPaymentFormErrors.dueDate && (
+              <p className={fieldErrorClass}>
+                {expectedPaymentFormErrors.dueDate}
+              </p>
+            )}
+            <p className="text-xs text-slate-500 mt-1">
+              Auto-marked overdue if this date passes without full collection.
+            </p>
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Description</label>
+            <textarea
+              rows={2}
+              value={expectedPaymentForm.description}
+              onChange={(e) =>
+                handleExpectedPaymentFormChange("description", e.target.value)
+              }
+              disabled={actionLoading === "expected"}
+              className={fieldInputClass()}
+              placeholder="Describe the payment"
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Notes</label>
+            <textarea
+              rows={2}
+              value={expectedPaymentForm.notes}
+              onChange={(e) =>
+                handleExpectedPaymentFormChange("notes", e.target.value)
+              }
+              disabled={actionLoading === "expected"}
+              className={fieldInputClass()}
+              placeholder="Any additional notes"
+            />
+          </div>
+        </ModalChrome>
+      )}
+
+      {showCollectModal && collectingIncome && (
+        <ModalChrome
+          maxWidth="max-w-lg"
+          title="Collect Payment"
+          subtitle={`${collectingIncome.title} · Remaining ${formatCurrency(
+            Math.max(
+              0,
+              (Number(collectingIncome.expectedAmount) || 0) -
+                (Number(collectingIncome.amount) || 0)
+            )
+          )}`}
+          footer={
+            <>
+              <button
+                onClick={() => {
+                  if (actionLoading === "collect") return;
+                  setShowCollectModal(false);
+                  setCollectingIncome(null);
+                }}
+                disabled={actionLoading === "collect"}
+                className={cancelBtnClass}
+              >
+                Cancel
+              </button>
+              <ActionButton
+                onClick={handleCollectPayment}
+                loading={actionLoading === "collect"}
+                loadingText="Collecting…"
+                disabled={!collectForm.collectAmount}
+                className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm disabled:opacity-50"
+              >
+                Record Collection
+              </ActionButton>
+            </>
+          }
+        >
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs sm:text-sm text-slate-600 space-y-1">
+            <p>
+              Expected:{" "}
+              <span className="font-semibold text-slate-900">
+                {formatCurrency(collectingIncome.expectedAmount)}
+              </span>
+            </p>
+            <p>
+              Already received:{" "}
+              <span className="font-semibold text-slate-900">
+                {formatCurrency(collectingIncome.amount)}
+              </span>
+            </p>
+            <p>
+              Due:{" "}
+              <span className="font-semibold text-slate-900">
+                {formatDate(collectingIncome.dueDate)}
+              </span>
+            </p>
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Amount Received Now *</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={collectForm.collectAmount}
+              onChange={(e) => {
+                setCollectForm((p) => ({
+                  ...p,
+                  collectAmount: e.target.value,
+                }));
+                if (collectFormErrors.collectAmount) {
+                  setCollectFormErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.collectAmount;
+                    return next;
+                  });
+                }
+              }}
+              disabled={actionLoading === "collect"}
+              className={fieldInputClass(!!collectFormErrors.collectAmount)}
+              placeholder="0.00"
+            />
+            {collectFormErrors.collectAmount && (
+              <p className={fieldErrorClass}>
+                {collectFormErrors.collectAmount}
+              </p>
+            )}
+            <p className="text-xs text-slate-500 mt-1">
+              Full remaining → Collected. Less than remaining → Partial.
+            </p>
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Received Date *</label>
+            <input
+              type="date"
+              value={collectForm.receivedDate}
+              onChange={(e) =>
+                setCollectForm((p) => ({
+                  ...p,
+                  receivedDate: e.target.value,
+                }))
+              }
+              disabled={actionLoading === "collect"}
+              className={fieldInputClass(!!collectFormErrors.receivedDate)}
+            />
+            {collectFormErrors.receivedDate && (
+              <p className={fieldErrorClass}>
+                {collectFormErrors.receivedDate}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Invoice Number</label>
+            <input
+              type="text"
+              value={collectForm.invoiceNumber}
+              onChange={(e) =>
+                setCollectForm((p) => ({
+                  ...p,
+                  invoiceNumber: e.target.value,
+                }))
+              }
+              disabled={actionLoading === "collect"}
+              className={fieldInputClass()}
+              placeholder="e.g., INV-2026-001"
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Payment Type</label>
+            <select
+              value={collectForm.paymentMethod}
+              onChange={(e) =>
+                setCollectForm((p) => ({
+                  ...p,
+                  paymentMethod: e.target.value,
+                }))
+              }
+              disabled={actionLoading === "collect"}
+              className={fieldInputClass()}
+            >
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="cash">Cash</option>
+              <option value="check">Check</option>
+              <option value="wire_transfer">Wire Transfer</option>
+              <option value="credit_card">Credit Card</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Payment Reference</label>
+            <input
+              type="text"
+              value={collectForm.paymentReference}
+              onChange={(e) =>
+                setCollectForm((p) => ({
+                  ...p,
+                  paymentReference: e.target.value,
+                }))
+              }
+              disabled={actionLoading === "collect"}
+              className={fieldInputClass()}
+              placeholder="Transaction / receipt ref"
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Notes</label>
+            <textarea
+              rows={2}
+              value={collectForm.notes}
+              onChange={(e) =>
+                setCollectForm((p) => ({ ...p, notes: e.target.value }))
+              }
+              disabled={actionLoading === "collect"}
+              className={fieldInputClass()}
+              placeholder="Optional notes"
+            />
+          </div>
+        </ModalChrome>
       )}
 
       {/* Tab Content */}
@@ -1211,6 +1934,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             income={income}
             financialReports={financialReports}
             formatCurrency={formatCurrency}
+            currencyTitle={currencyTitle}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
           />
@@ -1228,6 +1952,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           <BudgetTab
             budgetData={budgetData}
             formatCurrency={formatCurrency}
+            currencyTitle={currencyTitle}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
             onCreateBudget={() => setShowBudgetModal(true)}
@@ -1241,6 +1966,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             expenses={expenses}
             budgetData={budgetData}
             formatCurrency={formatCurrency}
+            currencyTitle={currencyTitle}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
             onEditExpense={handleOpenEditExpense}
@@ -1250,12 +1976,19 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
         {activeTab === "income" && (
           <IncomeTab
+            projectId={projectId}
             income={income}
             formatCurrency={formatCurrency}
+            currencyTitle={currencyTitle}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
+            onCollectIncome={openCollectModal}
             onEditIncome={handleOpenEditIncome}
             onDeleteIncome={handleDeleteIncome}
+            onAddExpected={() => {
+              setExpectedPaymentFormErrors({});
+              setShowExpectedPaymentModal(true);
+            }}
           />
         )}
 
@@ -1264,6 +1997,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             projectId={projectId}
             financialReports={financialReports}
             formatCurrency={formatCurrency}
+            currencyTitle={currencyTitle}
             getStatusColor={getStatusColor}
           />
         )}
@@ -1292,6 +2026,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           activities={activities}
           budgetAllocationCategories={budgetAllocationCategories}
           isEdit={false}
+          actionLoading={actionLoading}
         />
       )}
 
@@ -1317,6 +2052,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           activities={activities}
           budgetAllocationCategories={budgetAllocationCategories}
           isEdit={true}
+          actionLoading={actionLoading}
         />
       )}
 
@@ -1333,340 +2069,384 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           setEditingExpenseId={setEditingExpenseId}
           resetExpenseForm={resetExpenseForm}
           isEdit={!!editingExpenseId}
+          actionLoading={actionLoading}
         />
       )}
 
       {showIncomeModal && (
         <IncomeModal
           incomeForm={incomeForm}
-          setIncomeForm={setIncomeForm}
+          incomeFormErrors={incomeFormErrors}
+          handleIncomeFormChange={handleIncomeFormChange}
           onSubmit={editingIncomeId ? handleEditIncome : handleAddIncome}
           onClose={() => {
+            if (actionLoading === "income") return;
             setShowIncomeModal(false);
             setEditingIncomeId(null);
+            setIncomeFormErrors({});
           }}
           incomeCategories={incomeCategories}
           isEdit={!!editingIncomeId}
+          actionLoading={actionLoading}
         />
       )}
 
-      {showAllocationEditModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
-              <h4 className="text-base sm:text-lg font-semibold text-black">
-                Edit Budget Allocation
-              </h4>
-            </div>
+      {showAllocationEditModal && (() => {
+        const availableAmount = getAvailableBudgetForEditAllocation();
+        const currentAllocation = (budgetData?.allocations || []).find(
+          (alloc) => String(alloc._id) === String(editingAllocationId)
+        );
+        const spentAmount = Number(currentAllocation?.spentAmount) || 0;
+        const otherAllocated =
+          (Number(budgetData?.totalAmount) || 0) - availableAmount;
+        const currency = budgetData?.currency || "ETB";
+        const isSavingAllocation = actionLoading === "allocation";
+        const closeEditAllocation = () => {
+          if (isSavingAllocation) return;
+          setShowAllocationEditModal(false);
+          setEditingAllocationId(null);
+          resetAllocationForm();
+          setAllocationFormErrors({});
+        };
 
-            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Allocation Name *
-                </label>
+        return (
+          <ModalChrome
+            nested
+            maxWidth="max-w-lg"
+            title="Edit Budget Allocation"
+            subtitle="Adjust amount, category, and schedule within available budget"
+            onClose={closeEditAllocation}
+            closeDisabled={isSavingAllocation}
+            footer={
+              <>
+                <button
+                  onClick={closeEditAllocation}
+                  disabled={isSavingAllocation}
+                  className={`${cancelBtnClass} order-2 sm:order-1`}
+                >
+                  Cancel
+                </button>
+                <ActionButton
+                  onClick={handleUpdateAllocation}
+                  loading={isSavingAllocation}
+                  loadingText="Saving…"
+                  disabled={!allocationForm.name || !allocationForm.amount}
+                  className={`${primaryBtnClass} order-1 sm:order-2`}
+                >
+                  Save Changes
+                </ActionButton>
+              </>
+            }
+          >
+            <BudgetAvailabilityCard
+              total={budgetData?.totalAmount || 0}
+              allocated={otherAllocated}
+              remaining={availableAmount}
+              currency={currency}
+              overBudget={availableAmount < -0.001}
+            />
+
+            {spentAmount > 0 && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Already spent: {formatMoneyDisplay(spentAmount, currency)}.
+                Amount cannot go below this.
+              </p>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="sm:col-span-2">
+                <label className={fieldLabelClass}>Allocation Name *</label>
                 <input
                   type="text"
                   value={allocationForm.name}
                   onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
+                    handleAllocationFormChange("name", e.target.value)
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  required
+                  disabled={isSavingAllocation}
+                  className={fieldInputClass(!!allocationFormErrors.name)}
+                  placeholder="e.g., Field Operations"
                 />
+                {allocationFormErrors.name && (
+                  <p className={fieldErrorClass}>{allocationFormErrors.name}</p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Category
-                </label>
-                <input
-                  type="text"
-                  value={allocationForm.category}
-                  onChange={(e) =>
+                <label className={fieldLabelClass}>Category</label>
+                <select
+                  value={allocationForm.categoryId || ""}
+                  onChange={(e) => {
+                    const cat = budgetAllocationCategories.find(
+                      (c) => String(c._id) === e.target.value
+                    );
                     setAllocationForm((prev) => ({
                       ...prev,
-                      category: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="general"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Amount *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={allocationForm.amount}
-                  onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      amount: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={allocationForm.description}
-                  onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={allocationForm.startDate || ""}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
+                      categoryId: e.target.value,
+                      category: cat?.name || prev.category,
+                    }));
+                    if (allocationFormErrors.category) {
+                      setAllocationFormErrors((prev) => ({
                         ...prev,
-                        startDate: e.target.value,
-                      }))
+                        category: "",
+                      }));
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={allocationForm.endDate || ""}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
-                        ...prev,
-                        endDate: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
+                  }}
+                  disabled={isSavingAllocation}
+                  className={fieldInputClass()}
+                >
+                  <option value="">Select category</option>
+                  {budgetAllocationCategories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Allocation type display and targeted selector */}
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                  Allocation Type
-                </label>
-                <div className="inline-flex items-center px-2 py-1 rounded border text-xs bg-gray-50 text-gray-700">
-                  {allocationForm.allocationType?.charAt(0).toUpperCase() +
-                    allocationForm.allocationType?.slice(1)}
-                </div>
-              </div>
-
-              {allocationForm.allocationType === "department" && (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Department
-                  </label>
-                  {Array.isArray(departments) && departments.length > 0 ? (
-                    <select
-                      value={allocationForm.departmentId || ""}
-                      onChange={(e) =>
-                        setAllocationForm((prev) => ({
-                          ...prev,
-                          departmentId: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                    >
-                      <option value="">Select department</option>
-                      {departments.map((d) => (
-                        <option key={d._id || d.id} value={d._id || d.id}>
-                          {d.name || d.title}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={allocationForm.departmentId || ""}
-                      onChange={(e) =>
-                        setAllocationForm((prev) => ({
-                          ...prev,
-                          departmentId: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  )}
-                </div>
-              )}
-
-              {allocationForm.allocationType === "task" && (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Task
-                  </label>
-                  {Array.isArray(tasks) && tasks.length > 0 ? (
-                    <select
-                      value={allocationForm.taskId || ""}
-                      onChange={(e) =>
-                        setAllocationForm((prev) => ({
-                          ...prev,
-                          taskId: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                    >
-                      <option value="">Select task</option>
-                      {tasks.map((t) => (
-                        <option key={t._id || t.id} value={t._id || t.id}>
-                          {t.name || t.title}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={allocationForm.taskId || ""}
-                      onChange={(e) =>
-                        setAllocationForm((prev) => ({
-                          ...prev,
-                          taskId: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  )}
-                </div>
-              )}
-
-              {allocationForm.allocationType === "activity" && (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Activity
-                  </label>
-                  {Array.isArray(activities) && activities.length > 0 ? (
-                    <select
-                      value={allocationForm.activityId || ""}
-                      onChange={(e) =>
-                        setAllocationForm((prev) => ({
-                          ...prev,
-                          activityId: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                    >
-                      <option value="">Select activity</option>
-                      {activities.map((a) => (
-                        <option key={a._id || a.id} value={a._id || a.id}>
-                          {a.name || a.title}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={allocationForm.activityId || ""}
-                      onChange={(e) =>
-                        setAllocationForm((prev) => ({
-                          ...prev,
-                          activityId: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  )}
-                </div>
-              )}
-
-              {allocationForm.allocationType === "milestone" && (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Milestone
-                  </label>
-                  {Array.isArray(milestones) && milestones.length > 0 ? (
-                    <select
-                      value={allocationForm.milestoneId || ""}
-                      onChange={(e) =>
-                        setAllocationForm((prev) => ({
-                          ...prev,
-                          milestoneId: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                    >
-                      <option value="">Select milestone</option>
-                      {milestones.map((m) => (
-                        <option key={m._id || m.id} value={m._id || m.id}>
-                          {m.name || m.title}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={allocationForm.milestoneId || ""}
-                      onChange={(e) =>
-                        setAllocationForm((prev) => ({
-                          ...prev,
-                          milestoneId: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  )}
-                </div>
-              )}
-
-              {allocationForm.allocationType === "general" && (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Allocation Scope
-                  </label>
+                <label className={fieldLabelClass}>Amount *</label>
+                <div className="relative">
                   <input
-                    type="text"
-                    value="General"
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-200 bg-gray-100 rounded-md text-sm text-gray-700"
+                    type="number"
+                    step="0.01"
+                    min={spentAmount > 0 ? spentAmount : 0.01}
+                    max={Math.max(availableAmount, spentAmount, 0.01)}
+                    value={allocationForm.amount}
+                    onChange={(e) =>
+                      handleAllocationFormChange("amount", e.target.value)
+                    }
+                    disabled={isSavingAllocation}
+                    className={fieldInputClass(!!allocationFormErrors.amount)}
+                    placeholder="0.00"
                   />
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
+                    {currency}
+                  </span>
                 </div>
+                {allocationFormErrors.amount ? (
+                  <p className={fieldErrorClass}>
+                    {allocationFormErrors.amount}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Max available: {formatMoneyDisplay(availableAmount, currency)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className={fieldLabelClass}>Description</label>
+              <textarea
+                value={allocationForm.description}
+                onChange={(e) =>
+                  handleAllocationFormChange("description", e.target.value)
+                }
+                disabled={isSavingAllocation}
+                className={fieldInputClass(!!allocationFormErrors.description)}
+                rows={2}
+                placeholder="Optional notes for this allocation"
+              />
+              {allocationFormErrors.description && (
+                <p className={fieldErrorClass}>
+                  {allocationFormErrors.description}
+                </p>
               )}
             </div>
 
-            <div className="flex justify-end gap-2 p-4 border-t border-gray-200">
-              <button
-                onClick={() => setShowAllocationEditModal(false)}
-                className="px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdateAllocation}
-                disabled={!allocationForm.name || !allocationForm.amount}
-                className="px-4 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Save Changes
-              </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <label className={fieldLabelClass}>Start Date</label>
+                <input
+                  type="date"
+                  value={allocationForm.startDate || ""}
+                  onChange={(e) =>
+                    handleAllocationFormChange("startDate", e.target.value)
+                  }
+                  disabled={isSavingAllocation}
+                  className={fieldInputClass(!!allocationFormErrors.startDate)}
+                />
+                {allocationFormErrors.startDate && (
+                  <p className={fieldErrorClass}>
+                    {allocationFormErrors.startDate}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className={fieldLabelClass}>End Date</label>
+                <input
+                  type="date"
+                  value={allocationForm.endDate || ""}
+                  min={allocationForm.startDate || undefined}
+                  onChange={(e) =>
+                    handleAllocationFormChange("endDate", e.target.value)
+                  }
+                  disabled={isSavingAllocation}
+                  className={fieldInputClass(!!allocationFormErrors.endDate)}
+                />
+                {allocationFormErrors.endDate && (
+                  <p className={fieldErrorClass}>
+                    {allocationFormErrors.endDate}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <label className={fieldLabelClass}>Allocation Type</label>
+                <div className="inline-flex items-center px-2.5 py-2 rounded-lg border border-slate-200 text-sm bg-slate-50 text-slate-700 w-full">
+                  {(allocationForm.allocationType || "general")
+                    .charAt(0)
+                    .toUpperCase() +
+                    (allocationForm.allocationType || "general").slice(1)}
+                </div>
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Priority</label>
+                <select
+                  value={allocationForm.priority || "medium"}
+                  onChange={(e) =>
+                    handleAllocationFormChange("priority", e.target.value)
+                  }
+                  disabled={isSavingAllocation}
+                  className={fieldInputClass()}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+            </div>
+
+            {allocationForm.allocationType === "department" && (
+              <div>
+                <label className={fieldLabelClass}>Department</label>
+                <select
+                  value={allocationForm.departmentId || ""}
+                  onChange={(e) =>
+                    handleAllocationFormChange("departmentId", e.target.value)
+                  }
+                  disabled={isSavingAllocation}
+                  className={fieldInputClass(!!allocationFormErrors.departmentId)}
+                >
+                  <option value="">Select department</option>
+                  {departments.map((d) => (
+                    <option key={d._id || d.id} value={d._id || d.id}>
+                      {d.name || d.title}
+                    </option>
+                  ))}
+                </select>
+                {allocationFormErrors.departmentId && (
+                  <p className={fieldErrorClass}>
+                    {allocationFormErrors.departmentId}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {allocationForm.allocationType === "task" && (
+              <div>
+                <label className={fieldLabelClass}>Task</label>
+                <select
+                  value={allocationForm.taskId || ""}
+                  onChange={(e) =>
+                    handleAllocationFormChange("taskId", e.target.value)
+                  }
+                  disabled={isSavingAllocation}
+                  className={fieldInputClass(!!allocationFormErrors.taskId)}
+                >
+                  <option value="">Select task</option>
+                  {tasks.map((t) => (
+                    <option key={t._id || t.id} value={t._id || t.id}>
+                      {t.name || t.title}
+                    </option>
+                  ))}
+                </select>
+                {allocationFormErrors.taskId && (
+                  <p className={fieldErrorClass}>
+                    {allocationFormErrors.taskId}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {allocationForm.allocationType === "activity" && (
+              <div>
+                <label className={fieldLabelClass}>Activity</label>
+                <select
+                  value={allocationForm.activityId || ""}
+                  onChange={(e) =>
+                    handleAllocationFormChange("activityId", e.target.value)
+                  }
+                  disabled={isSavingAllocation}
+                  className={fieldInputClass(!!allocationFormErrors.activityId)}
+                >
+                  <option value="">Select activity</option>
+                  {activities.map((a) => (
+                    <option key={a._id || a.id} value={a._id || a.id}>
+                      {a.name || a.title}
+                    </option>
+                  ))}
+                </select>
+                {allocationFormErrors.activityId && (
+                  <p className={fieldErrorClass}>
+                    {allocationFormErrors.activityId}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {allocationForm.allocationType === "milestone" && (
+              <div>
+                <label className={fieldLabelClass}>Milestone</label>
+                <select
+                  value={allocationForm.milestoneId || ""}
+                  onChange={(e) =>
+                    handleAllocationFormChange("milestoneId", e.target.value)
+                  }
+                  disabled={isSavingAllocation}
+                  className={fieldInputClass(!!allocationFormErrors.milestoneId)}
+                >
+                  <option value="">Select milestone</option>
+                  {milestones.map((m) => (
+                    <option key={m._id || m.id} value={m._id || m.id}>
+                      {m.name || m.title}
+                    </option>
+                  ))}
+                </select>
+                {allocationFormErrors.milestoneId && (
+                  <p className={fieldErrorClass}>
+                    {allocationFormErrors.milestoneId}
+                  </p>
+                )}
+              </div>
+            )}
+          </ModalChrome>
+        );
+      })()}
+
+      <style jsx global>{`
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 };
@@ -1678,106 +2458,77 @@ const OverviewTab = ({
   income,
   financialReports,
   formatCurrency,
+  currencyTitle,
   getStatusColor,
   formatDate,
 }) => {
   const summary = financialReports?.financialSummary || {};
-  const totalBudget = summary.totalBudget || 0;
-  const totalExpenses = summary.totalExpenses || 0;
-  const totalIncome = summary.totalIncome || 0;
-  const budgetUtilization = summary.budgetUtilization || 0;
-  const profitLoss = summary.profitLoss || 0;
+  const totalBudget =
+    Number(summary.totalBudget ?? budgetData?.totalAmount ?? 0) || 0;
+  const totalExpenses = Number(summary.totalExpenses ?? 0) || 0;
+  const totalIncome = Number(summary.totalIncome ?? 0) || 0;
+  const budgetUtilization =
+    Number(
+      summary.budgetUtilization ??
+        (totalBudget > 0 ? (totalExpenses / totalBudget) * 100 : 0)
+    ) || 0;
+  const remaining = Math.max(0, totalBudget - totalExpenses);
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs sm:text-sm font-medium text-gray-600">
-                Total Budget
-              </p>
-              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-black">
-                {formatCurrency(totalBudget)}
-              </p>
-            </div>
-            <div className="p-2 sm:p-3 bg-blue-50 rounded-lg">
-              <CurrencyDollarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs sm:text-sm font-medium text-gray-600">
-                Total Expenses
-              </p>
-              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-red-600">
-                {formatCurrency(totalExpenses)}
-              </p>
-            </div>
-            <div className="p-2 sm:p-3 bg-red-50 rounded-lg">
-              <ArrowTrendingDownIcon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs sm:text-sm font-medium text-gray-600">
-                Total Income
-              </p>
-              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600">
-                {formatCurrency(totalIncome)}
-              </p>
-            </div>
-            <div className="p-2 sm:p-3 bg-green-50 rounded-lg">
-              <ArrowTrendingUpIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-        {/*
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs sm:text-sm font-medium text-gray-600">
-                Profit/Loss
-              </p>
-              <p
-                className={`text-lg sm:text-xl lg:text-2xl font-bold ${
-                  profitLoss >= 0 ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                {formatCurrency(profitLoss)}
-              </p>
-            </div>
-            <div
-              className={`p-2 sm:p-3 rounded-lg ${
-                profitLoss >= 0 ? "bg-green-50" : "bg-red-50"
-              }`}
-            >
-              {profitLoss >= 0 ? (
-                <ArrowTrendingUpIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-              ) : (
-                <ArrowTrendingDownIcon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-              )}
-            </div>
-          </div>
-        </div>*/}
+    <div className="space-y-4 sm:space-y-5 min-w-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+        <MetricCard
+          label="Total Budget"
+          value={totalBudget}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={CurrencyDollarIcon}
+          iconBg="bg-blue-50"
+          iconColor="text-blue-600"
+          valueClassName="text-blue-900"
+        />
+        <MetricCard
+          label="Total Expenses"
+          value={totalExpenses}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={ArrowTrendingDownIcon}
+          iconBg="bg-rose-50"
+          iconColor="text-rose-600"
+          valueClassName="text-rose-600"
+        />
+        <MetricCard
+          label="Total Income"
+          value={totalIncome}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={ArrowTrendingUpIcon}
+          iconBg="bg-emerald-50"
+          iconColor="text-emerald-600"
+          valueClassName="text-emerald-600"
+        />
+        <MetricCard
+          label="Remaining"
+          value={remaining}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={CheckCircleIcon}
+          iconBg="bg-slate-50"
+          iconColor="text-slate-600"
+          subtitle={
+            totalBudget > 0
+              ? `${budgetUtilization.toFixed(1)}% utilized`
+              : "No budget set"
+          }
+        />
       </div>
 
-      {/* Budget Utilization */}
       {totalBudget > 0 && (
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 gap-2">
-            <h3 className="text-base sm:text-lg font-semibold text-black">
-              Budget Utilization
-            </h3>
+        <SectionPanel
+          title="Budget Utilization"
+          action={
             <span
-              className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border w-fit ${getStatusColor(
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${getStatusColor(
                 budgetUtilization > 100
                   ? "overrun"
                   : budgetUtilization > 90
@@ -1787,106 +2538,90 @@ const OverviewTab = ({
             >
               {budgetUtilization.toFixed(1)}%
             </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 mb-2">
+          }
+        >
+          <div className="w-full bg-slate-100 rounded-full h-3 mb-3 overflow-hidden">
             <div
-              className={`h-2 sm:h-3 rounded-full transition-all duration-300 ${
+              className={`h-3 rounded-full transition-all duration-500 ${
                 budgetUtilization > 100
-                  ? "bg-red-500"
+                  ? "bg-rose-500"
                   : budgetUtilization > 90
-                  ? "bg-yellow-500"
+                  ? "bg-amber-500"
                   : "bg-blue-500"
               }`}
               style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
-            ></div>
+            />
           </div>
-          <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0 text-xs sm:text-sm text-gray-600">
-            <span>Spent: {formatCurrency(totalExpenses)}</span>
-            <span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-600">
+            <p className="min-w-0 truncate" title={currencyTitle(totalExpenses)}>
+              Spent:{" "}
+              <span className="font-semibold text-slate-900 tabular-nums">
+                {formatCurrency(totalExpenses)}
+              </span>
+            </p>
+            <p
+              className="min-w-0 truncate sm:text-right"
+              title={currencyTitle(remaining)}
+            >
               Remaining:{" "}
-              {formatCurrency(Math.max(0, totalBudget - totalExpenses))}
-            </span>
+              <span className="font-semibold text-slate-900 tabular-nums">
+                {formatCurrency(remaining)}
+              </span>
+            </p>
           </div>
 
-          {/* Budget Overrun Warning */}
           {budgetUtilization > 100 && (
-            <div className="mt-3 sm:mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <div className="flex items-center gap-2">
-                <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
-                <span className="text-xs sm:text-sm font-medium text-red-800">
-                  Budget Overrun Alert
-                </span>
+            <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+              <div className="flex items-start gap-2">
+                <ExclamationTriangleIcon className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-rose-800">
+                    Budget Overrun
+                  </p>
+                  <p className="text-xs sm:text-sm text-rose-700 mt-0.5">
+                    Over by {formatCurrency(totalExpenses - totalBudget)} (
+                    {(budgetUtilization - 100).toFixed(1)}%)
+                  </p>
+                </div>
               </div>
-              <p className="text-xs sm:text-sm text-red-700 mt-1">
-                Project is {formatCurrency(totalExpenses - totalBudget)} over
-                budget ({(budgetUtilization - 100).toFixed(1)}% overrun)
-              </p>
             </div>
           )}
-        </div>
+        </SectionPanel>
       )}
 
-      {/* Budget Alerts */}
-      {budgetData?.alerts && budgetData.alerts.length > 0 && (
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-base sm:text-lg font-semibold text-black mb-3 sm:mb-4">
-            Budget Alerts & Notifications
-          </h3>
-          <div className="space-y-3">
+      {budgetData?.alerts?.length > 0 && (
+        <SectionPanel title="Budget Alerts" subtitle="Items that need attention">
+          <div className="space-y-2">
             {budgetData.alerts.map((alert, index) => (
               <div
                 key={index}
-                className={`p-3 sm:p-4 rounded-lg border-l-4 ${
+                className={`p-3 rounded-xl border-l-4 min-w-0 ${
                   alert.severity === "high"
-                    ? "bg-red-50 border-red-400"
+                    ? "bg-rose-50 border-rose-400"
                     : alert.severity === "medium"
-                    ? "bg-yellow-50 border-yellow-400"
+                    ? "bg-amber-50 border-amber-400"
                     : "bg-blue-50 border-blue-400"
                 }`}
               >
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="flex-shrink-0">
-                    {alert.severity === "high" ? (
-                      <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
-                    ) : alert.severity === "medium" ? (
-                      <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
-                    ) : (
-                      <CheckCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p
-                      className={`text-xs sm:text-sm font-medium ${
-                        alert.severity === "high"
-                          ? "text-red-800"
-                          : alert.severity === "medium"
-                          ? "text-yellow-800"
-                          : "text-blue-800"
-                      }`}
-                    >
-                      {alert.type.replace("_", " ").toUpperCase()}
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon
+                    className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                      alert.severity === "high"
+                        ? "text-rose-600"
+                        : alert.severity === "medium"
+                        ? "text-amber-600"
+                        : "text-blue-600"
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      {(alert.type || "").replace(/_/g, " ")}
                     </p>
-                    <p
-                      className={`text-xs sm:text-sm ${
-                        alert.severity === "high"
-                          ? "text-red-700"
-                          : alert.severity === "medium"
-                          ? "text-yellow-700"
-                          : "text-blue-700"
-                      }`}
-                    >
+                    <p className="text-sm text-slate-800 break-words">
                       {alert.message}
                     </p>
-                    {alert.amount && (
-                      <p
-                        className={`text-xs mt-1 font-medium ${
-                          alert.severity === "high"
-                            ? "text-red-600"
-                            : alert.severity === "medium"
-                            ? "text-yellow-600"
-                            : "text-blue-600"
-                        }`}
-                      >
+                    {alert.amount != null && (
+                      <p className="text-xs mt-1 font-medium tabular-nums text-slate-600">
                         Amount: {formatCurrency(Math.abs(alert.amount))}
                       </p>
                     )}
@@ -1895,144 +2630,168 @@ const OverviewTab = ({
               </div>
             ))}
           </div>
-        </div>
+        </SectionPanel>
       )}
 
-      {/* Budget Allocations Overview */}
-      {budgetData?.allocations && budgetData.allocations.length > 0 && (
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-base sm:text-lg font-semibold text-black mb-3 sm:mb-4">
-            Budget Allocations
-          </h3>
-          <div className="space-y-3 sm:space-y-4">
+      {budgetData?.allocations?.length > 0 && (
+        <SectionPanel
+          title="Budget Allocations"
+          subtitle={`${budgetData.allocations.length} allocation${
+            budgetData.allocations.length === 1 ? "" : "s"
+          }`}
+        >
+          <div className="space-y-3">
             {budgetData.allocations.map((allocation) => (
               <div
                 key={allocation._id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg gap-3 sm:gap-0"
+                className="p-3 sm:p-4 bg-slate-50 border border-slate-100 rounded-xl min-w-0"
               >
-                <div className="flex-1">
-                  <h4 className="text-sm sm:text-base font-medium text-black">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <h4 className="text-sm font-medium text-slate-900 truncate min-w-0">
                     {allocation.name || allocation.category}
                   </h4>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
-                    <span className="text-xs sm:text-sm text-gray-600">
-                      Budget: {formatCurrency(allocation.budgetedAmount)}
-                    </span>
-                    <span className="text-xs sm:text-sm text-gray-600">
-                      Spent: {formatCurrency(allocation.spentAmount)}
-                    </span>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
-                        allocation.status
-                      )} self-start sm:self-auto`}
-                    >
-                      {allocation.utilization?.toFixed(1)}%
-                    </span>
-                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-xs font-medium border flex-shrink-0 ${getStatusColor(
+                      allocation.status
+                    )}`}
+                  >
+                    {(allocation.utilization || 0).toFixed(1)}%
+                  </span>
                 </div>
-                <div className="w-full sm:w-24 bg-gray-200 rounded-full h-2">
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 mb-2">
+                  <p className="truncate">
+                    Budget:{" "}
+                    <span className="font-semibold text-slate-900 tabular-nums">
+                      {formatCurrency(allocation.budgetedAmount)}
+                    </span>
+                  </p>
+                  <p className="truncate">
+                    Spent:{" "}
+                    <span className="font-semibold text-rose-600 tabular-nums">
+                      {formatCurrency(allocation.spentAmount)}
+                    </span>
+                  </p>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-1.5">
                   <div
-                    className={`h-2 rounded-full ${
+                    className={`h-1.5 rounded-full ${
                       allocation.utilization > 100
-                        ? "bg-red-500"
+                        ? "bg-rose-500"
                         : allocation.utilization > 90
-                        ? "bg-yellow-500"
+                        ? "bg-amber-500"
                         : "bg-blue-500"
                     }`}
                     style={{
                       width: `${Math.min(allocation.utilization || 0, 100)}%`,
                     }}
-                  ></div>
+                  />
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </SectionPanel>
       )}
 
-      {/* Recent Transactions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Recent Expenses */}
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h3 className="text-base sm:text-lg font-semibold text-black">
-              Recent Expenses
-            </h3>
-            <span className="text-xs sm:text-sm text-gray-500">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SectionPanel
+          title="Recent Expenses"
+          action={
+            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
               {expenses.length} total
             </span>
-          </div>
-          <div className="space-y-3">
+          }
+          bodyClassName="p-3 sm:p-4"
+        >
+          <div className="space-y-2">
             {expenses.slice(0, 5).map((expense) => (
               <div
                 key={expense._id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2 sm:gap-0"
+                className="flex items-start justify-between gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl min-w-0"
               >
-                <div className="flex-1">
-                  <h4 className="text-sm sm:text-base font-medium text-black">
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm font-medium text-slate-900 truncate">
                     {expense.title}
                   </h4>
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    {expense.category} • {formatDate(expense.expenseDate)}
+                  <p className="text-xs text-slate-500 truncate">
+                    {expense.category} · {formatDate(expense.expenseDate)}
                   </p>
                 </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-sm sm:text-base font-semibold text-red-600">
+                <div className="text-right flex-shrink-0 max-w-[40%]">
+                  <p
+                    className="text-sm font-semibold text-rose-600 tabular-nums truncate"
+                    title={currencyTitle(expense.amount)}
+                  >
                     {formatCurrency(expense.amount)}
                   </p>
                   <span
-                    className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
+                    className={`inline-block mt-1 px-2 py-0.5 rounded-md text-xs font-medium border ${getStatusColor(
                       expense.status
-                    )} inline-block mt-1 sm:mt-0`}
+                    )}`}
                   >
                     {expense.status}
                   </span>
                 </div>
               </div>
             ))}
+            {expenses.length === 0 && (
+              <EmptyState
+                icon={DocumentTextIcon}
+                title="No expenses yet"
+                description="Add an expense to see it appear here."
+              />
+            )}
           </div>
-        </div>
+        </SectionPanel>
 
-        {/* Recent Income */}
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h3 className="text-base sm:text-lg font-semibold text-black">
-              Recent Income
-            </h3>
-            <span className="text-xs sm:text-sm text-gray-500">
+        <SectionPanel
+          title="Recent Income"
+          action={
+            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
               {income.length} total
             </span>
-          </div>
-          <div className="space-y-3">
+          }
+          bodyClassName="p-3 sm:p-4"
+        >
+          <div className="space-y-2">
             {income.slice(0, 5).map((inc) => (
               <div
                 key={inc._id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2 sm:gap-0"
+                className="flex items-start justify-between gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl min-w-0"
               >
-                <div className="flex-1">
-                  <h4 className="text-sm sm:text-base font-medium text-black">
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm font-medium text-slate-900 truncate">
                     {inc.title}
                   </h4>
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    {inc.clientName} • {formatDate(inc.receivedDate)}
+                  <p className="text-xs text-slate-500 truncate">
+                    {inc.clientName} · {formatDate(inc.receivedDate)}
                   </p>
                 </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-sm sm:text-base font-semibold text-green-600">
+                <div className="text-right flex-shrink-0 max-w-[40%]">
+                  <p
+                    className="text-sm font-semibold text-emerald-600 tabular-nums truncate"
+                    title={currencyTitle(inc.amount)}
+                  >
                     {formatCurrency(inc.amount)}
                   </p>
                   <span
-                    className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
+                    className={`inline-block mt-1 px-2 py-0.5 rounded-md text-xs font-medium border ${getStatusColor(
                       inc.status
-                    )} inline-block mt-1 sm:mt-0`}
+                    )}`}
                   >
                     {inc.status}
                   </span>
                 </div>
               </div>
             ))}
+            {income.length === 0 && (
+              <EmptyState
+                icon={ArrowTrendingUpIcon}
+                title="No income yet"
+                description="Record income or expected payments to track cash in."
+              />
+            )}
           </div>
-        </div>
+        </SectionPanel>
       </div>
     </div>
   );
@@ -2042,6 +2801,7 @@ const OverviewTab = ({
 const BudgetTab = ({
   budgetData,
   formatCurrency,
+  currencyTitle,
   getStatusColor,
   formatDate,
   onCreateBudget,
@@ -2050,94 +2810,211 @@ const BudgetTab = ({
 }) => {
   if (!budgetData) {
     return (
-      <div className="text-center py-8 sm:py-12 px-4">
-        <CurrencyDollarIcon className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" />
-        <h3 className="text-base sm:text-lg font-medium text-black mb-2">
-          No Budget Created
-        </h3>
-        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
-          Create a budget to start managing your project finances.
-        </p>
-        <button
-          onClick={onCreateBudget}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-colors flex items-center gap-2 mx-auto"
-        >
-          <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-          Create Budget
-        </button>
-      </div>
+      <SectionPanel>
+        <EmptyState
+          icon={CurrencyDollarIcon}
+          title="No budget created"
+          description="Create a budget to start managing allocations and tracking spend."
+          action={
+            <button
+              onClick={onCreateBudget}
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Create Budget
+            </button>
+          }
+        />
+      </SectionPanel>
     );
   }
 
+  const spent =
+    budgetData.allocations?.reduce(
+      (sum, a) => sum + (Number(a.spentAmount) || 0),
+      0
+    ) || 0;
+  const remaining = Math.max(
+    0,
+    (Number(budgetData.totalAmount) || 0) - spent
+  );
+
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Budget Summary */}
-      <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-        <h3 className="text-base sm:text-lg font-semibold text-black mb-3 sm:mb-4">
-          Budget Information
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          <div>
-            <p className="text-xs sm:text-sm text-gray-600">Total Budget</p>
-            <p className="text-xl sm:text-2xl font-bold text-black">
-              {formatCurrency(budgetData.totalAmount, budgetData.currency)}
+    <div className="space-y-4 sm:space-y-5 min-w-0">
+      <SectionPanel
+        title="Budget Information"
+        subtitle="Totals, spend, and approval details"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCard
+            label="Total Budget"
+            value={Number(budgetData.totalAmount) || 0}
+            formatCurrency={formatCurrency}
+            currencyTitle={currencyTitle}
+            icon={CurrencyDollarIcon}
+            valueClassName="text-blue-900"
+          />
+          <MetricCard
+            label="Spent"
+            value={spent}
+            formatCurrency={formatCurrency}
+            currencyTitle={currencyTitle}
+            icon={ArrowTrendingDownIcon}
+            iconBg="bg-rose-50"
+            iconColor="text-rose-600"
+            valueClassName="text-rose-600"
+          />
+          <MetricCard
+            label="Remaining"
+            value={remaining}
+            formatCurrency={formatCurrency}
+            currencyTitle={currencyTitle}
+            icon={CheckCircleIcon}
+            iconBg="bg-emerald-50"
+            iconColor="text-emerald-600"
+            valueClassName="text-emerald-700"
+          />
+          <div className="bg-slate-50 p-4 sm:p-5 rounded-xl border border-slate-200 min-w-0">
+            <p className="text-xs sm:text-sm font-medium text-slate-500">
+              Approval
             </p>
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm text-gray-600">Approved By</p>
-            <p className="text-sm sm:text-lg font-medium text-black">
+            <p className="mt-1 text-sm font-semibold text-slate-900 truncate">
               {budgetData.approvedBy || "Not specified"}
             </p>
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm text-gray-600">Approval Date</p>
-            <p className="text-sm sm:text-lg font-medium text-black">
+            <p className="mt-1 text-xs text-slate-500">
               {formatDate(budgetData.approvalDate)}
             </p>
           </div>
         </div>
         {budgetData.description && (
-          <div className="mt-3 sm:mt-4">
-            <p className="text-xs sm:text-sm text-gray-600">Description</p>
-            <p className="text-sm sm:text-base text-black">
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <p className="text-xs text-slate-500 mb-1">Description</p>
+            <p className="text-sm text-slate-800 break-words">
               {budgetData.description}
             </p>
           </div>
         )}
-      </div>
+      </SectionPanel>
 
-      {/* Budget Allocations */}
       {budgetData.allocations && budgetData.allocations.length > 0 && (
-        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-base sm:text-lg font-semibold text-black mb-3 sm:mb-4">
-            Budget Allocations
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+        <SectionPanel
+          title="Budget Allocations"
+          subtitle="Track spend against each allocation"
+          bodyClassName="p-4 sm:p-5"
+        >
+
+          {/* Mobile cards */}
+          <div className="space-y-3 lg:hidden">
+            {budgetData.allocations.map((allocation) => (
+              <div
+                key={allocation._id}
+                className="p-3 border border-gray-200 rounded-lg min-w-0"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-black truncate">
+                      {allocation.name || "Unnamed"}
+                    </p>
+                    <span className="inline-flex mt-1 px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">
+                      {allocation.category}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => handleEditAllocation(allocation)}
+                      className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded"
+                      title="Edit"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAllocation(allocation._id)}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                      title="Delete"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+                  <div className="min-w-0">
+                    <p className="text-gray-500">Budget</p>
+                    <p
+                      className="font-medium tabular-nums truncate"
+                      title={currencyTitle(allocation.budgetedAmount)}
+                    >
+                      {formatCurrency(allocation.budgetedAmount)}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-gray-500">Spent</p>
+                    <p
+                      className="font-medium text-red-600 tabular-nums truncate"
+                      title={currencyTitle(allocation.spentAmount)}
+                    >
+                      {formatCurrency(allocation.spentAmount)}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-gray-500">Left</p>
+                    <p
+                      className="font-medium tabular-nums truncate"
+                      title={currencyTitle(allocation.remainingAmount)}
+                    >
+                      {formatCurrency(allocation.remainingAmount)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full ${
+                        allocation.utilization > 100
+                          ? "bg-red-500"
+                          : allocation.utilization > 90
+                          ? "bg-yellow-500"
+                          : "bg-blue-500"
+                      }`}
+                      style={{
+                        width: `${Math.min(allocation.utilization || 0, 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs tabular-nums text-gray-700 w-10 text-right">
+                    {(allocation.utilization || 0).toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden lg:block overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 table-fixed">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[18%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Allocation
                   </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[10%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Category
                   </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[12%] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Budget
                   </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[12%] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Spent
                   </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[12%] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Remaining
                   </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[14%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Utilization
                   </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[10%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Status
                   </th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[8%] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Actions
                   </th>
                 </tr>
@@ -2145,35 +3022,48 @@ const BudgetTab = ({
               <tbody className="bg-white divide-y divide-gray-200">
                 {budgetData.allocations.map((allocation) => (
                   <tr key={allocation._id}>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                      <div className="text-xs sm:text-sm font-medium text-black">
+                    <td className="px-3 py-3">
+                      <div className="text-sm font-medium text-black truncate">
                         {allocation.name || "Unnamed"}
                       </div>
                       {allocation.description && (
-                        <div className="text-xs sm:text-sm text-gray-500">
+                        <div className="text-xs text-gray-500 truncate">
                           {allocation.description}
                         </div>
                       )}
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    <td className="px-3 py-3">
+                      <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 truncate max-w-full">
                         {allocation.category}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
-                      {formatCurrency(allocation.budgetedAmount)}
+                    <td className="px-3 py-3 text-right">
+                      <AmountCell
+                        amount={allocation.budgetedAmount}
+                        formatCurrency={formatCurrency}
+                        currencyTitle={currencyTitle}
+                      />
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-red-600">
-                      {formatCurrency(allocation.spentAmount)}
+                    <td className="px-3 py-3 text-right">
+                      <AmountCell
+                        amount={allocation.spentAmount}
+                        formatCurrency={formatCurrency}
+                        currencyTitle={currencyTitle}
+                        className="text-red-600"
+                      />
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
-                      {formatCurrency(allocation.remainingAmount)}
+                    <td className="px-3 py-3 text-right">
+                      <AmountCell
+                        amount={allocation.remainingAmount}
+                        formatCurrency={formatCurrency}
+                        currencyTitle={currencyTitle}
+                      />
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-12 sm:w-16 bg-gray-200 rounded-full h-2 mr-1 sm:mr-2">
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex-1 max-w-[4rem] bg-gray-200 rounded-full h-1.5">
                           <div
-                            className={`h-2 rounded-full ${
+                            className={`h-1.5 rounded-full ${
                               allocation.utilization > 100
                                 ? "bg-red-500"
                                 : allocation.utilization > 90
@@ -2186,37 +3076,39 @@ const BudgetTab = ({
                                 100
                               )}%`,
                             }}
-                          ></div>
+                          />
                         </div>
-                        <span className="text-xs sm:text-sm text-black">
-                          {allocation.utilization?.toFixed(1)}%
+                        <span className="text-xs tabular-nums text-black w-10">
+                          {(allocation.utilization || 0).toFixed(0)}%
                         </span>
                       </div>
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                    <td className="px-3 py-3">
                       <span
-                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
+                        className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded border ${getStatusColor(
                           allocation.status
                         )}`}
                       >
                         {allocation.status}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
-                      <div className="flex space-x-1 sm:space-x-2">
+                    <td className="px-3 py-3 text-right">
+                      <div className="inline-flex gap-1">
                         <button
                           onClick={() => handleEditAllocation(allocation)}
-                          className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-50"
+                          className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
                           title="Edit Allocation"
                         >
-                          <PencilIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteAllocation(allocation._id)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50"
+                          onClick={() =>
+                            handleDeleteAllocation(allocation._id)
+                          }
+                          className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
                           title="Delete Allocation"
                         >
-                          <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <TrashIcon className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -2225,7 +3117,7 @@ const BudgetTab = ({
               </tbody>
             </table>
           </div>
-        </div>
+        </SectionPanel>
       )}
     </div>
   );
@@ -2236,299 +3128,446 @@ const ExpensesTab = ({
   expenses,
   budgetData,
   formatCurrency,
+  currencyTitle,
   getStatusColor,
   formatDate,
   onEditExpense,
   onDeleteExpense,
 }) => {
+  const total = expenses.reduce(
+    (sum, exp) => sum + (Number(exp.amount) || 0),
+    0
+  );
+  const approved = expenses
+    .filter((exp) => exp.status === "approved")
+    .reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+  const pending = expenses
+    .filter((exp) => exp.status === "pending")
+    .reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Expenses Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Total Expenses</p>
-          <p className="text-lg sm:text-xl font-bold text-red-600">
-            {formatCurrency(
-              expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
-            )}
-          </p>
-        </div>
-        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Approved</p>
-          <p className="text-lg sm:text-xl font-bold text-green-600">
-            {formatCurrency(
-              expenses
-                .filter((exp) => exp.status === "approved")
-                .reduce((sum, exp) => sum + (exp.amount || 0), 0)
-            )}
-          </p>
-        </div>
-        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Pending</p>
-          <p className="text-lg sm:text-xl font-bold text-yellow-600">
-            {formatCurrency(
-              expenses
-                .filter((exp) => exp.status === "pending")
-                .reduce((sum, exp) => sum + (exp.amount || 0), 0)
-            )}
-          </p>
-        </div>
-        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Total Count</p>
-          <p className="text-lg sm:text-xl font-bold text-black">
-            {expenses.length}
-          </p>
-        </div>
+    <div className="space-y-4 sm:space-y-5 min-w-0">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricCard
+          label="Total Expenses"
+          value={total}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={ArrowTrendingDownIcon}
+          iconBg="bg-rose-50"
+          iconColor="text-rose-600"
+          valueClassName="text-rose-600"
+        />
+        <MetricCard
+          label="Approved"
+          value={approved}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={CheckCircleIcon}
+          iconBg="bg-emerald-50"
+          iconColor="text-emerald-600"
+          valueClassName="text-emerald-600"
+        />
+        <MetricCard
+          label="Pending"
+          value={pending}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={ClockIcon}
+          iconBg="bg-amber-50"
+          iconColor="text-amber-600"
+          valueClassName="text-amber-700"
+        />
+        <MetricCard
+          label="Total Count"
+          value={String(expenses.length)}
+          icon={DocumentTextIcon}
+          iconBg="bg-slate-50"
+          iconColor="text-slate-600"
+        />
       </div>
 
-      {/* Expenses Table */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-black">
-            All Expenses
-          </h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Expense
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vendor
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {expenses.map((expense) => (
-                <tr key={expense._id}>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <div className="text-xs sm:text-sm font-medium text-black">
-                      {expense.title}
-                    </div>
-                    {expense.description && (
-                      <div className="text-xs sm:text-sm text-gray-500">
-                        {expense.description}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-red-600">
-                    {formatCurrency(expense.amount)}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {expense.category}
-                    </span>
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
-                    {formatDate(expense.expenseDate)}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
-                    {expense.vendor || "Not specified"}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
-                        expense.status
-                      )}`}
+      <SectionPanel
+        title="All Expenses"
+        subtitle="Edit or remove expense records"
+        bodyClassName="p-0"
+      >
+        {expenses.length === 0 ? (
+          <EmptyState
+            icon={DocumentTextIcon}
+            title="No expenses recorded"
+            description="Add an expense from the actions above to start tracking spend."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
+                <tr>
+                  {[
+                    "Expense",
+                    "Amount",
+                    "Category",
+                    "Date",
+                    "Vendor",
+                    "Status",
+                    "Actions",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-3 sm:px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
                     >
-                      {expense.status}
-                    </span>
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                      <button
-                        onClick={() => onEditExpense(expense)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Edit Expense"
-                      >
-                        <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </button>
-                      <button
-                        onClick={() => onDeleteExpense(expense._id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Delete Expense"
-                      >
-                        <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </button>
-                    </div>
-                  </td>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-100">
+                {expenses.map((expense) => (
+                  <tr
+                    key={expense._id}
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
+                    <td className="px-3 sm:px-5 py-3 sm:py-4">
+                      <div className="text-xs sm:text-sm font-medium text-slate-900">
+                        {expense.title}
+                      </div>
+                      {expense.description && (
+                        <div className="text-xs text-slate-500 truncate max-w-[14rem]">
+                          {expense.description}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
+                      <AmountCell
+                        amount={expense.amount}
+                        formatCurrency={formatCurrency}
+                        currencyTitle={currencyTitle}
+                        className="text-rose-600 font-semibold"
+                      />
+                    </td>
+                    <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
+                        {expense.category}
+                      </span>
+                    </td>
+                    <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-700">
+                      {formatDate(expense.expenseDate)}
+                    </td>
+                    <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-700">
+                      {expense.vendor || "—"}
+                    </td>
+                    <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-1 inline-flex text-xs font-semibold rounded-md border ${getStatusColor(
+                          expense.status
+                        )}`}
+                      >
+                        {expense.status}
+                      </span>
+                    </td>
+                    <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => onEditExpense(expense)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                          title="Edit Expense"
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onDeleteExpense(expense._id)}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"
+                          title="Delete Expense"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionPanel>
     </div>
   );
 };
 
-// Income Tab Component
+// Income Tab Component — expected → collect (partial/full) → overdue
 const IncomeTab = ({
+  projectId,
   income,
   formatCurrency,
+  currencyTitle,
   getStatusColor,
   formatDate,
+  onCollectIncome,
   onEditIncome,
   onDeleteIncome,
+  onAddExpected,
 }) => {
+  const totalExpected = income.reduce(
+    (sum, inc) => sum + (Number(inc.expectedAmount) || 0),
+    0
+  );
+  const totalReceived = income.reduce(
+    (sum, inc) => sum + (Number(inc.amount) || 0),
+    0
+  );
+  const overdueUncollected = income
+    .filter((inc) => inc.status === "overdue")
+    .reduce(
+      (sum, inc) =>
+        sum +
+        Math.max(
+          0,
+          (Number(inc.expectedAmount) || 0) - (Number(inc.amount) || 0)
+        ),
+      0
+    );
+  const pendingExpected = income
+    .filter((inc) => inc.status === "pending" || inc.status === "partial")
+    .reduce(
+      (sum, inc) =>
+        sum +
+        Math.max(
+          0,
+          (Number(inc.expectedAmount) || 0) - (Number(inc.amount) || 0)
+        ),
+      0
+    );
+
+  const canCollect = (inc) =>
+    inc.status !== "collected" &&
+    inc.status !== "cancelled" &&
+    (Number(inc.expectedAmount) || 0) > (Number(inc.amount) || 0);
+
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Income Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Total Income</p>
-          <p className="text-lg sm:text-xl font-bold text-green-600">
-            {formatCurrency(
-              income.reduce((sum, inc) => sum + (inc.amount || 0), 0)
-            )}
-          </p>
-        </div>
-        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Collected</p>
-          <p className="text-lg sm:text-xl font-bold text-green-600">
-            {formatCurrency(
-              income
-                .filter((inc) => inc.status === "collected")
-                .reduce((sum, inc) => sum + (inc.amount || 0), 0)
-            )}
-          </p>
-        </div>
-        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Pending</p>
-          <p className="text-lg sm:text-xl font-bold text-yellow-600">
-            {formatCurrency(
-              income
-                .filter((inc) => inc.status === "pending")
-                .reduce((sum, inc) => sum + (inc.amount || 0), 0)
-            )}
-          </p>
-        </div>
-        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm text-gray-600">Total Count</p>
-          <p className="text-lg sm:text-xl font-bold text-black">
-            {income.length}
-          </p>
-        </div>
+    <div className="space-y-4 sm:space-y-5 min-w-0">
+      <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-xs sm:text-sm text-emerald-900">
+        <strong>Flow:</strong> Set expected income with a due date → when money
+        arrives use <em>Collect</em> (partial or full) → past due without full
+        collection becomes <em>Overdue</em> automatically.
       </div>
 
-      {/* Income Table */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-black">
-            All Income & Payments
-          </h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Income
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Client
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Method
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {income.map((inc) => (
-                <tr key={inc._id}>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <div className="text-xs sm:text-sm font-medium text-black">
-                      {inc.title}
-                    </div>
-                    {inc.invoiceNumber && (
-                      <div className="text-xs sm:text-sm text-gray-500">
-                        Invoice: {inc.invoiceNumber}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600">
-                    {formatCurrency(inc.amount)}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <div className="text-xs sm:text-sm text-black">
-                      {inc.clientName || "Not specified"}
-                    </div>
-                    {inc.clientEmail && (
-                      <div className="text-xs sm:text-sm text-gray-500">
-                        {inc.clientEmail}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {inc.paymentMethod?.replace("_", " ")}
-                    </span>
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-black">
-                    {formatDate(inc.receivedDate)}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
-                        inc.status
-                      )}`}
-                    >
-                      {inc.status}
-                    </span>
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                      <button
-                        onClick={() => onEditIncome && onEditIncome(inc)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </button>
-                      <button
-                        onClick={() =>
-                          onDeleteIncome && onDeleteIncome(inc._id)
-                        }
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricCard
+          label="Expected"
+          value={totalExpected}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={CurrencyDollarIcon}
+          iconBg="bg-blue-50"
+          iconColor="text-blue-600"
+          valueClassName="text-blue-900"
+        />
+        <MetricCard
+          label="Collected"
+          value={totalReceived}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={CheckCircleIcon}
+          iconBg="bg-emerald-50"
+          iconColor="text-emerald-600"
+          valueClassName="text-emerald-600"
+        />
+        <MetricCard
+          label="Outstanding"
+          value={pendingExpected}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={ClockIcon}
+          iconBg="bg-amber-50"
+          iconColor="text-amber-600"
+          valueClassName="text-amber-700"
+          subtitle="Pending + partial remaining"
+        />
+        <MetricCard
+          label="Overdue"
+          value={overdueUncollected}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={ExclamationTriangleIcon}
+          iconBg="bg-rose-50"
+          iconColor="text-rose-600"
+          valueClassName="text-rose-600"
+        />
       </div>
+
+      <SectionPanel
+        title="Income Collection"
+        subtitle="Expected amounts, collections, and overdue items"
+        action={
+          onAddExpected ? (
+            <button
+              onClick={onAddExpected}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-emerald-700 rounded-lg hover:bg-emerald-800"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Expected Income
+            </button>
+          ) : null
+        }
+        bodyClassName="p-0"
+      >
+        {income.length === 0 ? (
+          <EmptyState
+            icon={ArrowTrendingUpIcon}
+            title="No expected income yet"
+            description="Set an expected income with a due date, then collect when payment arrives."
+            action={
+              onAddExpected ? (
+                <button
+                  onClick={onAddExpected}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 text-sm font-medium"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Set Expected Income
+                </button>
+              ) : null
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
+                <tr>
+                  {[
+                    "Income",
+                    "Category",
+                    "Expected",
+                    "Received",
+                    "Remaining",
+                    "Due",
+                    "Status",
+                    "Actions",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-3 sm:px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-100">
+                {income.map((inc) => {
+                  const expected = Number(inc.expectedAmount) || 0;
+                  const received = Number(inc.amount) || 0;
+                  const remaining = Math.max(0, expected - received);
+                  return (
+                    <tr
+                      key={inc._id}
+                      className="hover:bg-slate-50/80 transition-colors"
+                    >
+                      <td className="px-3 sm:px-5 py-3 sm:py-4">
+                        <Link
+                          href={`/project-budget/${projectId}/income/${inc._id}`}
+                          className="text-xs sm:text-sm font-medium text-slate-900 hover:text-emerald-700 hover:underline"
+                        >
+                          {inc.title}
+                        </Link>
+                        <div className="text-xs text-slate-500 truncate max-w-[12rem]">
+                          {inc.clientName || "No client"}
+                          {inc.invoiceNumber
+                            ? ` · ${inc.invoiceNumber}`
+                            : ""}
+                        </div>
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-600">
+                        {inc.categoryName || "—"}
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
+                        <AmountCell
+                          amount={expected}
+                          formatCurrency={formatCurrency}
+                          currencyTitle={currencyTitle}
+                          className="text-slate-800 font-semibold"
+                        />
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
+                        <AmountCell
+                          amount={received}
+                          formatCurrency={formatCurrency}
+                          currencyTitle={currencyTitle}
+                          className="text-emerald-600 font-semibold"
+                        />
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
+                        <AmountCell
+                          amount={remaining}
+                          formatCurrency={formatCurrency}
+                          currencyTitle={currencyTitle}
+                          className={
+                            remaining > 0
+                              ? "text-amber-700 font-semibold"
+                              : "text-slate-500"
+                          }
+                        />
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-700">
+                        {formatDate(inc.dueDate)}
+                        {inc.daysPastDue > 0 && (
+                          <div className="text-xs text-rose-600">
+                            {inc.daysPastDue}d past due
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 inline-flex text-xs font-semibold rounded-md border capitalize ${getStatusColor(
+                            inc.status
+                          )}`}
+                        >
+                          {inc.status}
+                        </span>
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          {canCollect(inc) && (
+                            <button
+                              onClick={() => onCollectIncome(inc)}
+                              className="px-2 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
+                              title="Collect payment"
+                            >
+                              Collect
+                            </button>
+                          )}
+                          <Link
+                            href={`/project-budget/${projectId}/income/${inc._id}`}
+                            className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg"
+                            title="View details"
+                          >
+                            <EyeIcon className="w-4 h-4" />
+                          </Link>
+                          <button
+                            onClick={() => onEditIncome && onEditIncome(inc)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                            title="Edit details"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              onDeleteIncome && onDeleteIncome(inc._id)
+                            }
+                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"
+                            title="Delete"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionPanel>
     </div>
   );
 };
@@ -2538,6 +3577,7 @@ const ReportsTab = ({
   projectId,
   financialReports,
   formatCurrency,
+  currencyTitle,
   getStatusColor,
 }) => {
   const [reportType, setReportType] = useState("summary");
@@ -2581,13 +3621,12 @@ const ReportsTab = ({
   }, [projectId]);
 
   return (
-    <div className="space-y-6">
-      {/* Report Type Selector */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-        <h3 className="text-lg font-semibold text-black mb-4">
-          Generate Reports
-        </h3>
-        <div className="flex flex-wrap gap-3">
+    <div className="space-y-4 sm:space-y-5">
+      <SectionPanel
+        title="Generate Reports"
+        subtitle="Choose a report type to refresh financial insights"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             {
               id: "summary",
@@ -2599,88 +3638,92 @@ const ReportsTab = ({
               name: "Utilization Report",
               description: "Detailed budget utilization with overrun alerts",
             },
-            /* {
-              id: "detailed",
-              name: "Detailed Report",
-              description: "Complete financial breakdown with all transactions",
-            },
-            {
-              id: "variance",
-              name: "Variance Analysis",
-              description: "Budget vs actual spending analysis",
-            },
-            {
-              id: "trends",
-              name: "Trend Analysis",
-              description: "Monthly financial trends and patterns",
-            },*/
           ].map((report) => (
             <button
               key={report.id}
               onClick={() => generateReport(report.id)}
               disabled={loading}
-              className={`p-4 text-left border rounded-lg transition-colors ${
+              className={`p-4 text-left border rounded-xl transition-all duration-200 ${
                 reportType === report.id
-                  ? "border-blue-500 bg-blue-50 text-blue-900"
-                  : "border-gray-200 hover:border-gray-300"
-              } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                  ? "border-blue-500 bg-blue-50 text-blue-900 shadow-sm"
+                  : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+              } ${loading ? "opacity-50 cursor-wait" : ""}`}
             >
-              <div className="font-medium">{report.name}</div>
-              <div className="text-sm text-gray-600">{report.description}</div>
+              <div className="font-semibold text-sm sm:text-base">
+                {report.name}
+              </div>
+              <div className="text-xs sm:text-sm text-slate-500 mt-1">
+                {report.description}
+              </div>
             </button>
           ))}
         </div>
-      </div>
+      </SectionPanel>
 
-      {/* Report Content */}
       {loading ? (
-        <div className="flex justify-center items-center h-32">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
+        <SectionPanel>
+          <div className="flex flex-col items-center justify-center h-32 gap-2">
+            <div className="h-9 w-9 rounded-full border-2 border-slate-200 border-t-blue-600 animate-spin" />
+            <p className="text-sm text-slate-500 animate-pulse">
+              Generating report…
+            </p>
+          </div>
+        </SectionPanel>
       ) : reportData ? (
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-black">
-              {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report
-            </h3>
+        <SectionPanel
+          title={`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`}
+          action={
             <div className="flex gap-2">
               <button
                 onClick={() => window.print()}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
               >
-                Print Report
+                Print
               </button>
               <button
                 onClick={() => generateReport(reportType)}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
               >
                 Refresh
               </button>
             </div>
-          </div>
+          }
+        >
 
           {/* Report Content Based on Type */}
           {reportType === "summary" && reportData?.financialSummary && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-600">Total Budget</p>
-                  <p className="text-2xl font-bold text-blue-900">
-                    {formatCurrency(reportData.financialSummary.totalBudget)}
-                  </p>
-                </div>
-                <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <p className="text-sm text-red-600">Total Expenses</p>
-                  <p className="text-2xl font-bold text-red-900">
-                    {formatCurrency(reportData.financialSummary.totalExpenses)}
-                  </p>
-                </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <p className="text-sm text-green-600">Total Income</p>
-                  <p className="text-2xl font-bold text-green-900">
-                    {formatCurrency(reportData.financialSummary.totalIncome)}
-                  </p>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <MetricCard
+                  label="Total Budget"
+                  value={reportData.financialSummary.totalBudget}
+                  formatCurrency={formatCurrency}
+                  currencyTitle={currencyTitle}
+                  icon={CurrencyDollarIcon}
+                  iconBg="bg-blue-50"
+                  iconColor="text-blue-600"
+                  valueClassName="text-blue-900"
+                />
+                <MetricCard
+                  label="Total Expenses"
+                  value={reportData.financialSummary.totalExpenses}
+                  formatCurrency={formatCurrency}
+                  currencyTitle={currencyTitle}
+                  icon={ArrowTrendingDownIcon}
+                  iconBg="bg-red-50"
+                  iconColor="text-red-600"
+                  valueClassName="text-red-900"
+                />
+                <MetricCard
+                  label="Total Income"
+                  value={reportData.financialSummary.totalIncome}
+                  formatCurrency={formatCurrency}
+                  currencyTitle={currencyTitle}
+                  icon={ArrowTrendingUpIcon}
+                  iconBg="bg-green-50"
+                  iconColor="text-green-600"
+                  valueClassName="text-green-900"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2730,28 +3773,31 @@ const ReportsTab = ({
           {reportType === "utilization" && reportData && (
             <div className="space-y-6">
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-4 bg-blue-50 rounded-lg min-w-0">
                   <p className="text-sm text-blue-600">Budget Utilization</p>
-                  <p className="text-2xl font-bold text-blue-900">
+                  <p className="text-xl font-bold text-blue-900 tabular-nums">
                     {reportData.summary.budgetUtilization.toFixed(1)}%
                   </p>
                 </div>
-                <div className="p-4 bg-green-50 rounded-lg">
+                <div className="p-4 bg-green-50 rounded-lg min-w-0">
                   <p className="text-sm text-green-600">Overall Score</p>
-                  <p className="text-2xl font-bold text-green-900">
+                  <p className="text-xl font-bold text-green-900 tabular-nums">
                     {reportData.performance.overallScore.toFixed(0)}
                   </p>
                 </div>
-                <div className="p-4 bg-yellow-50 rounded-lg">
+                <div className="p-4 bg-yellow-50 rounded-lg min-w-0">
                   <p className="text-sm text-yellow-600">Active Alerts</p>
-                  <p className="text-2xl font-bold text-yellow-900">
+                  <p className="text-xl font-bold text-yellow-900 tabular-nums">
                     {reportData.alerts.length}
                   </p>
                 </div>
-                <div className="p-4 bg-red-50 rounded-lg">
+                <div className="p-4 bg-red-50 rounded-lg min-w-0 overflow-hidden">
                   <p className="text-sm text-red-600">Overrun Amount</p>
-                  <p className="text-2xl font-bold text-red-900">
+                  <p
+                    className="text-lg sm:text-xl font-bold text-red-900 tabular-nums truncate"
+                    title={currencyTitle(reportData.summary.overrunAmount)}
+                  >
                     {formatCurrency(reportData.summary.overrunAmount)}
                   </p>
                 </div>
@@ -2946,18 +3992,15 @@ const ReportsTab = ({
             </div>
           )}
 
-          {/* Add more report type renderings as needed */}
-        </div>
+        </SectionPanel>
       ) : (
-        <div className="text-center py-12">
-          <ChartBarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-black mb-2">
-            No Report Generated
-          </h3>
-          <p className="text-gray-600">
-            Select a report type above to generate financial reports.
-          </p>
-        </div>
+        <SectionPanel>
+          <EmptyState
+            icon={ChartBarIcon}
+            title="No report generated"
+            description="Select a report type above to generate financial reports."
+          />
+        </SectionPanel>
       )}
     </div>
   );
@@ -2985,96 +4028,143 @@ const BudgetModal = ({
   activities,
   budgetAllocationCategories,
   isEdit = false,
+  actionLoading = null,
 }) => {
+  const isSaving = actionLoading === "budget";
+  const currency = budgetForm.currency || "ETB";
   const totalAllocated = budgetForm.budgetAllocations.reduce(
-    (sum, alloc) => sum + (alloc.amount || 0),
+    (sum, alloc) => sum + (Number(alloc.amount) || 0),
     0
   );
-  const remainingBudget =
-    parseFloat(budgetForm.totalAmount || 0) - totalAllocated;
+  const totalBudget = Number(budgetForm.totalAmount) || 0;
+  const remainingBudget = totalBudget - totalAllocated;
+  const overBudget = remainingBudget < -0.001;
+  const canAddAllocation =
+    totalBudget > 0 && remainingBudget > 0.001 && !isSaving;
+
+  const closeBudgetModal = () => {
+    if (isSaving) return;
+    setShowBudgetModal(false);
+  };
+
+  const closeAllocationModal = () => {
+    setShowAllocationModal(false);
+    resetAllocationForm();
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-        <div className="p-3 sm:p-6 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-black">
-            {isEdit ? "Edit Project Budget" : "Create Project Budget"}
-          </h3>
-        </div>
+    <>
+      <ModalChrome
+        maxWidth="max-w-2xl"
+        title={isEdit ? "Edit Project Budget" : "Create Project Budget"}
+        subtitle="Set the total amount, approval details, and how the budget is allocated"
+        onClose={closeBudgetModal}
+        closeDisabled={isSaving}
+        footer={
+          <>
+            <button
+              onClick={closeBudgetModal}
+              disabled={isSaving}
+              className={`${cancelBtnClass} order-2 sm:order-1`}
+            >
+              Cancel
+            </button>
+            <ActionButton
+              onClick={handleCreateBudget}
+              loading={isSaving}
+              loadingText={isEdit ? "Updating…" : "Creating…"}
+              disabled={!budgetForm.totalAmount || overBudget}
+              className={`${primaryBtnClass} order-1 sm:order-2`}
+            >
+              {isEdit ? "Update Budget" : "Create Budget"}
+            </ActionButton>
+          </>
+        }
+      >
+        <BudgetAvailabilityCard
+          total={totalBudget}
+          allocated={totalAllocated}
+          remaining={remainingBudget}
+          currency={currency}
+          overBudget={overBudget}
+        />
 
-        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
-          {/* Basic Budget Information */}
+        {(overBudget || budgetFormErrors.budgetAllocations) && (
+          <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+            {budgetFormErrors.budgetAllocations ||
+              `Allocations (${formatMoneyDisplay(
+                totalAllocated,
+                currency
+              )}) exceed total budget (${formatMoneyDisplay(
+                totalBudget,
+                currency
+              )}). Reduce allocations or increase the budget.`}
+          </p>
+        )}
+
+        <div className="rounded-xl border border-slate-200 p-3 sm:p-4 space-y-3 sm:space-y-4">
+          <h4 className="text-sm font-semibold text-slate-900">
+            Budget details
+          </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Total Budget Amount *
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={budgetForm.totalAmount}
-                onChange={(e) =>
-                  handleBudgetFormChange("totalAmount", e.target.value)
-                }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                  budgetFormErrors.totalAmount
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-                placeholder="0.00"
-                required
-              />
+              <label className={fieldLabelClass}>Total Budget Amount *</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={budgetForm.totalAmount}
+                  onChange={(e) =>
+                    handleBudgetFormChange("totalAmount", e.target.value)
+                  }
+                  disabled={isSaving}
+                  className={fieldInputClass(!!budgetFormErrors.totalAmount)}
+                  placeholder="0.00"
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
+                  {currency}
+                </span>
+              </div>
               {budgetFormErrors.totalAmount && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className={fieldErrorClass}>
                   {budgetFormErrors.totalAmount}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Currency
-              </label>
+              <label className={fieldLabelClass}>Currency</label>
               <select
                 value={budgetForm.currency}
                 onChange={(e) =>
                   handleBudgetFormChange("currency", e.target.value)
                 }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                  budgetFormErrors.currency
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
+                disabled={isSaving}
+                className={fieldInputClass(!!budgetFormErrors.currency)}
               >
                 <option value="ETB">ETB - Ethiopian Birr</option>
               </select>
               {budgetFormErrors.currency && (
-                <p className="text-xs text-red-600 mt-1">
-                  {budgetFormErrors.currency}
-                </p>
+                <p className={fieldErrorClass}>{budgetFormErrors.currency}</p>
               )}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
+            <label className={fieldLabelClass}>Description</label>
             <textarea
               value={budgetForm.description}
               onChange={(e) =>
                 handleBudgetFormChange("description", e.target.value)
               }
-              rows={3}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                budgetFormErrors.description
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }`}
-              placeholder="Budget description..."
+              rows={2}
+              disabled={isSaving}
+              className={fieldInputClass(!!budgetFormErrors.description)}
+              placeholder="What this budget covers…"
             />
             {budgetFormErrors.description && (
-              <p className="text-xs text-red-600 mt-1">
+              <p className={fieldErrorClass}>
                 {budgetFormErrors.description}
               </p>
             )}
@@ -3082,488 +4172,451 @@ const BudgetModal = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Approved By
-              </label>
+              <label className={fieldLabelClass}>Approved By</label>
               <input
                 type="text"
                 value={budgetForm.approvedBy}
                 onChange={(e) =>
                   handleBudgetFormChange("approvedBy", e.target.value)
                 }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  budgetFormErrors.approvedBy
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
+                disabled={isSaving}
+                className={fieldInputClass(!!budgetFormErrors.approvedBy)}
                 placeholder="Approver name"
               />
               {budgetFormErrors.approvedBy && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className={fieldErrorClass}>
                   {budgetFormErrors.approvedBy}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Approval Date
-              </label>
+              <label className={fieldLabelClass}>Approval Date</label>
               <input
                 type="date"
                 value={budgetForm.approvalDate}
+                max={todayInputValue()}
                 onChange={(e) =>
                   handleBudgetFormChange("approvalDate", e.target.value)
                 }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  budgetFormErrors.approvalDate
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
+                disabled={isSaving}
+                className={fieldInputClass(!!budgetFormErrors.approvalDate)}
               />
-              {budgetFormErrors.approvalDate && (
-                <p className="text-xs text-red-600 mt-1">
+              {budgetFormErrors.approvalDate ? (
+                <p className={fieldErrorClass}>
                   {budgetFormErrors.approvalDate}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500 mt-1">
+                  Cannot be a future date
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 p-3 sm:p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900">
+                Budget Allocations
+              </h4>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Split the budget across categories or teams
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                resetAllocationForm();
+                setShowAllocationModal(true);
+              }}
+              disabled={!canAddAllocation}
+              title={
+                !totalBudget
+                  ? "Enter a total budget first"
+                  : remainingBudget <= 0
+                  ? "No available budget remaining"
+                  : "Add allocation"
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 self-start sm:self-auto transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Add Allocation
+            </button>
+          </div>
+
+          {budgetForm.budgetAllocations.length > 0 ? (
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
+              {budgetForm.budgetAllocations.map((allocation, index) => (
+                <div
+                  key={allocation._id || index}
+                  className="flex items-start sm:items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm text-slate-900 truncate">
+                      {allocation.name}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {allocation.category || "General"}
+                      {allocation.startDate || allocation.endDate
+                        ? ` · ${
+                            toDateInputValue(allocation.startDate) || "…"
+                          } → ${toDateInputValue(allocation.endDate) || "…"}`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="font-semibold text-sm text-slate-800 tabular-nums">
+                      {formatMoneyDisplay(allocation.amount, currency)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBudgetForm((prev) => ({
+                          ...prev,
+                          budgetAllocations: prev.budgetAllocations.filter(
+                            (_, i) => i !== index
+                          ),
+                        }));
+                      }}
+                      disabled={isSaving}
+                      className="p-1.5 rounded-md text-rose-600 hover:bg-rose-50 hover:text-rose-800 disabled:opacity-50"
+                      aria-label="Remove allocation"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-4 py-6 text-center">
+              <p className="text-sm text-slate-600">No allocations yet</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Optional — you can allocate now or later
+              </p>
+            </div>
+          )}
+        </div>
+      </ModalChrome>
+
+      {showAllocationModal && (
+        <ModalChrome
+          nested
+          maxWidth="max-w-lg"
+          title="Add Budget Allocation"
+          subtitle="Use only the remaining available budget"
+          onClose={closeAllocationModal}
+          footer={
+            <>
+              <button
+                onClick={closeAllocationModal}
+                className={`${cancelBtnClass} order-2 sm:order-1`}
+              >
+                Cancel
+              </button>
+              <ActionButton
+                onClick={handleAddAllocation}
+                loading={false}
+                disabled={
+                  !allocationForm.name ||
+                  !allocationForm.amount ||
+                  remainingBudget <= 0
+                }
+                className={`${primaryBtnClass} order-1 sm:order-2`}
+              >
+                Add Allocation
+              </ActionButton>
+            </>
+          }
+        >
+          <BudgetAvailabilityCard
+            total={totalBudget}
+            allocated={totalAllocated}
+            remaining={remainingBudget}
+            currency={currency}
+            overBudget={overBudget}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="sm:col-span-2">
+              <label className={fieldLabelClass}>Allocation Name *</label>
+              <input
+                type="text"
+                value={allocationForm.name}
+                onChange={(e) =>
+                  handleAllocationFormChange("name", e.target.value)
+                }
+                className={fieldInputClass(!!allocationFormErrors.name)}
+                placeholder="e.g., Development Team"
+              />
+              {allocationFormErrors.name && (
+                <p className={fieldErrorClass}>{allocationFormErrors.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label className={fieldLabelClass}>Category</label>
+              <select
+                value={allocationForm.categoryId}
+                onChange={(e) => {
+                  const cat = budgetAllocationCategories.find(
+                    (c) => String(c._id) === e.target.value
+                  );
+                  setAllocationForm((prev) => ({
+                    ...prev,
+                    categoryId: e.target.value,
+                    category: cat?.name || prev.category,
+                  }));
+                }}
+                className={fieldInputClass()}
+              >
+                <option value="">Select Category</option>
+                {budgetAllocationCategories.map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className={fieldLabelClass}>Amount *</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={Math.max(remainingBudget, 0.01)}
+                  value={allocationForm.amount}
+                  onChange={(e) =>
+                    handleAllocationFormChange("amount", e.target.value)
+                  }
+                  className={fieldInputClass(!!allocationFormErrors.amount)}
+                  placeholder="0.00"
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
+                  {currency}
+                </span>
+              </div>
+              {allocationFormErrors.amount ? (
+                <p className={fieldErrorClass}>{allocationFormErrors.amount}</p>
+              ) : (
+                <p className="text-xs text-slate-500 mt-1">
+                  Max:{" "}
+                  {formatMoneyDisplay(Math.max(remainingBudget, 0), currency)}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Budget Allocations */}
-          <div>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4">
-              <h4 className="text-sm sm:text-md font-semibold text-black">
-                Budget Allocations
-              </h4>
-              <button
-                onClick={() => setShowAllocationModal(true)}
-                className="px-3 py-1 text-xs sm:text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 self-start sm:self-auto"
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div>
+              <label className={fieldLabelClass}>Allocation Type</label>
+              <select
+                value={allocationForm.allocationType}
+                onChange={(e) =>
+                  handleAllocationFormChange("allocationType", e.target.value)
+                }
+                className={fieldInputClass(
+                  !!allocationFormErrors.allocationType
+                )}
               >
-                Add Allocation
-              </button>
+                <option value="general">General</option>
+                <option value="department">Department</option>
+                <option value="task">Task</option>
+                <option value="activity">Activity</option>
+                <option value="milestone">Milestone</option>
+              </select>
             </div>
 
-            {budgetForm.budgetAllocations.length > 0 && (
-              <div className="space-y-2 mb-4">
-                {budgetForm.budgetAllocations.map((allocation, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-md gap-2 sm:gap-0"
-                  >
-                    <div className="flex-1">
-                      <span className="font-medium text-sm sm:text-base">
-                        {allocation.name}
-                      </span>
-                      <span className="text-xs sm:text-sm text-gray-600 ml-0 sm:ml-2 block sm:inline">
-                        ({allocation.category})
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between sm:justify-end gap-2">
-                      <span className="font-semibold text-sm sm:text-base">
-                        ${allocation.amount.toFixed(2)}
-                      </span>
-                      <button
-                        onClick={() => {
-                          setBudgetForm((prev) => ({
-                            ...prev,
-                            budgetAllocations: prev.budgetAllocations.filter(
-                              (_, i) => i !== index
-                            ),
-                          }));
-                        }}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </button>
-                    </div>
-                  </div>
+            <div>
+              <label className={fieldLabelClass}>Priority</label>
+              <select
+                value={allocationForm.priority}
+                onChange={(e) =>
+                  handleAllocationFormChange("priority", e.target.value)
+                }
+                className={fieldInputClass()}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+          </div>
+
+          {allocationForm.allocationType === "department" && (
+            <div>
+              <label className={fieldLabelClass}>Department *</label>
+              <select
+                value={allocationForm.departmentId}
+                onChange={(e) =>
+                  handleAllocationFormChange("departmentId", e.target.value)
+                }
+                className={fieldInputClass(!!allocationFormErrors.departmentId)}
+              >
+                <option value="">Select Department</option>
+                {departments.map((dept) => (
+                  <option key={dept._id} value={dept._id}>
+                    {dept.name}
+                  </option>
                 ))}
-              </div>
-            )}
-
-            {budgetForm.totalAmount && (
-              <div className="p-3 bg-blue-50 rounded-md">
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span>Total Budget:</span>
-                  <span className="font-semibold">
-                    ${parseFloat(budgetForm.totalAmount || 0).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span>Total Allocated:</span>
-                  <span className="font-semibold">
-                    ${totalAllocated.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span>Remaining:</span>
-                  <span
-                    className={`font-semibold ${
-                      remainingBudget < 0 ? "text-red-600" : "text-green-600"
-                    }`}
-                  >
-                    ${remainingBudget.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t border-gray-200">
-          <button
-            onClick={() => setShowBudgetModal(false)}
-            className="px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleCreateBudget}
-            disabled={!budgetForm.totalAmount}
-            className="px-4 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
-          >
-            {isEdit ? "Update Budget" : "Create Budget"}
-          </button>
-        </div>
-      </div>
-
-      {/* Allocation Modal */}
-      {showAllocationModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
-              <h4 className="text-base sm:text-lg font-semibold text-black">
-                Add Budget Allocation
-              </h4>
+              </select>
+              {allocationFormErrors.departmentId ? (
+                <p className={fieldErrorClass}>
+                  {allocationFormErrors.departmentId}
+                </p>
+              ) : departments.length === 0 ? (
+                <p className="text-xs text-slate-500 mt-1">
+                  No departments found. Create departments first.
+                </p>
+              ) : null}
             </div>
+          )}
 
-            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Allocation Name *
-                </label>
-                <input
-                  type="text"
-                  value={allocationForm.name}
-                  onChange={(e) =>
-                    handleAllocationFormChange("name", e.target.value)
-                  }
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                    allocationFormErrors.name
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
-                  }`}
-                  placeholder="e.g., Development Team"
-                  required
-                />
-                {allocationFormErrors.name && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {allocationFormErrors.name}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Category
-                </label>
-                <select
-                  value={allocationForm.categoryId}
-                  onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      categoryId: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="">Select Category</option>
-                  {budgetAllocationCategories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Amount *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={allocationForm.amount}
-                  onChange={(e) =>
-                    handleAllocationFormChange("amount", e.target.value)
-                  }
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                    allocationFormErrors.amount
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
-                  }`}
-                  placeholder="0.00"
-                  required
-                />
-                {allocationFormErrors.amount && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {allocationFormErrors.amount}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Allocation Type (Optional)
-                </label>
-                <select
-                  value={allocationForm.allocationType}
-                  onChange={(e) =>
-                    handleAllocationFormChange("allocationType", e.target.value)
-                  }
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                    allocationFormErrors.allocationType
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
-                  }`}
-                >
-                  <option value="">Select Type (Optional)</option>
-                  <option value="general">General</option>
-                  <option value="department">Department</option>
-                  <option value="task">Task</option>
-                  <option value="activity">Activity</option>
-                  <option value="milestone">Milestone</option>
-                </select>
-                {allocationFormErrors.allocationType && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {allocationFormErrors.allocationType}
-                  </p>
-                )}
-              </div>
-
-              {/* Dynamic Entity Selection */}
-              {allocationForm.allocationType === "department" && (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Department *
-                  </label>
-                  <select
-                    value={allocationForm.departmentId}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
-                        ...prev,
-                        departmentId: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    required
-                  >
-                    <option value="">Select Department</option>
-                    {departments.map((dept) => (
-                      <option key={dept._id} value={dept._id}>
-                        {dept.name}
-                      </option>
-                    ))}
-                  </select>
-                  {departments.length === 0 && (
-                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                      No departments found. Create departments first.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {allocationForm.allocationType === "task" && (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Task *
-                  </label>
-                  <select
-                    value={allocationForm.taskId}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
-                        ...prev,
-                        taskId: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    required
-                  >
-                    <option value="">Select Task</option>
-                    {tasks.map((task) => (
-                      <option key={task._id} value={task._id}>
-                        {task.title || task.name || "Untitled"}
-                      </option>
-                    ))}
-                  </select>
-                  {tasks.length === 0 && (
-                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                      No tasks found. Create tasks first.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {allocationForm.allocationType === "activity" && (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Activity *
-                  </label>
-                  <select
-                    value={allocationForm.activityId}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
-                        ...prev,
-                        activityId: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    required
-                  >
-                    <option value="">Select Activity</option>
-                    {activities.map((activity) => (
-                      <option key={activity._id} value={activity._id}>
-                        {activity.name}
-                      </option>
-                    ))}
-                  </select>
-                  {activities.length === 0 && (
-                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                      No activities found. Create activities first.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {allocationForm.allocationType === "milestone" && (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Milestone *
-                  </label>
-                  <select
-                    value={allocationForm.milestoneId}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
-                        ...prev,
-                        milestoneId: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    required
-                  >
-                    <option value="">Select Milestone</option>
-                    {milestones.map((milestone) => (
-                      <option key={milestone._id} value={milestone._id}>
-                        {milestone.title || milestone.name || "Untitled"}
-                      </option>
-                    ))}
-                  </select>
-                  {milestones.length === 0 && (
-                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                      No milestones found. Create milestones first.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Priority
-                  </label>
-                  <select
-                    value={allocationForm.priority}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
-                        ...prev,
-                        priority: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={allocationForm.startDate}
-                    onChange={(e) =>
-                      setAllocationForm((prev) => ({
-                        ...prev,
-                        startDate: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={allocationForm.endDate}
-                  onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      endDate: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={allocationForm.description}
-                  onChange={(e) =>
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="Allocation description..."
-                />
-              </div>
+          {allocationForm.allocationType === "task" && (
+            <div>
+              <label className={fieldLabelClass}>Task *</label>
+              <select
+                value={allocationForm.taskId}
+                onChange={(e) =>
+                  handleAllocationFormChange("taskId", e.target.value)
+                }
+                className={fieldInputClass(!!allocationFormErrors.taskId)}
+              >
+                <option value="">Select Task</option>
+                {tasks.map((task) => (
+                  <option key={task._id} value={task._id}>
+                    {task.title || task.name || "Untitled"}
+                  </option>
+                ))}
+              </select>
+              {allocationFormErrors.taskId ? (
+                <p className={fieldErrorClass}>{allocationFormErrors.taskId}</p>
+              ) : tasks.length === 0 ? (
+                <p className="text-xs text-slate-500 mt-1">
+                  No tasks found. Create tasks first.
+                </p>
+              ) : null}
             </div>
+          )}
 
-            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t border-gray-200">
-              <button
-                onClick={() => {
-                  setShowAllocationModal(false);
-                  resetAllocationForm();
-                }}
-                className="px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
+          {allocationForm.allocationType === "activity" && (
+            <div>
+              <label className={fieldLabelClass}>Activity *</label>
+              <select
+                value={allocationForm.activityId}
+                onChange={(e) =>
+                  handleAllocationFormChange("activityId", e.target.value)
+                }
+                className={fieldInputClass(!!allocationFormErrors.activityId)}
               >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddAllocation}
-                disabled={!allocationForm.name || !allocationForm.amount}
-                className="px-4 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
+                <option value="">Select Activity</option>
+                {activities.map((activity) => (
+                  <option key={activity._id} value={activity._id}>
+                    {activity.name}
+                  </option>
+                ))}
+              </select>
+              {allocationFormErrors.activityId ? (
+                <p className={fieldErrorClass}>
+                  {allocationFormErrors.activityId}
+                </p>
+              ) : activities.length === 0 ? (
+                <p className="text-xs text-slate-500 mt-1">
+                  No activities found. Create activities first.
+                </p>
+              ) : null}
+            </div>
+          )}
+
+          {allocationForm.allocationType === "milestone" && (
+            <div>
+              <label className={fieldLabelClass}>Milestone *</label>
+              <select
+                value={allocationForm.milestoneId}
+                onChange={(e) =>
+                  handleAllocationFormChange("milestoneId", e.target.value)
+                }
+                className={fieldInputClass(!!allocationFormErrors.milestoneId)}
               >
-                Add Allocation
-              </button>
+                <option value="">Select Milestone</option>
+                {milestones.map((milestone) => (
+                  <option key={milestone._id} value={milestone._id}>
+                    {milestone.title || milestone.name || "Untitled"}
+                  </option>
+                ))}
+              </select>
+              {allocationFormErrors.milestoneId ? (
+                <p className={fieldErrorClass}>
+                  {allocationFormErrors.milestoneId}
+                </p>
+              ) : milestones.length === 0 ? (
+                <p className="text-xs text-slate-500 mt-1">
+                  No milestones found. Create milestones first.
+                </p>
+              ) : null}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div>
+              <label className={fieldLabelClass}>Start Date</label>
+              <input
+                type="date"
+                value={allocationForm.startDate}
+                onChange={(e) =>
+                  handleAllocationFormChange("startDate", e.target.value)
+                }
+                className={fieldInputClass(!!allocationFormErrors.startDate)}
+              />
+              {allocationFormErrors.startDate && (
+                <p className={fieldErrorClass}>
+                  {allocationFormErrors.startDate}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className={fieldLabelClass}>End Date</label>
+              <input
+                type="date"
+                value={allocationForm.endDate}
+                min={allocationForm.startDate || undefined}
+                onChange={(e) =>
+                  handleAllocationFormChange("endDate", e.target.value)
+                }
+                className={fieldInputClass(!!allocationFormErrors.endDate)}
+              />
+              {allocationFormErrors.endDate ? (
+                <p className={fieldErrorClass}>
+                  {allocationFormErrors.endDate}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500 mt-1">
+                  Must be on or after start date
+                </p>
+              )}
             </div>
           </div>
-        </div>
+
+          <div>
+            <label className={fieldLabelClass}>Description</label>
+            <textarea
+              value={allocationForm.description}
+              onChange={(e) =>
+                handleAllocationFormChange("description", e.target.value)
+              }
+              rows={2}
+              className={fieldInputClass()}
+              placeholder="Allocation description…"
+            />
+          </div>
+        </ModalChrome>
       )}
-    </div>
+    </>
   );
 };
 
@@ -3580,7 +4633,9 @@ const ExpenseModal = ({
   setEditingExpenseId,
   resetExpenseForm,
   isEdit = false,
+  actionLoading = null,
 }) => {
+  const isSaving = actionLoading === "expense";
   const addTag = () => {
     setExpenseForm((prev) => ({
       ...prev,
@@ -3603,566 +4658,255 @@ const ExpenseModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="p-4 sm:p-6 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-black">
-            {isEdit ? "Edit Expense" : "Add New Expense"}
-          </h3>
-        </div>
-
-        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Expense Title *
-              </label>
-              <input
-                type="text"
-                value={expenseForm.title}
-                onChange={(e) =>
-                  handleExpenseFormChange("title", e.target.value)
-                }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  expenseFormErrors.title
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-                placeholder="e.g., Office Supplies"
-                required
-              />
-              {expenseFormErrors.title && (
-                <p className="text-xs text-red-600 mt-1">
-                  {expenseFormErrors.title}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Amount *
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={expenseForm.amount}
-                onChange={(e) =>
-                  handleExpenseFormChange("amount", e.target.value)
-                }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  expenseFormErrors.amount
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-                placeholder="0.00"
-                required
-              />
-              {expenseFormErrors.amount && (
-                <p className="text-xs text-red-600 mt-1">
-                  {expenseFormErrors.amount}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <select
-                value={expenseForm.categoryId}
-                onChange={(e) =>
-                  handleExpenseFormChange("categoryId", e.target.value)
-                }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  expenseFormErrors.categoryId
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-              >
-                <option value="">Select Category</option>
-                {budgetAllocationCategories.map((category) => (
-                  <option key={category._id} value={category._id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-              {expenseFormErrors.category && (
-                <p className="text-xs text-red-600 mt-1">
-                  {expenseFormErrors.category}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Expense Date
-              </label>
-              <input
-                type="date"
-                value={expenseForm.expenseDate}
-                onChange={(e) =>
-                  handleExpenseFormChange("expenseDate", e.target.value)
-                }
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  expenseFormErrors.expenseDate
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-              />
-              {expenseFormErrors.expenseDate && (
-                <p className="text-xs text-red-600 mt-1">
-                  {expenseFormErrors.expenseDate}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Budget Allocation
-              </label>
-              <select
-                value={expenseForm.allocationId}
-                onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    allocationId: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                <option value="">No specific allocation</option>
-                {budgetData?.allocations?.map((allocation) => (
-                  <option key={allocation._id} value={allocation._id}>
-                    {allocation.name || allocation.category} ($
-                    {allocation.budgetedAmount})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Vendor
-              </label>
-              <input
-                type="text"
-                value={expenseForm.vendor}
-                onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    vendor: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="Vendor name"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Status
-              </label>
-              <select
-                value={expenseForm.status}
-                onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    status: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="paid">Paid</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Receipt URL
-              </label>
-              <input
-                type="url"
-                value={expenseForm.receiptUrl}
-                onChange={(e) =>
-                  setExpenseForm((prev) => ({
-                    ...prev,
-                    receiptUrl: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="https://..."
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={expenseForm.description}
-                onChange={(e) =>
-                  handleExpenseFormChange("description", e.target.value)
-                }
-                rows={3}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  expenseFormErrors.description
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-                placeholder="Expense description..."
-              />
-              {expenseFormErrors.description && (
-                <p className="text-xs text-red-600 mt-1">
-                  {expenseFormErrors.description}
-                </p>
-              )}
-            </div>
-
-            {/* Tags */}
-            <div className="sm:col-span-2">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-2">
-                <label className="block text-xs sm:text-sm font-medium text-gray-700">
-                  Tags
-                </label>
-                <button
-                  type="button"
-                  onClick={addTag}
-                  className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 self-start sm:self-auto"
-                >
-                  + Add Tag
-                </button>
-              </div>
-              <div className="space-y-2">
-                {expenseForm.tags.map((tag, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={tag}
-                      onChange={(e) => updateTag(index, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      placeholder="Tag name"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeTag(index)}
-                      className="px-3 py-2 text-red-600 hover:text-red-800"
-                    >
-                      <TrashIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 p-4 sm:p-6 border-t border-gray-200">
+    <ModalChrome
+      title={isEdit ? "Edit Expense" : "Add New Expense"}
+      subtitle="Enter amount and date carefully — both are validated"
+      footer={
+        <>
           <button
             onClick={() => {
+              if (isSaving) return;
               setShowExpenseModal(false);
-              if (isEdit) {
-                setEditingExpenseId(null);
-              }
+              if (isEdit) setEditingExpenseId(null);
             }}
-            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
+            disabled={isSaving}
+            className={`${cancelBtnClass} order-2 sm:order-1`}
           >
             Cancel
           </button>
-          <button
+          <ActionButton
             onClick={onSubmit}
+            loading={isSaving}
+            loadingText={isEdit ? "Updating…" : "Saving…"}
             disabled={!expenseForm.title || !expenseForm.amount}
-            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
+            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white bg-rose-600 rounded-lg hover:bg-rose-700 shadow-sm transition-all duration-200 disabled:opacity-50 order-1 sm:order-2"
           >
             {isEdit ? "Update Expense" : "Add Expense"}
-          </button>
+          </ActionButton>
+        </>
+      }
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div className="sm:col-span-2">
+          <label className={fieldLabelClass}>Expense Title *</label>
+          <input
+            type="text"
+            value={expenseForm.title}
+            onChange={(e) => handleExpenseFormChange("title", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass(!!expenseFormErrors.title)}
+            placeholder="e.g., Office Supplies"
+            required
+          />
+          {expenseFormErrors.title && (
+            <p className={fieldErrorClass}>{expenseFormErrors.title}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Amount *</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={expenseForm.amount}
+            onChange={(e) => handleExpenseFormChange("amount", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass(!!expenseFormErrors.amount)}
+            placeholder="0.00"
+            required
+          />
+          {expenseFormErrors.amount && (
+            <p className={fieldErrorClass}>{expenseFormErrors.amount}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Category</label>
+          <select
+            value={expenseForm.categoryId}
+            onChange={(e) =>
+              handleExpenseFormChange("categoryId", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass(!!expenseFormErrors.categoryId)}
+          >
+            <option value="">Select Category</option>
+            {budgetAllocationCategories.map((category) => (
+              <option key={category._id} value={category._id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+          {expenseFormErrors.category && (
+            <p className={fieldErrorClass}>{expenseFormErrors.category}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Expense Date *</label>
+          <input
+            type="date"
+            value={expenseForm.expenseDate}
+            onChange={(e) =>
+              handleExpenseFormChange("expenseDate", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass(!!expenseFormErrors.expenseDate)}
+          />
+          {expenseFormErrors.expenseDate && (
+            <p className={fieldErrorClass}>{expenseFormErrors.expenseDate}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Budget Allocation</label>
+          <select
+            value={expenseForm.allocationId}
+            onChange={(e) =>
+              handleExpenseFormChange("allocationId", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass()}
+          >
+            <option value="">No specific allocation</option>
+            {budgetData?.allocations?.map((allocation) => (
+              <option key={allocation._id} value={allocation._id}>
+                {allocation.name || allocation.category} (
+                {allocation.budgetedAmount} ETB)
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Vendor</label>
+          <input
+            type="text"
+            value={expenseForm.vendor}
+            onChange={(e) => handleExpenseFormChange("vendor", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass()}
+            placeholder="Vendor name"
+          />
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Status</label>
+          <select
+            value={expenseForm.status}
+            onChange={(e) => handleExpenseFormChange("status", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass()}
+          >
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="paid">Paid</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Receipt URL</label>
+          <input
+            type="url"
+            value={expenseForm.receiptUrl}
+            onChange={(e) =>
+              handleExpenseFormChange("receiptUrl", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass()}
+            placeholder="https://..."
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className={fieldLabelClass}>Description</label>
+          <textarea
+            value={expenseForm.description}
+            onChange={(e) =>
+              handleExpenseFormChange("description", e.target.value)
+            }
+            rows={3}
+            disabled={isSaving}
+            className={fieldInputClass(!!expenseFormErrors.description)}
+            placeholder="Expense description..."
+          />
+          {expenseFormErrors.description && (
+            <p className={fieldErrorClass}>{expenseFormErrors.description}</p>
+          )}
+        </div>
+
+        <div className="sm:col-span-2">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-2">
+            <label className={fieldLabelClass + " mb-0"}>Tags</label>
+            <button
+              type="button"
+              onClick={addTag}
+              disabled={isSaving}
+              className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 self-start sm:self-auto disabled:opacity-50"
+            >
+              + Add Tag
+            </button>
+          </div>
+          <div className="space-y-2">
+            {expenseForm.tags.map((tag, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  value={tag}
+                  onChange={(e) => updateTag(index, e.target.value)}
+                  disabled={isSaving}
+                  className={`flex-1 ${fieldInputClass()}`}
+                  placeholder="Tag name"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeTag(index)}
+                  disabled={isSaving}
+                  className="px-3 py-2 text-rose-600 hover:text-rose-800 disabled:opacity-50"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </ModalChrome>
   );
 };
 
 // Income Modal Component
 const IncomeModal = ({
   incomeForm,
-  setIncomeForm,
+  incomeFormErrors = {},
+  handleIncomeFormChange,
   incomeCategories,
   onSubmit,
   onClose,
   isEdit,
+  actionLoading = null,
 }) => {
+  const isSaving = actionLoading === "income";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="p-4 sm:p-6 border-b border-gray-200">
-          <h3 className="text-base sm:text-lg font-semibold text-black">
-            {isEdit ? "Edit Income/Payment" : "Add New Income/Payment"}
-          </h3>
-        </div>
-
-        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Income Title *
-              </label>
-              <input
-                type="text"
-                value={incomeForm.title}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({ ...prev, title: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="e.g., Project Payment - Phase 1"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Amount
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={incomeForm.amount}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({ ...prev, amount: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="0.00"
-                required={isEdit}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <select
-                value={incomeForm.categoryId}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    categoryId: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                <option value="">Select Category</option>
-                {incomeCategories.map((category) => (
-                  <option key={category._id} value={category._id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Expected Amount
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={incomeForm.expectedAmount}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    expectedAmount: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="0.00"
-                required={isEdit}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Client Name
-              </label>
-              <input
-                type="text"
-                value={incomeForm.clientName}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    clientName: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="Client name"
-                required={isEdit}
-              />
-            </div>
-
-            {/* Client Email removed per requirement */}
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Payment Method
-              </label>
-              <select
-                value={incomeForm.paymentMethod}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    paymentMethod: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                required={isEdit}
-              >
-                <option value="bank_transfer">Bank Transfer</option>
-                <option value="credit_card">Credit Card</option>
-                <option value="paypal">PayPal</option>
-                <option value="check">Check</option>
-                <option value="cash">Cash</option>
-                <option value="wire_transfer">Wire Transfer</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Status
-              </label>
-              <select
-                value={incomeForm.status}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({ ...prev, status: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                required={isEdit}
-              >
-                <option value="pending">Pending</option>
-                <option value="collected">Collected</option>
-                <option value="overdue">Overdue</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Received Date
-              </label>
-              <input
-                type="date"
-                value={incomeForm.receivedDate}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    receivedDate: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                required={isEdit}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Due Date
-              </label>
-              <input
-                type="date"
-                value={incomeForm.dueDate}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    dueDate: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                required={isEdit}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Invoice Number
-              </label>
-              <input
-                type="text"
-                value={incomeForm.invoiceNumber}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    invoiceNumber: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="INV-001"
-                required={isEdit}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Payment Reference
-              </label>
-              <input
-                type="text"
-                value={incomeForm.paymentReference}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    paymentReference: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="Transaction ID or reference"
-                required={isEdit}
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={incomeForm.description}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="Income description..."
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Notes
-              </label>
-              <textarea
-                value={incomeForm.notes}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({ ...prev, notes: e.target.value }))
-                }
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="Additional notes..."
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 p-4 sm:p-6 border-t border-gray-200">
+    <ModalChrome
+      title={isEdit ? "Edit Income/Payment" : "Add New Income/Payment"}
+      subtitle="Amounts and dates are validated before saving"
+      footer={
+        <>
           <button
             onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 order-2 sm:order-1"
+            disabled={isSaving}
+            className={`${cancelBtnClass} order-2 sm:order-1`}
           >
             Cancel
           </button>
-          <button
+          <ActionButton
             onClick={onSubmit}
+            loading={isSaving}
+            loadingText={isEdit ? "Saving…" : "Adding…"}
             disabled={
               isEdit
                 ? !incomeForm.title ||
@@ -4178,17 +4922,240 @@ const IncomeModal = ({
                 : !incomeForm.title ||
                   (!incomeForm.amount && !incomeForm.expectedAmount)
             }
-            className={`w-full sm:w-auto px-4 py-2 text-sm sm:text-base text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2 ${
+            className={`w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 order-1 sm:order-2 ${
               isEdit
                 ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-green-600 hover:bg-green-700"
+                : "bg-emerald-600 hover:bg-emerald-700"
             }`}
           >
             {isEdit ? "Save Changes" : "Add Income"}
-          </button>
+          </ActionButton>
+        </>
+      }
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div className="sm:col-span-2">
+          <label className={fieldLabelClass}>Income Title *</label>
+          <input
+            type="text"
+            value={incomeForm.title}
+            onChange={(e) => handleIncomeFormChange("title", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass(!!incomeFormErrors.title)}
+            placeholder="e.g., Project Payment - Phase 1"
+            required
+          />
+          {incomeFormErrors.title && (
+            <p className={fieldErrorClass}>{incomeFormErrors.title}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Amount</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={incomeForm.amount}
+            onChange={(e) => handleIncomeFormChange("amount", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass(!!incomeFormErrors.amount)}
+            placeholder="0.00"
+            required={isEdit}
+          />
+          {incomeFormErrors.amount && (
+            <p className={fieldErrorClass}>{incomeFormErrors.amount}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Category</label>
+          <select
+            value={incomeForm.categoryId}
+            onChange={(e) =>
+              handleIncomeFormChange("categoryId", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass()}
+          >
+            <option value="">Select Category</option>
+            {incomeCategories.map((category) => (
+              <option key={category._id} value={category._id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Expected Amount</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={incomeForm.expectedAmount}
+            onChange={(e) =>
+              handleIncomeFormChange("expectedAmount", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass(!!incomeFormErrors.expectedAmount)}
+            placeholder="0.00"
+            required={isEdit}
+          />
+          {incomeFormErrors.expectedAmount && (
+            <p className={fieldErrorClass}>
+              {incomeFormErrors.expectedAmount}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Client Name</label>
+          <input
+            type="text"
+            value={incomeForm.clientName}
+            onChange={(e) =>
+              handleIncomeFormChange("clientName", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass(!!incomeFormErrors.clientName)}
+            placeholder="Client name"
+            required={isEdit}
+          />
+          {incomeFormErrors.clientName && (
+            <p className={fieldErrorClass}>{incomeFormErrors.clientName}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Payment Method</label>
+          <select
+            value={incomeForm.paymentMethod}
+            onChange={(e) =>
+              handleIncomeFormChange("paymentMethod", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass()}
+            required={isEdit}
+          >
+            <option value="bank_transfer">Bank Transfer</option>
+            <option value="credit_card">Credit Card</option>
+            <option value="paypal">PayPal</option>
+            <option value="check">Check</option>
+            <option value="cash">Cash</option>
+            <option value="wire_transfer">Wire Transfer</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Status</label>
+          <select
+            value={incomeForm.status}
+            onChange={(e) => handleIncomeFormChange("status", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass()}
+          >
+            <option value="pending">Pending (auto)</option>
+            <option value="partial">Partial (auto)</option>
+            <option value="collected">Collected (auto)</option>
+            <option value="overdue">Overdue (auto)</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <p className="text-xs text-slate-500 mt-1">
+            Status is usually set by Collect. Use Cancelled only to stop tracking.
+          </p>
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Received Date</label>
+          <input
+            type="date"
+            value={incomeForm.receivedDate}
+            onChange={(e) =>
+              handleIncomeFormChange("receivedDate", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass(!!incomeFormErrors.receivedDate)}
+            required={isEdit}
+          />
+          {incomeFormErrors.receivedDate && (
+            <p className={fieldErrorClass}>{incomeFormErrors.receivedDate}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Due Date</label>
+          <input
+            type="date"
+            value={incomeForm.dueDate}
+            onChange={(e) => handleIncomeFormChange("dueDate", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass(!!incomeFormErrors.dueDate)}
+            required={isEdit}
+          />
+          {incomeFormErrors.dueDate && (
+            <p className={fieldErrorClass}>{incomeFormErrors.dueDate}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Invoice Number</label>
+          <input
+            type="text"
+            value={incomeForm.invoiceNumber}
+            onChange={(e) =>
+              handleIncomeFormChange("invoiceNumber", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass()}
+            placeholder="INV-001"
+            required={isEdit}
+          />
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Payment Reference</label>
+          <input
+            type="text"
+            value={incomeForm.paymentReference}
+            onChange={(e) =>
+              handleIncomeFormChange("paymentReference", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass()}
+            placeholder="Transaction ID or reference"
+            required={isEdit}
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className={fieldLabelClass}>Description</label>
+          <textarea
+            value={incomeForm.description}
+            onChange={(e) =>
+              handleIncomeFormChange("description", e.target.value)
+            }
+            disabled={isSaving}
+            rows={3}
+            className={fieldInputClass()}
+            placeholder="Income description..."
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className={fieldLabelClass}>Notes</label>
+          <textarea
+            value={incomeForm.notes}
+            onChange={(e) => handleIncomeFormChange("notes", e.target.value)}
+            disabled={isSaving}
+            rows={2}
+            className={fieldInputClass()}
+            placeholder="Additional notes..."
+          />
         </div>
       </div>
-    </div>
+    </ModalChrome>
   );
 };
 

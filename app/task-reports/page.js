@@ -8,7 +8,7 @@ const TaskReportsPage = () => {
   const [selectedProject, setSelectedProject] = useState(null);
 
   return (
-    <Layout>
+    <Layout activeSection="projects">
       <TaskReporting projectId={selectedProject} />
     </Layout>
   );

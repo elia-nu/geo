@@ -541,15 +541,133 @@ const ProjectDetailPage = ({ params }) => {
     }
   };
 
-  // Loading state
+  const navItems = [
+    {
+      href: `/projects/${projectId}/team`,
+      label: "Team",
+      icon: PeopleIcon,
+    },
+    {
+      href: `/task-management?projectId=${projectId}`,
+      label: "Tasks",
+      icon: AssignmentIcon,
+    },
+    {
+      href: `/project-budget/${projectId}`,
+      label: "Budget",
+      icon: AttachMoneyIcon,
+    },
+    {
+      href: `/projects/${projectId}/milestones`,
+      label: "Milestones",
+      icon: TrendingUpIcon,
+    },
+    {
+      href: `/project-alerts?projectId=${projectId}`,
+      label: "Alerts",
+      icon: NotificationsIcon,
+    },
+  ];
+
+  const SkeletonBlock = ({ className = "" }) => (
+    <div className={`animate-pulse rounded-xl bg-slate-200/80 ${className}`} />
+  );
+
+  // Loading state — skeleton matching the redesigned layout
   if (loading) {
     return (
       <Layout activeSection="projects">
-        <div className="flex flex-col justify-center items-center min-h-[70vh] gap-3">
-          <div className="h-11 w-11 rounded-full border-2 border-blue-900/20 border-t-blue-900 animate-spin" />
-          <p className="text-sm text-slate-500 animate-pulse">
-            Loading project details…
-          </p>
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-blue-50/40">
+          <div className="border-b border-slate-200/80 bg-white">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <div className="py-4">
+                <SkeletonBlock className="h-4 w-48 rounded-md" />
+              </div>
+              <div className="pb-5">
+                <div className="mb-4 flex items-center gap-3">
+                  <SkeletonBlock className="h-9 w-72 rounded-lg" />
+                  <SkeletonBlock className="h-9 w-9 rounded-xl" />
+                </div>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <SkeletonBlock className="h-6 w-24 rounded-full" />
+                  <SkeletonBlock className="h-6 w-20 rounded-full" />
+                  <SkeletonBlock className="h-6 w-28 rounded-full" />
+                </div>
+                <SkeletonBlock className="mb-5 h-4 w-full max-w-xl rounded-md" />
+                <SkeletonBlock className="mb-4 h-2 w-full rounded-full" />
+                <div className="flex gap-2 overflow-hidden pb-1">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <SkeletonBlock
+                      key={i}
+                      className="h-10 w-28 shrink-0 rounded-xl"
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+            <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <SkeletonBlock className="h-10 w-10 rounded-xl" />
+                    <SkeletonBlock className="h-3 w-16 rounded-md" />
+                  </div>
+                  <SkeletonBlock className="mb-2 h-8 w-24 rounded-lg" />
+                  <SkeletonBlock className="h-3 w-20 rounded-md" />
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+              <div className="space-y-6 xl:col-span-2">
+                <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                  <SkeletonBlock className="h-14 w-full rounded-none" />
+                  <div className="space-y-4 p-6">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center gap-4">
+                        <SkeletonBlock className="h-12 w-12 rounded-xl" />
+                        <div className="flex-1 space-y-2">
+                          <SkeletonBlock className="h-4 w-40 rounded-md" />
+                          <SkeletonBlock className="h-3 w-28 rounded-md" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                  <SkeletonBlock className="h-14 w-full rounded-none" />
+                  <div className="flex items-center justify-center p-10">
+                    <SkeletonBlock className="h-48 w-48 rounded-full" />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-6">
+                {[1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm"
+                  >
+                    <SkeletonBlock className="h-14 w-full rounded-none" />
+                    <div className="space-y-3 p-5">
+                      <SkeletonBlock className="h-20 w-full rounded-xl" />
+                      <SkeletonBlock className="h-20 w-full rounded-xl" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 flex items-center justify-center gap-2 text-sm text-slate-500">
+              <div className="h-4 w-4 rounded-full border-2 border-blue-900/20 border-t-blue-900 animate-spin" />
+              Loading project details…
+            </div>
+          </div>
         </div>
       </Layout>
     );
@@ -617,56 +735,68 @@ const ProjectDetailPage = ({ params }) => {
     );
   }
 
+  const progress = taskStats.progress || 0;
+  const statusLabel = project.status
+    ? project.status
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+    : "Active";
+  const descriptionText =
+    project.description &&
+    project.description.trim().toLowerCase() !== project.name?.trim().toLowerCase()
+      ? project.description
+      : null;
+  const daysLeft = project.endDate
+    ? Math.max(0, differenceInDays(new Date(project.endDate), new Date()))
+    : null;
+
   return (
     <Layout activeSection="projects">
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-blue-50/40">
-        {/* Header Section */}
-        <div className="border-b border-slate-200/80 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* Breadcrumbs */}
-            <nav className="py-4" aria-label="Breadcrumb">
+        {/* Header */}
+        <div className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-10">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <nav className="pt-4 pb-2" aria-label="Breadcrumb">
               <ol className="flex flex-wrap items-center gap-1 text-sm text-slate-500">
                 <li>
                   <Link
                     href="/projects"
-                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 hover:bg-slate-100 hover:text-blue-900 transition-colors"
+                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 transition-colors hover:bg-slate-100 hover:text-blue-900"
                   >
                     <ArrowBackIcon className="!text-base" />
                     Projects
                   </Link>
                 </li>
                 <li className="text-slate-300">/</li>
-                <li className="px-1.5 py-1 font-medium text-slate-700 truncate max-w-[240px]">
+                <li className="max-w-[240px] truncate px-1.5 py-1 font-medium text-slate-700">
                   {project.name}
                 </li>
               </ol>
             </nav>
 
-            {/* Project Header */}
-            <div className="pb-6">
-              <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-3">
-                    <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900 truncate">
+            <div className="pb-0">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-3 flex items-center gap-3">
+                    <h1 className="truncate text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
                       {project.name}
                     </h1>
                     <button
                       onClick={refreshData}
                       disabled={refreshing}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-all hover:bg-slate-50 hover:text-blue-900 disabled:cursor-wait disabled:opacity-50"
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-all hover:bg-slate-50 hover:text-blue-900 disabled:cursor-wait disabled:opacity-50"
                       title="Refresh data"
                     >
                       <RefreshIcon
-                        className={`w-5 h-5 ${
-                          refreshing ? "animate-spin" : ""
-                        }`}
+                        className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`}
                       />
                     </button>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
                     <span
-                      className={`px-3 py-1 text-xs font-semibold rounded-full ring-1 ${
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
                         project.status === "completed"
                           ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
                           : project.status === "in_progress"
@@ -677,321 +807,246 @@ const ProjectDetailPage = ({ params }) => {
                           : "bg-slate-100 text-slate-700 ring-slate-200"
                       }`}
                     >
-                      {project.status
-                        ? project.status
-                            .split("_")
-                            .map(
-                              (word) =>
-                                word.charAt(0).toUpperCase() + word.slice(1)
-                            )
-                            .join(" ")
-                        : "Active"}
+                      {statusLabel}
                     </span>
                     {project.category && (
-                      <span className="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-full ring-1 ring-slate-200">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200">
                         {project.category.charAt(0).toUpperCase() +
                           project.category.slice(1)}
                       </span>
                     )}
-                    <span className="px-3 py-1 bg-blue-50 text-blue-900 text-xs font-semibold rounded-full ring-1 ring-blue-100">
-                      {taskStats.progress || 0}% Complete
+                    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-900 ring-1 ring-blue-100">
+                      {progress}% Complete
                     </span>
+                    {assignedEmployees.length > 0 && (
+                      <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+                        {assignedEmployees.length} team member
+                        {assignedEmployees.length === 1 ? "" : "s"}
+                      </span>
+                    )}
                   </div>
 
-                  <p className="text-slate-500 text-sm sm:text-base leading-relaxed max-w-4xl">
-                    {project.description}
-                  </p>
+                  {descriptionText && (
+                    <p className="mb-4 max-w-3xl text-sm leading-relaxed text-slate-500 sm:text-base">
+                      {descriptionText}
+                    </p>
+                  )}
                 </div>
+              </div>
 
-                {/* Action Buttons */}
-                <div className="flex flex-wrap gap-2 lg:flex-col lg:w-44 w-full">
-                  <Link
-                    href={`/projects/${projectId}/team`}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-900 text-white font-medium rounded-xl hover:bg-blue-800 transition-all text-sm flex-1 lg:flex-none justify-center active:scale-[0.98]"
-                  >
-                    <PeopleIcon className="w-4 h-4" />
-                    Team
-                  </Link>
-                  <Link
-                    href={`/task-management?projectId=${projectId}`}
-                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-all text-sm flex-1 lg:flex-none justify-center"
-                  >
-                    <AssignmentIcon className="w-4 h-4" />
-                    Tasks
-                  </Link>
-                  <Link
-                    href={`/project-budget/${projectId}`}
-                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-all text-sm flex-1 lg:flex-none justify-center"
-                  >
-                    <AttachMoneyIcon className="w-4 h-4" />
-                    Budget
-                  </Link>
-                  <Link
-                    href={`/projects/${project._id}/milestones`}
-                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-all text-sm flex-1 lg:flex-none justify-center"
-                  >
-                    <TrendingUpIcon className="w-4 h-4" />
-                    Milestones
-                  </Link>
-                  <Link
-                    href={`/project-alerts?projectId=${projectId}`}
-                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-all text-sm flex-1 lg:flex-none justify-center"
-                  >
-                    <NotificationsIcon className="w-4 h-4" />
-                    Alerts
-                  </Link>
+              {/* Progress */}
+              <div className="mb-4">
+                <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500">
+                  <span className="font-medium">Overall progress</span>
+                  <span className="font-semibold text-blue-900">{progress}%</span>
                 </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-blue-800 to-blue-600 transition-all duration-700 ease-out"
+                    style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Horizontal nav tabs */}
+              <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
+                <nav
+                  className="flex gap-1 border-b border-slate-200 pb-0"
+                  aria-label="Project sections"
+                >
+                  {navItems.map(({ href, label, icon: Icon }) => (
+                    <Link
+                      key={label}
+                      href={href}
+                      className="group relative flex shrink-0 items-center gap-2 rounded-t-lg px-4 py-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-900"
+                    >
+                      <Icon className="!text-[18px] text-slate-400 transition-colors group-hover:text-blue-900" />
+                      {label}
+                      <span className="absolute inset-x-2 bottom-0 h-0.5 scale-x-0 rounded-full bg-blue-900 transition-transform group-hover:scale-x-100" />
+                    </Link>
+                  ))}
+                </nav>
               </div>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Key Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
-            {/* Total Tasks */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow ">
-              <div className="flex items-center justify-between mb-4 ">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <AssignmentIcon className="w-6 h-6 text-blue-600" />
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          {/* Key Metrics */}
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Tasks */}
+            <div className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-blue-200 hover:shadow-md">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                  <AssignmentIcon className="!text-[22px]" />
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500 font-medium">
-                    Total Tasks
-                  </p>
-                  <p className="text-2xl font-bold text-black">
-                    {taskStats.total || 0}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-xs border-t border-gray-200 pt-4">
-                <span className="text-green-600 font-semibold flex items-center">
-                  <CheckCircleIcon className="w-4 h-4 mr-1" />
-                  {taskStats.completed || 0} completed
-                </span>
                 <Link
                   href={`/task-management?projectId=${projectId}`}
-                  className="text-blue-600 font-bold hover:text-blue-800"
+                  className="text-xs font-semibold text-blue-900 opacity-0 transition-opacity group-hover:opacity-100"
                 >
-                  View All
+                  View →
                 </Link>
               </div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Total Tasks
+              </p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">
+                {taskStats.total || 0}
+              </p>
+              <p className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-600">
+                <CheckCircleIcon className="!text-sm" />
+                {taskStats.completed || 0} completed
+              </p>
             </div>
 
             {/* Budget */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <AttachMoneyIcon className="w-6 h-6 text-green-600" />
+            <div className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <AttachMoneyIcon className="!text-[22px]" />
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500 font-medium">Budget</p>
-                  {!isEditingBudget ? (
-                    <p className="text-2xl font-bold text-black">
-                      {new Intl.NumberFormat("en-ET", {
-                        style: "currency",
-                        currency: "ETB",
-                      }).format(getBudgetAmount(project.budget))}
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      <input
-                        type="number"
-                        placeholder="Amount"
-                        value={budgetForm.totalAmount}
-                        onChange={(e) =>
-                          handleBudgetFormChange("totalAmount", e.target.value)
-                        }
-                        className={`w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 ${
-                          budgetFormErrors.totalAmount
-                            ? "border-red-500 focus:ring-red-500"
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                      />
-                      {budgetFormErrors.totalAmount && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {budgetFormErrors.totalAmount}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center justify-end text-xs border-t border-gray-200 pt-4">
                 <Link
                   href={`/project-budget/${projectId}`}
-                  className="text-green-500 font-bold hover:text-blue-800"
+                  className="text-xs font-semibold text-emerald-700 opacity-0 transition-opacity group-hover:opacity-100"
                 >
-                  Details
+                  Details →
                 </Link>
               </div>
-              {/*<div className="flex items-center justify-between text-xs">
-                {!isEditingBudget ? (
-                  <>
-                    <span className="text-green-600 font-semibold flex items-center">
-                      <CheckCircleIcon className="w-4 h-4 mr-1" />
-                      {hasBudget(project.budget) ? "Set" : "Not Set"}
-                    </span>
-                    <button
-                      onClick={handleEditBudget}
-                      className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-                    >
-                      <EditIcon className="w-3 h-3" />
-                      {hasBudget(project.budget) ? "Edit" : "Add"}
-                    </button>
-                  </>
-                ) : (
-                  <div className="flex gap-1 w-full">
-                    <button
-                      onClick={handleSaveBudget}
-                      disabled={budgetLoading || !budgetForm.totalAmount}
-                      className="flex-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors disabled:opacity-50"
-                    >
-                      {budgetLoading ? "Saving..." : "Save"}
-                    </button>
-                    <button
-                      onClick={handleCancelBudgetEdit}
-                      disabled={budgetLoading}
-                      className="flex-1 px-2 py-1 bg-gray-500 text-white text-xs font-medium rounded hover:bg-gray-600 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
-              </div>
-              */}
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Budget
+              </p>
+              <p className="mt-1 truncate text-2xl font-bold text-slate-900">
+                {new Intl.NumberFormat("en-ET", {
+                  style: "currency",
+                  currency: "ETB",
+                  maximumFractionDigits: 0,
+                }).format(getBudgetAmount(project.budget))}
+              </p>
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                {hasBudget(project.budget) ? "Allocated" : "Not set"}
+              </p>
             </div>
 
             {/* Expenses */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-red-100 rounded-lg">
-                  <AccountBalanceWalletIcon className="w-6 h-6 text-red-600" />
+            <div className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-rose-200 hover:shadow-md">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-700">
+                  <AccountBalanceWalletIcon className="!text-[22px]" />
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500 font-medium">Expenses</p>
-                  <p className="text-2xl font-bold text-black">
-                    {new Intl.NumberFormat("en-ET", {
-                      style: "currency",
-                      currency: "ETB",
-                    }).format(
-                      financialData.totalExpenses ||
-                        getTotalExpenses(project.expenses) ||
-                        0
-                    )}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-end text-xs border-t border-gray-200 pt-4">
-                {/*<span className="text-red-600 font-semibold flex items-center">
-                  <TrendingUpIcon className="w-4 h-4 mr-1" />
-                  {financialData.budgetUtilization
-                    ? `${Math.round(financialData.budgetUtilization)}%`
-                    : "0%"}{" "}
-                  used
-                </span>*/}
                 <Link
                   href={`/project-budget/${projectId}`}
-                  className="text-red-500 font-bold hover:text-blue-800"
+                  className="text-xs font-semibold text-rose-700 opacity-0 transition-opacity group-hover:opacity-100"
                 >
-                  Details
+                  Details →
                 </Link>
               </div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Expenses
+              </p>
+              <p className="mt-1 truncate text-2xl font-bold text-slate-900">
+                {new Intl.NumberFormat("en-ET", {
+                  style: "currency",
+                  currency: "ETB",
+                  maximumFractionDigits: 0,
+                }).format(
+                  financialData.totalExpenses ||
+                    getTotalExpenses(project.expenses) ||
+                    0
+                )}
+              </p>
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                {financialData.budgetUtilization
+                  ? `${Math.round(financialData.budgetUtilization)}% of budget`
+                  : "Tracked spend"}
+              </p>
             </div>
 
             {/* Timeline */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-orange-100 rounded-lg">
-                  <CalendarIcon className="w-6 h-6 text-orange-600" />
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500 font-medium">Timeline</p>
-                  <p className="text-sm font-bold text-black leading-tight">
-                    {project.startDate && project.endDate
-                      ? `${format(
-                          parseISO(project.startDate),
-                          "MMM dd"
-                        )} - ${format(parseISO(project.endDate), "MMM dd")}`
-                      : "Not specified"}
-                  </p>
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-amber-200 hover:shadow-md">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                  <CalendarIcon className="!text-[22px]" />
                 </div>
               </div>
-              <div className="flex items-center justify-between text-xs border-t border-gray-200 pt-4">
-                <span className="text-orange-600 font-semibold flex items-center">
-                  <AccessTimeIcon className="w-4 h-4 mr-1" />
-                  {project.endDate
-                    ? `${Math.max(
-                        0,
-                        differenceInDays(new Date(project.endDate), new Date())
-                      )} days left`
-                    : "No deadline"}
-                </span>
-                <span className="text-blue-600 hover:text-blue-800 font-medium cursor-pointer"></span>
-              </div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Timeline
+              </p>
+              <p className="mt-1 text-lg font-bold leading-snug text-slate-900">
+                {project.startDate && project.endDate
+                  ? `${format(parseISO(project.startDate), "MMM dd")} – ${format(
+                      parseISO(project.endDate),
+                      "MMM dd, yyyy"
+                    )}`
+                  : "Not specified"}
+              </p>
+              <p className="mt-2 flex items-center gap-1 text-xs font-medium text-amber-700">
+                <AccessTimeIcon className="!text-sm" />
+                {daysLeft !== null ? `${daysLeft} days left` : "No deadline"}
+              </p>
             </div>
           </div>
 
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            {/* Left Column - Team & Milestones */}
-            <div className="xl:col-span-2 space-y-8">
-              {/* Team Members Section */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-white/15 rounded-lg mr-3">
-                        <PeopleIcon className="w-5 h-5 text-white" />
-                      </div>
-                      <h2 className="text-xl font-semibold text-white">
-                        Team Members
-                      </h2>
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            {/* Left Column */}
+            <div className="space-y-6 xl:col-span-2">
+              {/* Team Members */}
+              <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-blue-900 to-blue-800 px-5 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+                      <PeopleIcon className="!text-lg text-white" />
                     </div>
-                    <Link
-                      href={`/projects/${projectId}/team`}
-                      className="flex items-center gap-2 text-gray-700 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-lg px-3 py-2 text-sm font-medium transition-colors shadow-sm border border-gray-200"
-                    >
-                      View All
-                      <ArrowForwardIcon className="w-4 h-4 text-black" />
-                    </Link>
+                    <h2 className="text-base font-semibold text-white">
+                      Team Members
+                    </h2>
+                    <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs text-white/90">
+                      {assignedEmployees.length}
+                    </span>
                   </div>
+                  <Link
+                    href={`/projects/${projectId}/team`}
+                    className="inline-flex items-center gap-1 rounded-lg bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-white"
+                  >
+                    Manage
+                    <ArrowForwardIcon className="!text-sm" />
+                  </Link>
                 </div>
 
-                <div className="p-6">
+                <div className="p-5">
                   {assignedEmployees.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {assignedEmployees.slice(0, 4).map((employee) => (
                         <div
                           key={employee._id}
-                          className="flex items-center p-4 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+                          className="flex items-center rounded-xl border border-slate-100 p-3.5 transition-colors hover:bg-slate-50"
                         >
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-lg mr-4">
+                          <div className="mr-3 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-800 to-blue-600 text-base font-semibold text-white">
                             {employee.name
                               ? employee.name.charAt(0).toUpperCase()
                               : "U"}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-lg font-semibold text-black truncate">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-semibold text-slate-900">
                               {employee.name}
                             </p>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-slate-500">
                               {employee.position ||
                                 employee.department ||
                                 "Team Member"}
                             </p>
                           </div>
-                          <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                          <span className="hidden rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800 sm:inline">
                             {employee.department || "Department"}
                           </span>
                         </div>
                       ))}
                       {assignedEmployees.length > 4 && (
-                        <div className="text-center pt-4">
+                        <div className="pt-2 text-center">
                           <Link
                             href={`/projects/${projectId}/team`}
-                            className="inline-flex items-center px-4 py-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            className="text-sm font-medium text-blue-900 hover:underline"
                           >
                             +{assignedEmployees.length - 4} more team members
                           </Link>
@@ -999,21 +1054,21 @@ const ProjectDetailPage = ({ params }) => {
                       )}
                     </div>
                   ) : (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                        <PeopleIcon className="w-8 h-8 text-gray-400" />
+                    <div className="px-2 py-10 text-center">
+                      <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                        <PeopleIcon className="!text-3xl" />
                       </div>
-                      <h3 className="text-lg font-medium text-black mb-2">
-                        No Team Members
+                      <h3 className="text-base font-medium text-slate-800">
+                        No team members yet
                       </h3>
-                      <p className="text-gray-500 mb-4">
-                        No team members have been assigned to this project yet.
+                      <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">
+                        Assign people so they can collaborate on this project.
                       </p>
                       <Link
                         href={`/projects/${projectId}/team`}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-800"
                       >
-                        <AddIcon className="w-4 h-4" />
+                        <AddIcon className="!text-lg" />
                         Assign Team Members
                       </Link>
                     </div>
@@ -1021,21 +1076,18 @@ const ProjectDetailPage = ({ params }) => {
                 </div>
               </div>
 
-              {/* Interactive Project Analytics */}
-              <div className="grid grid-cols-1  gap-6">
-                {/* Task Status Distribution Chart */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                        <BarChartIcon className="w-5 h-5 text-black" />
-                      </div>
-                      <h2 className="text-lg font-semibold text-white">
-                        Task Distribution
-                      </h2>
+              {/* Charts */}
+              <div className="grid grid-cols-1 gap-6">
+                <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                  <div className="flex items-center gap-2.5 border-b border-slate-100 bg-gradient-to-r from-blue-900 to-blue-800 px-5 py-3.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+                      <BarChartIcon className="!text-lg text-white" />
                     </div>
+                    <h2 className="text-base font-semibold text-white">
+                      Task Distribution
+                    </h2>
                   </div>
-                  <div className="p-6">
+                  <div className="p-5">
                     {prepareTaskStatusChartData().length > 0 ? (
                       <ResponsiveContainer width="100%" height={250}>
                         <PieChart>
@@ -1064,8 +1116,9 @@ const ProjectDetailPage = ({ params }) => {
                         </PieChart>
                       </ResponsiveContainer>
                     ) : (
-                      <div className="flex items-center justify-center h-64 text-gray-500">
-                        <p>No task data available</p>
+                      <div className="flex h-52 flex-col items-center justify-center text-slate-400">
+                        <BarChartIcon className="mb-2 !text-4xl opacity-40" />
+                        <p className="text-sm">No task data available yet</p>
                       </div>
                     )}
                   </div>
@@ -1124,16 +1177,14 @@ const ProjectDetailPage = ({ params }) => {
 */}
                 {/* Category Progress Bar Chart */}
                 {prepareCategoryProgressData().length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
-                    <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                          <BarChartIcon className="w-5 h-5 text-black" />
-                        </div>
-                        <h2 className="text-lg font-semibold text-white">
-                          Progress by Category
-                        </h2>
+                  <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm lg:col-span-2">
+                    <div className="flex items-center gap-2.5 bg-gradient-to-r from-blue-900 to-blue-800 px-5 py-3.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+                        <BarChartIcon className="!text-lg text-white" />
                       </div>
+                      <h2 className="text-base font-semibold text-white">
+                        Progress by Category
+                      </h2>
                     </div>
                     <div className="p-6">
                       <ResponsiveContainer width="100%" height={300}>
@@ -1170,30 +1221,28 @@ const ProjectDetailPage = ({ params }) => {
 
                 {/* Project Timeline Chart */}
                 {prepareTimelineData().length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
-                    <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                          <CalendarIcon className="w-5 h-5 text-black" />
-                        </div>
-                        <h2 className="text-lg font-semibold text-white">
-                          Project Timeline
-                        </h2>
+                  <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm lg:col-span-2">
+                    <div className="flex items-center gap-2.5 bg-gradient-to-r from-blue-900 to-blue-800 px-5 py-3.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+                        <CalendarIcon className="!text-lg text-white" />
                       </div>
+                      <h2 className="text-base font-semibold text-white">
+                        Project Timeline
+                      </h2>
                     </div>
-                    <div className="p-6">
+                    <div className="p-5">
                       <div className="mb-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <p className="text-lg font-semibold text-black">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-sm font-semibold text-slate-800">
                             Overall Progress
                           </p>
-                          <p className="text-2xl font-bold text-indigo-600">
+                          <p className="text-xl font-bold text-blue-900">
                             {taskStats.progress || 0}%
                           </p>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
                           <div
-                            className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-3 rounded-full transition-all duration-500"
+                            className="h-full rounded-full bg-gradient-to-r from-blue-800 to-blue-500 transition-all duration-500"
                             style={{ width: `${taskStats.progress || 0}%` }}
                           />
                         </div>
@@ -1215,158 +1264,149 @@ const ProjectDetailPage = ({ params }) => {
               </div>
             </div>
 
-            {/* Right Column - Milestones & Alerts */}
-            <div className="space-y-8">
-              {/* Milestones Section */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-white/15 rounded-lg mr-3">
-                        <TimelineIcon className="w-5 h-5 text-white" />
-                      </div>
-                      <h2 className="text-xl font-semibold text-white">
-                        Milestones
-                      </h2>
+            {/* Right Column */}
+            <div className="space-y-6">
+              {/* Milestones */}
+              <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-blue-900 to-blue-800 px-5 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+                      <TimelineIcon className="!text-lg text-white" />
                     </div>
-                    <Link
-                      href={`/projects/${project._id}/milestones`}
-                      className="flex items-center gap-2 text-gray-700 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-lg px-3 py-2 text-sm font-medium transition-colors shadow-sm border border-gray-200"
-                    >
-                      <AddIcon className="w-4 h-4 text-gray-700" />
-                      Add
-                    </Link>
+                    <h2 className="text-base font-semibold text-white">
+                      Milestones
+                    </h2>
                   </div>
+                  <Link
+                    href={`/projects/${project._id}/milestones`}
+                    className="inline-flex items-center gap-1 rounded-lg bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-white"
+                  >
+                    <AddIcon className="!text-sm" />
+                    Add
+                  </Link>
                 </div>
 
-                <div className="p-6">
+                <div className="p-5">
                   {milestones && milestones.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {milestones.slice(0, 3).map((milestone) => (
                         <div
                           key={milestone._id}
-                          className="p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow"
+                          className="rounded-xl border border-slate-100 p-3.5 transition-shadow hover:shadow-sm"
                         >
-                          <div className="flex justify-between items-start mb-3">
-                            <h3 className="text-base font-semibold text-black flex-1 pr-2">
+                          <div className="mb-2 flex items-start justify-between gap-2">
+                            <h3 className="text-sm font-semibold text-slate-900">
                               {milestone.title}
                             </h3>
                             <span
-                              className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                                 milestone.status === "completed"
-                                  ? "bg-green-100 text-green-800"
+                                  ? "bg-emerald-50 text-emerald-700"
                                   : milestone.status === "in_progress"
-                                  ? "bg-blue-100 text-blue-800"
+                                  ? "bg-sky-50 text-sky-700"
                                   : milestone.status === "pending"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-gray-100 text-gray-800"
+                                  ? "bg-amber-50 text-amber-700"
+                                  : "bg-slate-100 text-slate-600"
                               }`}
                             >
                               {milestone.status}
                             </span>
                           </div>
 
-                          <div className="flex items-center mb-3 text-sm text-gray-600">
-                            <CalendarIcon className="w-4 h-4 mr-2 text-orange-500" />
-                            <span>
-                              Due:{" "}
-                              {format(
-                                new Date(milestone.dueDate),
-                                "MMM dd, yyyy"
-                              )}
-                            </span>
+                          <div className="mb-2.5 flex items-center text-xs text-slate-500">
+                            <CalendarIcon className="mr-1.5 !text-sm text-amber-500" />
+                            Due{" "}
+                            {format(
+                              new Date(milestone.dueDate),
+                              "MMM dd, yyyy"
+                            )}
                           </div>
 
                           <div>
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-xs text-gray-600">
+                            <div className="mb-1 flex items-center justify-between">
+                              <span className="text-[11px] text-slate-500">
                                 Progress
                               </span>
-                              <span
-                                className={`text-xs font-semibold ${
-                                  (milestone.progress || 0) < 30
-                                    ? "text-red-500"
-                                    : (milestone.progress || 0) < 70
-                                    ? "text-yellow-500"
-                                    : "text-green-500"
-                                }`}
-                              >
+                              <span className="text-[11px] font-semibold text-slate-700">
                                 {milestone.progress || 0}%
                               </span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                               <div
-                                className={`h-2 rounded-full transition-all duration-300 ${
+                                className={`h-full rounded-full transition-all duration-300 ${
                                   (milestone.progress || 0) < 30
-                                    ? "bg-red-500"
+                                    ? "bg-rose-500"
                                     : (milestone.progress || 0) < 70
-                                    ? "bg-yellow-500"
-                                    : "bg-green-500"
+                                    ? "bg-amber-500"
+                                    : "bg-emerald-500"
                                 }`}
-                                style={{ width: `${milestone.progress || 0}%` }}
+                                style={{
+                                  width: `${milestone.progress || 0}%`,
+                                }}
                               />
                             </div>
                           </div>
                         </div>
                       ))}
                       {milestones.length > 3 && (
-                        <div className="text-center pt-2">
-                          <button className="text-sm text-purple-600 hover:text-purple-800 font-medium">
-                            View {milestones.length - 3} more milestones
-                          </button>
+                        <div className="pt-1 text-center">
+                          <Link
+                            href={`/projects/${project._id}/milestones`}
+                            className="text-sm font-medium text-blue-900 hover:underline"
+                          >
+                            View {milestones.length - 3} more
+                          </Link>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                        <TimelineIcon className="w-8 h-8 text-gray-400" />
+                    <div className="px-2 py-8 text-center">
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                        <TimelineIcon />
                       </div>
-                      <h3 className="text-lg font-medium text-black mb-2">
-                        No Milestones
+                      <h3 className="text-sm font-medium text-slate-800">
+                        No milestones
                       </h3>
-                      <p className="text-gray-500 mb-4">
-                        No milestones have been defined for this project yet.
+                      <p className="mt-1 text-xs text-slate-500">
+                        Define milestones to track project phases.
                       </p>
-                      <button className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-                        <AddIcon className="w-4 h-4" />
+                      <Link
+                        href={`/projects/${project._id}/milestones`}
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-blue-900 px-3 py-2 text-xs font-medium text-white hover:bg-blue-800"
+                      >
+                        <AddIcon className="!text-sm" />
                         Add Milestone
-                      </button>
+                      </Link>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Alerts Section */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-white/15 rounded-lg mr-3">
-                        <NotificationsIcon className="w-5 h-5 text-white" />
-                      </div>
-                      <h2 className="text-xl font-semibold text-white">
-                        Project Alerts
-                      </h2>
+              {/* Alerts */}
+              <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-blue-900 to-blue-800 px-5 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+                      <NotificationsIcon className="!text-lg text-white" />
                     </div>
-                    <span className="px-3 py-1 bg-white bg-opacity-90 text-gray-700 text-xs font-semibold rounded-full shadow-sm border border-gray-200">
-                      {alertsLoading ? "…" : alerts.length}
-                    </span>
+                    <h2 className="text-base font-semibold text-white">
+                      Alerts
+                    </h2>
                   </div>
+                  <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                    {alertsLoading ? "…" : alerts.length}
+                  </span>
                 </div>
 
-                <div className="p-6">
+                <div className="p-5">
                   {alertsLoading ? (
                     <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-600 border-t-transparent"></div>
-                        <p className="text-sm text-gray-600">
-                          Fetching latest alerts…
-                        </p>
+                      <div className="flex items-center gap-2.5 text-sm text-slate-500">
+                        <div className="h-4 w-4 rounded-full border-2 border-blue-900/20 border-t-blue-900 animate-spin" />
+                        Fetching alerts…
                       </div>
-                      <div className="h-4 bg-gray-100 rounded w-11/12" />
-                      <div className="h-4 bg-gray-100 rounded w-10/12" />
-                      <div className="h-4 bg-gray-100 rounded w-9/12" />
+                      <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
+                      <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
                     </div>
                   ) : alerts.length > 0 ? (
                     <div className="space-y-4">
@@ -1434,26 +1474,26 @@ const ProjectDetailPage = ({ params }) => {
                         </div>
                       ))}
                       {alerts.length > 3 && (
-                        <div className="text-center pt-2">
-                          <Link href={`/project-alerts?projectId=${projectId}`}>
-                            <button className="text-sm text-orange-600 border border-orange-600 rounded-md px-2 py-1 hover:text-orange-800 font-medium">
-                              View {alerts.length - 3} more alerts
-                            </button>
+                        <div className="pt-2 text-center">
+                          <Link
+                            href={`/project-alerts?projectId=${projectId}`}
+                            className="text-sm font-medium text-blue-900 hover:underline"
+                          >
+                            View {alerts.length - 3} more alerts
                           </Link>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                        <NotificationsOffIcon className="w-8 h-8 text-gray-400" />
+                    <div className="px-2 py-8 text-center">
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                        <NotificationsOffIcon />
                       </div>
-                      <h3 className="text-lg font-medium text-black mb-2">
-                        No Alerts
+                      <h3 className="text-sm font-medium text-slate-800">
+                        No alerts
                       </h3>
-                      <p className="text-gray-500">
-                        No alerts for this project. You'll be notified here when
-                        there are important updates.
+                      <p className="mt-1 text-xs text-slate-500">
+                        You&apos;ll see important updates here.
                       </p>
                     </div>
                   )}
@@ -1461,44 +1501,42 @@ const ProjectDetailPage = ({ params }) => {
               </div>
 
               {/* Activity Timeline */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                      <HistoryIcon className="w-5 h-5 text-black" />
-                    </div>
-                    <h2 className="text-xl font-semibold text-white">
-                      Recent Activity
-                    </h2>
+              <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                <div className="flex items-center gap-2.5 border-b border-slate-100 bg-gradient-to-r from-blue-900 to-blue-800 px-5 py-3.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+                    <HistoryIcon className="!text-lg text-white" />
                   </div>
+                  <h2 className="text-base font-semibold text-white">
+                    Recent Activity
+                  </h2>
                 </div>
 
-                <div className="p-6">
+                <div className="p-5">
                   {activityTimeline.length > 0 ? (
                     <div className="space-y-4">
-                      {activityTimeline.map((activity, index) => (
+                      {activityTimeline.map((activity) => (
                         <div key={activity.id} className="flex items-start">
                           <div
-                            className={`p-2 rounded-lg mr-4 ${
+                            className={`mr-3 rounded-lg p-2 ${
                               activity.color === "green"
-                                ? "bg-green-100"
+                                ? "bg-emerald-50 text-emerald-700"
                                 : activity.color === "blue"
-                                ? "bg-blue-100"
+                                ? "bg-sky-50 text-sky-700"
                                 : activity.color === "orange"
-                                ? "bg-orange-100"
-                                : "bg-gray-100"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-slate-100 text-slate-600"
                             }`}
                           >
                             {getTimelineIcon(activity.type)}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-base font-semibold text-black">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-sm font-semibold text-slate-900">
                               {activity.title}
                             </h3>
-                            <p className="text-sm text-gray-600 mb-1">
+                            <p className="mb-1 text-xs text-slate-500">
                               {activity.description}
                             </p>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-[11px] text-slate-400">
                               {format(
                                 new Date(activity.date),
                                 "MMM dd, yyyy 'at' h:mm a"
@@ -1509,16 +1547,15 @@ const ProjectDetailPage = ({ params }) => {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                        <HistoryIcon className="w-8 h-8 text-gray-400" />
+                    <div className="px-2 py-8 text-center">
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                        <HistoryIcon />
                       </div>
-                      <h3 className="text-lg font-medium text-black mb-2">
-                        No Recent Activity
+                      <h3 className="text-sm font-medium text-slate-800">
+                        No recent activity
                       </h3>
-                      <p className="text-gray-500">
-                        Project activity will appear here as team members work
-                        on tasks and milestones.
+                      <p className="mt-1 text-xs text-slate-500">
+                        Activity will show up as the team works.
                       </p>
                     </div>
                   )}

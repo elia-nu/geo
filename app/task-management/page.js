@@ -1,51 +1,27 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Layout from "../components/Layout";
 import TaskManagement from "../components/TaskManagement";
-import TaskDetailView from "../components/TaskDetailView";
 
 const TaskManagementContent = () => {
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [showTaskDetail, setShowTaskDetail] = useState(false);
   const searchParams = useSearchParams();
   const projectId = searchParams.get("projectId");
 
-  const handleTaskSelect = (task) => {
-    setSelectedTask(task);
-    setShowTaskDetail(true);
-  };
-
-  const handleTaskUpdate = () => {
-    // Refresh task list when task is updated
-    window.location.reload(); // Simple approach - could be optimized
-  };
-
-  return (
-    <>
-      <TaskManagement projectId={projectId} onTaskSelect={handleTaskSelect} />
-
-      <TaskDetailView
-        task={selectedTask}
-        isOpen={showTaskDetail}
-        onClose={() => {
-          setShowTaskDetail(false);
-          setSelectedTask(null);
-        }}
-        onUpdate={handleTaskUpdate}
-      />
-    </>
-  );
+  return <TaskManagement projectId={projectId} />;
 };
 
 const TaskManagementPage = () => {
   return (
-    <Layout>
+    <Layout activeSection="projects">
       <Suspense
         fallback={
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3">
+            <div className="h-11 w-11 rounded-full border-2 border-blue-900/20 border-t-blue-900 animate-spin" />
+            <p className="animate-pulse text-sm text-slate-500">
+              Loading tasks…
+            </p>
           </div>
         }
       >

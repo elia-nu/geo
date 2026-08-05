@@ -1,5 +1,16 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  Briefcase,
+  Building2,
+  Copy,
+  Plus,
+  RefreshCw,
+  Search,
+  Pencil,
+  Trash2,
+  Check,
+} from "lucide-react";
 
 export default function DesignationsManagement() {
   const [designations, setDesignations] = useState([]);
@@ -10,6 +21,7 @@ export default function DesignationsManagement() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [copiedName, setCopiedName] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -74,6 +86,23 @@ export default function DesignationsManagement() {
     loadDeptDes();
   }, [selectedDeptId]);
 
+  const refreshLists = async () => {
+    const [allRes, deptRes] = await Promise.all([
+      fetch("/api/designations"),
+      selectedDeptId
+        ? fetch(`/api/departments/${selectedDeptId}/designations`)
+        : Promise.resolve(null),
+    ]);
+    if (allRes.ok) {
+      const j = await allRes.json();
+      setDesignations(Array.isArray(j?.designations) ? j.designations : []);
+    }
+    if (deptRes?.ok) {
+      const j = await deptRes.json();
+      setDeptDesignations(Array.isArray(j?.designations) ? j.designations : []);
+    }
+  };
+
   const addDesignation = async () => {
     const name = newDesignation.trim();
     if (!selectedDeptId || !name) return;
@@ -90,21 +119,7 @@ export default function DesignationsManagement() {
       );
       if (!res.ok) throw new Error("Failed to add designation");
       setNewDesignation("");
-      // refresh lists
-      const [allRes, deptRes] = await Promise.all([
-        fetch("/api/designations"),
-        fetch(`/api/departments/${selectedDeptId}/designations`),
-      ]);
-      if (allRes.ok) {
-        const j = await allRes.json();
-        setDesignations(Array.isArray(j?.designations) ? j.designations : []);
-      }
-      if (deptRes.ok) {
-        const j = await deptRes.json();
-        setDeptDesignations(
-          Array.isArray(j?.designations) ? j.designations : []
-        );
-      }
+      await refreshLists();
     } catch (e) {
       setError(e.message || "Failed to add designation");
     } finally {
@@ -129,24 +144,7 @@ export default function DesignationsManagement() {
       );
       if (!res.ok) throw new Error("Failed to update designation");
       setRename({ oldName: "", newName: "" });
-
-      // Refresh both the department designations and the main designations list
-      const [deptRes, allRes] = await Promise.all([
-        fetch(`/api/departments/${selectedDeptId}/designations`),
-        fetch("/api/designations"),
-      ]);
-
-      if (deptRes.ok) {
-        const j = await deptRes.json();
-        setDeptDesignations(
-          Array.isArray(j?.designations) ? j.designations : []
-        );
-      }
-
-      if (allRes.ok) {
-        const j = await allRes.json();
-        setDesignations(Array.isArray(j?.designations) ? j.designations : []);
-      }
+      await refreshLists();
     } catch (e) {
       setError(e.message || "Failed to update designation");
     } finally {
@@ -168,24 +166,7 @@ export default function DesignationsManagement() {
         }
       );
       if (!res.ok) throw new Error("Failed to remove designation");
-
-      // Refresh both the department designations and the main designations list
-      const [deptRes, allRes] = await Promise.all([
-        fetch(`/api/departments/${selectedDeptId}/designations`),
-        fetch("/api/designations"),
-      ]);
-
-      if (deptRes.ok) {
-        const j = await deptRes.json();
-        setDeptDesignations(
-          Array.isArray(j?.designations) ? j.designations : []
-        );
-      }
-
-      if (allRes.ok) {
-        const j = await allRes.json();
-        setDesignations(Array.isArray(j?.designations) ? j.designations : []);
-      }
+      await refreshLists();
     } catch (e) {
       setError(e.message || "Failed to remove designation");
     } finally {
@@ -193,152 +174,251 @@ export default function DesignationsManagement() {
     }
   };
 
+  const copyDesignation = async (name) => {
+    try {
+      await navigator.clipboard.writeText(String(name));
+      setCopiedName(String(name));
+      setTimeout(() => setCopiedName(""), 1500);
+    } catch {}
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-black">Designations</h2>
-        <div className="text-sm text-gray-600">{designations.length} total</div>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-black flex items-center gap-2">
+            <Briefcase className="w-6 h-6 text-blue-600" />
+            Designations
+          </h2>
+          <p className="text-gray-600 text-sm mt-1">
+            Manage job titles by department and browse all designations in use
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100">
+            {designations.length} total
+          </span>
+          <button
+            onClick={refreshLists}
+            disabled={loading}
+            className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg border hover:bg-gray-200 disabled:opacity-50 inline-flex items-center gap-2 text-sm"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 mb-4">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search designations..."
-          className="w-full max-w-md p-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500"
-        />
-      </div>
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 text-red-700 border border-red-100 text-sm">
+          {error}
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="border rounded-lg p-4">
-          <h3 className="font-semibold text-black mb-3">
-            Manage by Department
-          </h3>
-          <div className="flex flex-col gap-3">
-            <select
-              value={selectedDeptId}
-              onChange={(e) => setSelectedDeptId(e.target.value)}
-              className="p-2 border border-gray-300 rounded bg-white text-black"
-            >
-              {departments.map((d) => (
-                <option key={d._id} value={d._id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
+        {/* Manage by department */}
+        <div className="xl:col-span-2 bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-blue-600" />
+            <h3 className="font-semibold text-black">Manage by Department</h3>
+          </div>
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newDesignation}
-                onChange={(e) => setNewDesignation(e.target.value)}
-                placeholder="New designation name"
-                className="flex-1 p-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500"
-              />
-              <button
-                onClick={addDesignation}
-                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded"
-              >
-                Add
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="p-5 space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Department
+              </label>
               <select
-                value={rename.oldName}
-                onChange={(e) =>
-                  setRename({ ...rename, oldName: e.target.value })
-                }
-                className="flex-1 p-2 border border-gray-300 rounded bg-white text-black min-w-0"
+                value={selectedDeptId}
+                onChange={(e) => setSelectedDeptId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="">Select existing</option>
-                {deptDesignations.map((n) => (
-                  <option key={`old-${n}`} value={n}>
-                    {n}
+                {departments.length === 0 && (
+                  <option value="">No departments</option>
+                )}
+                {departments.map((d) => (
+                  <option key={d._id} value={d._id}>
+                    {d.name}
                   </option>
                 ))}
               </select>
-              <input
-                type="text"
-                value={rename.newName}
-                onChange={(e) =>
-                  setRename({ ...rename, newName: e.target.value })
-                }
-                placeholder="New name"
-                className="flex-1 p-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500 min-w-0"
-              />
-              <button
-                onClick={updateDesignation}
-                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm whitespace-nowrap flex-shrink-0"
-              >
-                Update
-              </button>
             </div>
 
-            <div className="mt-2">
-              <h4 className="text-sm font-semibold text-black mb-2">
-                Designations in {selectedDept?.name || "Department"}
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {deptDesignations.map((n) => (
-                  <span
-                    key={`chip-${n}`}
-                    className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs"
-                  >
-                    {n}
-                    <button
-                      onClick={() => removeDesignation(n)}
-                      className="ml-2 text-red-600 hover:text-red-800"
-                      title="Remove"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-                {deptDesignations.length === 0 && (
-                  <span className="text-sm text-gray-500">
-                    No designations yet.
-                  </span>
-                )}
+            {/* Add */}
+            <div className="rounded-lg border border-gray-200 p-4 bg-gray-50/60">
+              <div className="flex items-center gap-2 mb-3">
+                <Plus className="w-4 h-4 text-emerald-600" />
+                <h4 className="text-sm font-semibold text-black">
+                  Add designation
+                </h4>
               </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newDesignation}
+                  onChange={(e) => setNewDesignation(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addDesignation();
+                  }}
+                  placeholder="e.g. Senior Engineer"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button
+                  onClick={addDesignation}
+                  disabled={!newDesignation.trim() || !selectedDeptId || loading}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg inline-flex items-center gap-1.5 shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Rename */}
+            <div className="rounded-lg border border-gray-200 p-4 bg-gray-50/60">
+              <div className="flex items-center gap-2 mb-3">
+                <Pencil className="w-4 h-4 text-blue-600" />
+                <h4 className="text-sm font-semibold text-black">
+                  Rename designation
+                </h4>
+              </div>
+              <div className="space-y-2">
+                <select
+                  value={rename.oldName}
+                  onChange={(e) =>
+                    setRename({ ...rename, oldName: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select existing</option>
+                  {deptDesignations.map((n) => (
+                    <option key={`old-${n}`} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={rename.newName}
+                    onChange={(e) =>
+                      setRename({ ...rename, newName: e.target.value })
+                    }
+                    placeholder="New name"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    onClick={updateDesignation}
+                    disabled={
+                      !rename.oldName || !rename.newName.trim() || loading
+                    }
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg shrink-0"
+                  >
+                    Update
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Department list */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold text-black">
+                  In {selectedDept?.name || "department"}
+                </h4>
+                <span className="text-xs text-gray-500">
+                  {deptDesignations.length} items
+                </span>
+              </div>
+              {deptDesignations.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">
+                  No designations yet. Add one above.
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 overflow-hidden">
+                  {deptDesignations.map((n) => (
+                    <li
+                      key={`chip-${n}`}
+                      className="flex items-center justify-between gap-2 px-3 py-2.5 bg-white hover:bg-gray-50"
+                    >
+                      <span className="text-sm font-medium text-black truncate">
+                        {n}
+                      </span>
+                      <button
+                        onClick={() => removeDesignation(n)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg shrink-0"
+                        title="Remove"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
 
-        <div>
-          <h3 className="font-semibold text-black mb-3">All Designations</h3>
-          {loading && <p className="text-gray-700">Loading...</p>}
-          {error && <p className="text-red-600">{error}</p>}
-          {!loading && !error && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filtered.map((des) => (
-                <div
-                  key={`des-${des}`}
-                  className="flex items-center justify-between border rounded-lg p-3 bg-gray-50"
-                >
-                  <span className="text-black font-medium">{des}</span>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(String(des))}
-                    className="text-sm px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded"
-                    title="Copy designation"
-                  >
-                    Copy
-                  </button>
-                </div>
-              ))}
-              {filtered.length === 0 && (
-                <div className="text-gray-600 p-4">No designations found.</div>
-              )}
+        {/* All designations */}
+        <div className="xl:col-span-3 bg-white rounded-lg shadow overflow-hidden flex flex-col min-h-[420px]">
+          <div className="px-5 py-4 border-b border-gray-100 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="font-semibold text-black">All Designations</h3>
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search designations..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg bg-white text-black placeholder-gray-400 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
             </div>
-          )}
+          </div>
+
+          <div className="p-5 flex-1">
+            {loading && designations.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-gray-500 text-sm">
+                Loading designations...
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="h-48 flex flex-col items-center justify-center text-gray-500 text-sm gap-1">
+                <Briefcase className="w-8 h-8 text-gray-300 mb-1" />
+                No designations found.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filtered.map((des) => (
+                  <div
+                    key={`des-${des}`}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2.5 hover:border-blue-200 hover:bg-blue-50/40 transition-colors"
+                  >
+                    <span className="text-sm font-medium text-black truncate">
+                      {des}
+                    </span>
+                    <button
+                      onClick={() => copyDesignation(des)}
+                      className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg shrink-0"
+                      title="Copy designation"
+                    >
+                      {copiedName === String(des) ? (
+                        <Check className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-500">
+            Department designations can be managed here. Titles also appear when
+            set on employee profiles.
+          </div>
         </div>
       </div>
-
-      <p className="text-xs text-gray-500 mt-6">
-        Designations are derived from employee profiles. To add a new
-        designation, create or update an employee and set their designation.
-      </p>
     </div>
   );
 }

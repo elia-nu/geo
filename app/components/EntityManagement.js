@@ -112,21 +112,21 @@ const EntityManagement = ({ projectId, projectName }) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="space-y-4 sm:space-y-5">
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-blue-50/40 p-4 sm:p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-black mb-2">
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-xl font-semibold text-slate-900">
               Activity Management
             </h2>
-            <p className="text-gray-600">
+            <p className="text-sm text-slate-500 mt-1 truncate">
               Manage activities for {projectName}
             </p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm disabled:opacity-60"
           >
             <PlusIcon className="w-4 h-4" />
             Create Activity
@@ -134,85 +134,106 @@ const EntityManagement = ({ projectId, projectName }) => {
         </div>
       </div>
 
-      {/* Activities Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-4 sm:px-5 py-3 border-b border-slate-100 bg-slate-50/80">
+          <h3 className="text-sm font-semibold text-slate-900">Activities</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {getCurrentData().length} total
+          </p>
+        </div>
 
-        <div className="p-6">
-          {/* Data Table */}
+        {getCurrentData().length === 0 ? (
+          <div className="text-center py-12 px-4">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
+              <CogIcon className="w-6 h-6 text-slate-400" />
+            </div>
+            <p className="text-sm font-semibold text-slate-900">
+              No activities found
+            </p>
+            <p className="text-sm text-slate-500 mt-1 mb-4">
+              Create your first activity to get started.
+            </p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Create Activity
+            </button>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Priority
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  {[
+                    "Name",
+                    "Description",
+                    "Type",
+                    "Priority",
+                    "Status",
+                    "Created",
+                    "Actions",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 sm:px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-slate-100">
                 {getCurrentData().map((item) => (
-                  <tr key={item._id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-black">
+                  <tr
+                    key={item._id}
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
+                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
+                      <div className="text-sm font-medium text-slate-900">
                         {item.name || "Untitled"}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-black max-w-xs truncate">
+                    <td className="px-4 sm:px-5 py-3.5">
+                      <div className="text-sm text-slate-600 max-w-xs truncate">
                         {item.description || "No description"}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
+                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-sm text-slate-700">
                       {item.activityType || "development"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        className={`px-2 py-1 text-xs font-medium rounded-md ${
                           item.priority === "high"
-                            ? "bg-red-100 text-red-800"
+                            ? "bg-rose-100 text-rose-800"
                             : item.priority === "medium"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-green-100 text-green-800"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-emerald-100 text-emerald-800"
                         }`}
                       >
                         {item.priority}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        className={`px-2 py-1 text-xs font-medium rounded-md ${
                           item.status === "completed"
-                            ? "bg-green-100 text-green-800"
+                            ? "bg-emerald-100 text-emerald-800"
                             : item.status === "in_progress"
                             ? "bg-blue-100 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
+                            : "bg-slate-100 text-slate-700"
                         }`}
                       >
                         {item.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-sm text-slate-500">
                       {formatDate(item.createdAt)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => {
                             setEditingItem(item);
@@ -237,16 +258,15 @@ const EntityManagement = ({ projectId, projectName }) => {
                             });
                             setShowCreateModal(true);
                           }}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
                         >
                           <PencilIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => {
-                            // TODO: Implement delete functionality
                             console.log("Delete", item._id);
                           }}
-                          className="text-red-600 hover:text-red-900"
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -257,33 +277,14 @@ const EntityManagement = ({ projectId, projectName }) => {
               </tbody>
             </table>
           </div>
-
-          {getCurrentData().length === 0 && (
-            <div className="text-center py-8">
-              <div className="text-gray-400 mb-4">
-                <CogIcon className="w-12 h-12 mx-auto" />
-              </div>
-              <p className="text-gray-500 mb-4">
-                No activities found. Create your first activity to get started.
-              </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Create Activity
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Create/Edit Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-black">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-2 sm:p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200">
+            <div className="p-4 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+              <h3 className="text-base sm:text-lg font-semibold text-slate-900">
                 {editingItem ? "Edit" : "Create"} Activity
               </h3>
             </div>
@@ -445,32 +446,38 @@ const EntityManagement = ({ projectId, projectName }) => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+            <div className="flex justify-end gap-3 p-4 sm:p-6 border-t border-slate-200 bg-slate-50/80">
               <button
                 onClick={() => {
                   setShowCreateModal(false);
                   resetForm();
                 }}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                disabled={loading}
+                className="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreate}
                 disabled={!formData.name || loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-wait"
               >
-                {loading ? "Creating..." : editingItem ? "Update" : "Create"}
+                {loading
+                  ? editingItem
+                    ? "Updating…"
+                    : "Creating…"
+                  : editingItem
+                  ? "Update"
+                  : "Create"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-700">{error}</p>
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+          <p className="text-rose-700 text-sm">{error}</p>
           <button
             onClick={() => setError(null)}
             className="mt-2 text-sm text-red-600 hover:text-red-800"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   AttachFile as AttachFileIcon,
   Download as DownloadIcon,
@@ -12,10 +12,14 @@ import {
   PictureAsPdf as PdfIcon,
   InsertDriveFile as DocumentIcon,
   Archive as ArchiveIcon,
-  MoreVert as MoreVertIcon,
   Person as PersonIcon,
   AccessTime as TimeIcon,
 } from "@mui/icons-material";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showDeleteConfirmDialog,
+} from "../utils/sweetAlert";
 
 const TaskAttachments = ({
   taskId,
@@ -23,6 +27,8 @@ const TaskAttachments = ({
   onUpdate,
   showSuccessAlert,
   showErrorAlert,
+  onSuccess,
+  onError,
   setLoading: setParentLoading,
 }) => {
   const [attachments, setAttachments] = useState([]);
@@ -31,6 +37,24 @@ const TaskAttachments = ({
   const [editingAttachment, setEditingAttachment] = useState(null);
   const [editDescription, setEditDescription] = useState("");
   const fileInputRef = useRef(null);
+
+  const notifySuccess = useCallback(
+    (message) => {
+      if (showSuccessAlert) showSuccessAlert(message);
+      else if (onSuccess) onSuccess(message);
+      else showSuccessToast("Success", message);
+    },
+    [showSuccessAlert, onSuccess]
+  );
+
+  const notifyError = useCallback(
+    (message) => {
+      if (showErrorAlert) showErrorAlert(message);
+      else if (onError) onError(message);
+      else showErrorToast("Error", message);
+    },
+    [showErrorAlert, onError]
+  );
 
   useEffect(() => {
     if (taskId) {
@@ -41,20 +65,20 @@ const TaskAttachments = ({
   const fetchAttachments = async () => {
     try {
       setLoading(true);
+      setParentLoading?.(true);
       const response = await fetch(`/api/tasks/${taskId}/attachments`);
       const data = await response.json();
 
       if (data.success) {
         setAttachments(data.attachments || []);
       } else {
-        showErrorAlert &&
-          showErrorAlert(data.error || "Failed to fetch attachments");
+        notifyError(data.error || "Failed to fetch attachments");
       }
     } catch (err) {
-      showErrorAlert &&
-        showErrorAlert("Error fetching attachments: " + err.message);
+      notifyError("Error fetching attachments: " + err.message);
     } finally {
       setLoading(false);
+      setParentLoading?.(false);
     }
   };
 
@@ -64,6 +88,7 @@ const TaskAttachments = ({
 
     try {
       setUploading(true);
+      setParentLoading?.(true);
 
       for (const file of files) {
         const formData = new FormData();
@@ -87,24 +112,31 @@ const TaskAttachments = ({
         }
       }
 
-      await fetchAttachments(); // Refresh attachments
-      onUpdate && onUpdate(); // Notify parent component
-      showSuccessAlert && showSuccessAlert("Files uploaded successfully!");
+      await fetchAttachments();
+      onUpdate?.();
+      notifySuccess("Files uploaded successfully");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     } catch (err) {
-      showErrorAlert && showErrorAlert("Error uploading files: " + err.message);
+      notifyError("Error uploading files: " + err.message);
     } finally {
       setUploading(false);
+      setParentLoading?.(false);
     }
   };
 
   const handleDeleteAttachment = async (attachmentId) => {
-    if (!confirm("Are you sure you want to delete this attachment?")) return;
+    const result = await showDeleteConfirmDialog(
+      "Delete file?",
+      "This attachment will be permanently removed.",
+      "Yes, delete it"
+    );
+    if (!result.isConfirmed) return;
 
     try {
       setLoading(true);
+      setParentLoading?.(true);
 
       const response = await fetch(
         `/api/tasks/${taskId}/attachments/${attachmentId}?userId=${
@@ -118,19 +150,17 @@ const TaskAttachments = ({
       const data = await response.json();
 
       if (data.success) {
-        await fetchAttachments(); // Refresh attachments
-        onUpdate && onUpdate(); // Notify parent component
-        showSuccessAlert &&
-          showSuccessAlert("Attachment deleted successfully!");
+        await fetchAttachments();
+        onUpdate?.();
+        notifySuccess("Attachment deleted");
       } else {
-        showErrorAlert &&
-          showErrorAlert(data.error || "Failed to delete attachment");
+        notifyError(data.error || "Failed to delete attachment");
       }
     } catch (err) {
-      showErrorAlert &&
-        showErrorAlert("Error deleting attachment: " + err.message);
+      notifyError("Error deleting attachment: " + err.message);
     } finally {
       setLoading(false);
+      setParentLoading?.(false);
     }
   };
 
@@ -139,6 +169,7 @@ const TaskAttachments = ({
 
     try {
       setLoading(true);
+      setParentLoading?.(true);
 
       const response = await fetch(
         `/api/tasks/${taskId}/attachments/${attachmentId}`,
@@ -157,19 +188,17 @@ const TaskAttachments = ({
       if (data.success) {
         setEditingAttachment(null);
         setEditDescription("");
-        await fetchAttachments(); // Refresh attachments
-        onUpdate && onUpdate(); // Notify parent component
-        showSuccessAlert &&
-          showSuccessAlert("Attachment description updated successfully!");
+        await fetchAttachments();
+        onUpdate?.();
+        notifySuccess("Description updated");
       } else {
-        showErrorAlert &&
-          showErrorAlert(data.error || "Failed to update attachment");
+        notifyError(data.error || "Failed to update attachment");
       }
     } catch (err) {
-      showErrorAlert &&
-        showErrorAlert("Error updating attachment: " + err.message);
+      notifyError("Error updating attachment: " + err.message);
     } finally {
       setLoading(false);
+      setParentLoading?.(false);
     }
   };
 
@@ -231,8 +260,7 @@ const TaskAttachments = ({
 
   return (
     <div className="space-y-4">
-      {/* Upload Section */}
-      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center transition-colors hover:border-blue-300 hover:bg-blue-50/30">
         <input
           ref={fileInputRef}
           type="file"
@@ -242,56 +270,70 @@ const TaskAttachments = ({
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
         />
         <UploadIcon
-          className="mx-auto text-gray-400 mb-2"
-          style={{ fontSize: 48 }}
+          className="mx-auto mb-2 text-slate-400"
+          style={{ fontSize: 40 }}
         />
-        <p className="text-gray-600 mb-2">Drop files here or click to upload</p>
-        <p className="text-sm text-gray-500 mb-4">
-          Supports images, PDFs, documents, and archives (max 10MB each)
+        <p className="mb-1 text-sm font-medium text-slate-700">
+          Drop files here or click to upload
+        </p>
+        <p className="mb-4 text-xs text-slate-400">
+          Images, PDFs, documents, archives · max 10MB each
         </p>
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mx-auto"
+          className="mx-auto inline-flex items-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-900/40 active:scale-[0.98]"
         >
-          <AttachFileIcon fontSize="small" />
-          {uploading ? "Uploading..." : "Choose Files"}
+          {uploading ? (
+            <>
+              <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+              Uploading…
+            </>
+          ) : (
+            <>
+              <AttachFileIcon fontSize="small" />
+              Choose Files
+            </>
+          )}
         </button>
       </div>
 
-      {/* Attachments List */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {loading && attachments.length === 0 ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="flex flex-col items-center justify-center gap-2 py-10">
+            <div className="h-8 w-8 rounded-full border-2 border-blue-900/20 border-t-blue-900 animate-spin" />
+            <p className="animate-pulse text-sm text-slate-500">
+              Loading files…
+            </p>
           </div>
         ) : attachments.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-10 text-center text-slate-500">
             <AttachFileIcon
-              className="mx-auto text-gray-300 mb-2"
-              style={{ fontSize: 48 }}
+              className="mx-auto mb-2 text-slate-300"
+              style={{ fontSize: 40 }}
             />
-            <p>No attachments yet. Upload some files to get started!</p>
+            <p className="text-sm">No attachments yet</p>
           </div>
         ) : (
           attachments.map((attachment) => (
             <div
               key={attachment._id}
-              className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3 transition-colors hover:bg-slate-50"
             >
-              <div className="flex-shrink-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
                 {getFileIcon(attachment.fileType)}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <h4 className="text-sm font-medium text-black truncate">
-                    {attachment.originalName}1111
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <h4 className="truncate text-sm font-medium text-slate-900">
+                    {attachment.originalName}
                   </h4>
-                  <div className="flex items-center space-x-1">
+                  <div className="flex shrink-0 items-center gap-0.5">
                     <a
                       href={attachment.filePath}
                       download={attachment.originalName}
-                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white hover:text-blue-700"
                       title="Download file"
                     >
                       <DownloadIcon fontSize="small" />
@@ -299,15 +341,20 @@ const TaskAttachments = ({
                     {canEditAttachment(attachment) && (
                       <>
                         <button
+                          type="button"
                           onClick={() => startEditing(attachment)}
-                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white hover:text-blue-700"
                           title="Edit description"
                         >
                           <EditIcon fontSize="small" />
                         </button>
                         <button
-                          onClick={() => handleDeleteAttachment(attachment._id)}
-                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          type="button"
+                          onClick={() =>
+                            handleDeleteAttachment(attachment._id)
+                          }
+                          disabled={loading || uploading}
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white hover:text-red-600 disabled:opacity-40"
                           title="Delete file"
                         >
                           <DeleteIcon fontSize="small" />
@@ -323,20 +370,22 @@ const TaskAttachments = ({
                       type="text"
                       value={editDescription}
                       onChange={(e) => setEditDescription(e.target.value)}
-                      placeholder="Add a description..."
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Add a description…"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     />
-                    <div className="flex justify-end space-x-2">
+                    <div className="flex justify-end gap-2">
                       <button
+                        type="button"
                         onClick={cancelEditing}
-                        className="px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
                       >
                         Cancel
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleUpdateDescription(attachment._id)}
                         disabled={loading}
-                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="rounded-lg bg-blue-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-800 disabled:opacity-50"
                       >
                         Save
                       </button>
@@ -345,23 +394,20 @@ const TaskAttachments = ({
                 ) : (
                   <div className="space-y-1">
                     {attachment.description && (
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-slate-600">
                         {attachment.description}
                       </p>
                     )}
-                    <div className="flex items-center space-x-4 text-xs text-gray-500">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
                       <span>{formatFileSize(attachment.size)}</span>
-                      <span className="flex items-center space-x-1">
-                        <PersonIcon fontSize="small" />
-                        <span>{attachment.uploadedByName}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <PersonIcon className="!text-sm" />
+                        {attachment.uploadedByName}
                       </span>
-                      <span className="flex items-center space-x-1">
-                        <TimeIcon fontSize="small" />
-                        <span>{formatDate(attachment.uploadedAt)}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <TimeIcon className="!text-sm" />
+                        {formatDate(attachment.uploadedAt)}
                       </span>
-                      {attachment.downloadCount > 0 && (
-                        <span>{attachment.downloadCount} downloads</span>
-                      )}
                     </div>
                   </div>
                 )}

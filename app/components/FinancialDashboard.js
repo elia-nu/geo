@@ -21,6 +21,11 @@ import {
   FunnelIcon,
   ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
+import {
+  formatCurrency as formatCurrencyUtil,
+  currencyTitle,
+} from "../utils/currency";
+import MetricCard from "./financial/MetricCard";
 
 const FinancialDashboard = ({ projectId, projectName }) => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -87,12 +92,8 @@ const FinancialDashboard = ({ projectId, projectName }) => {
     }
   };
 
-  const formatCurrency = (amount, currency = "ETB") => {
-    return new Intl.NumberFormat("en-ET", {
-      style: "currency",
-      currency: "ETB",
-    }).format(amount || 0);
-  };
+  const formatCurrency = (amount, currency = "ETB") =>
+    formatCurrencyUtil(amount, currency);
 
   const formatPercentage = (value) => {
     return `${(value || 0).toFixed(1)}%`;
@@ -137,24 +138,36 @@ const FinancialDashboard = ({ projectId, projectName }) => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-11 w-11 rounded-full border-2 border-slate-200 border-t-blue-600 animate-spin" />
+          <p className="text-sm text-slate-500 animate-pulse">
+            Loading dashboard…
+          </p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-700">{error}</p>
+      <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+        <p className="text-rose-700 text-sm">{error}</p>
       </div>
     );
   }
 
   if (!financialSummary) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-        <ChartBarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-600">No financial data available</p>
+      <div className="bg-white border border-slate-200 rounded-xl p-10 text-center shadow-sm">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
+          <ChartBarIcon className="w-6 h-6 text-slate-400" />
+        </div>
+        <p className="text-sm font-semibold text-slate-900">
+          No financial data available
+        </p>
+        <p className="text-sm text-slate-500 mt-1">
+          Create a budget to unlock the dashboard.
+        </p>
       </div>
     );
   }
@@ -170,177 +183,110 @@ const FinancialDashboard = ({ projectId, projectName }) => {
   } = financialSummary;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-black mb-2">
+    <div className="space-y-4 sm:space-y-5">
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-blue-50/40 p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-slate-900">
               Financial Dashboard
             </h2>
-            <p className="text-gray-600">
-              Comprehensive financial overview for {projectName}
+            <p className="text-sm text-slate-500 truncate">
+              Deep dive for {projectName}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={fetchFinancialData}
-              className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <ArrowPathIcon className="w-4 h-4" />
-              Refresh
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Budget Status */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <CurrencyDollarIcon className="w-6 h-6 text-blue-600" />
-            </div>
-            <span
-              className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                budget?.status || "normal"
-              )}`}
-            >
-              {budget?.status || "N/A"}
-            </span>
-          </div>
-          <h3 className="text-sm font-medium text-gray-600 mb-1">
-            Budget Status
-          </h3>
-          <p className="text-2xl font-bold text-black">
-            {formatCurrency(budget?.totalBudget || 0)}
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            {formatPercentage(budget?.budgetUtilization || 0)} utilized
-          </p>
-          <div className="mt-2">
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full ${
-                  (budget?.budgetUtilization || 0) > 100
-                    ? "bg-red-500"
-                    : (budget?.budgetUtilization || 0) > 90
-                    ? "bg-yellow-500"
-                    : "bg-green-500"
-                }`}
-                style={{
-                  width: `${Math.min(budget?.budgetUtilization || 0, 100)}%`,
-                }}
-              ></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Income Status */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <ArrowTrendingUpIcon className="w-6 h-6 text-green-600" />
-            </div>
-            <span
-              className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                income?.status || "normal"
-              )}`}
-            >
-              {income?.status || "N/A"}
-            </span>
-          </div>
-          <h3 className="text-sm font-medium text-gray-600 mb-1">
-            Income Status
-          </h3>
-          <p className="text-2xl font-bold text-black">
-            {formatCurrency(income?.totalIncome || 0)}
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            {formatPercentage(income?.collectionRate || 0)} collected
-          </p>
-          <div className="mt-2">
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full ${
-                  (income?.collectionRate || 0) >= 90
-                    ? "bg-green-500"
-                    : (income?.collectionRate || 0) >= 70
-                    ? "bg-yellow-500"
-                    : "bg-red-500"
-                }`}
-                style={{
-                  width: `${Math.min(income?.collectionRate || 0, 100)}%`,
-                }}
-              ></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Profit/Loss 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div
-              className={`p-2 rounded-lg ${
-                profitLoss?.isProfitable ? "bg-green-100" : "bg-red-100"
-              }`}
-            >
-              {profitLoss?.isProfitable ? (
-                <ArrowTrendingUpIcon className="w-6 h-6 text-green-600" />
-              ) : (
-                <ArrowTrendingDownIcon className="w-6 h-6 text-red-600" />
-              )}
-            </div>
-            <span
-              className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                profitLoss?.status || "normal"
-              )}`}
-            >
-              {profitLoss?.status || "N/A"}
-            </span>
-          </div>
-          <h3 className="text-sm font-medium text-gray-600 mb-1">
-            Profit/Loss
-          </h3>
-          <p
-            className={`text-2xl font-bold ${
-              profitLoss?.isProfitable ? "text-green-600" : "text-red-600"
-            }`}
+          <button
+            onClick={fetchFinancialData}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium shadow-sm transition-colors"
           >
-            {formatCurrency(profitLoss?.profitLoss || 0)}
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            ROI: {formatPercentage(profitLoss?.roi || 0)}
-          </p>
-        </div>*/}
-
-        {/* Payment Status */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <BanknotesIcon className="w-6 h-6 text-purple-600" />
-            </div>
-            <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-              {payments?.overdue?.count || 0} overdue
-            </span>
-          </div>
-          <h3 className="text-sm font-medium text-gray-600 mb-1">
-            Payment Status
-          </h3>
-          <p className="text-2xl font-bold text-black">
-            {formatCurrency(payments?.collected?.amount || 0)}
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            {payments?.collected?.count || 0} collected
-          </p>
+            <ArrowPathIcon className="w-4 h-4" />
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* Detailed Tabs */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <MetricCard
+          label="Budget Status"
+          value={Number(budget?.totalBudget) || 0}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={CurrencyDollarIcon}
+          iconBg="bg-blue-50"
+          iconColor="text-blue-600"
+          valueClassName="text-blue-900"
+          subtitle={`${formatPercentage(budget?.budgetUtilization || 0)} utilized`}
+          footer={
+            <div className="mt-2">
+              <div className="w-full bg-slate-200 rounded-full h-1.5">
+                <div
+                  className={`h-1.5 rounded-full ${
+                    (budget?.budgetUtilization || 0) > 100
+                      ? "bg-rose-500"
+                      : (budget?.budgetUtilization || 0) > 90
+                      ? "bg-amber-500"
+                      : "bg-emerald-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(budget?.budgetUtilization || 0, 100)}%`,
+                  }}
+                />
+              </div>
+              <span
+                className={`mt-2 inline-block px-2 py-0.5 text-xs font-medium rounded-md ${getStatusColor(
+                  budget?.status || "normal"
+                )}`}
+              >
+                {budget?.status || "N/A"}
+              </span>
+            </div>
+          }
+        />
+        <MetricCard
+          label="Income Status"
+          value={Number(income?.totalIncome) || 0}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={ArrowTrendingUpIcon}
+          iconBg="bg-emerald-50"
+          iconColor="text-emerald-600"
+          valueClassName="text-emerald-700"
+          subtitle={`${formatPercentage(income?.collectionRate || 0)} collected`}
+          footer={
+            <div className="mt-2">
+              <div className="w-full bg-slate-200 rounded-full h-1.5">
+                <div
+                  className={`h-1.5 rounded-full ${
+                    (income?.collectionRate || 0) >= 90
+                      ? "bg-emerald-500"
+                      : (income?.collectionRate || 0) >= 70
+                      ? "bg-amber-500"
+                      : "bg-rose-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(income?.collectionRate || 0, 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          }
+        />
+        <MetricCard
+          label="Payment Collected"
+          value={Number(payments?.collected?.amount) || 0}
+          formatCurrency={formatCurrency}
+          currencyTitle={currencyTitle}
+          icon={BanknotesIcon}
+          iconBg="bg-slate-100"
+          iconColor="text-slate-700"
+          subtitle={`${payments?.collected?.count || 0} collected · ${
+            payments?.overdue?.count || 0
+          } overdue`}
+        />
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="border-b border-slate-100 overflow-x-auto bg-slate-50/50">
+          <nav className="flex gap-1 p-1.5 min-w-0">
             {[
               { id: "overview", name: "Overview", icon: ChartBarIcon },
               {
@@ -349,22 +295,17 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                 icon: CurrencyDollarIcon,
               },
               { id: "payments", name: "Payment Tracking", icon: BanknotesIcon },
-              /*{
-              id: "reports",
-                name: "Financial Reports",
-                icon: DocumentTextIcon,
-              },*/
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`flex items-center gap-1.5 py-2.5 px-3 rounded-lg font-medium text-sm whitespace-nowrap flex-shrink-0 transition-all ${
                   activeTab === tab.id
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-white"
                 }`}
               >
-                <tab.icon className="w-5 h-5" />
+                <tab.icon className="w-4 h-4" />
                 {tab.name}
               </button>
             ))}
@@ -573,64 +514,67 @@ const FinancialDashboard = ({ projectId, projectName }) => {
           )}
 
           {activeTab === "payments" && paymentTracking && (
-            <div className="space-y-6">
-              {/* Payment Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-green-600 mb-2">
-                    Collected
-                  </h4>
-                  <p className="text-2xl font-bold text-green-700">
-                    {formatCurrency(
-                      paymentTracking?.summary?.totalCollected || 0
-                    )}
-                  </p>
-                  <p className="text-sm text-green-600">
-                    {paymentTracking?.payments?.collected?.count || 0} payments
-                  </p>
-                </div>
-                <div className="bg-yellow-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-yellow-600 mb-2">
-                    Pending
-                  </h4>
-                  <p className="text-2xl font-bold text-yellow-700">
-                    {formatCurrency(
-                      paymentTracking?.summary?.totalPending || 0
-                    )}
-                  </p>
-                  <p className="text-sm text-yellow-600">
-                    {paymentTracking?.payments?.pending?.count || 0} payments
-                  </p>
-                </div>
-                <div className="bg-red-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-red-600 mb-2">
-                    Overdue
-                  </h4>
-                  <p className="text-2xl font-bold text-red-700">
-                    {formatCurrency(
-                      paymentTracking?.summary?.totalOverdue || 0
-                    )}
-                  </p>
-                  <p className="text-sm text-red-600">
-                    {paymentTracking?.payments?.overdue?.count || 0} payments
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-600 mb-2">
-                    Uncollected
-                  </h4>
-                  <p className="text-2xl font-bold text-gray-700">
-                    {formatCurrency(
-                      paymentTracking?.summary?.totalUncollected || 0
-                    )}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Collection Rate:{" "}
-                    {formatPercentage(
-                      paymentTracking?.summary?.collectionRate || 0
-                    )}
-                  </p>
-                </div>
+            <div className="space-y-5">
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-xs sm:text-sm text-emerald-900">
+                Expected income → Collect (partial or full) → Auto overdue after
+                due date. Manage collections from the Income tab.
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <MetricCard
+                  label="Expected"
+                  value={paymentTracking?.summary?.totalExpected || 0}
+                  formatCurrency={formatCurrency}
+                  currencyTitle={currencyTitle}
+                  icon={CurrencyDollarIcon}
+                  iconBg="bg-blue-50"
+                  iconColor="text-blue-600"
+                  valueClassName="text-blue-900"
+                />
+                <MetricCard
+                  label="Collected"
+                  value={paymentTracking?.summary?.totalCollected || 0}
+                  formatCurrency={formatCurrency}
+                  currencyTitle={currencyTitle}
+                  icon={CheckCircleIcon}
+                  iconBg="bg-emerald-50"
+                  iconColor="text-emerald-600"
+                  valueClassName="text-emerald-700"
+                  subtitle={`${
+                    paymentTracking?.summary?.collectedCount || 0
+                  } fully collected`}
+                />
+                <MetricCard
+                  label="Outstanding"
+                  value={
+                    (paymentTracking?.summary?.totalPending || 0) +
+                    (paymentTracking?.summary?.totalPartial || 0)
+                  }
+                  formatCurrency={formatCurrency}
+                  currencyTitle={currencyTitle}
+                  icon={ClockIcon}
+                  iconBg="bg-amber-50"
+                  iconColor="text-amber-600"
+                  valueClassName="text-amber-700"
+                  subtitle={`${
+                    (paymentTracking?.summary?.pendingCount || 0) +
+                    (paymentTracking?.summary?.partialCount || 0)
+                  } pending/partial`}
+                />
+                <MetricCard
+                  label="Overdue"
+                  value={paymentTracking?.summary?.totalOverdue || 0}
+                  formatCurrency={formatCurrency}
+                  currencyTitle={currencyTitle}
+                  icon={ExclamationTriangleIcon}
+                  iconBg="bg-rose-50"
+                  iconColor="text-rose-600"
+                  valueClassName="text-rose-700"
+                  subtitle={`${
+                    paymentTracking?.summary?.overdueCount || 0
+                  } past due · ${formatPercentage(
+                    paymentTracking?.summary?.collectionRate || 0
+                  )} collected`}
+                />
               </div>
 
               {/* Client Performance */}

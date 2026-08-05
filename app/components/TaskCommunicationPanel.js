@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Swal from "sweetalert2";
 import {
   Comment as CommentIcon,
   AttachFile as AttachFileIcon,
@@ -10,31 +9,18 @@ import {
 } from "@mui/icons-material";
 import TaskComments from "./TaskComments";
 import TaskAttachments from "./TaskAttachments";
+import { showSuccessToast, showErrorToast } from "../utils/sweetAlert";
 
 const TaskCommunicationPanel = ({ taskId, currentUser, task, onUpdate }) => {
   const [activeTab, setActiveTab] = useState("comments");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId);
-    setError(null);
-  };
 
   const showSuccessAlert = (message) => {
-    Swal.fire({
-      icon: "success",
-      title: "Success",
-      text: message,
-    });
+    showSuccessToast("Success", message);
   };
 
   const showErrorAlert = (message) => {
-    Swal.fire({
-      icon: "error",
-      title: "Error",
-      text: message,
-    });
+    showErrorToast("Error", message);
   };
 
   const tabs = [
@@ -53,82 +39,101 @@ const TaskCommunicationPanel = ({ taskId, currentUser, task, onUpdate }) => {
   ];
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg">
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-8 px-6" aria-label="Tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              disabled={loading}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === tab.id
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              {tab.icon}
-              {tab.label}
-              {tab.count > 0 && (
-                <span className="ml-1 bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs">
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
+    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="border-b border-slate-100 bg-slate-50/60 px-2">
+        <nav className="flex gap-1" aria-label="Tabs">
+          {tabs.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative inline-flex items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-medium transition-all ${
+                  active
+                    ? "bg-white text-blue-900 shadow-[0_-1px_0_0_white]"
+                    : "text-slate-500 hover:bg-white/70 hover:text-slate-800"
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+                {tab.count > 0 && (
+                  <span
+                    className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
+                      active
+                        ? "bg-blue-50 text-blue-800"
+                        : "bg-slate-200/80 text-slate-600"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+                {active && (
+                  <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-blue-900" />
+                )}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
-      {/* Tab Content */}
-      <div className="p-6">
-        {/* Loading Screen */}
+      <div className="relative p-5 sm:p-6">
         {loading && (
-          <div className="flex justify-center items-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-b-2xl bg-white/70 backdrop-blur-[1px] transition-opacity">
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-8 w-8 rounded-full border-2 border-blue-900/20 border-t-blue-900 animate-spin" />
+              <p className="text-xs font-medium text-slate-500">Working…</p>
+            </div>
           </div>
         )}
 
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-            {error}
-          </div>
-        )}
-
-        {!loading && !error && activeTab === "comments" && (
+        {activeTab === "comments" && (
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <ChatIcon className="text-gray-400" />
-              <h3 className="text-lg font-medium text-black">
-                Task Discussion
-              </h3>
+            <div className="mb-4 flex items-center gap-2">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-800">
+                <ChatIcon fontSize="small" />
+              </span>
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Discussion
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Comments refresh automatically every few seconds
+                </p>
+              </div>
             </div>
             <TaskComments
               taskId={taskId}
               currentUser={currentUser}
               onUpdate={onUpdate}
-              onSuccess={showSuccessAlert}
-              onError={showErrorAlert}
+              showSuccessAlert={showSuccessAlert}
+              showErrorAlert={showErrorAlert}
               setLoading={setLoading}
             />
           </div>
         )}
 
-        {!loading && !error && activeTab === "attachments" && (
+        {activeTab === "attachments" && (
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <FolderIcon className="text-gray-400" />
-              <h3 className="text-lg font-medium text-black">
-                File Attachments
-              </h3>
+            <div className="mb-4 flex items-center gap-2">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                <FolderIcon fontSize="small" />
+              </span>
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Attachments
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Upload and manage task files
+                </p>
+              </div>
             </div>
             <TaskAttachments
               taskId={taskId}
               currentUser={currentUser}
               onUpdate={onUpdate}
-              onSuccess={showSuccessAlert}
-              onError={showErrorAlert}
+              showSuccessAlert={showSuccessAlert}
+              showErrorAlert={showErrorAlert}
               setLoading={setLoading}
             />
           </div>

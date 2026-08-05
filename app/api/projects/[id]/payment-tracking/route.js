@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
+import {
+  applyCollection,
+  enrichIncomeRecord,
+  refreshIncomeList,
+  summarizeIncome,
+} from "../../../../utils/incomeLifecycle.js";
 
 // Get payment tracking information for a project
 export async function GET(request, { params }) {
@@ -32,8 +38,24 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Filter income/payments
-    let payments = project.income || [];
+    // Refresh overdue / partial / collected from amounts + due dates
+    const { income: refreshed, changed } = refreshIncomeList(
+      project.income || []
+    );
+    if (changed) {
+      await db.collection("projects").updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            income: refreshed,
+            updatedAt: new Date(),
+            "financialStatus.lastUpdated": new Date(),
+          },
+        }
+      );
+    }
+
+    let payments = refreshed;
 
     // Apply filters
     if (status) {
@@ -66,19 +88,10 @@ export async function GET(request, { params }) {
       );
     });
 
-    // Calculate payment tracking summary
-    const totalExpected = payments.reduce(
-      (sum, p) => sum + (p.expectedAmount || p.amount || 0),
-      0
-    );
-    const totalCollected = payments.reduce(
-      (sum, p) => sum + (p.amount || 0),
-      0
-    );
-    const totalUncollected = payments.reduce(
-      (sum, p) => sum + (p.uncollectedAmount || 0),
-      0
-    );
+    const lifecycleSummary = summarizeIncome(payments);
+    const totalExpected = lifecycleSummary.totalExpected;
+    const totalCollected = lifecycleSummary.totalCollected;
+    const totalUncollected = lifecycleSummary.totalUncollected;
 
     const paymentsByStatus = payments.reduce((acc, p) => {
       const status = p.status || "pending";
@@ -202,6 +215,13 @@ export async function GET(request, { params }) {
         totalExpected,
         totalCollected,
         totalUncollected,
+        totalPending: lifecycleSummary.pendingExpected,
+        totalPartial: lifecycleSummary.partialExpected - lifecycleSummary.partialReceived,
+        totalOverdue: lifecycleSummary.overdueUncollected,
+        pendingCount: lifecycleSummary.pendingCount,
+        partialCount: lifecycleSummary.partialCount,
+        collectedCount: lifecycleSummary.collectedCount,
+        overdueCount: lifecycleSummary.overdueCount,
         collectionRate:
           totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0,
       },
@@ -278,61 +298,44 @@ export async function PUT(request, { params }) {
     }
 
     const payment = project.income[paymentIndex];
-    const expectedAmount = payment.expectedAmount || payment.amount || 0;
-    const newAmount =
-      amount !== undefined ? parseFloat(amount) : payment.amount || 0;
-    const newUncollectedAmount = Math.max(0, expectedAmount - newAmount);
-    const newCollectionRate =
-      expectedAmount > 0 ? (newAmount / expectedAmount) * 100 : 100;
-    const isFullyCollected = newAmount >= expectedAmount;
+    const previousAmount = Number(payment.amount) || 0;
 
-    // Determine new status
-    let newStatus = status;
-    if (status === "collected" && !isFullyCollected) {
-      newStatus = "partial";
-    } else if (status === "partial" && isFullyCollected) {
-      newStatus = "collected";
+    let updatedPayment;
+    if (status === "cancelled") {
+      updatedPayment = enrichIncomeRecord({
+        ...payment,
+        status: "cancelled",
+        receivedDate: receivedDate || payment.receivedDate,
+        paymentMethod: paymentMethod || payment.paymentMethod,
+        paymentReference: paymentReference || payment.paymentReference,
+        notes: notes || payment.notes,
+      });
+      updatedPayment.status = "cancelled";
+      updatedPayment.isOverdue = false;
+    } else if (amount !== undefined) {
+      updatedPayment = applyCollection(payment, {
+        collectAmount: amount,
+        receivedDate,
+        paymentMethod,
+        paymentReference,
+        notes,
+        setTotalAmount: true,
+      });
+    } else {
+      updatedPayment = enrichIncomeRecord({
+        ...payment,
+        status,
+        receivedDate: receivedDate || payment.receivedDate,
+        paymentMethod: paymentMethod || payment.paymentMethod,
+        paymentReference: paymentReference || payment.paymentReference,
+        notes: notes || payment.notes,
+      });
     }
 
-    // Update payment
-    const updatedPayment = {
-      ...payment,
-      amount: newAmount,
-      uncollectedAmount: newUncollectedAmount,
-      collectionRate: newCollectionRate,
-      isFullyCollected,
-      status: newStatus,
-      receivedDate: receivedDate
-        ? new Date(receivedDate)
-        : payment.receivedDate,
-      paymentMethod: paymentMethod || payment.paymentMethod,
-      paymentReference: paymentReference || payment.paymentReference,
-      notes: notes || payment.notes,
-      updatedAt: new Date(),
-      // Update risk assessment
-      isOverdue:
-        newStatus !== "collected" &&
-        payment.dueDate &&
-        new Date(payment.dueDate) < new Date(),
-      daysPastDue:
-        newStatus !== "collected" &&
-        payment.dueDate &&
-        new Date(payment.dueDate) < new Date()
-          ? Math.ceil(
-              (new Date() - new Date(payment.dueDate)) / (1000 * 60 * 60 * 24)
-            )
-          : 0,
-      riskLevel:
-        newStatus !== "collected" &&
-        payment.dueDate &&
-        new Date(payment.dueDate) < new Date()
-          ? Math.ceil(
-              (new Date() - new Date(payment.dueDate)) / (1000 * 60 * 60 * 24)
-            ) > 30
-            ? "high"
-            : "medium"
-          : "low",
-    };
+    updatedPayment._id = payment._id;
+    updatedPayment.createdAt = payment.createdAt;
+    const newAmount = Number(updatedPayment.amount) || 0;
+    const newStatus = updatedPayment.status;
 
     // Update the project
     const result = await db.collection("projects").updateOne(
@@ -345,12 +348,11 @@ export async function PUT(request, { params }) {
       }
     );
 
-    // Update financial status
     await db.collection("projects").updateOne(
       { _id: new ObjectId(id) },
       {
         $inc: {
-          "financialStatus.totalIncome": newAmount - (payment.amount || 0),
+          "financialStatus.totalIncome": newAmount - previousAmount,
         },
         $set: {
           "financialStatus.lastUpdated": new Date(),
@@ -358,20 +360,19 @@ export async function PUT(request, { params }) {
       }
     );
 
-    // Create audit log
     await createAuditLog({
       action: "UPDATE_PAYMENT_STATUS",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      userId: "admin",
+      userEmail: "admin@company.com",
       metadata: {
         projectName: project.name,
         paymentId,
         oldStatus: payment.status,
-        newStatus: newStatus,
-        oldAmount: payment.amount,
-        newAmount: newAmount,
+        newStatus,
+        oldAmount: previousAmount,
+        newAmount,
         clientName: payment.clientName,
       },
     });
@@ -384,7 +385,7 @@ export async function PUT(request, { params }) {
   } catch (error) {
     console.error("Error updating payment status:", error);
     return NextResponse.json(
-      { error: "Failed to update payment status" },
+      { error: error.message || "Failed to update payment status" },
       { status: 500 }
     );
   }
@@ -440,100 +441,58 @@ export async function POST(request, { params }) {
     }
 
     const payment = project.income[paymentIndex];
-    const currentAmount = payment.amount || 0;
-    const newAmount = currentAmount + parseFloat(partialAmount);
-    const expectedAmount = payment.expectedAmount || payment.amount || 0;
-    const newUncollectedAmount = Math.max(0, expectedAmount - newAmount);
-    const newCollectionRate =
-      expectedAmount > 0 ? (newAmount / expectedAmount) * 100 : 100;
-    const isFullyCollected = newAmount >= expectedAmount;
+    let updatedPayment;
+    try {
+      updatedPayment = applyCollection(payment, {
+        collectAmount: partialAmount,
+        receivedDate,
+        paymentMethod,
+        paymentReference,
+        notes,
+      });
+    } catch (err) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    updatedPayment._id = payment._id;
+    updatedPayment.createdAt = payment.createdAt;
+    const added = parseFloat(partialAmount);
 
-    // Determine new status
-    let newStatus = isFullyCollected ? "collected" : "partial";
-
-    // Update payment
-    const updatedPayment = {
-      ...payment,
-      amount: newAmount,
-      uncollectedAmount: newUncollectedAmount,
-      collectionRate: newCollectionRate,
-      isFullyCollected,
-      status: newStatus,
-      receivedDate: receivedDate
-        ? new Date(receivedDate)
-        : payment.receivedDate,
-      paymentMethod: paymentMethod || payment.paymentMethod,
-      paymentReference: paymentReference || payment.paymentReference,
-      notes: notes || payment.notes,
-      updatedAt: new Date(),
-      // Update risk assessment
-      isOverdue:
-        newStatus !== "collected" &&
-        payment.dueDate &&
-        new Date(payment.dueDate) < new Date(),
-      daysPastDue:
-        newStatus !== "collected" &&
-        payment.dueDate &&
-        new Date(payment.dueDate) < new Date()
-          ? Math.ceil(
-              (new Date() - new Date(payment.dueDate)) / (1000 * 60 * 60 * 24)
-            )
-          : 0,
-      riskLevel:
-        newStatus !== "collected" &&
-        payment.dueDate &&
-        new Date(payment.dueDate) < new Date()
-          ? Math.ceil(
-              (new Date() - new Date(payment.dueDate)) / (1000 * 60 * 60 * 24)
-            ) > 30
-            ? "high"
-            : "medium"
-          : "low",
-    };
-
-    // Update the project
-    const result = await db.collection("projects").updateOne(
+    await db.collection("projects").updateOne(
       { _id: new ObjectId(id) },
       {
         $set: {
           [`income.${paymentIndex}`]: updatedPayment,
           updatedAt: new Date(),
-        },
-      }
-    );
-
-    // Update financial status
-    await db.collection("projects").updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $inc: {
-          "financialStatus.totalIncome": parseFloat(partialAmount),
-        },
-        $set: {
           "financialStatus.lastUpdated": new Date(),
         },
+        $inc: {
+          "financialStatus.totalIncome": added,
+        },
       }
     );
 
-    // Create audit log
     await createAuditLog({
       action: "ADD_PARTIAL_PAYMENT",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      userId: "admin",
+      userEmail: "admin@company.com",
       metadata: {
         projectName: project.name,
         paymentId,
-        partialAmount: parseFloat(partialAmount),
-        newTotalAmount: newAmount,
+        partialAmount: added,
+        newTotalAmount: updatedPayment.amount,
+        status: updatedPayment.status,
         clientName: payment.clientName,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Partial payment added successfully",
+      message:
+        updatedPayment.status === "collected"
+          ? "Payment fully collected"
+          : "Partial payment recorded",
       payment: updatedPayment,
     });
   } catch (error) {

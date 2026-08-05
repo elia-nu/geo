@@ -22,6 +22,81 @@ export async function PUT(request, { params }) {
       );
     }
 
+    const allocations =
+      project.budget?.allocations || project.budgetAllocations || [];
+    const currentAllocation = allocations.find(
+      (alloc) => alloc._id?.toString() === allocationId
+    );
+
+    if (!currentAllocation) {
+      return NextResponse.json(
+        { success: false, error: "Allocation not found" },
+        { status: 404 }
+      );
+    }
+
+    const newAmount = Number(
+      updateData.budgetedAmount ?? updateData.amount ?? currentAllocation.amount
+    );
+    if (!Number.isFinite(newAmount) || newAmount <= 0) {
+      return NextResponse.json(
+        { success: false, error: "Allocation amount must be a positive number" },
+        { status: 400 }
+      );
+    }
+
+    const spentAmount = Number(currentAllocation.spentAmount) || 0;
+    if (newAmount + 0.001 < spentAmount) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Amount cannot be less than already spent (${spentAmount.toFixed(
+            2
+          )})`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const totalBudget = Number(project.budget?.totalAmount) || 0;
+    const otherAllocated = allocations
+      .filter((alloc) => alloc._id?.toString() !== allocationId)
+      .reduce((sum, alloc) => sum + (Number(alloc.amount) || 0), 0);
+
+    if (otherAllocated + newAmount > totalBudget + 0.001) {
+      const available = Math.max(0, totalBudget - otherAllocated);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Amount exceeds available budget (${available.toFixed(2)})`,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (updateData.startDate && updateData.endDate) {
+      const start = new Date(updateData.startDate);
+      const end = new Date(updateData.endDate);
+      if (
+        !Number.isNaN(start.getTime()) &&
+        !Number.isNaN(end.getTime()) &&
+        end < start
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "End date must be on or after start date",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const startDate = updateData.startDate
+      ? new Date(updateData.startDate)
+      : null;
+    const endDate = updateData.endDate ? new Date(updateData.endDate) : null;
+
     // Update the specific allocation within the project's budget
     const result = await db.collection("projects").updateOne(
       {
@@ -36,23 +111,35 @@ export async function PUT(request, { params }) {
           "budget.allocations.$.name": updateData.name,
           "budget.allocations.$.description": updateData.description,
           "budget.allocations.$.category": updateData.category,
-          "budget.allocations.$.amount":
-            updateData.budgetedAmount || updateData.amount,
+          "budget.allocations.$.categoryId": updateData.categoryId || null,
+          "budget.allocations.$.amount": newAmount,
           "budget.allocations.$.departmentId": updateData.departmentId,
           "budget.allocations.$.taskId": updateData.taskId,
           "budget.allocations.$.activityId": updateData.activityId,
           "budget.allocations.$.milestoneId": updateData.milestoneId,
+          "budget.allocations.$.allocationType":
+            updateData.allocationType || currentAllocation.allocationType,
+          "budget.allocations.$.priority":
+            updateData.priority || currentAllocation.priority || "medium",
+          "budget.allocations.$.startDate": startDate,
+          "budget.allocations.$.endDate": endDate,
           "budget.allocations.$.updatedAt": new Date(),
           // Also update budgetAllocations for consistency
           "budgetAllocations.$.name": updateData.name,
           "budgetAllocations.$.description": updateData.description,
           "budgetAllocations.$.category": updateData.category,
-          "budgetAllocations.$.amount":
-            updateData.budgetedAmount || updateData.amount,
+          "budgetAllocations.$.categoryId": updateData.categoryId || null,
+          "budgetAllocations.$.amount": newAmount,
           "budgetAllocations.$.departmentId": updateData.departmentId,
           "budgetAllocations.$.taskId": updateData.taskId,
           "budgetAllocations.$.activityId": updateData.activityId,
           "budgetAllocations.$.milestoneId": updateData.milestoneId,
+          "budgetAllocations.$.allocationType":
+            updateData.allocationType || currentAllocation.allocationType,
+          "budgetAllocations.$.priority":
+            updateData.priority || currentAllocation.priority || "medium",
+          "budgetAllocations.$.startDate": startDate,
+          "budgetAllocations.$.endDate": endDate,
           "budgetAllocations.$.updatedAt": new Date(),
         },
       }
@@ -70,10 +157,10 @@ export async function PUT(request, { params }) {
       _id: new ObjectId(projectId),
     });
 
-    const allocations =
+    const updatedAllocations =
       updatedProject?.budget?.allocations || updatedProject?.budgetAllocations;
-    if (allocations) {
-      const allocation = allocations.find(
+    if (updatedAllocations) {
+      const allocation = updatedAllocations.find(
         (alloc) => alloc._id.toString() === allocationId
       );
 

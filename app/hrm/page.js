@@ -315,11 +315,7 @@ export default function HRMDashboard() {
           </div>
         );
       case "leave-balances":
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <AdminLeaveBalanceManagement />
-          </div>
-        );
+        return <AdminLeaveBalanceManagement />;
       case "leave-reports":
         return <LeaveManagementReports />;
       case "payroll-reports":

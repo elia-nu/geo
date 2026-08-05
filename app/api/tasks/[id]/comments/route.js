@@ -87,6 +87,11 @@ export async function GET(request, { params }) {
       })
     );
 
+    // Newest comments first
+    commentsWithAuthors.sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
     return NextResponse.json({
       success: true,
       comments: commentsWithAuthors,

@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
+import {
+  buildIncomeRecord,
+  refreshIncomeList,
+  summarizeIncome,
+} from "../../../../utils/incomeLifecycle.js";
 
-// Get project income/payments
+// Get project income/payments (refreshes overdue/partial status on read)
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
@@ -16,7 +21,6 @@ export async function GET(request, { params }) {
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 50;
 
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { error: "Invalid project ID" },
@@ -24,7 +28,6 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Check if project exists
     const project = await db.collection("projects").findOne({
       _id: new ObjectId(id),
     });
@@ -33,90 +36,73 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Build filter for income
-    let incomeFilter = {};
-    if (status) incomeFilter.status = status;
-    if (paymentMethod) incomeFilter.paymentMethod = paymentMethod;
-    if (startDate || endDate) {
-      incomeFilter.receivedDate = {};
-      if (startDate) incomeFilter.receivedDate.$gte = new Date(startDate);
-      if (endDate) incomeFilter.receivedDate.$lte = new Date(endDate);
+    const { income: refreshed, changed } = refreshIncomeList(
+      project.income || []
+    );
+
+    // Persist status flips (e.g. pending → overdue) so lists stay accurate
+    if (changed) {
+      await db.collection("projects").updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            income: refreshed,
+            updatedAt: new Date(),
+            "financialStatus.lastUpdated": new Date(),
+          },
+        }
+      );
     }
 
-    // Filter income from the project
-    let income = project.income || [];
+    let income = refreshed;
 
-    // Apply filters
-    if (Object.keys(incomeFilter).length > 0) {
+    if (status) income = income.filter((inc) => inc.status === status);
+    if (paymentMethod) {
+      income = income.filter((inc) => inc.paymentMethod === paymentMethod);
+    }
+    if (startDate || endDate) {
       income = income.filter((inc) => {
-        if (incomeFilter.status && inc.status !== incomeFilter.status)
-          return false;
-        if (
-          incomeFilter.paymentMethod &&
-          inc.paymentMethod !== incomeFilter.paymentMethod
-        )
-          return false;
-        if (incomeFilter.receivedDate) {
-          const recDate = new Date(inc.receivedDate);
-          if (
-            incomeFilter.receivedDate.$gte &&
-            recDate < incomeFilter.receivedDate.$gte
-          )
-            return false;
-          if (
-            incomeFilter.receivedDate.$lte &&
-            recDate > incomeFilter.receivedDate.$lte
-          )
-            return false;
-        }
+        const date = new Date(inc.receivedDate || inc.dueDate || 0);
+        if (startDate && date < new Date(startDate)) return false;
+        if (endDate && date > new Date(endDate)) return false;
         return true;
       });
     }
 
-    // Sort by received date (newest first)
-    income.sort((a, b) => new Date(b.receivedDate) - new Date(a.receivedDate));
+    // Sort: overdue first, then by due/received date
+    income.sort((a, b) => {
+      if (a.status === "overdue" && b.status !== "overdue") return -1;
+      if (b.status === "overdue" && a.status !== "overdue") return 1;
+      const aDate = new Date(a.dueDate || a.receivedDate || 0);
+      const bDate = new Date(b.dueDate || b.receivedDate || 0);
+      return bDate - aDate;
+    });
 
-    // Pagination
     const skip = (page - 1) * limit;
     const paginatedIncome = income.slice(skip, skip + limit);
     const totalCount = income.length;
-    const totalPages = Math.ceil(totalCount / limit);
+    const totalPages = Math.ceil(totalCount / limit) || 1;
 
-    // Calculate income summary
-    const totalIncome = income.reduce((sum, inc) => sum + (inc.amount || 0), 0);
-    const collectedAmount = income
-      .filter((inc) => inc.status === "collected")
-      .reduce((sum, inc) => sum + (inc.amount || 0), 0);
-    const pendingAmount = income
-      .filter((inc) => inc.status === "pending")
-      .reduce((sum, inc) => sum + (inc.amount || 0), 0);
-    const overdueAmount = income
-      .filter((inc) => inc.status === "overdue")
-      .reduce((sum, inc) => sum + (inc.amount || 0), 0);
-
-    const incomeByStatus = income.reduce((acc, inc) => {
-      const status = inc.status || "pending";
-      acc[status] = (acc[status] || 0) + (inc.amount || 0);
-      return acc;
-    }, {});
-
-    const incomeByMethod = income.reduce((acc, inc) => {
-      const method = inc.paymentMethod || "unknown";
-      acc[method] = (acc[method] || 0) + (inc.amount || 0);
-      return acc;
-    }, {});
+    const summary = summarizeIncome(refreshed);
 
     return NextResponse.json({
       success: true,
       income: paginatedIncome,
       summary: {
-        totalIncome,
-        collectedAmount,
-        pendingAmount,
-        overdueAmount,
-        totalCount,
-        incomeByStatus,
-        incomeByMethod,
+        totalIncome: summary.totalCollected,
+        totalExpected: summary.totalExpected,
+        totalCollected: summary.totalCollected,
+        totalUncollected: summary.totalUncollected,
+        collectionRate: summary.collectionRate,
+        collectedAmount: summary.collectedAmount,
+        pendingAmount: summary.pendingExpected,
+        partialAmount: summary.partialExpected,
+        overdueAmount: summary.overdueUncollected,
+        pendingCount: summary.pendingCount,
+        partialCount: summary.partialCount,
+        collectedCount: summary.collectedCount,
+        overdueCount: summary.overdueCount,
+        totalCount: refreshed.length,
       },
       pagination: {
         currentPage: page,
@@ -135,14 +121,13 @@ export async function GET(request, { params }) {
   }
 }
 
-// Add new income/payment to project
+// Create expected income (or income with initial collection)
 export async function POST(request, { params }) {
   try {
     const db = await getDb();
     const { id } = await params;
     const data = await request.json();
 
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { error: "Invalid project ID" },
@@ -159,21 +144,37 @@ export async function POST(request, { params }) {
       dueDate,
       paymentMethod,
       clientName,
+      categoryId,
       invoiceNumber,
-      status = "pending",
+      status,
       paymentReference,
       notes,
     } = data;
 
-    // Validation: allow creating records with expectedAmount first (amount optional)
-    if (!title || (!amount && !expectedAmount)) {
+    const hasExpected =
+      expectedAmount !== undefined &&
+      expectedAmount !== null &&
+      String(expectedAmount).trim() !== "";
+    const hasAmount =
+      amount !== undefined &&
+      amount !== null &&
+      String(amount).trim() !== "";
+
+    if (!title || (!hasAmount && !hasExpected)) {
       return NextResponse.json(
         { error: "Title and either amount or expectedAmount is required" },
         { status: 400 }
       );
     }
 
-    // Check if project exists
+    // Expected-only records require a due date
+    if (hasExpected && !hasAmount && !dueDate) {
+      return NextResponse.json(
+        { error: "Due date is required for expected income" },
+        { status: 400 }
+      );
+    }
+
     const existingProject = await db.collection("projects").findOne({
       _id: new ObjectId(id),
     });
@@ -182,88 +183,46 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Create enhanced income object with better payment tracking
-    const expectedAmt = expectedAmount
-      ? parseFloat(expectedAmount)
-      : parseFloat(amount || 0);
-    const receivedAmt = amount ? parseFloat(amount) : 0;
-    const isFullyCollected = receivedAmt >= expectedAmt;
-    const collectionRate =
-      expectedAmt > 0 ? (receivedAmt / expectedAmt) * 100 : 100;
-
-    // Determine payment status automatically if not provided
-    let paymentStatus = status;
-    if (!paymentStatus || paymentStatus === "pending") {
-      if (isFullyCollected) {
-        paymentStatus = "collected";
-      } else if (dueDate && new Date(dueDate) < new Date()) {
-        paymentStatus = "overdue";
-      } else {
-        paymentStatus = "pending";
+    let categoryName = "";
+    let normalizedCategoryId = "";
+    if (categoryId && ObjectId.isValid(categoryId)) {
+      const category = await db.collection("incomeCategories").findOne({
+        _id: new ObjectId(categoryId),
+      });
+      if (category) {
+        normalizedCategoryId = category._id.toString();
+        categoryName = category.name || "";
       }
     }
 
-    const income = {
+    const income = buildIncomeRecord({
       _id: new ObjectId(),
       title,
-      description: description || "",
-      amount: receivedAmt,
-      expectedAmount: expectedAmt,
-      uncollectedAmount: Math.max(0, expectedAmt - receivedAmt),
-      collectionRate,
-      isFullyCollected,
-      receivedDate:
-        receivedAmt > 0
-          ? receivedDate
-            ? new Date(receivedDate)
-            : new Date()
-          : null,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      paymentMethod: paymentMethod || "bank_transfer",
-      clientName: clientName || "",
+      description,
+      amount: hasAmount ? amount : 0,
+      expectedAmount: hasExpected
+        ? expectedAmount
+        : hasAmount
+        ? amount
+        : 0,
+      receivedDate,
+      dueDate,
+      paymentMethod,
+      clientName,
+      categoryId: normalizedCategoryId,
+      categoryName,
+      invoiceNumber,
+      status: status === "cancelled" ? "cancelled" : undefined,
+      paymentReference,
+      notes,
+    });
 
-      invoiceNumber: invoiceNumber || "",
-      status: paymentStatus,
-      paymentReference: paymentReference || "",
-      notes: notes || "",
-      // Enhanced tracking
-      isOverdue: dueDate
-        ? new Date(dueDate) < new Date() && paymentStatus !== "collected"
-        : false,
-      daysPastDue:
-        dueDate && new Date(dueDate) < new Date()
-          ? Math.ceil((new Date() - new Date(dueDate)) / (1000 * 60 * 60 * 24))
-          : 0,
-      daysUntilDue:
-        dueDate && new Date(dueDate) > new Date()
-          ? Math.ceil((new Date(dueDate) - new Date()) / (1000 * 60 * 60 * 24))
-          : null,
-      // Classification
-      paymentType:
-        expectedAmt === receivedAmt
-          ? "full_payment"
-          : receivedAmt < expectedAmt
-          ? "partial_payment"
-          : "overpayment",
-      riskLevel:
-        dueDate &&
-        new Date(dueDate) < new Date() &&
-        paymentStatus !== "collected"
-          ? Math.ceil(
-              (new Date() - new Date(dueDate)) / (1000 * 60 * 60 * 24)
-            ) > 30
-            ? "high"
-            : "medium"
-          : "low",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const receivedAmt = income.amount || 0;
 
-    // Add income to project and update financial status
-    const result = await db.collection("projects").updateOne(
+    await db.collection("projects").updateOne(
       { _id: new ObjectId(id) },
       {
-        $push: { income: income },
+        $push: { income },
         $inc: {
           "financialStatus.totalIncome": receivedAmt,
           "financialStatus.profitLoss": receivedAmt,
@@ -275,25 +234,29 @@ export async function POST(request, { params }) {
       }
     );
 
-    // Create audit log
     await createAuditLog({
       action: "ADD_INCOME",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      userId: "admin",
+      userEmail: "admin@company.com",
       metadata: {
         projectName: existingProject.name,
         incomeTitle: title,
-        amount,
+        expectedAmount: income.expectedAmount,
+        amount: income.amount,
+        status: income.status,
         clientName,
-        status,
+        dueDate: income.dueDate,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Income added successfully",
+      message:
+        income.amount > 0
+          ? "Income recorded successfully"
+          : "Expected income created successfully",
       income,
     });
   } catch (error) {
@@ -305,14 +268,13 @@ export async function POST(request, { params }) {
   }
 }
 
-// Update project income (bulk operations)
+// Bulk replace income array
 export async function PUT(request, { params }) {
   try {
     const db = await getDb();
     const { id } = await params;
     const data = await request.json();
 
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { error: "Invalid project ID" },
@@ -329,7 +291,6 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Check if project exists
     const existingProject = await db.collection("projects").findOne({
       _id: new ObjectId(id),
     });
@@ -338,26 +299,17 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Process income with IDs
-    const processedIncome = income.map((inc) => {
-      if (inc._id) {
-        return {
-          ...inc,
-          _id: typeof inc._id === "string" ? new ObjectId(inc._id) : inc._id,
-          updatedAt: new Date(),
-        };
-      } else {
-        return {
-          ...inc,
-          _id: new ObjectId(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-      }
-    });
+    const processedIncome = income.map((inc) =>
+      buildIncomeRecord({
+        ...inc,
+        _id:
+          typeof inc._id === "string"
+            ? new ObjectId(inc._id)
+            : inc._id || new ObjectId(),
+      })
+    );
 
-    // Update project with new income array
-    const result = await db.collection("projects").updateOne(
+    await db.collection("projects").updateOne(
       { _id: new ObjectId(id) },
       {
         $set: {
@@ -367,13 +319,12 @@ export async function PUT(request, { params }) {
       }
     );
 
-    // Create audit log
     await createAuditLog({
       action: "UPDATE_INCOME",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      userId: "admin",
+      userEmail: "admin@company.com",
       metadata: {
         projectName: existingProject.name,
         incomeCount: income.length,
@@ -383,7 +334,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json({
       success: true,
       message: "Income updated successfully",
-      result,
+      income: processedIncome,
     });
   } catch (error) {
     console.error("Error updating income:", error);

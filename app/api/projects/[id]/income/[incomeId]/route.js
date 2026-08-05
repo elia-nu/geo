@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../../utils/audit.js";
+import {
+  applyCollection,
+  enrichIncomeRecord,
+} from "../../../../../utils/incomeLifecycle.js";
 
 // Get specific income entry
 export async function GET(request, { params }) {
@@ -9,7 +13,6 @@ export async function GET(request, { params }) {
     const db = await getDb();
     const { id, incomeId } = await params;
 
-    // Validate ObjectIds
     if (!ObjectId.isValid(id) || !ObjectId.isValid(incomeId)) {
       return NextResponse.json(
         { error: "Invalid project or income ID" },
@@ -17,7 +20,6 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Find project and income
     const project = await db.collection("projects").findOne({
       _id: new ObjectId(id),
     });
@@ -39,7 +41,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({
       success: true,
-      income,
+      income: enrichIncomeRecord(income),
     });
   } catch (error) {
     console.error("Error fetching income entry:", error);
@@ -50,14 +52,20 @@ export async function GET(request, { params }) {
   }
 }
 
-// Update specific income entry
+/**
+ * Update income entry OR collect payment.
+ *
+ * Collect payload:
+ *   { action: "collect", collectAmount, receivedDate?, paymentMethod?, invoiceNumber?, paymentReference?, notes? }
+ *
+ * Regular edit: field patch (recomputes lifecycle fields).
+ */
 export async function PUT(request, { params }) {
   try {
     const db = await getDb();
     const { id, incomeId } = await params;
     const data = await request.json();
 
-    // Validate ObjectIds
     if (!ObjectId.isValid(id) || !ObjectId.isValid(incomeId)) {
       return NextResponse.json(
         { error: "Invalid project or income ID" },
@@ -65,7 +73,6 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Find project
     const project = await db.collection("projects").findOne({
       _id: new ObjectId(id),
     });
@@ -74,7 +81,6 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Find income index
     const incomeIndex = project.income?.findIndex(
       (inc) => inc._id.toString() === incomeId
     );
@@ -86,90 +92,152 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const {
-      title,
-      description,
-      amount,
-      expectedAmount,
-      receivedDate,
-      dueDate,
-      paymentMethod,
-      clientName,
-      clientEmail,
-      invoiceNumber,
-      status,
-      paymentReference,
-      notes,
-    } = data;
+    const existing = project.income[incomeIndex];
+    const previousAmount = Number(existing.amount) || 0;
+    let updated;
 
-    // Prepare update data
-    const updateData = {};
-
-    if (title !== undefined) updateData[`income.${incomeIndex}.title`] = title;
-    if (description !== undefined)
-      updateData[`income.${incomeIndex}.description`] = description;
-    if (amount !== undefined) {
-      if (amount <= 0) {
-        return NextResponse.json(
-          { error: "Amount must be greater than 0" },
-          { status: 400 }
-        );
+    if (data.action === "collect") {
+      try {
+        updated = applyCollection(existing, {
+          collectAmount: data.collectAmount,
+          receivedDate: data.receivedDate,
+          paymentMethod: data.paymentMethod || data.paymentType,
+          invoiceNumber: data.invoiceNumber,
+          paymentReference: data.paymentReference,
+          notes: data.notes,
+        });
+      } catch (err) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
       }
-      updateData[`income.${incomeIndex}.amount`] = parseFloat(amount);
+    } else {
+      let nextCategoryId =
+        data.categoryId !== undefined ? data.categoryId : existing.categoryId;
+      let nextCategoryName =
+        data.categoryName !== undefined
+          ? data.categoryName
+          : existing.categoryName;
+
+      if (data.categoryId !== undefined) {
+        if (data.categoryId && ObjectId.isValid(data.categoryId)) {
+          const category = await db.collection("incomeCategories").findOne({
+            _id: new ObjectId(data.categoryId),
+          });
+          nextCategoryId = category ? category._id.toString() : "";
+          nextCategoryName = category?.name || "";
+        } else {
+          nextCategoryId = "";
+          nextCategoryName = "";
+        }
+      }
+
+      const merged = {
+        ...existing,
+        title: data.title !== undefined ? data.title : existing.title,
+        description:
+          data.description !== undefined
+            ? data.description
+            : existing.description,
+        expectedAmount:
+          data.expectedAmount !== undefined
+            ? data.expectedAmount
+            : existing.expectedAmount,
+        amount:
+          data.amount !== undefined ? data.amount : existing.amount,
+        receivedDate:
+          data.receivedDate !== undefined
+            ? data.receivedDate
+            : existing.receivedDate,
+        dueDate: data.dueDate !== undefined ? data.dueDate : existing.dueDate,
+        paymentMethod:
+          data.paymentMethod !== undefined
+            ? data.paymentMethod
+            : data.paymentType !== undefined
+            ? data.paymentType
+            : existing.paymentMethod,
+        clientName:
+          data.clientName !== undefined ? data.clientName : existing.clientName,
+        categoryId: nextCategoryId || "",
+        categoryName: nextCategoryName || "",
+        invoiceNumber:
+          data.invoiceNumber !== undefined
+            ? data.invoiceNumber
+            : existing.invoiceNumber,
+        paymentReference:
+          data.paymentReference !== undefined
+            ? data.paymentReference
+            : existing.paymentReference,
+        notes: data.notes !== undefined ? data.notes : existing.notes,
+        status:
+          data.status === "cancelled"
+            ? "cancelled"
+            : data.status === "pending" && previousAmount === 0
+            ? "pending"
+            : existing.status,
+      };
+
+      // Allow resetting cancelled only via explicit status
+      if (data.status === "cancelled") {
+        merged.status = "cancelled";
+      }
+
+      updated = enrichIncomeRecord(merged);
+      if (data.status === "cancelled") {
+        updated.status = "cancelled";
+        updated.isOverdue = false;
+      }
     }
-    if (expectedAmount !== undefined)
-      updateData[`income.${incomeIndex}.expectedAmount`] =
-        parseFloat(expectedAmount);
-    if (receivedDate !== undefined)
-      updateData[`income.${incomeIndex}.receivedDate`] = new Date(receivedDate);
-    if (dueDate !== undefined)
-      updateData[`income.${incomeIndex}.dueDate`] = dueDate
-        ? new Date(dueDate)
-        : null;
-    if (paymentMethod !== undefined)
-      updateData[`income.${incomeIndex}.paymentMethod`] = paymentMethod;
-    if (clientName !== undefined)
-      updateData[`income.${incomeIndex}.clientName`] = clientName;
-    if (clientEmail !== undefined)
-      updateData[`income.${incomeIndex}.clientEmail`] = clientEmail;
-    if (invoiceNumber !== undefined)
-      updateData[`income.${incomeIndex}.invoiceNumber`] = invoiceNumber;
-    if (status !== undefined)
-      updateData[`income.${incomeIndex}.status`] = status;
-    if (paymentReference !== undefined)
-      updateData[`income.${incomeIndex}.paymentReference`] = paymentReference;
-    if (notes !== undefined) updateData[`income.${incomeIndex}.notes`] = notes;
 
-    // Always update the income's updatedAt timestamp
-    updateData[`income.${incomeIndex}.updatedAt`] = new Date();
-    updateData.updatedAt = new Date();
+    // Preserve ObjectId
+    updated._id = existing._id;
+    updated.createdAt = existing.createdAt || new Date();
 
-    // Update the income entry
-    const result = await db
-      .collection("projects")
-      .updateOne({ _id: new ObjectId(id) }, { $set: updateData });
+    const amountDelta = (Number(updated.amount) || 0) - previousAmount;
 
-    // Create audit log
+    await db.collection("projects").updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          [`income.${incomeIndex}`]: updated,
+          updatedAt: new Date(),
+          "financialStatus.lastUpdated": new Date(),
+        },
+        ...(amountDelta !== 0
+          ? {
+              $inc: {
+                "financialStatus.totalIncome": amountDelta,
+                "financialStatus.profitLoss": amountDelta,
+              },
+            }
+          : {}),
+      }
+    );
+
     await createAuditLog({
-      action: "UPDATE_INCOME",
+      action: data.action === "collect" ? "COLLECT_INCOME" : "UPDATE_INCOME",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      userId: "admin",
+      userEmail: "admin@company.com",
       metadata: {
         projectName: project.name,
         incomeId,
-        incomeTitle: title || project.income[incomeIndex].title,
-        updatedFields: Object.keys(updateData).filter(
-          (key) => !key.includes("updatedAt")
-        ),
+        incomeTitle: updated.title,
+        previousAmount,
+        newAmount: updated.amount,
+        status: updated.status,
+        action: data.action || "update",
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Income entry updated successfully",
-      result,
+      message:
+        data.action === "collect"
+          ? updated.status === "collected"
+            ? "Payment fully collected"
+            : "Partial collection recorded"
+          : "Income entry updated successfully",
+      income: updated,
     });
   } catch (error) {
     console.error("Error updating income entry:", error);
@@ -186,7 +254,6 @@ export async function DELETE(request, { params }) {
     const db = await getDb();
     const { id, incomeId } = await params;
 
-    // Validate ObjectIds
     if (!ObjectId.isValid(id) || !ObjectId.isValid(incomeId)) {
       return NextResponse.json(
         { error: "Invalid project or income ID" },
@@ -194,7 +261,6 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Find project
     const project = await db.collection("projects").findOne({
       _id: new ObjectId(id),
     });
@@ -203,7 +269,6 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Find income entry
     const income = project.income?.find(
       (inc) => inc._id.toString() === incomeId
     );
@@ -215,22 +280,29 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Remove income entry from project
-    const result = await db.collection("projects").updateOne(
+    const receivedAmt = Number(income.amount) || 0;
+
+    await db.collection("projects").updateOne(
       { _id: new ObjectId(id) },
       {
         $pull: { income: { _id: new ObjectId(incomeId) } },
-        $set: { updatedAt: new Date() },
+        $inc: {
+          "financialStatus.totalIncome": -receivedAmt,
+          "financialStatus.profitLoss": -receivedAmt,
+        },
+        $set: {
+          updatedAt: new Date(),
+          "financialStatus.lastUpdated": new Date(),
+        },
       }
     );
 
-    // Create audit log
     await createAuditLog({
       action: "DELETE_INCOME",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      userId: "admin",
+      userEmail: "admin@company.com",
       metadata: {
         projectName: project.name,
         incomeId,
@@ -242,7 +314,6 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({
       success: true,
       message: "Income entry deleted successfully",
-      result,
     });
   } catch (error) {
     console.error("Error deleting income entry:", error);
