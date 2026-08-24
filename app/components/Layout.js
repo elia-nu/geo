@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useSidebarStore } from "./useSidebarStore";
 import Sidebar from "./Sidebar";
+import ToastProvider from "./ToastProvider";
 import { Bell, Search, User, Settings } from "lucide-react";
 
 const Layout = ({
@@ -278,6 +279,7 @@ const Layout = ({
           </div>
         </footer>
       </div>
+      <ToastProvider />
     </div>
   );
 };

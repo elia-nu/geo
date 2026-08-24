@@ -57,7 +57,7 @@ export default function WorkLocationsPage() {
     address: "",
     latitude: "",
     longitude: "",
-    radius: "100",
+    radius: "500",
     description: "",
   });
 
@@ -147,7 +147,7 @@ export default function WorkLocationsPage() {
         address: "",
         latitude: "",
         longitude: "",
-        radius: "100",
+        radius: "500",
         description: "",
       });
       fetchLocations();
@@ -269,13 +269,14 @@ export default function WorkLocationsPage() {
   };
 
   const openEditModal = (location) => {
+    if (!location) return;
     setSelectedLocation(location);
     setLocationForm({
-      name: location.name,
+      name: location.name || location.siteName || "",
       address: location.address || "",
-      latitude: location.latitude.toString(),
-      longitude: location.longitude.toString(),
-      radius: location.radius.toString(),
+      latitude: location.latitude != null ? location.latitude.toString() : "",
+      longitude: location.longitude != null ? location.longitude.toString() : "",
+      radius: location.radius != null ? location.radius.toString() : "500",
       description: location.description || "",
     });
     setShowEditModal(true);
@@ -287,11 +288,14 @@ export default function WorkLocationsPage() {
     setShowAssignModal(true);
   };
 
-  const filteredLocations = locations.filter(
-    (location) =>
-      location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      location.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredLocations = locations.filter((location) => {
+    if (!location) return false;
+    const name = String(location.name || location.siteName || "").toLowerCase();
+    const address = String(location.address || "").toLowerCase();
+    const term = String(searchTerm || "").toLowerCase().trim();
+    if (!term) return true;
+    return name.includes(term) || address.includes(term);
+  });
 
   return (
     <Layout activeSection={activeSection} onSectionChange={handleSectionChange}>
@@ -399,7 +403,7 @@ export default function WorkLocationsPage() {
                   <div className="flex items-center space-x-2">
                     <MapPin className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-black">
-                      {location.name}
+                      {location.name || location.siteName || "Unnamed Location"}
                     </h3>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -464,7 +468,7 @@ export default function WorkLocationsPage() {
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>
                       Created:{" "}
-                      {new Date(location.createdAt).toLocaleDateString()}
+                      {new Date(location.createdAt || Date.now()).toLocaleDateString()}
                     </span>
                     <span
                       className={`px-2 py-1 rounded-full ${

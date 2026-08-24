@@ -55,7 +55,7 @@ export default function StepperEmployeeForm({
     employeeId: "",
     emergencyContactName: "",
     emergencyContactNumber: "",
-    employeeType: "",
+    employeeType: "Full Time",
     contractExpiryDate: "",
     transportAllowance: "",
     telephoneAllowance: "",
@@ -271,9 +271,9 @@ export default function StepperEmployeeForm({
     switch (stepId) {
       case "personal":
         if (!personalDetails.name.trim()) errors.name = "Name is required";
-        if (!personalDetails.email.trim()) errors.email = "Email is required";
         if (
           personalDetails.email &&
+          personalDetails.email.trim() &&
           !/\S+@\S+\.\S+/.test(personalDetails.email)
         ) {
           errors.email = "Please enter a valid email";
@@ -453,7 +453,7 @@ export default function StepperEmployeeForm({
       employeeId: "",
       emergencyContactName: "",
       emergencyContactNumber: "",
-      employeeType: "",
+      employeeType: "Full Time",
       contractExpiryDate: "",
       transportAllowance: "",
       telephoneAllowance: "",
@@ -629,7 +629,7 @@ export default function StepperEmployeeForm({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email <span className="text-red-500">*</span>
+                  Email <span className="text-gray-400 font-normal text-xs">(Optional)</span>
                 </label>
                 <input
                   type="email"

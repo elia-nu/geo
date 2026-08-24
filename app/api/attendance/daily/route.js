@@ -243,7 +243,7 @@ export async function POST(request) {
       }
 
       const nearestRadius = parseDistanceToMeters(
-        (nearestLocation && nearestLocation.radius) || 100
+        (nearestLocation && nearestLocation.radius) || 500
       );
 
       geofenceValidation = {

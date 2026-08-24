@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -12,16 +12,27 @@ import {
   MapPin,
   TrendingUp,
   Activity,
+  RefreshCw,
+  ArrowRight,
+  ShieldCheck,
+  Calendar,
+  DollarSign,
+  CheckCircle2,
+  AlertCircle,
+  Briefcase,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 
-const Dashboard = ({ onSectionChange }) => {
+export default function Dashboard({ onSectionChange = () => {} }) {
   const [stats, setStats] = useState({
     totalEmployees: 0,
+    activeEmployees: 0,
     totalDocuments: 0,
     expiringDocuments: 0,
     expiredDocuments: 0,
+    activeDocuments: 0,
     departments: {},
-    locations: {},
     workLocationStats: {
       total: 0,
       active: 0,
@@ -29,66 +40,80 @@ const Dashboard = ({ onSectionChange }) => {
       employeesWithoutLocation: 0,
       topLocations: [],
     },
+    attendanceToday: {
+      present: 0,
+      date: "",
+    },
+    projectsCount: 0,
   });
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState("");
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchStats();
-    setLastUpdated(new Date().toLocaleTimeString());
-  }, []);
+  const fetchStats = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true);
+    setError(null);
 
-  const fetchStats = async () => {
     try {
-      // Fetch employee stats
-      const employeesResponse = await fetch("/api/employee");
-      const employeesData = await employeesResponse.json();
+      // 1. Fetch from high-performance unified stats endpoint
+      const res = await fetch("/api/dashboard/stats", {
+        headers: { "Cache-Control": "no-cache" },
+      });
 
-      // Fetch document stats
-      const documentsResponse = await fetch("/api/documents/stats");
-      const documentStats = await documentsResponse.json();
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setStats(json.data);
+          setLastUpdated(new Date().toLocaleTimeString());
+          setLoading(false);
+          if (isManualRefresh) setRefreshing(false);
+          return;
+        }
+      }
 
-      // Fetch work location stats
-      const workLocationResponse = await fetch("/api/work-locations/stats");
-      const workLocationData = await workLocationResponse.json();
+      // Fallback: parallel fetch from individual endpoints if unified stats fails
+      const [empRes, docRes, locRes] = await Promise.allSettled([
+        fetch("/api/employee").then((r) => r.json()),
+        fetch("/api/documents/stats").then((r) => r.json()),
+        fetch("/api/work-locations/stats").then((r) => r.json()),
+      ]);
 
-      // Calculate department and location stats
+      const employeesData =
+        empRes.status === "fulfilled" ? empRes.value : { employees: [] };
+      const documentStats =
+        docRes.status === "fulfilled" ? docRes.value : {};
+      const workLocationData =
+        locRes.status === "fulfilled" ? locRes.value : {};
+
       const departments = {};
       const locations = {};
 
-      // Check if employees data is valid and has the employees array
-      if (
-        employeesData.success &&
-        employeesData.employees &&
-        Array.isArray(employeesData.employees)
-      ) {
+      if (employeesData.success && Array.isArray(employeesData.employees)) {
         employeesData.employees.forEach((emp) => {
-          if (emp.department) {
-            departments[emp.department] =
-              (departments[emp.department] || 0) + 1;
-          }
-          if (emp.workLocation) {
-            // Handle workLocation as either object or string
-            const locationKey =
-              typeof emp.workLocation === "object" && emp.workLocation?.name
-                ? emp.workLocation.name
-                : typeof emp.workLocation === "string"
-                ? emp.workLocation
-                : "Unknown Location";
+          const dept =
+            emp.department || emp.personalDetails?.department || "General";
+          departments[dept] = (departments[dept] || 0) + 1;
 
-            locations[locationKey] = (locations[locationKey] || 0) + 1;
-          }
+          const locationKey =
+            typeof emp.workLocation === "object" && emp.workLocation?.name
+              ? emp.workLocation.name
+              : typeof emp.workLocation === "string" && emp.workLocation
+              ? emp.workLocation
+              : "Unassigned";
+          locations[locationKey] = (locations[locationKey] || 0) + 1;
         });
       }
 
       setStats({
-        totalEmployees: employeesData.success
-          ? employeesData.employees?.length || 0
-          : 0,
+        totalEmployees: employeesData.employees?.length || 0,
+        activeEmployees: employeesData.employees?.length || 0,
         totalDocuments: documentStats.total || 0,
         expiringDocuments: documentStats.expiring || 0,
         expiredDocuments: documentStats.expired || 0,
+        activeDocuments: documentStats.active || 0,
         departments,
-        locations,
         workLocationStats: workLocationData.success
           ? workLocationData.stats
           : {
@@ -98,22 +123,32 @@ const Dashboard = ({ onSectionChange }) => {
               employeesWithoutLocation: 0,
               topLocations: [],
             },
+        attendanceToday: { present: 0, date: "" },
+        projectsCount: 0,
       });
-    } catch (error) {
-      console.error("Error fetching stats:", error);
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error("Dashboard stats error:", err);
+      setError("Unable to load live statistics. Showing cached data.");
+    } finally {
+      setLoading(false);
+      if (isManualRefresh) setRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const getTopDepartments = () => {
-    return Object.entries(stats.departments)
+    return Object.entries(stats.departments || {})
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5);
   };
 
   const getTopLocations = () => {
-    // Use real work location data from database
     if (
-      stats.workLocationStats.topLocations &&
+      stats.workLocationStats?.topLocations &&
       stats.workLocationStats.topLocations.length > 0
     ) {
       return stats.workLocationStats.topLocations.map((loc) => [
@@ -121,348 +156,470 @@ const Dashboard = ({ onSectionChange }) => {
         loc.employeeCount,
       ]);
     }
-
-    // Fallback to employee work location data
-    return Object.entries(stats.locations)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5);
+    return [];
   };
 
+  // Skeleton loading state
+  if (loading) {
+    return (
+      <div className="space-y-8 animate-pulse">
+        {/* Banner Skeleton */}
+        <div className="h-44 rounded-3xl bg-gradient-to-r from-slate-200 to-slate-300 w-full" />
+
+        {/* 5 KPI Cards Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="h-32 rounded-2xl bg-white border border-slate-100 p-5 space-y-3"
+            >
+              <div className="flex justify-between">
+                <div className="h-4 w-24 bg-slate-200 rounded" />
+                <div className="h-6 w-6 bg-slate-200 rounded-full" />
+              </div>
+              <div className="h-8 w-16 bg-slate-300 rounded" />
+              <div className="h-3 w-28 bg-slate-100 rounded" />
+            </div>
+          ))}
+        </div>
+
+        {/* Grid Skeletons */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-64 rounded-2xl bg-white border border-slate-100 p-6 space-y-4" />
+          <div className="h-64 rounded-2xl bg-white border border-slate-100 p-6 space-y-4" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8">
-      {/* Welcome Section */}
-      <div className="relative overflow-hidden rounded-2xl p-8 text-white shadow-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600">
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.5),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.3),transparent_50%)]" />
-        <div className="relative z-10">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">
-            Welcome to HRM Dashboard
-          </h1>
-          <p className="text-blue-100/90 max-w-2xl">
-            Manage your human resources efficiently with our comprehensive
-            system
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
+    <div className="space-y-8 pb-8">
+      {/* Welcome Banner */}
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 text-white shadow-xl bg-gradient-to-br from-indigo-900 via-slate-900 to-blue-950 border border-slate-700/50">
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-16 w-80 h-80 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold backdrop-blur-md border border-blue-400/20 mb-1">
+              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+              <span>Enterprise HR & Workforce Intelligence</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">
+              HRM Executive Dashboard
+            </h1>
+            <p className="text-slate-300 text-sm sm:text-base max-w-xl">
+              Monitor organizational performance, compliance, geofenced workforce operations, and payroll seamlessly.
+            </p>
+          </div>
+
+          {/* Action buttons & Refresh */}
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               onClick={() => onSectionChange("employee-add")}
-              className="bg-white/90 text-slate-900 hover:bg-white shadow-lg shadow-black/10"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all transform active:scale-95"
             >
-              Quick Add Employee
+              <Users className="w-4 h-4 mr-2" />
+              Add Employee
             </Button>
             <Button
-              onClick={() => onSectionChange("payroll-integration")}
-              variant="secondary"
-              className="bg-white/10 backdrop-blur border border-white/20 hover:bg-white/20"
+              onClick={() => onSectionChange("payroll")}
+              variant="outline"
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur font-medium transition-all"
             >
-              Open Payroll
+              <DollarSign className="w-4 h-4 mr-2" />
+              Payroll Hub
             </Button>
+            <Button
+              onClick={() => fetchStats(true)}
+              disabled={refreshing}
+              variant="ghost"
+              size="icon"
+              title="Refresh statistics"
+              className="text-slate-300 hover:text-white hover:bg-white/10 rounded-xl"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${refreshing ? "animate-spin text-blue-400" : ""}`}
+              />
+            </Button>
+          </div>
+        </div>
+
+        {/* Live status bar at bottom of hero */}
+        <div className="mt-6 pt-5 border-t border-slate-700/60 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-300">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              System Status: <strong className="text-white font-medium">Operational</strong>
+            </span>
+            {stats.attendanceToday?.present > 0 && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-blue-200">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                {stats.attendanceToday.present} checked in today
+              </span>
+            )}
+          </div>
+          <div className="text-slate-400">
+            Last synced: <span className="text-slate-200 font-mono">{lastUpdated || "Just now"}</span>
           </div>
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      {error && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+          <span className="text-sm">{error}</span>
+        </div>
+      )}
+
+      {/* Primary KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+        {/* Total Employees */}
         <Card
-          className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border border-blue-100/60"
-          onClick={() => onSectionChange("employee-database")}
+          className="bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 hover:border-blue-200 group relative overflow-hidden"
+          onClick={() => onSectionChange("employees")}
         >
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-600" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Employees
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Total Workforce
             </CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
+            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <Users className="w-4 h-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-extrabold text-blue-600">
+            <div className="text-3xl font-extrabold text-slate-900">
               {stats.totalEmployees}
             </div>
-            <p className="text-xs text-gray-500 flex items-center mt-1">
-              <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
-              Active workforce
-            </p>
+            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-emerald-600">
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>{stats.activeEmployees || stats.totalEmployees} Active staff</span>
+            </div>
           </CardContent>
         </Card>
 
+        {/* Total Documents */}
         <Card
-          className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border border-green-100/60"
-          onClick={() => onSectionChange("document-list")}
+          className="bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 hover:border-emerald-200 group relative overflow-hidden"
+          onClick={() => onSectionChange("documents")}
         >
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-600" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Documents
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Active Documents
             </CardTitle>
-            <FileText className="h-4 w-4 text-green-600" />
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              <FileText className="w-4 h-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-extrabold text-green-600">
+            <div className="text-3xl font-extrabold text-slate-900">
               {stats.totalDocuments}
             </div>
-            <p className="text-xs text-gray-500 flex items-center mt-1">
-              <Activity className="w-3 h-3 mr-1 text-blue-500" />
-              Stored documents
-            </p>
+            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-slate-500">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span>{stats.activeDocuments || stats.totalDocuments} Valid records</span>
+            </div>
           </CardContent>
         </Card>
 
+        {/* Expiring Soon */}
         <Card
-          className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border border-orange-100/60"
+          className="bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 hover:border-amber-200 group relative overflow-hidden"
           onClick={() => onSectionChange("document-expiry")}
         >
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
-            <Clock className="h-4 w-4 text-orange-600" />
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Expiring Soon
+            </CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
+              <Clock className="w-4 h-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-extrabold text-orange-600">
+            <div className="text-3xl font-extrabold text-amber-600">
               {stats.expiringDocuments}
             </div>
-            <p className="text-xs text-gray-500">Next 30 days</p>
+            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-amber-600">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Next 30 Days</span>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all border border-red-100/60">
+        {/* Expired Documents */}
+        <Card
+          className="bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 hover:border-rose-200 group relative overflow-hidden"
+          onClick={() => onSectionChange("document-expiry")}
+        >
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 to-red-600" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Expired</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Expired Docs
+            </CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-extrabold text-red-600">
+            <div className="text-3xl font-extrabold text-rose-600">
               {stats.expiredDocuments}
             </div>
-            <p className="text-xs text-gray-500">Require attention</p>
+            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-rose-600">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Requires attention</span>
+            </div>
           </CardContent>
         </Card>
 
+        {/* Work Locations */}
         <Card
-          className="bg-white text-slate-800 hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer border border-purple-100/60"
+          className="bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 hover:border-purple-200 group relative overflow-hidden"
           onClick={() => onSectionChange("work-locations")}
         >
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-600" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Work Locations
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Work Sites
             </CardTitle>
-            <MapPin className="h-4 w-4 text-purple-600" />
+            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              <MapPin className="w-4 h-4" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-extrabold text-purple-600">
-              {stats.workLocationStats.total}
+              {stats.workLocationStats?.total || 0}
             </div>
-            <p className="text-xs text-gray-500 flex items-center mt-1">
-              <Activity className="w-3 h-3 mr-1 text-blue-500" />
-              {stats.workLocationStats.active} active
-            </p>
+            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-purple-600">
+              <Activity className="w-3.5 h-3.5" />
+              <span>{stats.workLocationStats?.active || 0} Active geofences</span>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Department and Location Overview */}
+      {/* Analytics Breakdown: Departments & Work Locations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-white text-slate-800 hover:shadow-xl transition-all border border-blue-100/60">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5 text-blue-600" />
-              Department Distribution
-            </CardTitle>
+        {/* Department Distribution */}
+        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+          <CardHeader className="border-b border-slate-50 pb-4 flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <Building className="w-4 h-4" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900">
+                  Department Distribution
+                </CardTitle>
+                <p className="text-xs text-slate-400">Workforce breakdown by division</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onSectionChange("departments")}
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+            >
+              Manage <ArrowRight className="w-3 h-3" />
+            </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <div className="space-y-4">
-              {getTopDepartments().map(([dept, count]) => (
-                <div key={dept} className="flex justify-between items-center">
-                  <span className="text-sm font-medium">{dept}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-28 bg-gray-200/70 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${(count / stats.totalEmployees) * 100}%`,
-                        }}
-                      ></div>
+              {getTopDepartments().map(([dept, count]) => {
+                const percentage = stats.totalEmployees
+                  ? Math.round((count / stats.totalEmployees) * 100)
+                  : 0;
+                return (
+                  <div key={dept} className="space-y-1.5">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium text-slate-700">{dept}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-400">
+                          {percentage}%
+                        </span>
+                        <Badge variant="secondary" className="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-slate-700">
+                          {count} {count === 1 ? "staff" : "staff"}
+                        </Badge>
+                      </div>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {count}
-                    </Badge>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
                   </div>
+                );
+              })}
+
+              {Object.keys(stats.departments || {}).length === 0 && (
+                <div className="text-center py-10 text-slate-400 space-y-2">
+                  <Building className="w-8 h-8 mx-auto text-slate-300" />
+                  <p className="text-sm font-medium">No department data recorded yet</p>
                 </div>
-              ))}
-              {Object.keys(stats.departments).length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-8">
-                  No department data available
-                </p>
               )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white text-slate-800 hover:shadow-xl transition-all border border-green-100/60">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-green-600" />
-              Work Locations
-            </CardTitle>
-            <div className="flex gap-4 text-sm text-gray-600">
-              <span>Total: {stats.workLocationStats.total}</span>
-              <span>Active: {stats.workLocationStats.active}</span>
-              <span>
-                Assigned: {stats.workLocationStats.totalEmployeesAssigned}
-              </span>
+        {/* Work Location Geofence Deployments */}
+        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+          <CardHeader className="border-b border-slate-50 pb-4 flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900">
+                  Geofenced Work Locations
+                </CardTitle>
+                <p className="text-xs text-slate-400">Staff assignment by physical sites</p>
+              </div>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onSectionChange("work-locations")}
+              className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+            >
+              View Sites <ArrowRight className="w-3 h-3" />
+            </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <div className="space-y-4">
-              {getTopLocations().map(([location, count]) => (
-                <div
-                  key={location}
-                  className="flex justify-between items-center"
-                >
-                  <span className="text-sm font-medium">{location}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-28 bg-gray-200/70 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${
-                            stats.workLocationStats.totalEmployeesAssigned > 0
-                              ? (count /
-                                  stats.workLocationStats
-                                    .totalEmployeesAssigned) *
-                                100
-                              : 0
-                          }%`,
-                        }}
-                      ></div>
+              {getTopLocations().map(([location, count]) => {
+                const totalAssigned =
+                  stats.workLocationStats?.totalEmployeesAssigned || stats.totalEmployees || 1;
+                const percentage = Math.round(((count || 0) / totalAssigned) * 100);
+                return (
+                  <div key={location} className="space-y-1.5">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium text-slate-700">{location}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-400">
+                          {percentage}%
+                        </span>
+                        <Badge variant="outline" className="text-xs font-semibold border-purple-200 text-purple-700 bg-purple-50/50">
+                          {count || 0} assigned
+                        </Badge>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {count}
-                    </Badge>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-purple-500 to-indigo-600 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(percentage, 100)}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
-              {stats.workLocationStats.employeesWithoutLocation > 0 && (
-                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                  <span className="text-sm font-medium text-orange-600">
-                    Unassigned
+                );
+              })}
+
+              {stats.workLocationStats?.employeesWithoutLocation > 0 && (
+                <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                  <span className="text-sm font-medium text-amber-700 flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-500" />
+                    Unassigned Employees
                   </span>
                   <Badge variant="destructive" className="text-xs">
-                    {stats.workLocationStats.employeesWithoutLocation}
+                    {stats.workLocationStats.employeesWithoutLocation} pending
                   </Badge>
                 </div>
               )}
+
               {getTopLocations().length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-8">
-                  No location data available
-                </p>
+                <div className="text-center py-10 text-slate-400 space-y-2">
+                  <MapPin className="w-8 h-8 mx-auto text-slate-300" />
+                  <p className="text-sm font-medium">No work locations registered yet</p>
+                </div>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <Card className="bg-white text-slate-800 border border-slate-200/70 hover:shadow-xl transition-shadow">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button
-              onClick={() => onSectionChange("employee-add")}
-              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-md"
-            >
-              <Users className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">Add New Employee</div>
-                <div className="text-sm opacity-90">
-                  Create employee profile
-                </div>
-              </div>
-            </Button>
+      {/* Quick Access Grid */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Direct Actions & Hubs</h2>
+          <span className="text-xs text-slate-400">Fast shortcuts to primary modules</span>
+        </div>
 
-            <Button
-              onClick={() => onSectionChange("document-upload")}
-              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 shadow-md"
-            >
-              <FileText className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">Upload Document</div>
-                <div className="text-sm opacity-90">Add new document</div>
-              </div>
-            </Button>
-
-            <Button
-              onClick={() => onSectionChange("employee-search")}
-              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-md"
-            >
-              <Users className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">Search Employees</div>
-                <div className="text-sm opacity-90">Find employees</div>
-              </div>
-            </Button>
-
-            <Button
-              onClick={() => onSectionChange("work-locations")}
-              className="flex items-center gap-2 h-auto p-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-md"
-            >
-              <MapPin className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">Work Locations</div>
-                <div className="text-sm opacity-90">
-                  Manage locations & assignments
-                </div>
-              </div>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* System Status */}
-      <Card className="bg-white text-slate-800 border border-slate-200/70 hover:shadow-xl transition-shadow">
-        <CardHeader>
-          <CardTitle>System Status</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Database</p>
-                <p className="text-lg font-semibold text-green-600">Online</p>
-              </div>
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <button
+            type="button"
+            onClick={() => onSectionChange("employee-add")}
+            className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-slate-100 hover:border-blue-300 hover:shadow-md transition-all duration-200 text-left group"
+          >
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white transition-all">
+              <Users className="w-6 h-6" />
             </div>
-
-            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
-                  File Storage
-                </p>
-                <p className="text-lg font-semibold text-blue-600">Active</p>
-              </div>
-              <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm group-hover:text-blue-600 transition-colors">
+                Add New Employee
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Register onboarding profile & biometric ID
+              </p>
             </div>
+          </button>
 
-            <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-200">
-              <div>
-                <p className="text-sm font-medium text-gray-600">API Status</p>
-                <p className="text-lg font-semibold text-purple-600">Healthy</p>
-              </div>
-              <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
+          <button
+            type="button"
+            onClick={() => onSectionChange("documents")}
+            className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all duration-200 text-left group"
+          >
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+              <FileText className="w-6 h-6" />
             </div>
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm group-hover:text-emerald-600 transition-colors">
+                Document Vault
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Upload & audit employee compliance files
+              </p>
+            </div>
+          </button>
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
-                  Last Updated
-                </p>
-                <p className="text-lg font-semibold text-gray-700">
-                  {lastUpdated || "—"}
-                </p>
-              </div>
-              <Clock className="h-5 w-5 text-gray-400" />
+          <button
+            type="button"
+            onClick={() => onSectionChange("admin-attendance")}
+            className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-slate-100 hover:border-amber-300 hover:shadow-md transition-all duration-200 text-left group"
+          >
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:bg-amber-600 group-hover:text-white transition-all">
+              <Calendar className="w-6 h-6" />
             </div>
-          </div>
-        </CardContent>
-      </Card>
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm group-hover:text-amber-600 transition-colors">
+                Attendance & GPS
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Review check-ins, exceptions & daily logs
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onSectionChange("payroll")}
+            className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-slate-100 hover:border-indigo-300 hover:shadow-md transition-all duration-200 text-left group"
+          >
+            <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+              <DollarSign className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">
+                Payroll Processing
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Calculate compensation, tax & generate payslips
+              </p>
+            </div>
+          </button>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default Dashboard;
+}

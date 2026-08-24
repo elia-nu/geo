@@ -2,8 +2,7 @@ import { MongoClient } from "mongodb";
 
 // Prefer env; fall back to the known Atlas URI used by this project.
 const uri =
-  process.env.MONGODB_URI ||
-  "mongodb+srv://uercur_db_user:Umie0ELR8T5ejKpD@cluster0.vjsrjzh.mongodb.net/geo?appName=geo-upwork";
+  process.env.MONGODB_URI || "mongodb://localhost:27017/geo";
 
 const options = {
   // Keep a warm pool so subsequent API routes don't pay full TLS/handshake cost.

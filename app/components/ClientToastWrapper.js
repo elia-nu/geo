@@ -1,22 +1,13 @@
 "use client";
 
-import { ToastContainer } from "react-toastify";
+import React from "react";
+import ToastProvider from "./ToastProvider";
 
 export default function ClientToastWrapper({ children }) {
   return (
     <>
       {children}
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
+      <ToastProvider />
     </>
   );
 }

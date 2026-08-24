@@ -1,0 +1,39 @@
+Employee ID,Full Name,Sex,Phone Number,Email Address,Department,Designation/Position,Assigned Work Location/Site,Employment Date,Employment Type,Annual Leave Days,Salary (ETB),Bank Account No.
+EMP-001,Agegnew Gebabo,M,0929124099,,Supervision,Resident Engineer,Bonga University,2017-10-06,Full Time,16,9000,1000013288813
+EMP-002,Alemayehu Estifanos,M,0910160888,alemayehu@efengineering-architect.com,Administration,Administration and Finance,Head office,,Full Time,16,25000,1000076019651
+EMP-003,Amha Taddese,M,0930029062,amhatadesse@efengineering-architect.com,Management,D/Manager,Head office,,Full Time,16,31000,1000029248919
+EMP-004,Ashenafi Mehari,M,0911075892,,Management,Supervision Team Leader,Head office,,Full Time,16,30000,1000011731299
+EMP-005,Biruk Assefa,M,0923781306,birukassefa@efengineering-architect.com,Design,Architect,Head office,2017-10-25,Full Time,16,16000,1000533735375
+EMP-006,Chaltu Getachew,F,0974407251,,Administration,Record Officer,Head office,2018-05-03,Full Time,16,6000,1000750805144
+EMP-007,Debasu Fikadu,M,0913078225,,Supervision,Resident Engineer,Borana University,,Full Time,16,15000,1000000138014
+EMP-008,Eyerus Badeg,F,0923062877,,Office Engineering,Office Engineer,Head office,2018-03-09,Full Time,16,23000,1000110585423
+EMP-009,Elias Mindaye,M,0911765066,,Supervision,Resident Engineer,Mattu University,,Full Time,16,15000,1000115052587
+EMP-010,Endalcachew Seyoum,M,0913051004,,Design,Senior Structural Engineer,Head office,2018-09-27,Full Time,16,35000,1000071462319
+EMP-011,Endale Abdissa,M,0911240283,endale_abdisa@efengineering-architect.com,Top Management,G/ Manager,Head office,,Full Time,16,60000,1000364539014
+EMP-012,Eyosiyas Samuel,M,0973123581,,Contract Admin,Office Engineer,Head office,2018-02-21,Full Time,16,11000,1000560875518
+EMP-013,Ifa Dinka,M,0988753358,,Supervision,Resident Engineer,Dambidolo University,2018-05-13,Full Time,16,25000,1000257518087
+EMP-014,Gelana Debela,M,0972497885,,Supervision,Resident Engineer,Riverside project (AA),2017-09-19,Full Time,16,20000,1000706678925
+EMP-015,Girum Wondwosen,M,0967835378,girumwondosen@efengineering-architect.com,Design,Design Department Head,Head office,,Full Time,16,40000,1000318062537
+EMP-016,Guluma Jibate,M,0921172396,,Supervision,Resident Engineer,Nekemt,2018-01-09,Full Time,16,13000,1000218852517
+EMP-017,Habte Zena,M,0904112122,,Office Engineering,Office Engineer,Head office,2018-01-21,Full Time,16,13000,1000301038497
+EMP-018,Henok Tesfaye,M,0924075404,,Contract Admin,Office Engineer,Head office,2018-04-07,Full Time,16,10000,1000418883689
+EMP-019,Haielegnaw Azene,M,0989112011,hailegnawazene@efengineering-architect.com,Contract Admin,Contract Admin Department Head,Head office,,Full Time,16,30000,1000205175184
+EMP-020,Rebika Shewangzaw,F,0922948618,,Design,Structural Engineer,Head office,2018-08-31,Full Time,16,20000,1000300002459
+EMP-021,Jenberu Abebaw,M,0918134662,,Supervision,Resident Engineer,Gewane ATVT,,Full Time,16,35000,1000232994812
+EMP-022,Kedir Ahmed,M,0710344227,,Supervision,Resident Engineer,Mattu University,2025-07-23,Full Time,16,10000,1000174616737
+EMP-023,Ledate Negese,M,0924414089,,Supervision,Resident Engineer,AACRA Garage,2017-10-09,Full Time,16,25000,1000515451707
+EMP-024,Lemlem Kiros,F,0911620072,lemlemkiras@efengineering-architect.com,Design,CAD Expert,Head office,,Full Time,16,21000,1000198420275
+EMP-025,Mesfin Gezahegn,M,0913641245,,Supervision,Resident Engineer,Bonga University,,Full Time,16,9700,1000130723725
+EMP-026,Muluneh Bejiga,M,0921473138,,Supervision,Resident Engineer,Bonga University,,Full Time,16,7000,1000064265702
+EMP-027,Netsanet Dinberu,F,0912142831,,Administration,Secretary,Head office,2018-01-19,Full Time,16,14000,1000260199076
+EMP-028,Serkalem Assefa,F,0987964147,serkalemassefa@efengineering-architect.com,Administration,Finance officer,Head office,2017-11-25,Full Time,16,9000,1000379256876
+EMP-029,Soliyana Nekatibeb,F,0913953863,soliyananekatibeb@efengineering-architect.com,Office Engineering,Office Engineer Department Head,Head office,,Full Time,16,32000,1000073416284
+EMP-030,Solomon Girma,M,0911688597,,Supervision,Resident Engineer,MOH Project AA,,Full Time,16,20000,1000022167409
+EMP-031,Sisay Elias,M,0912116140,,Supervision,Resident Engineer,Borana University,2018-12-30,Full Time,16,18000,1000550590089
+EMP-032,Surafel Nigussie,M,0985365154,,Supervision,Resident Engineer,Dambidolo University,2018-01-06,Full Time,16,35000,1000332705664
+EMP-033,Tadele Assefa,M,0973613894,tadelleassefa@efengineering-architect.com,Design,Electrical Engineer,Head office,2018-12-29,Full Time,16,18000,1000469351665
+EMP-034,Tariku Negesa,M,0919421910,,Administration,IT officer,Head office,2018-12-04,Full Time,16,13000,1000111606629
+EMP-035,Yasin Kedir,M,0906621435,,Supervision,Resident Engineer,OIP (RTC's),2018-01-17,Full Time,16,30000,1000111284125
+EMP-036,Yared Arega,M,0968153070,,Supervision,Assistant Resident Engineer,Borana University,,Full Time,16,12000,1000091071162
+EMP-037,Zemzem Kebede,F,0934206276,,Administration,Janitor,Head office,2016-01-30,Full Time,16,5500,1000352482831
+EMP-038,Zenash Desta,F,0972976891,,Administration,Janitor,Head office,2017-11-22,Full Time,16,5500,1000710919317

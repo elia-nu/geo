@@ -14,7 +14,7 @@ export async function POST(request) {
       address,
       latitude,
       longitude,
-      radius = 100,
+      radius = 500,
       description = "",
     } = data;
 
@@ -31,7 +31,7 @@ export async function POST(request) {
       address: address || "",
       latitude: parseFloat(latitude),
       longitude: parseFloat(longitude),
-      radius: parseInt(radius) || 100,
+      radius: parseInt(radius) || 500,
       description: description || "",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -107,9 +107,18 @@ export async function GET() {
       ])
       .toArray();
 
+    const normalizedLocations = workLocations.map((loc) => ({
+      ...loc,
+      name: loc.name || loc.siteName || "",
+      siteName: loc.siteName || loc.name || "",
+      address: loc.address || "",
+      radius: typeof loc.radius === "number" ? loc.radius : 500,
+      createdAt: loc.createdAt || new Date(),
+    }));
+
     return NextResponse.json({
       success: true,
-      locations: workLocations,
+      locations: normalizedLocations,
     });
   } catch (error) {
     console.error("Error fetching work locations:", error);

@@ -420,6 +420,9 @@ const Sidebar = ({
 
   const handleSubmenuClick = (parentId, submenuItem) => {
     const path = submenuItem.path || `/hrm?section=${submenuItem.id}`;
+    if (typeof onSectionChange === "function") {
+      onSectionChange(submenuItem.id);
+    }
     router.push(path);
   };
 

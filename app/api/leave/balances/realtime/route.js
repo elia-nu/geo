@@ -377,7 +377,7 @@ async function calculateRealTimeAccruals(db, leaveBalance) {
   const updatedBalances = {};
   const leaveEntitlements = {
     annual: {
-      daysPerYear: 20,
+      daysPerYear: 16,
       maxCarryForward: 5,
       description: "Annual Leave",
     },
@@ -532,7 +532,7 @@ async function resetLeaveBalance(db, leaveBalance, adminId) {
 
   const leaveEntitlements = {
     annual: {
-      daysPerYear: 20,
+      daysPerYear: 16,
       maxCarryForward: 5,
       description: "Annual Leave",
     },
@@ -735,7 +735,7 @@ async function createInitialLeaveBalance(db, employee) {
   // Default leave entitlements (can be customized per company policy)
   const leaveEntitlements = {
     annual: {
-      daysPerYear: 20,
+      daysPerYear: 16,
       maxCarryForward: 5,
       description: "Annual Leave",
     },
