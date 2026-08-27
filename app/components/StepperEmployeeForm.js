@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   User,
   Briefcase,
@@ -14,17 +14,38 @@ import {
   X,
   Upload,
   FileText,
+  Image as ImageIcon,
+  FileSpreadsheet,
+  FileCheck,
+  Shield,
+  Eye,
+  AlertCircle,
+  Sparkles,
+  Paperclip,
+  CheckCircle2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import ClientOnly from "./ClientOnly";
 
 const ALL_STEPS = [
-  { id: "personal", title: "Personal Details", icon: User, description: "Basic information" },
+  { id: "personal", title: "Personal Details", icon: User, description: "Basic information & contract" },
   { id: "employment", title: "Employment History", icon: Briefcase, description: "Work experience" },
-  { id: "certifications", title: "Certifications", icon: Award, description: "Qualifications" },
-  { id: "skills", title: "Skills", icon: Brain, description: "Competencies" },
-  { id: "health", title: "Health Records", icon: Heart, description: "Medical information" },
+  { id: "certifications", title: "Certifications", icon: Award, description: "Qualifications & credentials" },
+  { id: "skills", title: "Skills", icon: Brain, description: "Competencies & levels" },
+  { id: "health", title: "Health Records", icon: Heart, description: "Medical & emergency info" },
+  { id: "documents", title: "Documents & Files", icon: FileText, description: "ID, Resume, Contract & Attachments" },
+];
+
+const DOCUMENT_CATEGORIES = [
+  "National ID / Passport",
+  "Resume / CV",
+  "Employment Contract",
+  "Educational Certificate",
+  "Professional License",
+  "Medical Clearance",
+  "Recommendation Letter",
+  "Other Attachment",
 ];
 
 export default function StepperEmployeeForm({
@@ -32,12 +53,14 @@ export default function StepperEmployeeForm({
   onClose,
   onEmployeeAdded,
 }) {
+  const fileInputRef = useRef(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
+  const [workLocationsList, setWorkLocationsList] = useState([]);
   const [suggestedEmployeeId, setSuggestedEmployeeId] = useState("");
   const [filteredDesignations, setFilteredDesignations] = useState([]);
 
@@ -103,15 +126,23 @@ export default function StepperEmployeeForm({
     insurancePolicyNumber: "",
   });
 
+  // Attached documents state (for creation step)
+  const [attachedDocuments, setAttachedDocuments] = useState([]);
+  const [newDocCategory, setNewDocCategory] = useState("National ID / Passport");
+  const [newDocTitle, setNewDocTitle] = useState("");
+  const [newDocDescription, setNewDocDescription] = useState("");
+  const [newDocExpiryDate, setNewDocExpiryDate] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+
   const [formErrors, setFormErrors] = useState({});
   const [employmentHistoryPdfFile, setEmploymentHistoryPdfFile] = useState(null);
 
   // If user attaches a PDF for employment history, skip Certifications and Skills steps
   const visibleSteps = employmentHistoryPdfFile
-    ? ALL_STEPS.filter((s) => ["personal", "employment", "health"].includes(s.id))
+    ? ALL_STEPS.filter((s) => ["personal", "employment", "health", "documents"].includes(s.id))
     : ALL_STEPS;
 
-  // Fetch departments, designations and next employee id when modal opens
+  // Fetch departments, designations, work locations and next employee id when modal opens
   useEffect(() => {
     if (!isOpen) return;
 
@@ -119,10 +150,11 @@ export default function StepperEmployeeForm({
 
     const fetchMeta = async () => {
       try {
-        const [depRes, desRes, nextIdRes] = await Promise.all([
+        const [depRes, desRes, nextIdRes, locRes] = await Promise.all([
           fetch("/api/departments", { cache: "no-store" }),
           fetch("/api/designations", { cache: "no-store" }),
           fetch("/api/employee/next-id", { cache: "no-store" }),
+          fetch("/api/work-locations", { cache: "no-store" }),
         ]);
 
         if (!isCancelled) {
@@ -134,20 +166,6 @@ export default function StepperEmployeeForm({
               ? depData
               : [];
             setDepartments(depList);
-          } else {
-            // One more attempt without special options
-            try {
-              const retry = await fetch("/api/departments");
-              if (retry.ok) {
-                const depData = await retry.json();
-                const depList = Array.isArray(depData?.departments)
-                  ? depData.departments
-                  : Array.isArray(depData)
-                  ? depData
-                  : [];
-                setDepartments(depList);
-              }
-            } catch {}
           }
           if (desRes.ok) {
             const desData = await desRes.json();
@@ -158,20 +176,23 @@ export default function StepperEmployeeForm({
               : [];
             setDesignations(desList);
           }
+          if (locRes.ok) {
+            const locData = await locRes.json();
+            setWorkLocationsList(locData.locations || []);
+          }
           if (nextIdRes?.ok) {
             const nextData = await nextIdRes.json();
             if (nextData?.nextId) {
               setSuggestedEmployeeId(nextData.nextId);
-              // Pre-fill into the form as read-only value
               setPersonalDetails((prev) => ({
                 ...prev,
-                employeeId: nextData.nextId,
+                employeeId: prev.employeeId || nextData.nextId,
               }));
             }
           }
         }
       } catch (e) {
-        // silently ignore network errors; dropdowns will show fallback
+        // ignore network error
       }
     };
 
@@ -188,8 +209,7 @@ export default function StepperEmployeeForm({
         (d) => d.name === personalDetails.department
       );
 
-      if (selectedDept) {
-        // Fetch designations for the selected department
+      if (selectedDept && selectedDept._id) {
         const fetchDeptDesignations = async () => {
           try {
             const res = await fetch(
@@ -202,11 +222,9 @@ export default function StepperEmployeeForm({
                 : [];
               setFilteredDesignations(deptDesignations);
             } else {
-              // Fallback to all designations if department-specific fetch fails
               setFilteredDesignations(designations);
             }
           } catch (error) {
-            // Fallback to all designations on error
             setFilteredDesignations(designations);
           }
         };
@@ -231,7 +249,7 @@ export default function StepperEmployeeForm({
     return false;
   };
 
-  // Add keyboard navigation
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -286,8 +304,12 @@ export default function StepperEmployeeForm({
           errors.joiningDate = "Joining date is required";
         if (!personalDetails.employeeType)
           errors.employeeType = "Employee type is required";
-        if (personalDetails.employeeType === "Contractual" && !personalDetails.contractExpiryDate)
-          errors.contractExpiryDate = "Contract expiry date is required for contractual employees";
+        if (
+          personalDetails.employeeType === "Contractual" &&
+          !personalDetails.contractExpiryDate
+        )
+          errors.contractExpiryDate =
+            "Contract expiry date is required for contractual employees";
         break;
 
       case "employment":
@@ -331,6 +353,10 @@ export default function StepperEmployeeForm({
           }
         });
         break;
+
+      case "documents":
+        // Documents are optional on creation, but if provided, validated
+        break;
     }
 
     return errors;
@@ -348,6 +374,32 @@ export default function StepperEmployeeForm({
 
   const handlePrevious = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
+  };
+
+  // Handle adding documents to attachment queue
+  const handleFileSelect = (files) => {
+    if (!files || files.length === 0) return;
+
+    const newDocs = Array.from(files).map((file) => ({
+      id: `${Date.now()}-${Math.random()}`,
+      file,
+      name: file.name,
+      size: file.size,
+      type: newDocCategory,
+      title: newDocTitle.trim() || file.name.replace(/\.[^/.]+$/, ""),
+      description: newDocDescription.trim(),
+      expiryDate: newDocExpiryDate || "",
+    }));
+
+    setAttachedDocuments((prev) => [...prev, ...newDocs]);
+    setNewDocTitle("");
+    setNewDocDescription("");
+    setNewDocExpiryDate("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeAttachedDocument = (id) => {
+    setAttachedDocuments((prev) => prev.filter((d) => d.id !== id));
   };
 
   const handleSubmit = async () => {
@@ -402,34 +454,66 @@ export default function StepperEmployeeForm({
       const result = await response.json();
       const newEmployeeId = result.employeeId;
 
+      // 1. Upload employment history PDF if provided
       if (usePdfForHistory && employmentHistoryPdfFile && newEmployeeId) {
-        const formData = new FormData();
-        formData.append("file", employmentHistoryPdfFile);
-        formData.append(
-          "documentData",
-          JSON.stringify({
-            employeeId: newEmployeeId,
-            type: "employment_history",
-            title: `Employment History - ${personalDetails.name || "Employee"}`,
-            category: "employee",
-          })
-        );
-        const uploadRes = await fetch("/api/documents/upload", {
-          method: "POST",
-          body: formData,
-        });
-        if (!uploadRes.ok) {
-          console.warn("Employment history PDF upload failed; employee was created.");
+        try {
+          const formData = new FormData();
+          formData.append("file", employmentHistoryPdfFile);
+          formData.append(
+            "documentData",
+            JSON.stringify({
+              employeeId: newEmployeeId,
+              documentType: "Employment History",
+              type: "employment_history",
+              title: `Employment History - ${personalDetails.name || "Employee"}`,
+              category: "employee",
+            })
+          );
+          await fetch("/api/documents/upload", {
+            method: "POST",
+            body: formData,
+          });
+        } catch (docErr) {
+          console.warn("Employment history PDF upload error:", docErr);
         }
       }
 
-      setSuccess("Employee created successfully!");
+      // 2. Upload all other attached documents
+      if (attachedDocuments.length > 0 && newEmployeeId) {
+        for (const doc of attachedDocuments) {
+          try {
+            const formData = new FormData();
+            formData.append("file", doc.file);
+            formData.append(
+              "documentData",
+              JSON.stringify({
+                employeeId: newEmployeeId,
+                documentType: doc.type,
+                type: doc.type,
+                title: doc.title || doc.name,
+                description: doc.description || "",
+                expiryDate: doc.expiryDate || "",
+                category: "employee",
+                status: "active",
+              })
+            );
+            await fetch("/api/documents/upload", {
+              method: "POST",
+              body: formData,
+            });
+          } catch (docErr) {
+            console.warn(`Failed to upload document ${doc.name}:`, docErr);
+          }
+        }
+      }
+
+      setSuccess("Employee and documents created successfully!");
 
       setTimeout(() => {
         onEmployeeAdded?.();
         onClose();
         resetForm();
-      }, 2000);
+      }, 1500);
     } catch (error) {
       console.error("Error creating employee:", error);
       setError(error.message || "Failed to create employee. Please try again.");
@@ -496,84 +580,19 @@ export default function StepperEmployeeForm({
       insuranceProvider: "",
       insurancePolicyNumber: "",
     });
+    setAttachedDocuments([]);
+    setEmploymentHistoryPdfFile(null);
     setFormErrors({});
     setError("");
     setSuccess("");
-    setEmploymentHistoryPdfFile(null);
   };
 
-  const addEmploymentEntry = () => {
-    setEmploymentHistory([
-      ...employmentHistory,
-      {
-        company: "",
-        position: "",
-        startDate: "",
-        endDate: "",
-        responsibilities: "",
-        reasonForLeaving: "",
-      },
-    ]);
-  };
-
-  const removeEmploymentEntry = (index) => {
-    if (employmentHistory.length > 1) {
-      setEmploymentHistory(employmentHistory.filter((_, i) => i !== index));
-    }
-  };
-
-  const addCertificationEntry = () => {
-    setCertifications([
-      ...certifications,
-      {
-        title: "",
-        issuer: "",
-        issueDate: "",
-        expiryDate: "",
-        credentialId: "",
-        description: "",
-      },
-    ]);
-  };
-
-  const removeCertificationEntry = (index) => {
-    if (certifications.length > 1) {
-      setCertifications(certifications.filter((_, i) => i !== index));
-    }
-  };
-
-  const addSkillEntry = () => {
-    setSkills([
-      ...skills,
-      {
-        skillName: "",
-        proficiencyLevel: "Beginner",
-        yearsOfExperience: "",
-        category: "",
-      },
-    ]);
-  };
-
-  const removeSkillEntry = (index) => {
-    if (skills.length > 1) {
-      setSkills(skills.filter((_, i) => i !== index));
-    }
-  };
-
-  const addArrayItem = (field, value) => {
-    if (value.trim()) {
-      setHealthRecords({
-        ...healthRecords,
-        [field]: [...healthRecords[field], value.trim()],
-      });
-    }
-  };
-
-  const removeArrayItem = (field, index) => {
-    setHealthRecords({
-      ...healthRecords,
-      [field]: healthRecords[field].filter((_, i) => i !== index),
-    });
+  const formatFileSize = (bytes) => {
+    if (!bytes) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
   const renderStepContent = () => {
@@ -581,81 +600,67 @@ export default function StepperEmployeeForm({
     switch (stepId) {
       case "personal":
         return (
-          <div className="space-y-8">
-            <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-black mb-2">
-                Personal Information
+          <div className="space-y-6">
+            <div className="border-b border-slate-200 pb-4">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <User className="w-5 h-5 text-indigo-600" />
+                Personal & Employment Basics
               </h3>
-              <p className="text-gray-600">
-                Let's start with the basic details about the employee
+              <p className="text-xs text-slate-500 mt-1">
+                Enter the primary identification, role details, and contract terms.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Full Name <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={personalDetails.name}
-                    onChange={(e) =>
-                      setPersonalDetails({
-                        ...personalDetails,
-                        name: e.target.value,
-                      })
-                    }
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200 bg-white text-black placeholder-gray-500 ${
-                      formErrors.name
-                        ? "border-red-300 focus:ring-red-500 bg-red-50"
-                        : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
-                    }`}
-                    placeholder="Enter full name"
-                  />
-                  {formErrors.name && (
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <X className="h-5 w-5 text-red-500" />
-                    </div>
-                  )}
-                </div>
+                <input
+                  type="text"
+                  value={personalDetails.name}
+                  onChange={(e) =>
+                    setPersonalDetails({ ...personalDetails, name: e.target.value })
+                  }
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all text-slate-900 bg-white shadow-sm ${
+                    formErrors.name
+                      ? "border-red-400 focus:ring-2 focus:ring-red-200 bg-red-50"
+                      : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  }`}
+                  placeholder="e.g. Abebe Kebede"
+                />
                 {formErrors.name && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <X className="w-4 h-4 mr-1" />
+                  <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
                     {formErrors.name}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email <span className="text-gray-400 font-normal text-xs">(Optional)</span>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Email Address
                 </label>
                 <input
                   type="email"
                   value={personalDetails.email}
                   onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      email: e.target.value,
-                    })
+                    setPersonalDetails({ ...personalDetails, email: e.target.value })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all text-slate-900 bg-white shadow-sm ${
                     formErrors.email
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
+                      ? "border-red-400 focus:ring-2 focus:ring-red-200"
+                      : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   }`}
-                  placeholder="Enter email address"
+                  placeholder="abebe@example.com"
                 />
                 {formErrors.email && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.email}
-                  </p>
+                  <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Employee ID
                 </label>
                 <input
@@ -663,48 +668,28 @@ export default function StepperEmployeeForm({
                   value={personalDetails.employeeId || suggestedEmployeeId}
                   readOnly
                   disabled
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-gray-100 text-black cursor-not-allowed"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 text-sm font-mono cursor-not-allowed shadow-inner"
                   placeholder="Auto-generated"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth
-                </label>
-                <input
-                  type="date"
-                  value={personalDetails.dateOfBirth}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      dateOfBirth: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contact Number
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Phone Number
                 </label>
                 <input
                   type="tel"
                   value={personalDetails.contactNumber}
                   onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      contactNumber: e.target.value,
-                    })
+                    setPersonalDetails({ ...personalDetails, contactNumber: e.target.value })
                   }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                  placeholder="Enter contact number"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                  placeholder="+251 9..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Department <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -713,146 +698,92 @@ export default function StepperEmployeeForm({
                     setPersonalDetails({
                       ...personalDetails,
                       department: e.target.value,
-                      designation: "", // Clear designation when department changes
+                      designation: "",
                     })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all text-slate-900 bg-white shadow-sm ${
                     formErrors.department
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
+                      ? "border-red-400 focus:ring-2 focus:ring-red-200"
+                      : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   }`}
                 >
                   <option value="">Select Department</option>
-                  {departments
-                    .map((d) => {
-                      const id = d?._id || d?.id || d?.value || d;
-                      const name = d?.name || d?.title || d?.label || String(d);
-                      return { id: String(id), name: String(name) };
-                    })
-                    .filter((d) => d.id && d.name)
-                    .map((d) => (
-                      <option key={d.id} value={d.name}>
-                        {d.name}
-                      </option>
-                    ))}
+                  {departments.map((dept) => (
+                    <option key={dept._id || dept.name} value={dept.name}>
+                      {dept.name}
+                    </option>
+                  ))}
                 </select>
                 {formErrors.department && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.department}
-                  </p>
+                  <p className="text-red-500 text-xs mt-1">{formErrors.department}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Designation <span className="text-red-500">*</span>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Designation / Role <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={personalDetails.designation}
                   onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      designation: e.target.value,
-                    })
+                    setPersonalDetails({ ...personalDetails, designation: e.target.value })
                   }
-                  disabled={!personalDetails.department}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all text-slate-900 bg-white shadow-sm ${
                     formErrors.designation
-                      ? "border-red-300 focus:ring-red-500"
-                      : !personalDetails.department
-                      ? "border-slate-300 bg-gray-100 cursor-not-allowed"
-                      : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
+                      ? "border-red-400 focus:ring-2 focus:ring-red-200"
+                      : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   }`}
                 >
-                  <option value="">
-                    {!personalDetails.department
-                      ? "Select Department First"
-                      : "Select Designation"}
-                  </option>
-                  {filteredDesignations
-                    .map((d) => {
-                      const id = d?._id || d?.id || d?.value || d;
-                      const name = d?.name || d?.title || d?.label || String(d);
-                      return { id: String(id), name: String(name) };
-                    })
-                    .filter((d) => d.id && d.name)
-                    .map((d) => (
-                      <option key={d.id} value={d.name}>
-                        {d.name}
-                      </option>
-                    ))}
+                  <option value="">Select Designation</option>
+                  {filteredDesignations.map((des) => (
+                    <option key={des._id || des.name} value={des.name}>
+                      {des.name}
+                    </option>
+                  ))}
                 </select>
                 {formErrors.designation && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.designation}
-                  </p>
+                  <p className="text-red-500 text-xs mt-1">{formErrors.designation}</p>
                 )}
               </div>
 
-              {/* Work Location is configured later in Employee Settings; removed from stepper */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Employment Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={personalDetails.employeeType}
+                  onChange={(e) =>
+                    setPersonalDetails({ ...personalDetails, employeeType: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                >
+                  <option value="Full Time">Full Time</option>
+                  <option value="Part Time">Part Time</option>
+                  <option value="Contractual">Contractual</option>
+                  <option value="Intern">Intern</option>
+                </select>
+              </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Joining Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   value={personalDetails.joiningDate}
                   onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      joiningDate: e.target.value,
-                    })
+                    setPersonalDetails({ ...personalDetails, joiningDate: e.target.value })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                    formErrors.joiningDate
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
-                  }`}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                 />
                 {formErrors.joiningDate && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.joiningDate}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Employee Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={personalDetails.employeeType}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      employeeType: e.target.value,
-                      // Clear contract expiry date if not contractual
-                      contractExpiryDate: e.target.value === "Contractual" ? personalDetails.contractExpiryDate : "",
-                    })
-                  }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black ${
-                    formErrors.employeeType
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
-                  }`}
-                >
-                  <option value="">Select Employee Type</option>
-                  <option value="Full Time">Full Time</option>
-                  <option value="Part Time">Part Time</option>
-                  <option value="Contractual">Contractual</option>
-                  <option value="Freelance">Freelance</option>
-                </select>
-                {formErrors.employeeType && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.employeeType}
-                  </p>
+                  <p className="text-red-500 text-xs mt-1">{formErrors.joiningDate}</p>
                 )}
               </div>
 
               {personalDetails.employeeType === "Contractual" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Contract Expiry Date <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -864,15 +795,10 @@ export default function StepperEmployeeForm({
                         contractExpiryDate: e.target.value,
                       })
                     }
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black ${
-                      formErrors.contractExpiryDate
-                        ? "border-red-300 focus:ring-red-500"
-                        : "border-slate-300 focus:ring-teal-500 hover:border-teal-400"
-                    }`}
-                    min={new Date().toISOString().split("T")[0]}
+                    className="w-full px-4 py-2.5 rounded-xl border border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 text-sm text-slate-900 bg-white shadow-sm"
                   />
                   {formErrors.contractExpiryDate && (
-                    <p className="text-red-500 text-sm mt-1">
+                    <p className="text-red-500 text-xs mt-1">
                       {formErrors.contractExpiryDate}
                     </p>
                   )}
@@ -880,118 +806,53 @@ export default function StepperEmployeeForm({
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Name
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Work Location
+                </label>
+                <select
+                  value={personalDetails.workLocation}
+                  onChange={(e) =>
+                    setPersonalDetails({ ...personalDetails, workLocation: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                >
+                  <option value="">Select Work Location</option>
+                  {workLocationsList.map((loc) => (
+                    <option key={loc._id || loc.id} value={loc.name}>
+                      {loc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  value={personalDetails.dateOfBirth}
+                  onChange={(e) =>
+                    setPersonalDetails({ ...personalDetails, dateOfBirth: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Residential Address
                 </label>
                 <input
                   type="text"
-                  value={personalDetails.emergencyContactName}
+                  value={personalDetails.address}
                   onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      emergencyContactName: e.target.value,
-                    })
+                    setPersonalDetails({ ...personalDetails, address: e.target.value })
                   }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                  placeholder="Enter emergency contact name"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                  placeholder="Subcity, Woreda, House No..."
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Number
-                </label>
-                <input
-                  type="tel"
-                  value={personalDetails.emergencyContactNumber}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      emergencyContactNumber: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                  placeholder="Enter emergency contact number"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Transport Allowance (ETB)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={personalDetails.transportAllowance}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      transportAllowance: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                  placeholder="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Telephone Allowance (ETB)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={personalDetails.telephoneAllowance}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      telephoneAllowance: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                  placeholder="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  POS Allowance (ETB)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={personalDetails.posAllowance}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      posAllowance: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Address
-              </label>
-              <textarea
-                value={personalDetails.address}
-                onChange={(e) =>
-                  setPersonalDetails({
-                    ...personalDetails,
-                    address: e.target.value,
-                  })
-                }
-                rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                placeholder="Enter full address"
-              />
             </div>
           </div>
         );
@@ -999,243 +860,175 @@ export default function StepperEmployeeForm({
       case "employment":
         return (
           <div className="space-y-6">
-            <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-black mb-2">
-                Employment History
-              </h3>
-              <p className="text-gray-600">
-                Add previous work experience and professional background
-              </p>
-            </div>
-
-            {/* Attach PDF: if provided, Certifications and Skills steps are hidden */}
-            <div className="mb-6 p-4 border border-slate-200 rounded-xl bg-slate-50">
-              <div className="flex items-center gap-2 mb-2">
-                <Upload className="w-5 h-5 text-teal-600" />
-                <span className="font-semibold text-gray-800">Attach PDF</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-indigo-600" />
+                  Employment History
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Add previous work experience or upload a CV/history document.
+                </p>
               </div>
-              <p className="text-sm text-gray-600 mb-3">
-                Upload a single PDF for employment history, certifications, and skills. If you attach a PDF, the Certifications and Skills steps will be skipped.
-              </p>
-              {!employmentHistoryPdfFile ? (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    className="sr-only"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file && file.type === "application/pdf") {
-                        setEmploymentHistoryPdfFile(file);
-                      }
-                      e.target.value = "";
-                    }}
-                  />
-                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-medium">
-                    <FileText className="w-4 h-4" />
-                    Choose PDF
-                  </span>
-                </label>
-              ) : (
-                <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-red-600" />
-                    <span className="text-sm font-medium text-black">{employmentHistoryPdfFile.name}</span>
-                    <span className="text-xs text-gray-500">
-                      ({(employmentHistoryPdfFile.size / 1024).toFixed(1)} KB)
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEmploymentHistoryPdfFile(null)}
-                    className="text-red-600 hover:text-red-700 text-sm font-medium flex items-center gap-1"
-                  >
-                    <X className="w-4 h-4" /> Remove
-                  </button>
-                </div>
-              )}
-            </div>
 
-            {!employmentHistoryPdfFile && (
-              <>
-            <div className="flex justify-between items-center mb-6">
+              {/* Upload PDF Option */}
               <div className="flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-blue-600" />
-                <span className="text-lg font-semibold text-black">
-                  Work Experience
-                </span>
+                {!employmentHistoryPdfFile ? (
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-all">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload History PDF</span>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setEmploymentHistoryPdfFile(file);
+                      }}
+                    />
+                  </label>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium">
+                    <FileCheck className="w-4 h-4 text-emerald-600" />
+                    <span className="truncate max-w-[150px]">{employmentHistoryPdfFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setEmploymentHistoryPdfFile(null)}
+                      className="text-red-500 hover:text-red-700 ml-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
-              <Button
-                onClick={addEmploymentEntry}
-                className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-xl transition-all duration-200 hover:scale-105"
-              >
-                <Plus className="w-4 h-4" />
-                Add Experience
-              </Button>
             </div>
 
-            {employmentHistory.map((job, index) => (
-              <div
-                key={index}
-                className="p-6 border border-gray-200 rounded-xl space-y-6 bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
-              >
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-teal-100 to-cyan-100 rounded-full flex items-center justify-center shadow-sm">
-                      <Briefcase className="w-5 h-5 text-teal-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-black">
+            {!employmentHistoryPdfFile ? (
+              <div className="space-y-4">
+                {employmentHistory.map((job, index) => (
+                  <div
+                    key={index}
+                    className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-all space-y-4 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
                         Experience #{index + 1}
-                      </h4>
-                      <p className="text-sm text-gray-500">
-                        Professional experience details
-                      </p>
+                      </span>
+                      {employmentHistory.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEmploymentHistory(
+                              employmentHistory.filter((_, i) => i !== index)
+                            )
+                          }
+                          className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1 font-semibold"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Company Name
+                        </label>
+                        <input
+                          type="text"
+                          value={job.company}
+                          onChange={(e) => {
+                            const updated = [...employmentHistory];
+                            updated[index].company = e.target.value;
+                            setEmploymentHistory(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                          placeholder="Previous Company"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Position / Title
+                        </label>
+                        <input
+                          type="text"
+                          value={job.position}
+                          onChange={(e) => {
+                            const updated = [...employmentHistory];
+                            updated[index].position = e.target.value;
+                            setEmploymentHistory(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                          placeholder="Job Title"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={job.startDate}
+                          onChange={(e) => {
+                            const updated = [...employmentHistory];
+                            updated[index].startDate = e.target.value;
+                            setEmploymentHistory(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          End Date
+                        </label>
+                        <input
+                          type="date"
+                          value={job.endDate}
+                          onChange={(e) => {
+                            const updated = [...employmentHistory];
+                            updated[index].endDate = e.target.value;
+                            setEmploymentHistory(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        />
+                      </div>
                     </div>
                   </div>
-                  {employmentHistory.length > 1 && (
-                    <Button
-                      onClick={() => removeEmploymentEntry(index)}
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300 transition-all duration-200"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
+                ))}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Company Name
-                    </label>
-                    <input
-                      type="text"
-                      value={job.company}
-                      onChange={(e) => {
-                        const updated = [...employmentHistory];
-                        updated[index].company = e.target.value;
-                        setEmploymentHistory(updated);
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                        formErrors[`employment_${index}_company`]
-                          ? "border-red-300 focus:ring-red-500"
-                          : "border-gray-300 focus:ring-blue-500"
-                      }`}
-                      placeholder="Enter company name"
-                    />
-                    {formErrors[`employment_${index}_company`] && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {formErrors[`employment_${index}_company`]}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Position
-                    </label>
-                    <input
-                      type="text"
-                      value={job.position}
-                      onChange={(e) => {
-                        const updated = [...employmentHistory];
-                        updated[index].position = e.target.value;
-                        setEmploymentHistory(updated);
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                        formErrors[`employment_${index}_position`]
-                          ? "border-red-300 focus:ring-red-500"
-                          : "border-gray-300 focus:ring-blue-500"
-                      }`}
-                      placeholder="Enter position"
-                    />
-                    {formErrors[`employment_${index}_position`] && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {formErrors[`employment_${index}_position`]}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      value={job.startDate}
-                      onChange={(e) => {
-                        const updated = [...employmentHistory];
-                        updated[index].startDate = e.target.value;
-                        setEmploymentHistory(updated);
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                        formErrors[`employment_${index}_startDate`]
-                          ? "border-red-300 focus:ring-red-500"
-                          : "border-gray-300 focus:ring-blue-500"
-                      }`}
-                    />
-                    {formErrors[`employment_${index}_startDate`] && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {formErrors[`employment_${index}_startDate`]}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      value={job.endDate}
-                      onChange={(e) => {
-                        const updated = [...employmentHistory];
-                        updated[index].endDate = e.target.value;
-                        setEmploymentHistory(updated);
-                      }}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Key Responsibilities
-                  </label>
-                  <textarea
-                    value={job.responsibilities}
-                    onChange={(e) => {
-                      const updated = [...employmentHistory];
-                      updated[index].responsibilities = e.target.value;
-                      setEmploymentHistory(updated);
-                    }}
-                    rows={3}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                    placeholder="Describe key responsibilities and achievements"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Reason for Leaving
-                  </label>
-                  <input
-                    type="text"
-                    value={job.reasonForLeaving}
-                    onChange={(e) => {
-                      const updated = [...employmentHistory];
-                      updated[index].reasonForLeaving = e.target.value;
-                      setEmploymentHistory(updated);
-                    }}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                    placeholder="Reason for leaving (optional)"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEmploymentHistory([
+                      ...employmentHistory,
+                      {
+                        company: "",
+                        position: "",
+                        startDate: "",
+                        endDate: "",
+                        responsibilities: "",
+                        reasonForLeaving: "",
+                      },
+                    ])
+                  }
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-dashed border-indigo-300 hover:border-indigo-500 text-indigo-600 hover:text-indigo-700 text-xs font-semibold bg-indigo-50/40 transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Another Experience
+                </button>
               </div>
-            ))}
-              </>
+            ) : (
+              <div className="p-8 text-center bg-indigo-50/50 rounded-2xl border border-indigo-200">
+                <FileCheck className="w-12 h-12 text-indigo-600 mx-auto mb-3" />
+                <h4 className="text-base font-bold text-slate-900">
+                  Employment History PDF Attached
+                </h4>
+                <p className="text-xs text-slate-600 mt-1 max-w-md mx-auto">
+                  {employmentHistoryPdfFile.name} ({(employmentHistoryPdfFile.size / 1024).toFixed(1)} KB)
+                  will be uploaded and attached directly to this employee.
+                </p>
+              </div>
             )}
           </div>
         );
@@ -1243,318 +1036,273 @@ export default function StepperEmployeeForm({
       case "certifications":
         return (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Certifications</h3>
-              <Button
-                onClick={addCertificationEntry}
-                className="flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Certification
-              </Button>
+            <div className="border-b border-slate-200 pb-4">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Award className="w-5 h-5 text-indigo-600" />
+                Certifications & Credentials
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Record professional certifications, degrees, and licenses.
+              </p>
             </div>
 
-            {certifications.map((cert, index) => (
-              <div
-                key={index}
-                className="p-4 border border-gray-200 rounded-lg space-y-4"
+            <div className="space-y-4">
+              {certifications.map((cert, index) => (
+                <div
+                  key={index}
+                  className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-all space-y-4 shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                      Certification #{index + 1}
+                    </span>
+                    {certifications.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCertifications(certifications.filter((_, i) => i !== index))
+                        }
+                        className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1 font-semibold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Certification Title
+                      </label>
+                      <input
+                        type="text"
+                        value={cert.title}
+                        onChange={(e) => {
+                          const updated = [...certifications];
+                          updated[index].title = e.target.value;
+                          setCertifications(updated);
+                        }}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        placeholder="e.g. PMP, AWS Certified"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Issuer / Institution
+                      </label>
+                      <input
+                        type="text"
+                        value={cert.issuer}
+                        onChange={(e) => {
+                          const updated = [...certifications];
+                          updated[index].issuer = e.target.value;
+                          setCertifications(updated);
+                        }}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        placeholder="Issuing Organization"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Issue Date
+                      </label>
+                      <input
+                        type="date"
+                        value={cert.issueDate}
+                        onChange={(e) => {
+                          const updated = [...certifications];
+                          updated[index].issueDate = e.target.value;
+                          setCertifications(updated);
+                        }}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Expiry Date (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={cert.expiryDate}
+                        onChange={(e) => {
+                          const updated = [...certifications];
+                          updated[index].expiryDate = e.target.value;
+                          setCertifications(updated);
+                        }}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setCertifications([
+                    ...certifications,
+                    {
+                      title: "",
+                      issuer: "",
+                      issueDate: "",
+                      expiryDate: "",
+                      credentialId: "",
+                      description: "",
+                    },
+                  ])
+                }
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-dashed border-indigo-300 hover:border-indigo-500 text-indigo-600 hover:text-indigo-700 text-xs font-semibold bg-indigo-50/40 transition-all"
               >
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Certification #{index + 1}</h4>
-                  {certifications.length > 1 && (
-                    <Button
-                      onClick={() => removeCertificationEntry(index)}
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Certification Title
-                    </label>
-                    <input
-                      type="text"
-                      value={cert.title}
-                      onChange={(e) => {
-                        const updated = [...certifications];
-                        updated[index].title = e.target.value;
-                        setCertifications(updated);
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                        formErrors[`cert_${index}_title`]
-                          ? "border-red-300 focus:ring-red-500"
-                          : "border-gray-300 focus:ring-blue-500"
-                      }`}
-                      placeholder="Enter certification title"
-                    />
-                    {formErrors[`cert_${index}_title`] && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {formErrors[`cert_${index}_title`]}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Institution
-                    </label>
-                    <input
-                      type="text"
-                      value={cert.issuer}
-                      onChange={(e) => {
-                        const updated = [...certifications];
-                        updated[index].issuer = e.target.value;
-                        setCertifications(updated);
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                        formErrors[`cert_${index}_issuer`]
-                          ? "border-red-300 focus:ring-red-500"
-                          : "border-gray-300 focus:ring-blue-500"
-                      }`}
-                      placeholder="Enter issuing institution"
-                    />
-                    {formErrors[`cert_${index}_institution`] && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {formErrors[`cert_${index}_institution`]}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Date Obtained
-                    </label>
-                    <input
-                      type="date"
-                      value={cert.issueDate}
-                      onChange={(e) => {
-                        const updated = [...certifications];
-                        updated[index].issueDate = e.target.value;
-                        setCertifications(updated);
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                        formErrors[`cert_${index}_issueDate`]
-                          ? "border-red-300 focus:ring-red-500"
-                          : "border-gray-300 focus:ring-blue-500"
-                      }`}
-                    />
-                    {formErrors[`cert_${index}_dateObtained`] && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {formErrors[`cert_${index}_dateObtained`]}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Expiry Date
-                    </label>
-                    <input
-                      type="date"
-                      value={cert.expiryDate}
-                      onChange={(e) => {
-                        const updated = [...certifications];
-                        updated[index].expiryDate = e.target.value;
-                        setCertifications(updated);
-                      }}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Credential ID
-                    </label>
-                    <input
-                      type="text"
-                      value={cert.credentialId}
-                      onChange={(e) => {
-                        const updated = [...certifications];
-                        updated[index].credentialId = e.target.value;
-                        setCertifications(updated);
-                      }}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                      placeholder="Enter credential ID (optional)"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={cert.description}
-                    onChange={(e) => {
-                      const updated = [...certifications];
-                      updated[index].description = e.target.value;
-                      setCertifications(updated);
-                    }}
-                    rows={2}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                    placeholder="Brief description of the certification"
-                  />
-                </div>
-              </div>
-            ))}
+                <Plus className="w-4 h-4" />
+                Add Another Certification
+              </button>
+            </div>
           </div>
         );
 
       case "skills":
         return (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Skills & Competencies</h3>
-              <Button
-                onClick={addSkillEntry}
-                className="flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Skill
-              </Button>
+            <div className="border-b border-slate-200 pb-4">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Brain className="w-5 h-5 text-indigo-600" />
+                Skills & Competencies
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                List relevant skills, technical capabilities, and proficiency levels.
+              </p>
             </div>
 
-            {skills.map((skill, index) => (
-              <div
-                key={index}
-                className="p-4 border border-gray-200 rounded-lg space-y-4"
-              >
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Skill #{index + 1}</h4>
-                  {skills.length > 1 && (
-                    <Button
-                      onClick={() => removeSkillEntry(index)}
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Skill Name
-                    </label>
-                    <input
-                      type="text"
-                      value={skill.skillName}
-                      onChange={(e) => {
-                        const updated = [...skills];
-                        updated[index].skillName = e.target.value;
-                        setSkills(updated);
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                        formErrors[`skill_${index}_skillName`]
-                          ? "border-red-300 focus:ring-red-500"
-                          : "border-gray-300 focus:ring-blue-500"
-                      }`}
-                      placeholder="Enter skill name"
-                    />
-                    {formErrors[`skill_${index}_skillName`] && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {formErrors[`skill_${index}_skillName`]}
-                      </p>
+            <div className="space-y-4">
+              {skills.map((skill, index) => (
+                <div
+                  key={index}
+                  className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-all space-y-4 shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                      Skill #{index + 1}
+                    </span>
+                    {skills.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setSkills(skills.filter((_, i) => i !== index))}
+                        className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1 font-semibold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Proficiency Level
-                    </label>
-                    <select
-                      value={skill.proficiencyLevel}
-                      onChange={(e) => {
-                        const updated = [...skills];
-                        updated[index].proficiencyLevel = e.target.value;
-                        setSkills(updated);
-                      }}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                    >
-                      <option value="Beginner">Beginner</option>
-                      <option value="Intermediate">Intermediate</option>
-                      <option value="Advanced">Advanced</option>
-                      <option value="Expert">Expert</option>
-                    </select>
-                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Skill Name
+                      </label>
+                      <input
+                        type="text"
+                        value={skill.skillName}
+                        onChange={(e) => {
+                          const updated = [...skills];
+                          updated[index].skillName = e.target.value;
+                          setSkills(updated);
+                        }}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        placeholder="e.g. Surveying, AutoCAD, GIS"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Years of Experience
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={skill.yearsOfExperience}
-                      onChange={(e) => {
-                        const updated = [...skills];
-                        updated[index].yearsOfExperience = e.target.value;
-                        setSkills(updated);
-                      }}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                      placeholder="Years of experience"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Proficiency
+                      </label>
+                      <select
+                        value={skill.proficiencyLevel}
+                        onChange={(e) => {
+                          const updated = [...skills];
+                          updated[index].proficiencyLevel = e.target.value;
+                          setSkills(updated);
+                        }}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                      >
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                        <option value="Expert">Expert</option>
+                      </select>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category
-                    </label>
-                    <select
-                      value={skill.category}
-                      onChange={(e) => {
-                        const updated = [...skills];
-                        updated[index].category = e.target.value;
-                        setSkills(updated);
-                      }}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                    >
-                      <option value="">Select Category</option>
-                      <option value="Technical">Technical</option>
-                      <option value="Soft Skills">Soft Skills</option>
-                      <option value="Leadership">Leadership</option>
-                      <option value="Communication">Communication</option>
-                      <option value="Analytical">Analytical</option>
-                      <option value="Creative">Creative</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Years of Experience
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={skill.yearsOfExperience}
+                        onChange={(e) => {
+                          const updated = [...skills];
+                          updated[index].yearsOfExperience = e.target.value;
+                          setSkills(updated);
+                        }}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        placeholder="Years"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSkills([
+                    ...skills,
+                    {
+                      skillName: "",
+                      proficiencyLevel: "Beginner",
+                      yearsOfExperience: "",
+                      category: "",
+                    },
+                  ])
+                }
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-dashed border-indigo-300 hover:border-indigo-500 text-indigo-600 hover:text-indigo-700 text-xs font-semibold bg-indigo-50/40 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                Add Another Skill
+              </button>
+            </div>
           </div>
         );
 
       case "health":
         return (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold">Health Records</h3>
+            <div className="border-b border-slate-200 pb-4">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Heart className="w-5 h-5 text-indigo-600" />
+                Health & Emergency Information
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Confidential medical notes and emergency contact records.
+              </p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Blood Type
                 </label>
                 <select
                   value={healthRecords.bloodType}
                   onChange={(e) =>
-                    setHealthRecords({
-                      ...healthRecords,
-                      bloodType: e.target.value,
-                    })
+                    setHealthRecords({ ...healthRecords, bloodType: e.target.value })
                   }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                 >
-                  <option value="">Select Blood Type</option>
+                  <option value="">Select Blood Group</option>
                   <option value="A+">A+</option>
                   <option value="A-">A-</option>
                   <option value="B+">B+</option>
@@ -1567,7 +1315,7 @@ export default function StepperEmployeeForm({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Emergency Medical Contact
                 </label>
                 <input
@@ -1579,13 +1327,13 @@ export default function StepperEmployeeForm({
                       emergencyMedicalContact: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                  placeholder="Emergency medical contact"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                  placeholder="Doctor or Contact Name & Phone"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Insurance Provider
                 </label>
                 <input
@@ -1597,14 +1345,14 @@ export default function StepperEmployeeForm({
                       insuranceProvider: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                  placeholder="Insurance provider name"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                  placeholder="Insurance Company"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Insurance Policy Number
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Policy Number
                 </label>
                 <input
                   type="text"
@@ -1615,383 +1363,314 @@ export default function StepperEmployeeForm({
                       insurancePolicyNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-black placeholder-gray-500 hover:border-teal-400"
-                  placeholder="Policy number"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                  placeholder="Policy / Card ID"
                 />
-              </div>
-            </div>
-
-            {/* Allergies */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Allergies
-              </label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {healthRecords.allergies.map((allergy, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
-                  >
-                    {allergy}
-                    <button
-                      onClick={() => removeArrayItem("allergies", index)}
-                      className="ml-1 text-red-600 hover:text-red-800"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Add allergy"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      addArrayItem("allergies", e.target.value);
-                      e.target.value = "";
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  onClick={(e) => {
-                    const input = e.target.parentElement.querySelector("input");
-                    addArrayItem("allergies", input.value);
-                    input.value = "";
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
-            </div>
-
-            {/* Medical Conditions */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Medical Conditions
-              </label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {healthRecords.medicalConditions.map((condition, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm"
-                  >
-                    {condition}
-                    <button
-                      onClick={() =>
-                        removeArrayItem("medicalConditions", index)
-                      }
-                      className="ml-1 text-yellow-600 hover:text-yellow-800"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Add medical condition"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      addArrayItem("medicalConditions", e.target.value);
-                      e.target.value = "";
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  onClick={(e) => {
-                    const input = e.target.parentElement.querySelector("input");
-                    addArrayItem("medicalConditions", input.value);
-                    input.value = "";
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
-            </div>
-
-            {/* Medications */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Current Medications
-              </label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {healthRecords.medications.map((medication, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-                  >
-                    {medication}
-                    <button
-                      onClick={() => removeArrayItem("medications", index)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Add medication"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      addArrayItem("medications", e.target.value);
-                      e.target.value = "";
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  onClick={(e) => {
-                    const input = e.target.parentElement.querySelector("input");
-                    addArrayItem("medications", input.value);
-                    input.value = "";
-                  }}
-                >
-                  Add
-                </Button>
               </div>
             </div>
           </div>
         );
 
-      default:
-        return null;
+      case "documents":
+        return (
+          <div className="space-y-6">
+            <div className="border-b border-slate-200 pb-4">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                Employee Documents & Attachments
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Upload national ID copies, resume/CV, signed contract, educational degrees, or health certificates.
+              </p>
+            </div>
+
+            {/* Document Upload Card */}
+            <div className="p-6 rounded-2xl border-2 border-dashed border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Document Category
+                  </label>
+                  <select
+                    value={newDocCategory}
+                    onChange={(e) => setNewDocCategory(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white text-slate-900 font-medium"
+                  >
+                    {DOCUMENT_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Custom Title (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newDocTitle}
+                    onChange={(e) => setNewDocTitle(e.target.value)}
+                    placeholder="e.g. Passport Copy (2026)"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Expiry Date (If applicable)
+                  </label>
+                  <input
+                    type="date"
+                    value={newDocExpiryDate}
+                    onChange={(e) => setNewDocExpiryDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Drag & Drop Zone */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  handleFileSelect(e.dataTransfer.files);
+                }}
+                className={`py-8 px-4 rounded-xl border-2 border-dashed text-center transition-all cursor-pointer ${
+                  isDragging
+                    ? "border-indigo-600 bg-indigo-100/50"
+                    : "border-slate-300 bg-white/70 hover:bg-white hover:border-indigo-400"
+                }`}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e.target.files)}
+                />
+                <Upload className="w-8 h-8 text-indigo-500 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-800">
+                  Click or drag & drop files here to attach
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Supported formats: PDF, DOCX, XLSX, JPG, PNG (Max 15MB each)
+                </p>
+              </div>
+            </div>
+
+            {/* List of Attached Documents */}
+            {attachedDocuments.length > 0 ? (
+              <div className="space-y-2.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Files to be uploaded ({attachedDocuments.length})
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {attachedDocuments.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="p-3.5 rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 flex-shrink-0">
+                          {doc.name.endsWith(".pdf") ? (
+                            <FileText className="w-5 h-5 text-rose-500" />
+                          ) : doc.name.match(/\.(jpg|jpeg|png|webp)$/i) ? (
+                            <ImageIcon className="w-5 h-5 text-emerald-500" />
+                          ) : (
+                            <FileCheck className="w-5 h-5 text-indigo-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate">
+                            {doc.title}
+                          </p>
+                          <p className="text-[11px] text-slate-500 truncate">
+                            {doc.type} • {formatFileSize(doc.size)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeAttachedDocument(doc.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all flex-shrink-0"
+                        title="Remove"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 text-center rounded-xl bg-slate-50 border border-slate-200">
+                <Paperclip className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                <p className="text-xs text-slate-500">
+                  No documents attached yet. Documents can also be added anytime after creation.
+                </p>
+              </div>
+            )}
+          </div>
+        );
     }
   };
 
   return (
-    <ClientOnly
-      fallback={
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden animate-pulse">
-            <div className="h-32 bg-gradient-to-r from-blue-50 to-indigo-50"></div>
-            <div className="p-8 space-y-4">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-            </div>
-          </div>
-        </div>
-      }
-    >
-      <div
-        className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        suppressHydrationWarning={true}
-      >
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden border border-gray-100">
-          {/* Enhanced Header */}
-          <div className="relative bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 px-8 py-6 text-white">
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.4),transparent_50%)]" />
-            <div className="relative flex items-center justify-between">
+    <ClientOnly>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-3 sm:p-6 animate-in fade-in duration-200">
+        <div className="relative w-full max-w-4xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                <Sparkles className="w-5 h-5" />
+              </div>
               <div>
-                <h2 className="text-3xl font-bold mb-2 drop-shadow-sm">
+                <h2 className="text-lg font-bold text-white leading-tight">
                   Add New Employee
                 </h2>
-                <p className="text-white text-opacity-90 text-sm">
-                  Step {currentStep} of {visibleSteps.length} -{" "}
+                <p className="text-xs text-slate-300">
+                  Step {currentStep} of {visibleSteps.length}:{" "}
                   {visibleSteps[currentStep - 1]?.title}
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  onClose();
-                  resetForm();
-                }}
-                className="text-white hover:text-white transition-colors p-2 hover:bg-white hover:bg-opacity-20 rounded-full backdrop-blur-sm"
-              >
-                <X className="w-6 h-6" />
-              </button>
             </div>
 
-            {/* Enhanced Step Indicator */}
-            <div className="relative mt-8">
-              {/* Progress Bar Background */}
-              <div className="absolute top-5 left-0 right-0 h-1.5 bg-white bg-opacity-25 rounded-full"></div>
-              {/* Progress Bar Fill */}
-              <div
-                className="absolute top-5 left-0 h-1.5 bg-gradient-to-r from-yellow-300 to-amber-400 rounded-full transition-all duration-500 ease-out shadow-lg"
-                style={{
-                  width: `${visibleSteps.length > 1 ? ((currentStep - 1) / (visibleSteps.length - 1)) * 100 : 0}%`,
-                }}
-              ></div>
+            <button
+              onClick={() => {
+                onClose();
+                resetForm();
+              }}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-all"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-              <div className="relative flex justify-between">
-                {visibleSteps.map((step, index) => {
-                  const stepNumber = index + 1;
-                  return (
+          {/* Stepper Navigation Bar */}
+          <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 overflow-x-auto flex-shrink-0">
+            <div className="flex items-center justify-between min-w-max gap-2">
+              {visibleSteps.map((step, idx) => {
+                const stepNumber = idx + 1;
+                const isCompleted = currentStep > stepNumber;
+                const isCurrent = currentStep === stepNumber;
+                const Icon = step.icon;
+
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => {
+                      if (canNavigateToStep(stepNumber)) {
+                        setCurrentStep(stepNumber);
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      isCurrent
+                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-105"
+                        : isCompleted
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+                    }`}
+                  >
                     <div
-                      key={step.id}
-                      className="flex flex-col items-center group"
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                        isCurrent
+                          ? "bg-white text-indigo-700 font-bold"
+                          : isCompleted
+                          ? "bg-emerald-600 text-white font-bold"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
                     >
-                      {/* Step Circle */}
-                      <div
-                        onClick={() => {
-                          if (canNavigateToStep(stepNumber)) setCurrentStep(stepNumber);
-                        }}
-                        role="button"
-                        title={step.title}
-                        className={`relative flex items-center justify-center w-12 h-12 rounded-full border-3 transition-all duration-300 transform cursor-pointer ${
-                          currentStep > stepNumber
-                            ? "bg-amber-400 border-amber-300 text-white scale-110 shadow-xl shadow-amber-500/50"
-                            : currentStep === stepNumber
-                            ? "bg-white border-white text-teal-700 scale-110 shadow-xl shadow-white/50 animate-pulse"
-                            : "bg-teal-400 bg-opacity-40 border-teal-300 text-white hover:scale-105 hover:bg-opacity-60"
-                        }`}
-                      >
-                        {currentStep > stepNumber ? (
-                          <Check className="w-6 h-6 animate-in zoom-in duration-300" />
-                        ) : (
-                          <step.icon
-                            className={`w-6 h-6 ${
-                              currentStep === stepNumber ? "animate-bounce" : ""
-                            }`}
-                          />
-                        )}
-
-                        {/* Pulse Animation for Current Step */}
-                        {currentStep === stepNumber && (
-                          <div className="absolute inset-0 rounded-full border-3 border-white animate-ping opacity-75"></div>
-                        )}
-                      </div>
-
-                      {/* Step Label */}
-                      <div className="mt-3 text-center">
-                        <p
-                          className={`text-sm font-semibold transition-colors ${
-                            currentStep >= stepNumber
-                              ? "text-white drop-shadow"
-                              : "text-white text-opacity-60"
-                          }`}
-                        >
-                          {step.title}
-                        </p>
-                        <p
-                          className={`text-xs mt-1 ${
-                            currentStep >= stepNumber
-                              ? "text-white text-opacity-90"
-                              : "text-white text-opacity-50"
-                          }`}
-                        >
-                          {step.description}
-                        </p>
-                      </div>
+                      {isCompleted ? <Check className="w-3 h-3 stroke-[3]" /> : stepNumber}
                     </div>
-                  );
-                })}
-              </div>
+                    <span>{step.title}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Enhanced Status Messages */}
+          {/* Alert Banners */}
           {error && (
-            <div className="mx-8 mt-6 bg-red-50 border-l-4 border-red-400 rounded-r-lg p-4 shadow-sm animate-in slide-in-from-top duration-300">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <X className="w-5 h-5 text-red-400" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-red-800 font-medium">{error}</p>
-                </div>
-              </div>
+            <div className="mx-6 mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="mx-8 mt-6 bg-green-50 border-l-4 border-green-400 rounded-r-lg p-4 shadow-sm animate-in slide-in-from-top duration-300">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <Check className="w-5 h-5 text-green-400" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-green-800 font-medium">{success}</p>
-                </div>
-              </div>
+            <div className="mx-6 mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>{success}</span>
             </div>
           )}
 
-          {/* Enhanced Content Area */}
-          <div className="px-8 py-6 overflow-y-auto max-h-[calc(95vh-320px)] bg-gradient-to-b from-slate-50 to-white">
-            <div className="bg-white rounded-xl shadow-md border border-slate-200 p-8 min-h-[400px]">
-              <div className="animate-in fade-in slide-in-from-right duration-300">
-                {renderStepContent()}
-              </div>
+          {/* Content Area */}
+          <div className="p-6 overflow-y-auto flex-1 bg-slate-50/30">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm min-h-[380px]">
+              {renderStepContent()}
             </div>
           </div>
 
-          {/* Enhanced Footer */}
-          <div className="px-8 py-6 bg-gradient-to-t from-slate-50 to-white border-t border-slate-200">
-            <div className="flex justify-between items-center">
-              <Button
-                onClick={handlePrevious}
-                disabled={currentStep === 1 || loading}
-                variant="outline"
-                className="flex items-center gap-2 px-6 py-3 text-gray-700 border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Previous
-              </Button>
+          {/* Footer Controls */}
+          <div className="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={currentStep === 1 || loading}
+              onClick={handlePrevious}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 border-slate-300 hover:bg-slate-100 flex items-center gap-1.5"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </Button>
 
-              <div className="flex items-center gap-4">
-                {/* Keyboard Shortcuts Hint */}
-                <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
-                  <span>⌨️ Shortcuts:</span>
-                  <span className="bg-gray-100 px-2 py-1 rounded">← →</span>
-                  <span>Navigate</span>
-                  <span className="bg-gray-100 px-2 py-1 rounded">Esc</span>
-                  <span>Close</span>
-                  {currentStep === visibleSteps.length && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+                Step {currentStep} of {visibleSteps.length}
+              </span>
+
+              {currentStep < visibleSteps.length ? (
+                <Button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={loading}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all flex items-center gap-1.5"
+                >
+                  Next Step
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md transition-all flex items-center gap-1.5"
+                >
+                  {loading ? (
                     <>
-                      <span className="bg-gray-100 px-2 py-1 rounded">
-                        Ctrl+Enter
-                      </span>
-                      <span>Submit</span>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Creating Employee...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Complete & Create Employee
                     </>
                   )}
-                </div>
-
-                {/* Step Counter */}
-                <span className="text-sm text-gray-500 font-medium">
-                  {currentStep} of {visibleSteps.length}
-                </span>
-
-                {currentStep < visibleSteps.length ? (
-                  <Button
-                    onClick={handleNext}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-                  >
-                    Next
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Creating Employee...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-5 h-5" />
-                        Create Employee
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -23,7 +23,7 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
 
   // Form state
   const [formData, setFormData] = useState({
-    leaveType: "",
+    leaveType: "annual",
     startDate: "",
     endDate: "",
     reason: "",
@@ -117,7 +117,7 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
         showMessage("Leave request submitted successfully", "success");
         setShowForm(false);
         setFormData({
-          leaveType: "",
+          leaveType: "annual",
           startDate: "",
           endDate: "",
           reason: "",
@@ -240,15 +240,11 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
                   className="w-full p-3 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-600"
                   required
                 >
-                  <option value="">Select leave type</option>
                   <option value="annual">Annual Leave</option>
-                  <option value="sick">Sick Leave</option>
-                  <option value="personal">Personal Leave</option>
-                  <option value="maternity">Maternity Leave</option>
-                  <option value="paternity">Paternity Leave</option>
-                  <option value="bereavement">Bereavement Leave</option>
-                  <option value="other">Other</option>
                 </select>
+                <p className="text-xs text-indigo-600 mt-1">
+                  Standard Annual Leave (Base 16 days + Seniority accrual)
+                </p>
               </div>
 
               <div>
@@ -400,17 +396,48 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
                       </div>
                     )}
 
-                    {request.status === "rejected" &&
-                      request.rejectionReason && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                          <span className="text-sm font-medium text-red-700">
-                            Rejection Reason:
-                          </span>
-                          <p className="text-sm text-red-600 mt-1">
-                            {request.rejectionReason}
-                          </p>
+                    {request.status === "rejected" && (
+                      <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 mt-2 space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800">
+                          <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>Rejection Reason:</span>
                         </div>
-                      )}
+                        <p className="text-sm text-rose-900 font-medium bg-white/70 p-2.5 rounded-lg border border-rose-100">
+                          {request.rejectionReason ||
+                            request.comments ||
+                            request.supervisorNotes ||
+                            request.notes ||
+                            request.adminApproval?.rejectionReason ||
+                            "No specific reason provided."}
+                        </p>
+                        {(request.processedBy ||
+                          request.reviewedBy ||
+                          request.supervisorId ||
+                          request.processedAt ||
+                          request.reviewedAt ||
+                          request.reviewDate) && (
+                          <p className="text-xs text-rose-600 font-medium pt-1">
+                            {request.processedBy ||
+                            request.reviewedBy ||
+                            request.supervisorId
+                              ? `Rejected by: ${
+                                  request.processedBy ||
+                                  request.reviewedBy ||
+                                  request.supervisorId
+                                }`
+                              : "Rejected"}
+                            {(request.processedAt ||
+                              request.reviewedAt ||
+                              request.reviewDate) &&
+                              ` on ${formatDate(
+                                request.processedAt ||
+                                  request.reviewedAt ||
+                                  request.reviewDate
+                              )}`}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

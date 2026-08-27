@@ -30,6 +30,10 @@ const ManagerLeaveApproval = dynamic(() => import("../components/ManagerLeaveApp
   loading: () => <SectionSkeleton title="Loading Leave Approval..." />,
   ssr: false,
 });
+const AdminLeaveHistory = dynamic(() => import("../components/AdminLeaveHistory"), {
+  loading: () => <SectionSkeleton title="Loading Leave History..." />,
+  ssr: false,
+});
 const AdminLeaveBalanceManagement = dynamic(() => import("../components/AdminLeaveBalanceManagement"), {
   loading: () => <SectionSkeleton title="Loading Leave Balances..." />,
   ssr: false,
@@ -425,6 +429,8 @@ export default function HRMDashboard() {
             <ManagerLeaveApproval />
           </div>
         );
+      case "leave-history":
+        return <AdminLeaveHistory />;
       case "leave-balances":
         return <AdminLeaveBalanceManagement />;
       case "leave-reports":

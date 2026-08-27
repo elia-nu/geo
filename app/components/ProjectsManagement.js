@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Plus as AddIcon,
   MoreVertical as MoreVertIcon,
@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
+import Pagination from "./ui/Pagination";
 import {
   projectToasts,
   showErrorToast,
@@ -82,6 +83,8 @@ export default function ProjectsManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(6);
   const [showBudgetBanner, setShowBudgetBanner] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
@@ -419,6 +422,12 @@ export default function ProjectsManagement() {
           project.name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
+  const totalPages = Math.ceil((filteredProjects.length || 0) / itemsPerPage) || 1;
+  const paginatedProjects = React.useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredProjects.slice(start, start + itemsPerPage);
+  }, [filteredProjects, currentPage, itemsPerPage]);
+
   const getCategoryName = (project) =>
     project.category ||
     (project.categoryId &&
@@ -584,8 +593,9 @@ export default function ProjectsManagement() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {filteredProjects.map((project) => {
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            {paginatedProjects.map((project) => {
             const statusKey = project.status || "not_started";
             return (
               <div
@@ -715,6 +725,18 @@ export default function ProjectsManagement() {
             );
           })}
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredProjects.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(sz) => {
+            setItemsPerPage(sz);
+            setCurrentPage(1);
+          }}
+        />
+      </div>
       )}
 
       {/* Context menu */}

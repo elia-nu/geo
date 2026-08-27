@@ -165,10 +165,19 @@ export async function GET(request) {
       }
 
       if (shouldApprove) {
+        const empCode =
+          employee.employeeId ||
+          employee.empId ||
+          employee.personalDetails?.employeeId ||
+          employee._id.toString();
+
         // Add employee details to request
         const enhancedRequest = {
           ...request,
           _id: request._id.toString(), // Ensure _id is a string
+          employeeId: empCode,
+          employeeDbId: employee._id.toString(),
+          employeeCustomId: empCode,
           employeeName:
             employee.personalDetails?.name || employee.name || "Unknown",
           employeeEmail:
@@ -178,6 +187,15 @@ export async function GET(request) {
           designation:
             employee.designation || employee.personalDetails?.designation || "",
           approvalRouting: routing,
+          employee: {
+            _id: employee._id.toString(),
+            name: employee.personalDetails?.name || employee.name || "Unknown",
+            email: employee.personalDetails?.email || employee.email || "",
+            department: employee.department || employee.personalDetails?.department || "",
+            designation: employee.designation || employee.personalDetails?.designation || "",
+            employeeId: empCode,
+            empId: empCode,
+          },
         };
 
         // Apply search filter if provided
@@ -185,8 +203,12 @@ export async function GET(request) {
           const searchLower = search.toLowerCase();
           const matchesSearch =
             enhancedRequest.employeeName.toLowerCase().includes(searchLower) ||
-            enhancedRequest.leaveType.toLowerCase().includes(searchLower) ||
-            enhancedRequest.reason.toLowerCase().includes(searchLower);
+            (enhancedRequest.employeeEmail || "").toLowerCase().includes(searchLower) ||
+            (enhancedRequest.department || "").toLowerCase().includes(searchLower) ||
+            empCode.toLowerCase().includes(searchLower) ||
+            (request.employeeId || "").toString().toLowerCase().includes(searchLower) ||
+            (enhancedRequest.leaveType || "").toLowerCase().includes(searchLower) ||
+            (enhancedRequest.reason || "").toLowerCase().includes(searchLower);
 
           if (matchesSearch) {
             filteredRequests.push(enhancedRequest);

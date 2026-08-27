@@ -3,46 +3,105 @@ import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
 
+// Helper to safely parse an ID into an ObjectId or null
+function toSafeObjectId(val) {
+  if (!val) return null;
+  if (val instanceof ObjectId) return val;
+  if (typeof val === "object") {
+    const raw = val.$oid || val._id || val.id;
+    if (raw && ObjectId.isValid(String(raw))) {
+      return new ObjectId(String(raw));
+    }
+    return null;
+  }
+  if (typeof val === "string" && ObjectId.isValid(val)) {
+    return new ObjectId(val);
+  }
+  return null;
+}
+
 // Get employee work locations
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
     const { id } = await params;
 
-    const employee = await db
-      .collection("employees")
-      .findOne({ _id: new ObjectId(id) });
+    if (!id) {
+      return NextResponse.json(
+        { error: "Employee ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const employeeQuery = ObjectId.isValid(id)
+      ? { $or: [{ _id: new ObjectId(id) }, { employeeId: id }] }
+      : { employeeId: id };
+
+    const employee = await db.collection("employees").findOne(employeeQuery);
 
     if (!employee) {
       return NextResponse.json(
-        { error: "Employee not found" },
+        { error: "Employee not found", workLocations: [], count: 0 },
         { status: 404 }
       );
     }
 
-    // Get work locations from the employee's workLocations array
-    let workLocationIds = [];
+    // Collect all raw work location identifiers from various potential fields
+    let rawLocationItems = [];
 
-    if (employee.workLocations && Array.isArray(employee.workLocations)) {
-      workLocationIds = employee.workLocations;
-    } else if (employee.workLocation) {
-      // Handle legacy single work location
-      workLocationIds = [employee.workLocation];
-    } else if (employee.personalDetails?.workLocation) {
-      // Handle legacy single work location in personalDetails
-      workLocationIds = [employee.personalDetails.workLocation];
+    if (Array.isArray(employee.workLocations)) {
+      rawLocationItems.push(...employee.workLocations);
+    }
+    if (Array.isArray(employee.workLocationsDetails)) {
+      rawLocationItems.push(...employee.workLocationsDetails);
+    }
+    if (employee.workLocation) {
+      rawLocationItems.push(employee.workLocation);
+    }
+    if (employee.personalDetails?.workLocation) {
+      rawLocationItems.push(employee.personalDetails.workLocation);
     }
 
-    // Fetch the actual work location documents
-    let workLocations = [];
-    if (workLocationIds.length > 0) {
-      const locationObjectIds = workLocationIds.map((id) =>
-        typeof id === "string" ? new ObjectId(id) : id
-      );
+    const objectIds = [];
+    const nameStrings = [];
+    const stringIds = [];
 
+    for (const item of rawLocationItems) {
+      if (!item) continue;
+
+      const safeObjId = toSafeObjectId(item);
+      if (safeObjId) {
+        objectIds.push(safeObjId);
+      }
+
+      if (typeof item === "string") {
+        if (ObjectId.isValid(item)) {
+          stringIds.push(item);
+        } else if (item.trim()) {
+          nameStrings.push(item.trim());
+        }
+      } else if (typeof item === "object" && item.name) {
+        nameStrings.push(String(item.name).trim());
+      }
+    }
+
+    let workLocations = [];
+
+    const queryOr = [];
+    if (objectIds.length > 0) {
+      queryOr.push({ _id: { $in: objectIds } });
+    }
+    if (stringIds.length > 0) {
+      queryOr.push({ _id: { $in: stringIds } });
+    }
+    if (nameStrings.length > 0) {
+      queryOr.push({ name: { $in: nameStrings } });
+    }
+
+    if (queryOr.length > 0) {
       workLocations = await db
         .collection("work_locations")
-        .find({ _id: { $in: locationObjectIds } })
+        .find({ $or: queryOr })
         .toArray();
     }
 
@@ -54,7 +113,7 @@ export async function GET(request, { params }) {
   } catch (error) {
     console.error("Error fetching employee work locations:", error);
     return NextResponse.json(
-      { error: "Failed to fetch work locations", message: error.message },
+      { error: "Failed to fetch work locations", message: error.message, workLocations: [], count: 0 },
       { status: 500 }
     );
   }
@@ -76,10 +135,13 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Get existing employee
+    const employeeQuery = ObjectId.isValid(id)
+      ? { $or: [{ _id: new ObjectId(id) }, { employeeId: id }] }
+      : { employeeId: id };
+
     const existingEmployee = await db
       .collection("employees")
-      .findOne({ _id: new ObjectId(id) });
+      .findOne(employeeQuery);
 
     if (!existingEmployee) {
       return NextResponse.json(
@@ -93,17 +155,14 @@ export async function PUT(request, { params }) {
       existingEmployee.name ||
       "Unknown";
 
-    // Update work location
     const updateData = {
       workLocation,
       updatedAt: new Date(),
     };
 
-    // Update based on data structure (old vs new format)
     if (existingEmployee.personalDetails) {
-      // New format - update personalDetails
       await db.collection("employees").updateOne(
-        { _id: new ObjectId(id) },
+        { _id: existingEmployee._id },
         {
           $set: {
             "personalDetails.workLocation": workLocation,
@@ -112,17 +171,16 @@ export async function PUT(request, { params }) {
         }
       );
     } else {
-      // Old format - update directly
       await db
         .collection("employees")
-        .updateOne({ _id: new ObjectId(id) }, { $set: updateData });
+        .updateOne({ _id: existingEmployee._id }, { $set: updateData });
     }
 
     // Create audit log
     await createAuditLog({
       action: "UPDATE_EMPLOYEE_WORK_LOCATION",
       entityType: "employee",
-      entityId: id,
+      entityId: String(existingEmployee._id),
       userId: "admin",
       userEmail: "admin@company.com",
       metadata: {
@@ -132,7 +190,7 @@ export async function PUT(request, { params }) {
           existingEmployee.personalDetails?.workLocation ||
           "None",
         newLocation: workLocation,
-        locationName: workLocation.name || "Unknown",
+        locationName: workLocation?.name || "Unknown",
       },
     });
 

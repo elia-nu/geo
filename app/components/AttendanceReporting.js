@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FileText,
   Download,
@@ -9,13 +9,19 @@ import {
   Clock,
   BarChart3,
   RefreshCw,
-  CheckCircle,
+  CheckCircle2,
   AlertCircle,
   XCircle,
   CalendarDays,
   MapPin,
   Camera,
+  IdCard,
+  Sparkles,
+  Search,
+  Filter,
+  X,
 } from "lucide-react";
+import Pagination from "./ui/Pagination";
 
 export default function AttendanceReporting() {
   const [currentReport, setCurrentReport] = useState(null);
@@ -25,6 +31,11 @@ export default function AttendanceReporting() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+
+  // Table search & pagination inside report
+  const [tableSearch, setTableSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Report generation form state
   const [reportForm, setReportForm] = useState({
@@ -45,7 +56,6 @@ export default function AttendanceReporting() {
     }, 5000);
   };
 
-  // Function to format date as YYYY-MM-DD for input fields
   const formatDateForInput = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -53,7 +63,6 @@ export default function AttendanceReporting() {
     return `${year}-${month}-${day}`;
   };
 
-  // Function to get dates based on report type
   const getDatesForReportType = (reportType) => {
     const today = new Date();
     let startDate, endDate;
@@ -63,25 +72,21 @@ export default function AttendanceReporting() {
         startDate = new Date(today);
         endDate = new Date(today);
         break;
-      case "weekly":
-        // Get start of week (Monday)
+      case "weekly": {
         const dayOfWeek = today.getDay();
-        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
+        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
         startDate = new Date(today);
         startDate.setDate(diff);
         startDate.setHours(0, 0, 0, 0);
-        // Get end of week (Sunday)
         endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + 6);
         break;
+      }
       case "monthly":
-        // Get first day of current month
         startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-        // Get last day of current month
         endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         break;
       case "random":
-        // For random, don't auto-fill
         return { startDate: "", endDate: "" };
       default:
         startDate = new Date(today);
@@ -94,7 +99,6 @@ export default function AttendanceReporting() {
     };
   };
 
-  // Auto-fill dates when report type changes
   useEffect(() => {
     if (reportForm.reportType !== "random") {
       const dates = getDatesForReportType(reportForm.reportType);
@@ -102,13 +106,6 @@ export default function AttendanceReporting() {
         ...prev,
         startDate: dates.startDate,
         endDate: dates.endDate,
-      }));
-    } else {
-      // Clear dates for random type
-      setReportForm((prev) => ({
-        ...prev,
-        startDate: "",
-        endDate: "",
       }));
     }
   }, [reportForm.reportType]);
@@ -128,7 +125,8 @@ export default function AttendanceReporting() {
         },
         body: JSON.stringify({
           ...reportForm,
-          adminId: "admin", // Replace with actual admin ID
+          employeeId: reportForm.employeeId.trim(),
+          adminId: "admin",
         }),
       });
 
@@ -136,7 +134,9 @@ export default function AttendanceReporting() {
 
       if (result.success) {
         setCurrentReport(result.data);
-        showMessage(result.message, "success");
+        setCurrentPage(1);
+        setTableSearch("");
+        showMessage(result.message || "Report generated successfully", "success");
         setShowGenerateModal(false);
       } else {
         showMessage(result.error || "Failed to generate report", "error");
@@ -149,7 +149,7 @@ export default function AttendanceReporting() {
     }
   };
 
-  const handleExportToPDF = async () => {
+  const handleExportToExcel = async () => {
     if (!currentReport) {
       showMessage("No report to export", "error");
       return;
@@ -171,36 +171,15 @@ export default function AttendanceReporting() {
         const a = document.createElement("a");
         a.href = url;
 
-        // Generate filename based on report type and date
-        let fileName;
-        switch (currentReport.reportType) {
-          case "daily":
-            fileName = `daily_attendance_${currentReport.startDate}.xlsx`;
-            break;
-          case "weekly":
-            fileName = `weekly_attendance_${currentReport.startDate}_to_${currentReport.endDate}.xlsx`;
-            break;
-          case "monthly":
-            fileName = `monthly_attendance_${currentReport.startDate.substring(
-              0,
-              7
-            )}.xlsx`;
-            break;
-          case "random":
-            fileName = `random_attendance_${currentReport.startDate}_to_${currentReport.endDate}.xlsx`;
-            break;
-          default:
-            fileName = `attendance_report_${currentReport.startDate}.xlsx`;
-        }
-
+        let fileName = `attendance_report_${currentReport.startDate}_to_${currentReport.endDate}.xlsx`;
         a.download = fileName;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        showMessage("Report exported to Excel file successfully", "success");
+        showMessage("Report exported to Excel successfully", "success");
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         showMessage(errorData.error || "Failed to export report", "error");
       }
     } catch (error) {
@@ -213,9 +192,11 @@ export default function AttendanceReporting() {
 
   const clearCurrentReport = () => {
     setCurrentReport(null);
+    setTableSearch("");
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return "—";
     return new Date(dateString).toLocaleDateString([], {
       year: "numeric",
       month: "short",
@@ -223,51 +204,133 @@ export default function AttendanceReporting() {
     });
   };
 
+  const formatTime = (d) =>
+    d
+      ? new Date(d).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "--:--";
+
+  // Filtered records in current report
+  const records = currentReport?.records || [];
+  const filteredRecords = useMemo(() => {
+    if (!tableSearch) return records;
+    const s = tableSearch.toLowerCase().trim();
+    return records.filter((r) => {
+      const name = (r.employeeName || "").toLowerCase();
+      const email = (r.employeeEmail || "").toLowerCase();
+      const dept = (r.department || "").toLowerCase();
+      const empId = String(r.employeeId || r.employeeCode || "").toLowerCase();
+      const loc = (r.workLocationName || "").toLowerCase();
+      return (
+        name.includes(s) ||
+        email.includes(s) ||
+        dept.includes(s) ||
+        empId.includes(s) ||
+        loc.includes(s)
+      );
+    });
+  }, [records, tableSearch]);
+
+  const totalPages = Math.ceil((filteredRecords.length || 0) / itemsPerPage) || 1;
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredRecords.slice(start, start + itemsPerPage);
+  }, [filteredRecords, currentPage, itemsPerPage]);
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="bg-white/20 rounded-full p-3 ring-1 ring-white/30">
-              <BarChart3 className="w-6 h-6 text-white" />
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6 sm:p-8 shadow-2xl text-white border border-indigo-900/40">
+        <div className="absolute -top-12 -right-12 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-blue-500/15 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                  Attendance Reports &amp; Analytics
+                </h2>
+                <p className="text-indigo-200/90 text-xs sm:text-sm">
+                  Generate daily, weekly, monthly and custom timesheet reports with Employee ID search.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">
-                Attendance Reports
-              </h2>
-              <p className="text-white/80">
-                Generate and export attendance reports
-              </p>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setReportForm((p) => ({ ...p, reportType: "daily" }));
+                  setShowGenerateModal(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors"
+              >
+                Daily Report
+              </button>
+              <button
+                onClick={() => {
+                  setReportForm((p) => ({ ...p, reportType: "weekly" }));
+                  setShowGenerateModal(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors"
+              >
+                Weekly Report
+              </button>
+              <button
+                onClick={() => {
+                  setReportForm((p) => ({ ...p, reportType: "monthly" }));
+                  setShowGenerateModal(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors"
+              >
+                Monthly Report
+              </button>
+              <button
+                onClick={() => {
+                  setReportForm((p) => ({ ...p, reportType: "random" }));
+                  setShowGenerateModal(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors"
+              >
+                Custom Date Range
+              </button>
             </div>
           </div>
-          <button
-            onClick={() => setShowGenerateModal(true)}
-            className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 text-white"
-          >
-            <FileText className="w-4 h-4 text-white" />
-            <span>Generate Report</span>
-          </button>
+
+          <div className="flex items-center gap-3 self-start lg:self-center">
+            <button
+              onClick={() => setShowGenerateModal(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm shadow-lg shadow-indigo-900/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <FileText className="w-4 h-4" />
+              <span>Generate Report</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Message */}
       {message && (
         <div
-          className={`p-4 rounded-lg flex items-center space-x-2 ${
+          className={`p-4 rounded-2xl text-xs sm:text-sm font-medium border flex items-center gap-2 ${
             messageType === "success"
-              ? "bg-green-100 text-green-800"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
               : messageType === "error"
-              ? "bg-red-100 text-red-800"
-              : "bg-blue-100 text-blue-800"
+              ? "bg-rose-50 border-rose-200 text-rose-800"
+              : "bg-blue-50 border-blue-200 text-blue-800"
           }`}
         >
           {messageType === "success" ? (
-            <CheckCircle className="w-5 h-5" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
           ) : messageType === "error" ? (
-            <XCircle className="w-5 h-5" />
+            <XCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5" />
+            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
           )}
           <span>{message}</span>
         </div>
@@ -275,147 +338,249 @@ export default function AttendanceReporting() {
 
       {/* Current Report Display */}
       {currentReport && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-black">
-              Current Report
-            </h3>
-            <button
-              onClick={clearCurrentReport}
-              className="text-sm text-gray-700 hover:text-black"
-            >
-              Clear Report
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="flex items-center space-x-2 mb-2">
-                <BarChart3 className="w-5 h-5 text-blue-600" />
-                <span className="font-medium text-blue-900">
-                  {currentReport.reportType.charAt(0).toUpperCase() +
-                    currentReport.reportType.slice(1)}{" "}
-                  Report
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <span className="px-3 py-1 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 uppercase tracking-wider">
+                  {currentReport.reportType} Report
+                </span>
+                <span className="text-sm font-bold text-slate-800">
+                  {formatDate(currentReport.startDate)} — {formatDate(currentReport.endDate)}
                 </span>
               </div>
-              <p className="text-sm text-blue-700">
-                {formatDate(currentReport.startDate)} -{" "}
-                {formatDate(currentReport.endDate)}
+              <p className="text-xs text-slate-400 mt-1">
+                Generated across {currentReport.summary?.uniqueEmployees || 0} unique employees
               </p>
             </div>
 
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="flex items-center space-x-2 mb-2">
-                <Users className="w-5 h-5 text-green-600" />
-                <span className="font-medium text-green-900">Summary</span>
-              </div>
-              <p className="text-sm text-green-700">
-                {currentReport.summary.totalRecords} records,{" "}
-                {currentReport.summary.uniqueEmployees} employees
-              </p>
-            </div>
-
-            <div className="bg-purple-50 rounded-lg p-4">
-              <div className="flex items-center space-x-2 mb-2">
-                <Clock className="w-5 h-5 text-purple-600" />
-                <span className="font-medium text-purple-900">
-                  Working Hours
-                </span>
-              </div>
-              <p className="text-sm text-purple-700">
-                Total: {currentReport.summary.totalWorkingHours} hours
-              </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportToExcel}
+                disabled={exporting}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all"
+              >
+                {exporting ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+                <span>Export to Excel</span>
+              </button>
+              <button
+                onClick={clearCurrentReport}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition-colors"
+              >
+                Clear Report
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {currentReport.summary.totalCheckIns}
+          {/* Metric Summary Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+              <div className="text-xs text-slate-400 font-semibold uppercase">Total Records</div>
+              <div className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">
+                {currentReport.summary?.totalRecords || 0}
               </div>
-              <div className="text-sm text-gray-600">Check-ins</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {currentReport.summary.totalCheckOuts}
+            <div className="bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100 text-center">
+              <div className="text-xs text-indigo-500 font-semibold uppercase">Employees</div>
+              <div className="text-xl sm:text-2xl font-bold text-indigo-700 mt-1">
+                {currentReport.summary?.uniqueEmployees || 0}
               </div>
-              <div className="text-sm text-gray-600">Check-outs</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                {currentReport.summary.totalFaceVerified}
+            <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-100 text-center">
+              <div className="text-xs text-emerald-600 font-semibold uppercase">Check-ins</div>
+              <div className="text-xl sm:text-2xl font-bold text-emerald-700 mt-1">
+                {currentReport.summary?.totalCheckIns || 0}
               </div>
-              <div className="text-sm text-gray-600">Face Verified</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">
-                {currentReport.summary.averageWorkingHours}
+            <div className="bg-blue-50/60 p-4 rounded-2xl border border-blue-100 text-center">
+              <div className="text-xs text-blue-600 font-semibold uppercase">Check-outs</div>
+              <div className="text-xl sm:text-2xl font-bold text-blue-700 mt-1">
+                {currentReport.summary?.totalCheckOuts || 0}
               </div>
-              <div className="text-sm text-gray-600">Avg Hours</div>
+            </div>
+            <div className="bg-purple-50/60 p-4 rounded-2xl border border-purple-100 text-center">
+              <div className="text-xs text-purple-600 font-semibold uppercase">Face Verified</div>
+              <div className="text-xl sm:text-2xl font-bold text-purple-700 mt-1">
+                {currentReport.summary?.totalFaceVerified || 0}
+              </div>
+            </div>
+            <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-100 text-center">
+              <div className="text-xs text-amber-600 font-semibold uppercase">Avg Hours</div>
+              <div className="text-xl sm:text-2xl font-bold text-amber-700 mt-1">
+                {currentReport.summary?.averageWorkingHours || "0.0"}h
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleExportToPDF}
-              disabled={exporting}
-              className="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-            >
-              {exporting ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Exporting...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4" />
-                  <span>Export to Excel</span>
-                </>
-              )}
-            </button>
+          {/* Detailed Records Table */}
+          <div className="border border-slate-100 rounded-3xl overflow-hidden">
+            <div className="p-4 bg-slate-50/80 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-indigo-600" />
+                <h4 className="text-sm font-bold text-slate-800">
+                  Report Records Breakdown ({filteredRecords.length} entries)
+                </h4>
+              </div>
+
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
+                <input
+                  type="text"
+                  placeholder="Filter records in report..."
+                  value={tableSearch}
+                  onChange={(e) => {
+                    setTableSearch(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 font-medium"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
+                    <th className="px-5 py-3.5">Date</th>
+                    <th className="px-5 py-3.5">Employee</th>
+                    <th className="px-5 py-3.5">Emp ID</th>
+                    <th className="px-5 py-3.5">Department</th>
+                    <th className="px-5 py-3.5">Check In</th>
+                    <th className="px-5 py-3.5">Check Out</th>
+                    <th className="px-5 py-3.5 text-center">Hours</th>
+                    <th className="px-5 py-3.5">Location</th>
+                    <th className="px-5 py-3.5 text-center">Verified</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {filteredRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="px-5 py-10 text-center text-slate-400">
+                        No records match the current report search filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedRecords.map((r, i) => (
+                      <tr key={r._id || i} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-5 py-3.5 whitespace-nowrap font-medium text-slate-900">
+                          {formatDate(r.date)}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="font-bold text-slate-900">{r.employeeName}</div>
+                          <div className="text-slate-400 text-[11px]">{r.employeeEmail}</div>
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            <IdCard className="w-3 h-3 text-slate-400" />
+                            {r.employeeCode || r.employeeId || "EMP—"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
+                            {r.department || "General"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap font-mono text-emerald-700 font-bold">
+                          {formatTime(r.checkInTime)}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap font-mono text-slate-600">
+                          {formatTime(r.checkOutTime)}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap text-center font-bold text-indigo-700">
+                          {typeof r.workingHours === "number"
+                            ? `${r.workingHours.toFixed(1)} hrs`
+                            : "—"}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-600">
+                          {r.workLocationName || "—"}
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              r.faceVerified
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {r.faceVerified ? "Verified ✓" : "Standard"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-3 border-t border-slate-100 bg-white">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredRecords.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(sz) => {
+                  setItemsPerPage(sz);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
 
       {/* Generate Report Modal */}
       {showGenerateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white">
-              <h3 className="text-lg font-semibold">
-                Generate Attendance Report
-              </h3>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-black mb-1">
-                    Report Type
-                  </label>
-                  <select
-                    value={reportForm.reportType}
-                    onChange={(e) =>
-                      setReportForm((prev) => ({
-                        ...prev,
-                        reportType: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
-                  >
-                    <option value="daily">Daily Report</option>
-                    <option value="weekly">Weekly Report</option>
-                    <option value="monthly">Monthly Report</option>
-                    <option value="random">Random</option>
-                  </select>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-br from-slate-900 to-indigo-950 px-6 py-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center font-bold text-indigo-300">
+                  <BarChart3 className="w-5 h-5" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1">
+                  <h3 className="text-lg font-bold">Generate Attendance Report</h3>
+                  <p className="text-xs text-indigo-200">Configure parameters &amp; date bounds</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowGenerateModal(false)}
+                className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-sm">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Report Type
+                </label>
+                <select
+                  value={reportForm.reportType}
+                  onChange={(e) =>
+                    setReportForm((prev) => ({
+                      ...prev,
+                      reportType: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl bg-slate-50/70 focus:bg-white text-slate-900 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                >
+                  <option value="daily">Daily Report (Today)</option>
+                  <option value="weekly">Weekly Report (Current Week)</option>
+                  <option value="monthly">Monthly Report (Current Month)</option>
+                  <option value="random">Custom Date Range</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                     Start Date
-                    {reportForm.reportType !== "random" && (
-                      <span className="text-gray-500 text-xs ml-1">
-                        (Auto-filled)
-                      </span>
-                    )}
                   </label>
                   <input
                     type="date"
@@ -426,17 +591,12 @@ export default function AttendanceReporting() {
                         startDate: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-2xl bg-slate-50/70 focus:bg-white text-slate-900 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                     End Date
-                    {reportForm.reportType !== "random" && (
-                      <span className="text-gray-500 text-xs ml-1">
-                        (Auto-filled)
-                      </span>
-                    )}
                   </label>
                   <input
                     type="date"
@@ -447,16 +607,20 @@ export default function AttendanceReporting() {
                         endDate: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-2xl bg-slate-50/70 focus:bg-white text-slate-900 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-black mb-1">
-                    Employee ID (Optional)
-                  </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Employee ID (Optional filter)
+                </label>
+                <div className="relative">
+                  <IdCard className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <input
                     type="text"
-                    placeholder="Filter by employee ID"
+                    placeholder="e.g. EMP-001 or Mongo ID"
                     value={reportForm.employeeId}
                     onChange={(e) =>
                       setReportForm((prev) => ({
@@ -464,88 +628,89 @@ export default function AttendanceReporting() {
                         employeeId: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
+                    className="w-full pl-10 pr-3.5 py-2.5 border border-slate-200 rounded-2xl bg-slate-50/70 focus:bg-white text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-black mb-1">
-                    Department (Optional)
-                  </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Department (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Engineering, HR, Operations"
+                  value={reportForm.department}
+                  onChange={(e) =>
+                    setReportForm((prev) => ({
+                      ...prev,
+                      department: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl bg-slate-50/70 focus:bg-white text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-6 pt-1">
+                <label className="flex items-center cursor-pointer">
                   <input
-                    type="text"
-                    placeholder="Filter by department"
-                    value={reportForm.department}
+                    type="checkbox"
+                    checked={reportForm.includePhotos}
                     onChange={(e) =>
                       setReportForm((prev) => ({
                         ...prev,
-                        department: e.target.value,
+                        includePhotos: e.target.checked,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                   />
-                </div>
-                <div className="flex items-center space-x-6">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={reportForm.includePhotos}
-                      onChange={(e) =>
-                        setReportForm((prev) => ({
-                          ...prev,
-                          includePhotos: e.target.checked,
-                        }))
-                      }
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="ml-2 text-sm text-black">
-                      Include Photos
-                    </span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={reportForm.includeLocationData}
-                      onChange={(e) =>
-                        setReportForm((prev) => ({
-                          ...prev,
-                          includeLocationData: e.target.checked,
-                        }))
-                      }
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="ml-2 text-sm text-black">
-                      Include Location Data
-                    </span>
-                  </label>
-                </div>
+                  <span className="ml-2 text-xs font-semibold text-slate-700">
+                    Include Biometric Photos
+                  </span>
+                </label>
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={reportForm.includeLocationData}
+                    onChange={(e) =>
+                      setReportForm((prev) => ({
+                        ...prev,
+                        includeLocationData: e.target.checked,
+                      }))
+                    }
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span className="ml-2 text-xs font-semibold text-slate-700">
+                    Include GPS Coordinates
+                  </span>
+                </label>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={handleGenerateReport}
-                  disabled={generating}
-                  className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow"
-                >
-                  {generating ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Generating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="w-4 h-4" />
-                      <span>Generate Report</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowGenerateModal(false)}
-                  className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center gap-3">
+              <button
+                onClick={handleGenerateReport}
+                disabled={generating}
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl hover:from-indigo-500 hover:to-purple-500 font-bold text-sm shadow-md shadow-indigo-900/20 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+              >
+                {generating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Generating Analytics...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    <span>Generate Report</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowGenerateModal(false)}
+                className="py-3 px-5 border border-slate-200 text-slate-700 rounded-2xl hover:bg-slate-100 font-semibold text-sm transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

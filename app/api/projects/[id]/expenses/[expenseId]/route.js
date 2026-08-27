@@ -88,11 +88,13 @@ export async function PUT(request, { params }) {
       title,
       description,
       amount,
+      reason,
       category,
       expenseDate,
       allocationId,
       vendor,
       receiptUrl,
+      receiptImage,
       approvedBy,
       status,
       tags,
@@ -105,6 +107,8 @@ export async function PUT(request, { params }) {
       updateData[`expenses.${expenseIndex}.title`] = title;
     if (description !== undefined)
       updateData[`expenses.${expenseIndex}.description`] = description;
+    if (reason !== undefined)
+      updateData[`expenses.${expenseIndex}.reason`] = reason;
     if (amount !== undefined) {
       if (amount <= 0) {
         return NextResponse.json(
@@ -121,24 +125,12 @@ export async function PUT(request, { params }) {
         expenseDate
       );
     if (allocationId !== undefined) {
-      // Validate allocation if provided
-      if (allocationId) {
-        const allocation = project.budgetAllocations?.find(
-          (alloc) => alloc._id.toString() === allocationId
-        );
-        if (!allocation) {
-          return NextResponse.json(
-            { error: "Invalid allocation ID" },
-            { status: 400 }
-          );
-        }
-      }
       updateData[`expenses.${expenseIndex}.allocationId`] = allocationId;
     }
     if (vendor !== undefined)
       updateData[`expenses.${expenseIndex}.vendor`] = vendor;
-    if (receiptUrl !== undefined)
-      updateData[`expenses.${expenseIndex}.receiptUrl`] = receiptUrl;
+    if (receiptUrl !== undefined || receiptImage !== undefined)
+      updateData[`expenses.${expenseIndex}.receiptUrl`] = receiptUrl || receiptImage || "";
     if (approvedBy !== undefined)
       updateData[`expenses.${expenseIndex}.approvedBy`] = approvedBy;
     if (status !== undefined)

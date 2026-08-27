@@ -1,24 +1,69 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { Eye, Edit2, Trash2 } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Eye,
+  Edit2,
+  Trash2,
+  FileText,
+  Upload,
+  Download,
+  Search,
+  Filter,
+  RefreshCw,
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
+  Image as ImageIcon,
+  FileSpreadsheet,
+  FileCheck,
+  Calendar,
+  User,
+  Shield,
+  Layers,
+  X,
+  Plus,
+  LayoutGrid,
+  List,
+} from "lucide-react";
 import UploadDocumentDialog from "./UploadDocumentDialog";
+import DocumentDetailViewerModal from "./DocumentDetailViewerModal";
+import Pagination from "./ui/Pagination";
+import { toast } from "./ui/toast";
+
+const DOCUMENT_CATEGORIES = [
+  "All Types",
+  "National ID / Passport",
+  "Resume / CV",
+  "Employment Contract",
+  "Educational Certificate",
+  "Professional License",
+  "Medical Clearance",
+  "Recommendation Letter",
+  "Other Attachment",
+];
 
 export default function DocumentManager() {
   const [documents, setDocuments] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [viewMode, setViewMode] = useState("table"); // "table" | "grid"
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingDocument, setViewingDocument] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [formErrors, setFormErrors] = useState({});
-  const [docxRenderError, setDocxRenderError] = useState("");
-  const [isRenderingDocx, setIsRenderingDocx] = useState(false);
-  const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [editingDocumentId, setEditingDocumentId] = useState(null);
+
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState("");
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState("");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState("all"); // "all" | "active" | "expiring" | "expired"
+
   const [newDocument, setNewDocument] = useState({
     employeeId: "",
     documentType: "",
@@ -44,7 +89,7 @@ export default function DocumentManager() {
         throw new Error(`Failed to fetch documents: ${response.statusText}`);
       }
       const data = await response.json();
-      setDocuments(data);
+      setDocuments(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching documents:", error);
       setError("Failed to load documents. Please try again.");
@@ -61,61 +106,61 @@ export default function DocumentManager() {
       }
       const data = await response.json();
 
-      // Check if the API response has the correct structure
       if (data.success && Array.isArray(data.employees)) {
         setEmployees(data.employees);
       } else if (Array.isArray(data)) {
-        // Fallback for old API format
         setEmployees(data);
       } else {
-        console.error("Invalid API response format:", data);
         setEmployees([]);
-        setError("Invalid data format received from server");
       }
     } catch (error) {
       console.error("Error fetching employees:", error);
-      setError("Failed to load employees. Please try again.");
       setEmployees([]);
     }
+  };
+
+  const getEmployeeName = (employeeId) => {
+    if (!employeeId) return "Unassigned";
+    const employee = employees.find(
+      (emp) =>
+        String(emp._id || emp.id) === String(employeeId) ||
+        String(emp.employeeId) === String(employeeId)
+    );
+    if (!employee) return "Employee";
+    return employee.personalDetails?.name || employee.name || "Employee";
+  };
+
+  const getEmployeeIdCode = (employeeId) => {
+    if (!employeeId) return "";
+    const employee = employees.find(
+      (emp) =>
+        String(emp._id || emp.id) === String(employeeId) ||
+        String(emp.employeeId) === String(employeeId)
+    );
+    return employee?.employeeId || employee?.personalDetails?.employeeId || "";
   };
 
   const validateDocument = (document, file) => {
     const errors = {};
 
-    if (!document.employeeId.trim()) {
+    if (!document.employeeId?.trim()) {
       errors.employeeId = "Please select an employee";
     }
 
-    if (!document.documentType.trim()) {
+    if (!document.documentType?.trim()) {
       errors.documentType = "Please select a document type";
     }
 
-    if (!document.title.trim()) {
+    if (!document.title?.trim()) {
       errors.title = "Document title is required";
     }
 
-    if (!file) {
+    if (!editingDocumentId && !file) {
       errors.file = "Please select a file to upload";
-    } else {
-      // Check file size (10MB limit)
-      const maxSize = 10 * 1024 * 1024; // 10MB
+    } else if (file) {
+      const maxSize = 20 * 1024 * 1024; // 20MB
       if (file.size > maxSize) {
-        errors.file = "File size must be less than 10MB";
-      }
-
-      // Check file type
-      const allowedTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "image/jpeg",
-        "image/png",
-        "image/jpg",
-      ];
-
-      if (!allowedTypes.includes(file.type)) {
-        errors.file =
-          "Only PDF, Word documents, and images (JPG, PNG) are allowed";
+        errors.file = "File size must be less than 20MB";
       }
     }
 
@@ -128,7 +173,6 @@ export default function DocumentManager() {
       setError("");
       setSuccess("");
 
-      // Validate form
       const errors = validateDocument(newDocument, selectedFile);
       if (Object.keys(errors).length > 0) {
         setFormErrors(errors);
@@ -136,10 +180,8 @@ export default function DocumentManager() {
       }
 
       setLoading(true);
-
       let response;
 
-      // If editing an existing document WITHOUT a new file selected → metadata-only update
       if (editingDocumentId && !selectedFile) {
         const updateData = {
           employeeId: newDocument.employeeId,
@@ -156,11 +198,9 @@ export default function DocumentManager() {
           body: JSON.stringify(updateData),
         });
       } else {
-        // New file upload (either new document or replacing file on existing one)
         const formData = new FormData();
         formData.append("file", selectedFile);
 
-        // Add timestamp to document data
         const documentData = {
           ...newDocument,
           uploadDate: new Date(),
@@ -170,13 +210,11 @@ export default function DocumentManager() {
         formData.append("documentData", JSON.stringify(documentData));
 
         if (editingDocumentId) {
-          // Replace existing file and update metadata in-place
           response = await fetch(`/api/documents/${editingDocumentId}/upload`, {
             method: "POST",
             body: formData,
           });
         } else {
-          // Create new document
           response = await fetch("/api/documents/upload", {
             method: "POST",
             body: formData,
@@ -189,13 +227,12 @@ export default function DocumentManager() {
         throw new Error(errorData.error || "Failed to upload document");
       }
 
-      const result = await response.json();
-      setSuccess("Document uploaded successfully!");
+      toast.success("Document saved successfully!");
+      setSuccess("Document saved successfully!");
       setIsUploadDialogOpen(false);
       setSelectedFile(null);
       setEditingDocumentId(null);
 
-      // Reset form
       setNewDocument({
         employeeId: "",
         documentType: "",
@@ -208,12 +245,11 @@ export default function DocumentManager() {
       });
 
       await fetchDocuments();
-
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(""), 3000);
     } catch (error) {
       console.error("Error uploading document:", error);
-      setError(error.message || "Failed to upload document. Please try again.");
+      toast.error(error.message || "Failed to upload document");
+      setError(error.message || "Failed to upload document");
     } finally {
       setLoading(false);
     }
@@ -238,42 +274,22 @@ export default function DocumentManager() {
           throw new Error(errorData.error || "Failed to delete document");
         }
 
+        toast.success("Document deleted successfully!");
         setSuccess("Document deleted successfully!");
         await fetchDocuments();
-
-        // Clear success message after 3 seconds
         setTimeout(() => setSuccess(""), 3000);
       } catch (error) {
         console.error("Error deleting document:", error);
-        setError(
-          error.message || "Failed to delete document. Please try again."
-        );
+        toast.error(error.message || "Failed to delete document");
+        setError(error.message || "Failed to delete document");
       } finally {
         setLoading(false);
       }
     }
   };
 
-  const getExpiringDocuments = () => {
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-
-    return documents.filter((doc) => {
-      if (!doc.expiryDate) return false;
-      const expiryDate = new Date(doc.expiryDate);
-      return expiryDate <= thirtyDaysFromNow && expiryDate >= new Date();
-    });
-  };
-
-  const getExpiredDocuments = () => {
-    return documents.filter((doc) => {
-      if (!doc.expiryDate) return false;
-      return new Date(doc.expiryDate) < new Date();
-    });
-  };
-
   const getReadableSize = (bytes) => {
-    if (bytes === undefined || bytes === null) return "";
+    if (!bytes && bytes !== 0) return "0 B";
     const units = ["B", "KB", "MB", "GB"];
     let size = bytes;
     let idx = 0;
@@ -284,58 +300,17 @@ export default function DocumentManager() {
     return `${size.toFixed(1)} ${units[idx]}`;
   };
 
-  const openViewDialog = async (doc) => {
-    try {
-      setError("");
-      setDocxRenderError("");
-      setViewingDocument(doc);
-      setIsViewDialogOpen(true);
-      setPreviewUnavailable(false);
-
-      // Only preview PDFs inline; other types are not supported here
-      const isPdf =
-        doc.mimeType === "application/pdf" ||
-        /\.pdf$/i.test(doc.originalName || doc.title || "");
-      if (isPdf) {
-        try {
-          const res = await fetch(`/api/documents/${doc._id}/download`);
-          if (!res.ok) {
-            setPreviewUrl("");
-            setPreviewUnavailable(true);
-            return;
-          }
-          const blob = await res.blob();
-          const objUrl = URL.createObjectURL(blob);
-          setPreviewUrl(objUrl);
-        } catch (e) {
-          console.error(e);
-          setPreviewUrl("");
-          setPreviewUnavailable(true);
-        }
-        return;
-      }
-
-      // Non-PDF: show message to download
-      setPreviewUrl("");
-      setPreviewUnavailable(true);
-      return;
-    } catch (e) {
-      console.error("Preview error:", e);
-      setPreviewUrl("");
-      setPreviewUnavailable(true);
-    }
+  const openViewDialog = (doc) => {
+    setError("");
+    setViewingDocument(doc);
+    setIsViewDialogOpen(true);
   };
 
   const closeViewDialog = () => {
-    if (previewUrl && previewUrl.startsWith("blob:"))
-      URL.revokeObjectURL(previewUrl);
-    setPreviewUrl("");
     setViewingDocument(null);
     setIsViewDialogOpen(false);
-    setPreviewUnavailable(false);
   };
 
-  // Open upload dialog prefilled with an existing document (edit/replace flow)
   const openEditDialog = (doc) => {
     try {
       setFormErrors({});
@@ -343,7 +318,7 @@ export default function DocumentManager() {
       setSelectedFile(null);
       setNewDocument({
         employeeId: doc?.employeeId || "",
-        documentType: doc?.documentType || "",
+        documentType: doc?.documentType || doc?.type || "",
         title: doc?.title || doc?.originalName || "",
         description: doc?.description || "",
         uploadDate: doc?.uploadDate ? new Date(doc.uploadDate) : new Date(),
@@ -357,313 +332,707 @@ export default function DocumentManager() {
     }
   };
 
-  // Render DOCX preview dynamically using docx-preview
-  useEffect(() => {
-    const renderDocx = async () => {
-      if (
-        !isViewDialogOpen ||
-        previewUrl !== "__DOCX_RENDER__" ||
-        !viewingDocument
-      )
-        return;
-      try {
-        setIsRenderingDocx(true);
-        setDocxRenderError("");
-        const res = await fetch(
-          `/api/documents/${viewingDocument._id}/download`
-        );
-        if (!res.ok) throw new Error("Failed to fetch DOCX for preview");
-        const blob = await res.blob();
-        const container = document.getElementById("docx-preview-container");
-        if (!container) return;
-        container.innerHTML = "";
-        const mod = await import("docx-preview");
-        const renderAsync = mod.renderAsync || mod.default?.renderAsync;
-        if (!renderAsync) throw new Error("docx-preview renderAsync not found");
-        await renderAsync(blob, container, undefined, {
-          className: "docx",
-          inWrapper: true,
-        });
-      } catch (err) {
-        console.error("DOCX render error:", err);
-        setDocxRenderError(
-          "Unable to render DOCX preview. Please download to view."
-        );
-      } finally {
-        setIsRenderingDocx(false);
-      }
-    };
-    renderDocx();
-  }, [isViewDialogOpen, previewUrl, viewingDocument]);
-
-  const getEmployeeName = (employeeId) => {
-    const employee = employees.find((emp) => emp._id === employeeId);
-    if (!employee) return "Unknown";
-    const name = employee.personalDetails?.name || employee.name;
-    return name || "Unknown";
-  };
-
+  // Status calculation helpers
   const getDocumentStatus = (expiryDate) => {
-    if (!expiryDate) return "No Expiry";
+    if (!expiryDate) return "Active";
     const expiry = new Date(expiryDate);
     const now = new Date();
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const thirtyDays = new Date();
+    thirtyDays.setDate(thirtyDays.getDate() + 30);
 
     if (expiry < now) return "Expired";
-    if (expiry <= thirtyDaysFromNow) return "Expiring Soon";
+    if (expiry <= thirtyDays) return "Expiring Soon";
     return "Active";
   };
 
-  const getStatusColor = (status) => {
+  const getStatusBadgeClass = (status) => {
     switch (status) {
       case "Expired":
-        return "bg-red-100 text-red-800";
+        return "bg-rose-50 text-rose-700 border-rose-200";
       case "Expiring Soon":
-        return "bg-orange-100 text-orange-800";
-      case "Active":
-        return "bg-green-100 text-green-800";
+        return "bg-amber-50 text-amber-800 border-amber-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
     }
   };
 
-  const expiringDocuments = getExpiringDocuments();
-  const expiredDocuments = getExpiredDocuments();
+  // Filtered documents
+  const filteredDocuments = useMemo(() => {
+    return documents.filter((doc) => {
+      const title = (doc.title || "").toLowerCase();
+      const fileName = (doc.originalName || doc.fileName || "").toLowerCase();
+      const empName = getEmployeeName(doc.employeeId).toLowerCase();
+      const empCode = getEmployeeIdCode(doc.employeeId).toLowerCase();
+      const docType = (doc.documentType || doc.type || "").toLowerCase();
+      const search = searchTerm.toLowerCase().trim();
+
+      const matchesSearch =
+        !search ||
+        title.includes(search) ||
+        fileName.includes(search) ||
+        empName.includes(search) ||
+        empCode.includes(search) ||
+        docType.includes(search);
+
+      const matchesEmployee =
+        !selectedEmployeeFilter ||
+        String(doc.employeeId) === String(selectedEmployeeFilter);
+
+      const matchesType =
+        !selectedTypeFilter ||
+        selectedTypeFilter === "All Types" ||
+        (doc.documentType || doc.type) === selectedTypeFilter;
+
+      const docStatus = getDocumentStatus(doc.expiryDate);
+      const matchesStatus =
+        selectedStatusFilter === "all" ||
+        (selectedStatusFilter === "active" && docStatus === "Active") ||
+        (selectedStatusFilter === "expiring" && docStatus === "Expiring Soon") ||
+        (selectedStatusFilter === "expired" && docStatus === "Expired");
+
+      return (
+        matchesSearch && matchesEmployee && matchesType && matchesStatus
+      );
+    });
+  }, [
+    documents,
+    searchTerm,
+    selectedEmployeeFilter,
+    selectedTypeFilter,
+    selectedStatusFilter,
+    employees,
+  ]);
+
+  // Stats calculation
+  const stats = useMemo(() => {
+    let active = 0;
+    let expiring = 0;
+    let expired = 0;
+    let totalSize = 0;
+
+    documents.forEach((doc) => {
+      totalSize += doc.fileSize || 0;
+      const status = getDocumentStatus(doc.expiryDate);
+      if (status === "Expired") expired++;
+      else if (status === "Expiring Soon") expiring++;
+      else active++;
+    });
+
+    return {
+      total: documents.length,
+      active,
+      expiring,
+      expired,
+      totalSize: getReadableSize(totalSize),
+    };
+  }, [documents]);
+
+  const totalPages = Math.ceil((filteredDocuments.length || 0) / itemsPerPage) || 1;
+  const paginatedDocuments = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredDocuments.slice(start, start + itemsPerPage);
+  }, [filteredDocuments, currentPage, itemsPerPage]);
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedEmployeeFilter("");
+    setSelectedTypeFilter("");
+    setSelectedStatusFilter("all");
+    setCurrentPage(1);
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Notifications */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="h-5 w-5 text-red-400">⚠</div>
+    <div className="space-y-6 animate-in fade-in duration-200">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6 sm:p-8 shadow-xl text-white">
+        <div className="absolute -top-12 -right-12 w-56 h-56 bg-indigo-500/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-purple-500/10 rounded-full blur-2xl" />
+
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shadow-inner">
+                <FileText className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  Document Management
+                </h1>
+                <p className="text-indigo-200/80 text-xs sm:text-sm mt-0.5">
+                  Organize, verify, track expiry, and inspect employee documentation & credentials.
+                </p>
+              </div>
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-red-800">{error}</p>
-            </div>
-            <div className="ml-auto pl-3">
-              <button
-                onClick={() => setError("")}
-                className="inline-flex text-red-400 hover:text-red-600"
-              >
-                ×
-              </button>
+
+            {/* Quick KPI Badges */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md text-xs font-semibold text-white flex items-center gap-1.5 border border-white/10">
+                <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                <span>{stats.total} Total Files</span>
+              </div>
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md text-xs font-semibold text-emerald-300 flex items-center gap-1.5 border border-white/10">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>{stats.active} Active</span>
+              </div>
+              {stats.expiring > 0 && (
+                <div className="px-3 py-1.5 rounded-xl bg-amber-500/20 backdrop-blur-md text-xs font-semibold text-amber-200 flex items-center gap-1.5 border border-amber-400/30">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span>{stats.expiring} Expiring Soon</span>
+                </div>
+              )}
+              {stats.expired > 0 && (
+                <div className="px-3 py-1.5 rounded-xl bg-rose-500/20 backdrop-blur-md text-xs font-semibold text-rose-200 flex items-center gap-1.5 border border-rose-400/30">
+                  <span className="w-2 h-2 rounded-full bg-rose-400" />
+                  <span>{stats.expired} Expired</span>
+                </div>
+              )}
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md text-xs font-semibold text-slate-300 flex items-center gap-1.5 border border-white/10 hidden sm:flex">
+                <span>Storage: {stats.totalSize}</span>
+              </div>
             </div>
           </div>
+
+          <div className="flex items-center gap-2.5 self-start md:self-auto">
+            <button
+              onClick={fetchDocuments}
+              disabled={loading}
+              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 transition-all flex items-center gap-2 text-xs font-semibold"
+              title="Refresh Documents"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setEditingDocumentId(null);
+                setSelectedFile(null);
+                setNewDocument({
+                  employeeId: "",
+                  documentType: "",
+                  title: "",
+                  description: "",
+                  uploadDate: new Date(),
+                  expiryDate: "",
+                  status: "active",
+                  tags: [],
+                });
+                setIsUploadDialogOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Upload Document</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Notifications */}
+      {error && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button onClick={() => setError("")} className="text-red-500 hover:text-red-700">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
       {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="h-5 w-5 text-green-400">✓</div>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-green-800">{success}</p>
-            </div>
-            <div className="ml-auto pl-3">
-              <button
-                onClick={() => setSuccess("")}
-                className="inline-flex text-green-400 hover:text-green-600"
-              >
-                ×
-              </button>
-            </div>
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span>{success}</span>
           </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-black">
-              Document Management
-            </h2>
-            <p className="text-black mt-1">
-              Upload, manage, and track document expiry dates
-            </p>
-          </div>
-          <button
-            onClick={() => setIsUploadDialogOpen(true)}
-            disabled={loading}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-          >
-            {loading ? "Loading..." : "Upload Document"}
+          <button onClick={() => setSuccess("")} className="text-emerald-600 hover:text-emerald-800">
+            <X className="w-4 h-4" />
           </button>
         </div>
-      </div>
-
-      {/* Expiry Alerts */}
-      {(expiringDocuments.length > 0 || expiredDocuments.length > 0) && (
-        <div className="space-y-4">
-          {expiredDocuments.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-red-900 mb-2">
-                ⚠️ Expired Documents ({expiredDocuments.length})
-              </h3>
-              <div className="space-y-2">
-                {expiredDocuments.slice(0, 5).map((doc) => (
-                  <div
-                    key={doc._id}
-                    className="flex justify-between items-center bg-white p-2 rounded"
-                  >
-                    <span className="text-sm text-black">
-                      {getEmployeeName(doc.employeeId)} - {doc.title}
-                    </span>
-                    <span className="text-xs text-red-600">
-                      Expired: {new Date(doc.expiryDate).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
-                {expiredDocuments.length > 5 && (
-                  <p className="text-sm text-red-600">
-                    +{expiredDocuments.length - 5} more expired documents
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {expiringDocuments.length > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-orange-900 mb-2">
-                ⏰ Expiring Soon ({expiringDocuments.length})
-              </h3>
-              <div className="space-y-2">
-                {expiringDocuments.slice(0, 5).map((doc) => (
-                  <div
-                    key={doc._id}
-                    className="flex justify-between items-center bg-white p-2 rounded"
-                  >
-                    <span className="text-sm text-black">
-                      {getEmployeeName(doc.employeeId)} - {doc.title}
-                    </span>
-                    <span className="text-xs text-orange-600">
-                      Expires: {new Date(doc.expiryDate).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
-                {expiringDocuments.length > 5 && (
-                  <p className="text-sm text-orange-600">
-                    +{expiringDocuments.length - 5} more expiring documents
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
       )}
 
-      {/* Document List */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Document
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Upload Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Expiry Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {documents.map((document) => (
-                <tr key={document._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-black">
-                        {document.title}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {document.originalName}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                    {getEmployeeName(document.employeeId)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                    {document.documentType}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                    {new Date(document.uploadDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                    {document.expiryDate
-                      ? new Date(document.expiryDate).toLocaleDateString()
-                      : "No Expiry"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(
-                        getDocumentStatus(document.expiryDate)
-                      )}`}
-                    >
-                      {getDocumentStatus(document.expiryDate)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => openViewDialog(document)}
-                        disabled={loading}
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all hover:scale-110 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        title="View Document"
-                      >
-                        <Eye className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => openEditDialog(document)}
-                        disabled={loading}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all hover:scale-110 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        title="Edit/Replace Document"
-                      >
-                        <Edit2 className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() =>
-                          handleDeleteDocument(document._id, document.title)
-                        }
-                        disabled={loading}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all hover:scale-110 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        title="Delete Document"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+      {/* Search and Filters Bar */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-800">
+              Filter Documents
+            </h3>
+            {(searchTerm || selectedEmployeeFilter || selectedTypeFilter || selectedStatusFilter !== "all") && (
+              <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2.5 py-0.5 rounded-full">
+                {filteredDocuments.length} matching of {documents.length}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  viewMode === "table"
+                    ? "bg-white text-indigo-600 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Table View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  viewMode === "grid"
+                    ? "bg-white text-indigo-600 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Grid View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </div>
+
+            {(searchTerm || selectedEmployeeFilter || selectedTypeFilter || selectedStatusFilter !== "all") && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Search Box */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by title, file, employee..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all"
+            />
+          </div>
+
+          {/* Filter by Employee */}
+          <div>
+            <select
+              value={selectedEmployeeFilter}
+              onChange={(e) => {
+                setSelectedEmployeeFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all"
+            >
+              <option value="">All Employees ({employees.length})</option>
+              {employees.map((emp) => (
+                <option key={emp._id || emp.id} value={emp._id || emp.id}>
+                  {emp.personalDetails?.name || emp.name} ({emp.employeeId || emp.personalDetails?.employeeId || "ID"})
+                </option>
               ))}
-            </tbody>
-          </table>
+            </select>
+          </div>
+
+          {/* Filter by Document Type */}
+          <div>
+            <select
+              value={selectedTypeFilter}
+              onChange={(e) => {
+                setSelectedTypeFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all"
+            >
+              {DOCUMENT_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat === "All Types" ? "" : cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filter by Expiry Status */}
+          <div>
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => {
+                setSelectedStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all"
+            >
+              <option value="all">All Expiry Statuses</option>
+              <option value="active">Active (Valid)</option>
+              <option value="expiring">Expiring Soon (&le; 30 days)</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Upload Document Dialog - Consistent with stepper UI */}
+      {/* Main Document Content */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+        {loading && (!Array.isArray(documents) || documents.length === 0) ? (
+          <div className="py-20 text-center space-y-3">
+            <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto" />
+            <p className="text-sm font-semibold text-slate-700">
+              Loading documents directory...
+            </p>
+          </div>
+        ) : filteredDocuments.length === 0 ? (
+          <div className="py-16 text-center space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto">
+              <FileText className="w-8 h-8" />
+            </div>
+            <h4 className="text-base font-bold text-slate-800">
+              No documents match your filters
+            </h4>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              {searchTerm || selectedEmployeeFilter || selectedTypeFilter || selectedStatusFilter !== "all"
+                ? "Try adjusting or clearing your search filters."
+                : "Upload your first employee document using the button above."}
+            </p>
+            {(searchTerm || selectedEmployeeFilter || selectedTypeFilter || selectedStatusFilter !== "all") && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="mt-2 px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-all"
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
+        ) : viewMode === "table" ? (
+          /* Table View */
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100 text-left">
+              <thead>
+                <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-3.5">Document</th>
+                  <th className="px-6 py-3.5">Employee</th>
+                  <th className="px-6 py-3.5">Category</th>
+                  <th className="px-6 py-3.5">Upload Date</th>
+                  <th className="px-6 py-3.5">Expiry Date</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {paginatedDocuments.map((doc) => {
+                  const docId = doc._id || doc.id;
+                  const isPdf =
+                    doc.mimeType?.includes("pdf") ||
+                    doc.originalName?.toLowerCase().endsWith(".pdf") ||
+                    doc.documentType === "pdf";
+                  const isImage =
+                    doc.mimeType?.startsWith("image/") ||
+                    doc.originalName?.match(/\.(jpg|jpeg|png|webp)$/i);
+                  const isExcel =
+                    doc.mimeType?.includes("sheet") ||
+                    doc.mimeType?.includes("excel") ||
+                    doc.originalName?.match(/\.(xlsx|xls|csv)$/i);
+                  const status = getDocumentStatus(doc.expiryDate);
+
+                  return (
+                    <tr
+                      key={docId}
+                      className="hover:bg-slate-50/80 transition-colors group"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex-shrink-0">
+                            {isPdf ? (
+                              <FileText className="w-5 h-5 text-rose-500" />
+                            ) : isImage ? (
+                              <ImageIcon className="w-5 h-5 text-emerald-500" />
+                            ) : isExcel ? (
+                              <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                            ) : (
+                              <FileCheck className="w-5 h-5 text-indigo-500" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-900 truncate max-w-[220px]">
+                              {doc.title || doc.originalName || "Document"}
+                            </p>
+                            <p className="text-[11px] text-slate-400 font-mono truncate max-w-[220px]">
+                              {doc.originalName} ({getReadableSize(doc.fileSize)})
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-700">
+                            {getEmployeeName(doc.employeeId).charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800">
+                              {getEmployeeName(doc.employeeId)}
+                            </p>
+                            {getEmployeeIdCode(doc.employeeId) && (
+                              <p className="text-[10px] text-slate-400 font-mono">
+                                {getEmployeeIdCode(doc.employeeId)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-medium text-[11px]">
+                          {doc.documentType || doc.type || "General"}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-4 text-slate-600">
+                        {doc.uploadDate
+                          ? new Date(doc.uploadDate).toLocaleDateString()
+                          : "N/A"}
+                      </td>
+
+                      <td className="px-6 py-4 text-slate-600">
+                        {doc.expiryDate
+                          ? new Date(doc.expiryDate).toLocaleDateString()
+                          : "No Expiry"}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${getStatusBadgeClass(
+                            status
+                          )}`}
+                        >
+                          {status}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* View in Detail */}
+                          <button
+                            type="button"
+                            onClick={() => openViewDialog(doc)}
+                            className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all font-semibold"
+                            title="See in Detail & Preview"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+
+                          {/* Download */}
+                          <a
+                            href={`/api/documents/${docId}/download`}
+                            download={doc.originalName || "document"}
+                            className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all font-semibold"
+                            title="Download File"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
+
+                          {/* Edit / Replace */}
+                          <button
+                            type="button"
+                            onClick={() => openEditDialog(doc)}
+                            className="p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-all font-semibold"
+                            title="Edit / Replace File"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+
+                          {/* Delete */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeleteDocument(docId, doc.title || doc.originalName)
+                            }
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                            title="Delete Document"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          /* Grid Card View */
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedDocuments.map((doc) => {
+              const docId = doc._id || doc.id;
+              const isPdf =
+                doc.mimeType?.includes("pdf") ||
+                doc.originalName?.toLowerCase().endsWith(".pdf") ||
+                doc.documentType === "pdf";
+              const isImage =
+                doc.mimeType?.startsWith("image/") ||
+                doc.originalName?.match(/\.(jpg|jpeg|png|webp)$/i);
+              const status = getDocumentStatus(doc.expiryDate);
+
+              return (
+                <div
+                  key={docId}
+                  className="p-5 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-3 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex-shrink-0">
+                      {isPdf ? (
+                        <FileText className="w-6 h-6 text-rose-500" />
+                      ) : isImage ? (
+                        <ImageIcon className="w-6 h-6 text-emerald-500" />
+                      ) : (
+                        <FileCheck className="w-6 h-6 text-indigo-500" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold border ${getStatusBadgeClass(
+                            status
+                          )}`}
+                        >
+                          {status}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {getReadableSize(doc.fileSize)}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-900 mt-1 truncate">
+                        {doc.title || doc.originalName || "Document"}
+                      </h4>
+                      <p className="text-xs text-indigo-600 font-medium">
+                        {doc.documentType || doc.type || "Document"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 text-[11px]">Employee:</span>
+                      <span className="font-semibold text-slate-800 truncate max-w-[150px]">
+                        {getEmployeeName(doc.employeeId)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 text-[11px]">Upload Date:</span>
+                      <span>
+                        {doc.uploadDate
+                          ? new Date(doc.uploadDate).toLocaleDateString()
+                          : "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 text-[11px]">Expiry Date:</span>
+                      <span className="font-medium">
+                        {doc.expiryDate
+                          ? new Date(doc.expiryDate).toLocaleDateString()
+                          : "No Expiry"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openViewDialog(doc)}
+                      className="flex-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-all flex items-center justify-center gap-1"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View</span>
+                    </button>
+
+                    <a
+                      href={`/api/documents/${docId}/download`}
+                      download={doc.originalName || "document"}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all"
+                      title="Download"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() => openEditDialog(doc)}
+                      className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 transition-all"
+                      title="Edit / Replace"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleDeleteDocument(docId, doc.title || doc.originalName)
+                      }
+                      className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {filteredDocuments.length > 0 && (
+          <div className="px-6 py-4 bg-slate-50/60 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span>
+                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                {Math.min(currentPage * itemsPerPage, filteredDocuments.length)} of{" "}
+                {filteredDocuments.length} documents
+              </span>
+              <div className="flex items-center gap-1.5 ml-2">
+                <span>Per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(p) => setCurrentPage(p)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Upload & Edit Document Dialog */}
       <UploadDocumentDialog
         isOpen={isUploadDialogOpen}
-        onClose={() => setIsUploadDialogOpen(false)}
+        onClose={() => {
+          setIsUploadDialogOpen(false);
+          setEditingDocumentId(null);
+        }}
         employees={employees}
         newDocument={newDocument}
         setNewDocument={setNewDocument}
@@ -674,116 +1043,18 @@ export default function DocumentManager() {
         formErrors={formErrors}
       />
 
-      {/* View Document Dialog */}
+      {/* Detail Viewer Modal */}
       {isViewDialogOpen && viewingDocument && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[95vh] overflow-y-auto">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-semibold text-black">
-                  {viewingDocument.title}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {getEmployeeName(viewingDocument.employeeId)} •{" "}
-                  {viewingDocument.documentType}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={`/api/documents/${viewingDocument._id}/download`}
-                  className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700"
-                >
-                  Download
-                </a>
-                <button
-                  onClick={closeViewDialog}
-                  className="bg-gray-500 text-white px-3 py-2 rounded hover:bg-gray-600"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              {previewUrl && previewUrl !== "__DOCX_RENDER__" && (
-                <embed
-                  src={previewUrl}
-                  type="application/pdf"
-                  className="w-full h-[70vh] border rounded bg-white"
-                />
-              )}
-              {previewUrl === "__DOCX_RENDER__" && (
-                <div className="w-full border rounded bg-white">
-                  {isRenderingDocx ? (
-                    <div className="p-6 text-gray-600 text-sm">
-                      Rendering document...
-                    </div>
-                  ) : (
-                    <div
-                      id="docx-preview-container"
-                      className="p-4 overflow-auto max-h-[70vh]"
-                    />
-                  )}
-                  {docxRenderError && (
-                    <div className="p-4 text-red-600 text-sm">
-                      {docxRenderError}
-                    </div>
-                  )}
-                </div>
-              )}
-              {!previewUrl && !previewUnavailable && (
-                <div className="p-6 bg-gray-50 border rounded text-gray-600 text-sm">
-                  Loading preview or preview not available.
-                </div>
-              )}
-              {!previewUrl && previewUnavailable && (
-                <div className="p-6 bg-yellow-50 border border-yellow-200 rounded text-yellow-800 text-sm">
-                  Preview is not available for this file type. Please download
-                  to view.
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="bg-gray-50 rounded p-3">
-                <div className="text-gray-500">Original File</div>
-                <div className="text-black">
-                  {viewingDocument.originalName}
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded p-3">
-                <div className="text-gray-500">Size</div>
-                <div className="text-black">
-                  {getReadableSize(viewingDocument.fileSize)}
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded p-3">
-                <div className="text-gray-500">MIME Type</div>
-                <div className="text-black">{viewingDocument.mimeType}</div>
-              </div>
-              <div className="bg-gray-50 rounded p-3">
-                <div className="text-gray-500">Upload Date</div>
-                <div className="text-black">
-                  {new Date(viewingDocument.uploadDate).toLocaleString()}
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded p-3">
-                <div className="text-gray-500">Expiry Date</div>
-                <div className="text-black">
-                  {viewingDocument.expiryDate
-                    ? new Date(viewingDocument.expiryDate).toLocaleDateString()
-                    : "No Expiry"}
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded p-3">
-                <div className="text-gray-500">Status</div>
-                <div className="text-black">
-                  {getDocumentStatus(viewingDocument.expiryDate)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DocumentDetailViewerModal
+          isOpen={isViewDialogOpen}
+          document={viewingDocument}
+          employeeName={getEmployeeName(viewingDocument.employeeId)}
+          onClose={closeViewDialog}
+          onReplaceFile={(doc) => {
+            closeViewDialog();
+            openEditDialog(doc);
+          }}
+        />
       )}
     </div>
   );

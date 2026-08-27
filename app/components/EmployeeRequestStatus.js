@@ -358,17 +358,21 @@ export default function EmployeeRequestStatus({ employeeId, employeeName }) {
                               </span>
                             </div>
                           )}
-                          {request.status === "rejected" &&
-                            request.rejectionReason && (
-                              <div>
-                                <span className="text-gray-600">
-                                  Rejection Reason:
-                                </span>
-                                <p className="text-red-600 mt-1">
-                                  {request.rejectionReason}
-                                </p>
-                              </div>
-                            )}
+                          {request.status === "rejected" && (
+                            <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 mt-2">
+                              <span className="text-xs font-bold text-rose-800 block mb-1">
+                                Rejection Reason:
+                              </span>
+                              <p className="text-rose-900 font-medium text-xs bg-white/70 p-2 rounded border border-rose-100">
+                                {request.rejectionReason ||
+                                  request.comments ||
+                                  request.supervisorNotes ||
+                                  request.notes ||
+                                  request.adminApproval?.rejectionReason ||
+                                  "No specific reason provided."}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

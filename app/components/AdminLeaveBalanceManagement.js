@@ -690,13 +690,7 @@ export default function AdminLeaveBalanceManagement() {
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="">Select Leave Type</option>
                   <option value="annual">Annual Leave</option>
-                  <option value="sick">Sick Leave</option>
-                  <option value="personal">Personal Leave</option>
-                  <option value="maternity">Maternity Leave</option>
-                  <option value="paternity">Paternity Leave</option>
-                  <option value="bereavement">Bereavement Leave</option>
                 </select>
               </div>
 

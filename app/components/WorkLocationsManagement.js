@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   MapPin,
   Plus,
@@ -13,11 +13,17 @@ import {
   Search,
   Filter,
   X,
+  RefreshCw,
+  Radio,
 } from "lucide-react";
+import Pagination from "./ui/Pagination";
+import { toast } from "./ui/toast";
 
 export default function WorkLocationsManagement() {
   const [locations, setLocations] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(9);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
@@ -94,6 +100,10 @@ export default function WorkLocationsManagement() {
   const showMessage = (msg, type = "info") => {
     setMessage(msg);
     setMessageType(type);
+    if (type === "success") toast.success(msg);
+    else if (type === "error") toast.error(msg);
+    else if (type === "warning") toast.warning(msg);
+    else toast.info(msg);
     setTimeout(() => {
       setMessage("");
     }, 5000);
@@ -331,70 +341,106 @@ export default function WorkLocationsManagement() {
     return name.includes(term) || address.includes(term);
   });
 
+  const totalPages = Math.ceil((filteredLocations.length || 0) / itemsPerPage) || 1;
+  const paginatedLocations = React.useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredLocations.slice(start, start + itemsPerPage);
+  }, [filteredLocations, currentPage, itemsPerPage]);
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6 shadow-xl text-white">
+        <div className="absolute -top-10 -right-10 w-48 h-48 bg-indigo-500/10 rounded-full blur-2xl" />
+        <div className="absolute -bottom-8 -left-8 w-36 h-36 bg-purple-500/10 rounded-full blur-xl" />
+
+        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-black mb-2">
-              Work Location Management
-            </h1>
-            <p className="text-gray-600">
-              Create and manage work locations, assign employees to multiple
-              locations
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-indigo-500/20 backdrop-blur rounded-xl flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-indigo-300" />
+              </div>
+              <h2 className="text-2xl font-bold text-white">Work Location Management</h2>
+            </div>
+            <p className="text-indigo-100/80 text-sm">
+              Define geofenced job sites, configure GPS boundaries, and assign personnel.
             </p>
+
+            {/* Quick Stats Badges */}
+            <div className="flex flex-wrap gap-2.5 mt-4">
+              <div className="px-3 py-1.5 bg-white/10 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-indigo-400 rounded-full"></span>
+                {locations.length} Total Locations
+              </div>
+              <div className="px-3 py-1.5 bg-white/10 rounded-xl text-xs font-semibold text-emerald-200 flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-emerald-400 rounded-full"></span>
+                {locations.filter((l) => (l.status || "active") === "active").length} Active Sites
+              </div>
+              {filteredLocations.length !== locations.length && (
+                <div className="px-3 py-1.5 bg-white/10 rounded-xl text-xs font-semibold text-amber-200 flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-amber-400 rounded-full"></span>
+                  {filteredLocations.length} Matching Search
+                </div>
+              )}
+            </div>
           </div>
+
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            className="flex items-center gap-2 bg-white text-indigo-900 hover:bg-indigo-50 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all hover:scale-105 self-start lg:self-auto"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Location</span>
+            <span>Add Work Location</span>
           </button>
         </div>
       </div>
 
-      {/* Message Display */}
+      {/* Message Feedback */}
       {message && (
         <div
-          className={`p-4 rounded-lg flex items-center space-x-2 ${
+          className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-sm border shadow-sm ${
             messageType === "success"
-              ? "bg-green-100 text-green-700"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
               : messageType === "error"
-              ? "bg-red-100 text-red-700"
-              : "bg-blue-100 text-blue-700"
+              ? "bg-rose-50 border-rose-200 text-rose-800"
+              : "bg-blue-50 border-blue-200 text-blue-800"
           }`}
         >
-          {messageType === "success" ? (
-            <CheckCircle className="w-5 h-5" />
-          ) : (
-            <AlertCircle className="w-5 h-5" />
-          )}
-          <span>{message}</span>
+          <div className="flex items-center gap-2 font-medium">
+            {messageType === "success" ? (
+              <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+            )}
+            <span>{message}</span>
+          </div>
+          <button
+            onClick={() => setMessage("")}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-2 py-1 bg-white rounded-lg border border-slate-200"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* Search and Filter */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center space-x-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search locations..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black placeholder-gray-500"
-              />
-            </div>
+      {/* Search Bar */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search by site name, landmark, or address..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white text-slate-900 text-sm placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            />
           </div>
           <button
             onClick={fetchLocations}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center space-x-2"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-xs sm:text-sm transition-colors flex items-center gap-2"
           >
-            <Filter className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4 text-slate-500" />
             <span>Refresh</span>
           </button>
         </div>
@@ -402,116 +448,157 @@ export default function WorkLocationsManagement() {
 
       {/* Locations Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+          <p className="text-slate-400 text-sm">Loading work locations...</p>
         </div>
       ) : filteredLocations.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-black mb-2">
-            No work locations found
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center">
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3 text-slate-400">
+            <MapPin className="w-8 h-8" />
+          </div>
+          <h3 className="text-base font-semibold text-slate-800">
+            {searchTerm ? "No matching work locations" : "No work locations configured"}
           </h3>
-          <p className="text-gray-600 mb-4">
+          <p className="text-slate-400 text-xs mt-1 max-w-md mx-auto">
             {searchTerm
-              ? "No locations match your search criteria."
-              : "Get started by creating your first work location."}
+              ? "Try adjusting your search keywords."
+              : "Get started by registering your company's primary office or construction sites."}
           </p>
           {!searchTerm && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
             >
               Create First Location
             </button>
           )}
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredLocations.map((location) => (
-            <div key={location._id} className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <MapPin className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-black">
-                    {location.name || location.siteName || "Unnamed Location"}
-                  </h3>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {paginatedLocations.map((location) => (
+              <div
+                key={location._id}
+                className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 hover:shadow-md transition-all flex flex-col justify-between"
+              >
+                <div>
+                  {/* Top Bar: Icon + Name + Actions */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+                        <MapPin className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-slate-900 text-sm truncate">
+                          {location.name || location.siteName || "Unnamed Location"}
+                        </h3>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                            (location.status || "active") === "active"
+                              ? "text-emerald-600"
+                              : "text-rose-600"
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              (location.status || "active") === "active"
+                                ? "bg-emerald-500"
+                                : "bg-rose-500"
+                            }`}
+                          />
+                          {(location.status || "active").toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openAssignModal(location)}
+                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="Assign Employees"
+                      >
+                        <Users className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openEditModal(location)}
+                        className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                        title="Edit Location"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLocation(location._id)}
+                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Delete Location"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Details */}
+                  <div className="space-y-2 py-3 border-y border-slate-50 text-xs text-slate-600">
+                    {location.address && (
+                      <p className="line-clamp-2">
+                        <strong className="text-slate-800">Address:</strong> {location.address}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-slate-400">GPS Coordinates:</span>
+                      <span className="font-mono text-slate-800 font-medium bg-slate-50 px-2 py-0.5 rounded-md text-[11px]">
+                        {typeof location.latitude === "number"
+                          ? location.latitude.toFixed(4)
+                          : String(location.latitude || "N/A")}
+                        ,{" "}
+                        {typeof location.longitude === "number"
+                          ? location.longitude.toFixed(4)
+                          : String(location.longitude || "N/A")}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Geofence Radius:</span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md text-[11px]">
+                        <Radio className="w-3 h-3" />
+                        {typeof location.radius === "number"
+                          ? `${location.radius}m`
+                          : String(location.radius || "100m")}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
+
+                {/* Footer Bar */}
+                <div className="mt-3 pt-3 border-t border-slate-50 flex items-center justify-between text-xs">
+                  <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
+                    <Users className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{location.employeeCount || (location.assignedEmployees?.length || 0)} Assigned</span>
+                  </span>
                   <button
                     onClick={() => openAssignModal(location)}
-                    className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                    title="Assign Employees"
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
                   >
-                    <Users className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => openEditModal(location)}
-                    className="p-1 text-gray-600 hover:bg-gray-50 rounded"
-                    title="Edit Location"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteLocation(location._id)}
-                    className="p-1 text-red-600 hover:bg-red-50 rounded"
-                    title="Delete Location"
-                  >
-                    <Trash2 className="w-4 h-4" />
+                    Manage Team →
                   </button>
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="space-y-2 text-sm text-gray-600">
-                {location.address && (
-                  <p>
-                    <strong>Address:</strong> {location.address}
-                  </p>
-                )}
-                <p>
-                  <strong>Coordinates:</strong>{" "}
-                  {typeof location.latitude === "number"
-                    ? location.latitude.toFixed(6)
-                    : String(location.latitude || "N/A")}
-                  ,{" "}
-                  {typeof location.longitude === "number"
-                    ? location.longitude.toFixed(6)
-                    : String(location.longitude || "N/A")}
-                </p>
-                <p>
-                  <strong>Radius:</strong>{" "}
-                  {typeof location.radius === "number"
-                    ? `${location.radius}m`
-                    : String(location.radius || "N/A")}
-                </p>
-                <p>
-                  <strong>Employees:</strong> {location.employeeCount || 0}{" "}
-                  assigned
-                </p>
-                {location.description && (
-                  <p>
-                    <strong>Description:</strong> {location.description}
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>
-                    Created: {new Date(location.createdAt || Date.now()).toLocaleDateString()}
-                  </span>
-                  <span
-                    className={`px-2 py-1 rounded-full ${
-                      location.status === "active"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {location.status}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
+          <div className="bg-white p-3 rounded-2xl border border-slate-100">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredLocations.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(sz) => {
+                setItemsPerPage(sz);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
         </div>
       )}
 

@@ -26,24 +26,29 @@ export async function POST(request) {
     // Derive next employeeId if not provided
     let employeeIdString = data.personalDetails?.employeeId;
     if (!employeeIdString) {
-      const regex = /^EF-(\d+)$/i;
+      const regex = /^EMP-(\d+)$/i;
       let maxNum = 0;
       const cursor = db
         .collection("employees")
         .find(
-          { employeeId: { $exists: true } },
-          { projection: { employeeId: 1 } }
+          {
+            $or: [
+              { employeeId: { $exists: true } },
+              { "personalDetails.employeeId": { $exists: true } },
+            ],
+          },
+          { projection: { employeeId: 1, "personalDetails.employeeId": 1 } }
         );
       for await (const doc of cursor) {
-        const m =
-          typeof doc?.employeeId === "string" && doc.employeeId.match(regex);
+        const id = doc?.employeeId || doc?.personalDetails?.employeeId;
+        const m = typeof id === "string" && id.match(regex);
         if (m && m[1]) {
           const n = parseInt(m[1], 10);
           if (!Number.isNaN(n) && n > maxNum) maxNum = n;
         }
       }
       const nextNum = maxNum + 1;
-      employeeIdString = `EF-${String(nextNum).padStart(3, "0")}`;
+      employeeIdString = `EMP-${String(nextNum).padStart(3, "0")}`;
     }
 
     // 1. Insert Personal Details (main employee record)

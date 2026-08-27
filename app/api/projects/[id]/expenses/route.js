@@ -144,11 +144,13 @@ export async function POST(request, { params }) {
       title,
       description,
       amount,
+      reason,
       category,
       expenseDate,
       allocationId,
       vendor,
       receiptUrl,
+      receiptImage,
       approvedBy,
       status = "pending",
       tags = [],
@@ -177,12 +179,6 @@ export async function POST(request, { params }) {
       allocationObj = existingProject.budgetAllocations?.find(
         (alloc) => alloc._id.toString() === allocationId
       );
-      if (!allocationObj) {
-        return NextResponse.json(
-          { error: "Invalid allocation ID" },
-          { status: 400 }
-        );
-      }
     }
 
     // Create expense object
@@ -190,12 +186,13 @@ export async function POST(request, { params }) {
       _id: new ObjectId(),
       title,
       description: description || "",
+      reason: reason || "",
       amount: parseFloat(amount),
       category: category || "general",
       expenseDate: expenseDate ? new Date(expenseDate) : new Date(),
       allocationId: allocationId || null,
       vendor: vendor || "",
-      receiptUrl: receiptUrl || "",
+      receiptUrl: receiptUrl || receiptImage || "",
       approvedBy: approvedBy || null,
       status,
       tags,

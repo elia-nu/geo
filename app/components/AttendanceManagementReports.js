@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { CalendarDays, AlertTriangle, Clock } from "lucide-react";
+import {
+  CalendarDays,
+  AlertTriangle,
+  Clock,
+  TrendingUp,
+  BarChart3,
+  FileSpreadsheet,
+} from "lucide-react";
 import DailyAttendanceSummaryReport from "./DailyAttendanceSummaryReport";
 import AttendanceExceptionViolationReport from "./AttendanceExceptionViolationReport";
 import EmployeeAttendanceHistoryReport from "./EmployeeAttendanceHistoryReport";
@@ -18,7 +25,7 @@ const TABS = [
   },
   {
     id: "attendance-exceptions",
-    label: "Attendance Exception & Violation",
+    label: "Exceptions & Violations",
     description:
       "Missed check-ins, late arrivals, early departures and outside-geofence attempts across the workforce.",
     icon: AlertTriangle,
@@ -26,18 +33,18 @@ const TABS = [
   },
   {
     id: "employee-attendance-history",
-    label: "Employee Attendance History",
+    label: "Employee History (Emp-ID)",
     description:
-      "Full attendance trail per employee including coordinates, device and check-in/out timestamps.",
+      "Full attendance trail per employee by Emp-ID including coordinates, device and check-in/out timestamps.",
     icon: Clock,
     component: EmployeeAttendanceHistoryReport,
   },
   {
     id: "attendance-trends-productivity",
-    label: "Attendance Trend & Productivity",
+    label: "Trends & Productivity",
     description:
       "Monthly/quarterly attendance trends, absenteeism rates and overtime patterns.",
-    icon: Clock,
+    icon: TrendingUp,
     component: AttendanceTrendProductivityReport,
   },
 ];
@@ -47,59 +54,60 @@ export default function AttendanceManagementReports() {
   const ActiveComponent = TABS.find((t) => t.id === activeTab)?.component;
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h1 className="text-2xl font-bold text-black mb-1">
-            Attendance Management Reports
-          </h1>
-          <p className="text-gray-600 mb-6">
-            5.1 Daily Attendance Summary • 5.2 Attendance Exception &amp;
-            Violation • 5.3 Employee Attendance History • 5.4 Attendance Trend
-            &amp; Productivity
-          </p>
+    <div className="space-y-6">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6 sm:p-8 shadow-2xl text-white border border-indigo-900/40">
+        <div className="absolute -top-12 -right-12 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-blue-500/15 rounded-full blur-2xl pointer-events-none" />
 
-          <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-6">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-medium text-sm transition-colors ${
-                    isActive
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {ActiveComponent && (
-            <div className="space-y-4">
-              {TABS.map(
-                (tab) =>
-                  tab.id === activeTab && (
-                    <p
-                      key={tab.id}
-                      className="text-sm text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2"
-                    >
-                      {tab.description}
-                    </p>
-                  )
-              )}
-              <ActiveComponent />
+        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <FileSpreadsheet className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                  Attendance Management Reports
+                </h1>
+                <p className="text-indigo-200/90 text-xs sm:text-sm">
+                  Executive summaries, employee history audit trails, and productivity reports.
+                </p>
+              </div>
             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex flex-wrap gap-2 pt-6 border-t border-white/10 mt-6">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all ${
+                  isActive
+                    ? "bg-white text-slate-900 shadow-md scale-105"
+                    : "bg-white/10 text-indigo-100 hover:bg-white/20"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      {/* Active Tab View */}
+      {ActiveComponent && (
+        <div className="space-y-4">
+          <ActiveComponent />
+        </div>
+      )}
     </div>
   );
 }
-

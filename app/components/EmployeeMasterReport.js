@@ -689,132 +689,164 @@ export default function EmployeeMasterReport() {
         </div>
       )}
 
-      {/* Employee Detail Modal */}
+      {/* Modern Employee Detail Modal */}
       {showEmployeeDetail && selectedEmployee && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white flex items-center justify-between">
-              <h3 className="text-lg font-semibold">
-                Employee Details - {selectedEmployee.employeeName}
-              </h3>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-100 ring-1 ring-slate-900/5">
+            {/* Modal Header */}
+            <div className="relative bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-6 sm:px-8 py-6 text-white overflow-hidden flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-500 p-0.5 shadow-lg flex items-center justify-center">
+                    <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center">
+                      <span className="text-xl font-bold text-white">
+                        {(selectedEmployee.employeeName || "EM")
+                          .split(" ")
+                          .slice(0, 2)
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xl font-bold text-white">
+                        {selectedEmployee.employeeName}
+                      </h3>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(
+                          selectedEmployee.status
+                        )}`}
+                      >
+                        {selectedEmployee.status || "Active"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-indigo-200 mt-0.5">
+                      {selectedEmployee.role || "Employee"} •{" "}
+                      {selectedEmployee.department || "General"}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setShowEmployeeDetail(false);
+                    setSelectedEmployee(null);
+                  }}
+                  className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 sm:p-8 overflow-y-auto flex-1 bg-slate-50/50 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Personal Information */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                    <UserCheck className="w-4 h-4 text-indigo-600" />
+                    <h4 className="font-semibold text-slate-900 text-sm">Personal Information</h4>
+                  </div>
+                  <div className="space-y-2.5 text-xs sm:text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Full Name</span>
+                      <span className="text-slate-900 font-semibold">{selectedEmployee.employeeName || "—"}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-slate-50">
+                      <span className="text-slate-500 font-medium">Email</span>
+                      <span className="text-slate-900 font-medium">{selectedEmployee.email || "—"}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-slate-50">
+                      <span className="text-slate-500 font-medium">Phone</span>
+                      <span className="text-slate-900 font-medium">{selectedEmployee.contactNumber || "—"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Employment Details */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                    <Briefcase className="w-4 h-4 text-blue-600" />
+                    <h4 className="font-semibold text-slate-900 text-sm">Employment Details</h4>
+                  </div>
+                  <div className="space-y-2.5 text-xs sm:text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Department</span>
+                      <span className="text-slate-900 font-semibold">{selectedEmployee.department || "—"}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-slate-50">
+                      <span className="text-slate-500 font-medium">Role</span>
+                      <span className="text-slate-900 font-medium">{selectedEmployee.role || "—"}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-slate-50">
+                      <span className="text-slate-500 font-medium">Contract</span>
+                      <span className="text-slate-900 font-medium">{selectedEmployee.contractType || "Regular"}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-slate-50">
+                      <span className="text-slate-500 font-medium">Joining Date</span>
+                      <span className="text-slate-900 font-medium">{formatDate(selectedEmployee.joiningDate)}</span>
+                    </div>
+                    {selectedEmployee.contractExpiryDate && (
+                      <div className="flex justify-between pt-2 border-t border-slate-50">
+                        <span className="text-slate-500 font-medium">Contract Expiry</span>
+                        <span className="text-amber-700 font-semibold">{formatDate(selectedEmployee.contractExpiryDate)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Location */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                    <MapPin className="w-4 h-4 text-purple-600" />
+                    <h4 className="font-semibold text-slate-900 text-sm">Work Location</h4>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl flex items-center gap-2 text-xs font-medium text-slate-800">
+                    <MapPin className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                    <span>{selectedEmployee.workLocation || "Primary Office / Default"}</span>
+                  </div>
+                </div>
+
+                {/* Project Assignments */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                    <Building2 className="w-4 h-4 text-emerald-600" />
+                    <h4 className="font-semibold text-slate-900 text-sm">Project Assignments</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedEmployee.assignedProjects && selectedEmployee.assignedProjects.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedEmployee.assignedProjects.map((project, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-3 py-1 rounded-xl text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-100"
+                          >
+                            {project.name} {project.status ? `(${project.status})` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400">No project assignments</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-white px-6 sm:px-8 py-4 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => {
                   setShowEmployeeDetail(false);
                   setSelectedEmployee(null);
                 }}
-                className="text-white hover:text-gray-200"
+                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-xs sm:text-sm transition-colors"
               >
-                <X className="w-5 h-5" />
+                Close
               </button>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-semibold text-black mb-3 flex items-center space-x-2">
-                    <UserCheck className="w-5 h-5 text-blue-600" />
-                    <span>Personal Information</span>
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-700">Name:</span>{" "}
-                      {selectedEmployee.employeeName || "N/A"}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Email:</span>{" "}
-                      {selectedEmployee.email || "N/A"}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">
-                        Contact:
-                      </span>{" "}
-                      {selectedEmployee.contactNumber || "N/A"}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Status:</span>{" "}
-                      <span
-                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                          selectedEmployee.status
-                        )}`}
-                      >
-                        {selectedEmployee.status || "N/A"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-black mb-3 flex items-center space-x-2">
-                    <Briefcase className="w-5 h-5 text-blue-600" />
-                    <span>Employment Details</span>
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-700">
-                        Department:
-                      </span>{" "}
-                      {selectedEmployee.department || "N/A"}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Role:</span>{" "}
-                      {selectedEmployee.role || "N/A"}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">
-                        Contract Type:
-                      </span>{" "}
-                      {selectedEmployee.contractType || "N/A"}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">
-                        Joining Date:
-                      </span>{" "}
-                      {formatDate(selectedEmployee.joiningDate)}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">
-                        Contract Expiry:
-                      </span>{" "}
-                      {formatDate(selectedEmployee.contractExpiryDate)}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-black mb-3 flex items-center space-x-2">
-                    <MapPin className="w-5 h-5 text-blue-600" />
-                    <span>Location</span>
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-700">
-                        Work Location:
-                      </span>{" "}
-                      {selectedEmployee.workLocation || "N/A"}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-black mb-3 flex items-center space-x-2">
-                    <Building2 className="w-5 h-5 text-blue-600" />
-                    <span>Project Assignments</span>
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    {selectedEmployee.assignedProjects &&
-                    selectedEmployee.assignedProjects.length > 0 ? (
-                      <ul className="list-disc list-inside">
-                        {selectedEmployee.assignedProjects.map((project, idx) => (
-                          <li key={idx}>
-                            {project.name} ({project.status})
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="text-gray-500">No projects assigned</div>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

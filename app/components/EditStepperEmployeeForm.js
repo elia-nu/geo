@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   User,
   Briefcase,
@@ -12,16 +12,31 @@ import {
   Plus,
   Trash2,
   X,
+  FileText,
+  Upload,
+  Download,
+  Eye,
+  RefreshCw,
+  Image as ImageIcon,
+  FileSpreadsheet,
+  FileCheck,
+  Calendar,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  Sparkles,
+  Paperclip,
+  ExternalLink,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import ClientOnly from "./ClientOnly";
+import DocumentDetailViewerModal from "./DocumentDetailViewerModal";
 
 const STEPS = [
   {
     id: 1,
     title: "Personal Details",
-    description: "Basic information",
+    description: "Basic info & contract",
     icon: User,
   },
   {
@@ -39,15 +54,32 @@ const STEPS = [
   {
     id: 4,
     title: "Skills",
-    description: "Technical abilities",
+    description: "Competencies",
     icon: Brain,
   },
   {
     id: 5,
     title: "Health Records",
-    description: "Medical information",
+    description: "Medical info",
     icon: Heart,
   },
+  {
+    id: 6,
+    title: "Documents & Files",
+    description: "Uploaded files & actions",
+    icon: FileText,
+  },
+];
+
+const DOCUMENT_CATEGORIES = [
+  "National ID / Passport",
+  "Resume / CV",
+  "Employment Contract",
+  "Educational Certificate",
+  "Professional License",
+  "Medical Clearance",
+  "Recommendation Letter",
+  "Other Attachment",
 ];
 
 export default function EditStepperEmployeeForm({
@@ -56,6 +88,9 @@ export default function EditStepperEmployeeForm({
   employee,
   onEmployeeUpdated,
 }) {
+  const uploadFileInputRef = useRef(null);
+  const replaceFileInputRef = useRef(null);
+
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -64,6 +99,24 @@ export default function EditStepperEmployeeForm({
   const [workLocations, setWorkLocations] = useState([]);
   const [designations, setDesignations] = useState([]);
   const [filteredDesignations, setFilteredDesignations] = useState([]);
+
+  // Documents state
+  const [documents, setDocuments] = useState([]);
+  const [fetchingDocs, setFetchingDocs] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState(null);
+  const [replacingDoc, setReplacingDoc] = useState(null);
+  const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
+  const [selectedReplaceFile, setSelectedReplaceFile] = useState(null);
+  const [isUploadingNewDoc, setIsUploadingNewDoc] = useState(false);
+
+  // New document upload inside Edit form
+  const [newDocData, setNewDocData] = useState({
+    category: "National ID / Passport",
+    title: "",
+    description: "",
+    expiryDate: "",
+    file: null,
+  });
 
   // Helper functions to safely get data from either structure
   const getEmployeeName = (emp) =>
@@ -121,6 +174,23 @@ export default function EditStepperEmployeeForm({
     return false;
   };
 
+  // Fetch employee documents
+  const fetchEmployeeDocuments = async (empId) => {
+    if (!empId) return;
+    try {
+      setFetchingDocs(true);
+      const res = await fetch(`/api/documents?employeeId=${empId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDocuments(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch employee documents:", e);
+    } finally {
+      setFetchingDocs(false);
+    }
+  };
+
   // Fetch complete employee data including related records
   useEffect(() => {
     const fetchEnhancedEmployeeData = async () => {
@@ -139,8 +209,12 @@ export default function EditStepperEmployeeForm({
         }
 
         const data = await response.json();
-        console.log("Fetched enhanced employee data:", data);
         setEnhancedEmployee(data);
+        if (data.documents && Array.isArray(data.documents)) {
+          setDocuments(data.documents);
+        } else {
+          fetchEmployeeDocuments(employee._id);
+        }
       } catch (error) {
         console.error("Error fetching enhanced employee data:", error);
         setError("Failed to load employee data");
@@ -190,7 +264,7 @@ export default function EditStepperEmployeeForm({
           setDesignations(list);
         }
       } catch (e) {
-        // ignore; selects will be empty
+        // ignore
       }
     };
     fetchLists();
@@ -201,7 +275,6 @@ export default function EditStepperEmployeeForm({
     if (enhancedEmployee && isOpen) {
       const emp = enhancedEmployee.employee;
 
-      // Personal Details
       setPersonalDetails({
         name: getEmployeeName(emp),
         email: getEmployeeEmail(emp),
@@ -222,11 +295,8 @@ export default function EditStepperEmployeeForm({
         posAllowance: emp.posAllowance ?? getEmployeeData(emp, "posAllowance") ?? "",
       });
 
-      // Employment History - from separate collection
       setEmploymentHistory(enhancedEmployee.employmentHistory || []);
 
-      // Certifications - from separate collection
-      // Normalize certification fields to { title, issuer, issueDate, ... }
       setCertifications(
         (enhancedEmployee.certifications || []).map((c) => ({
           ...c,
@@ -235,7 +305,6 @@ export default function EditStepperEmployeeForm({
         }))
       );
 
-      // Skills - from separate collection
       setSkills(
         (enhancedEmployee.skills || []).map((skill, index) => ({
           id: skill.id || index,
@@ -253,7 +322,6 @@ export default function EditStepperEmployeeForm({
         }))
       );
 
-      // Health Records - from separate collection
       const healthData = enhancedEmployee.healthRecords || {};
       setHealthRecords({
         bloodType: healthData.bloodType || "",
@@ -274,8 +342,7 @@ export default function EditStepperEmployeeForm({
         (d) => d.name === personalDetails.department
       );
 
-      if (selectedDept) {
-        // Fetch designations for the selected department
+      if (selectedDept && selectedDept._id) {
         const fetchDeptDesignations = async () => {
           try {
             const res = await fetch(
@@ -288,11 +355,9 @@ export default function EditStepperEmployeeForm({
                 : [];
               setFilteredDesignations(deptDesignations);
             } else {
-              // Fallback to all designations if department-specific fetch fails
               setFilteredDesignations(designations);
             }
           } catch (error) {
-            // Fallback to all designations on error
             setFilteredDesignations(designations);
           }
         };
@@ -306,7 +371,7 @@ export default function EditStepperEmployeeForm({
     }
   }, [personalDetails.department, departments, designations]);
 
-  // Add keyboard navigation
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -348,9 +413,11 @@ export default function EditStepperEmployeeForm({
         if (!personalDetails.name.trim()) {
           errors.name = "Name is required";
         }
-        if (!personalDetails.email.trim()) {
-          errors.email = "Email is required";
-        } else if (!/\S+@\S+\.\S+/.test(personalDetails.email)) {
+        if (
+          personalDetails.email &&
+          personalDetails.email.trim() &&
+          !/\S+@\S+\.\S+/.test(personalDetails.email)
+        ) {
           errors.email = "Email is invalid";
         }
         if (!personalDetails.department.trim()) {
@@ -365,12 +432,15 @@ export default function EditStepperEmployeeForm({
         if (!personalDetails.employeeType) {
           errors.employeeType = "Employee type is required";
         }
-        if (personalDetails.employeeType === "Contractual" && !personalDetails.contractExpiryDate) {
-          errors.contractExpiryDate = "Contract expiry date is required for contractual employees";
+        if (
+          personalDetails.employeeType === "Contractual" &&
+          !personalDetails.contractExpiryDate
+        ) {
+          errors.contractExpiryDate =
+            "Contract expiry date is required for contractual employees";
         }
         break;
       case 2:
-        // Employment history validation
         employmentHistory.forEach((job, index) => {
           if (!job.company?.trim()) {
             errors[`employment_${index}_company`] = "Company name is required";
@@ -384,7 +454,6 @@ export default function EditStepperEmployeeForm({
         });
         break;
       case 3:
-        // Certifications validation
         certifications.forEach((cert, index) => {
           if (!cert.title?.trim()) {
             errors[`cert_${index}_title`] = "Certification title is required";
@@ -398,7 +467,6 @@ export default function EditStepperEmployeeForm({
         });
         break;
       case 4:
-        // Skills validation
         skills.forEach((skill, index) => {
           if (!skill.skillName?.trim()) {
             errors[`skill_${index}_skillName`] = "Skill name is required";
@@ -406,7 +474,7 @@ export default function EditStepperEmployeeForm({
         });
         break;
       case 5:
-        // Health records - optional fields, no validation needed
+      case 6:
         break;
       default:
         break;
@@ -423,7 +491,7 @@ export default function EditStepperEmployeeForm({
       setCurrentStep(currentStep + 1);
       setError("");
     } else {
-      setError("Please fix the errors before continuing.");
+      setError("Please fix the validation errors before continuing.");
     }
   };
 
@@ -438,7 +506,7 @@ export default function EditStepperEmployeeForm({
     setFormErrors(errors);
 
     if (Object.keys(errors).length > 0) {
-      setError("Please fix the errors before submitting.");
+      setError("Please fix the validation errors before submitting.");
       return;
     }
 
@@ -480,7 +548,6 @@ export default function EditStepperEmployeeForm({
         throw new Error(errorData.message || "Failed to update employee");
       }
 
-      const result = await response.json();
       setSuccess("Employee updated successfully!");
 
       setTimeout(() => {
@@ -496,195 +563,225 @@ export default function EditStepperEmployeeForm({
     }
   };
 
-  const resetForm = () => {
-    setCurrentStep(1);
-    setPersonalDetails({
-      name: "",
-      email: "",
-      employeeId: "",
-      dateOfBirth: "",
-      contactNumber: "",
-      department: "",
-      designation: "",
-      workLocation: "",
-      joiningDate: "",
-      emergencyContactName: "",
-      emergencyContactNumber: "",
-      address: "",
-      employeeType: "",
-      contractExpiryDate: "",
-      transportAllowance: "",
-      telephoneAllowance: "",
-      posAllowance: "",
-    });
-    setEmploymentHistory([]);
-    setCertifications([]);
-    setSkills([]);
-    setHealthRecords({
-      bloodType: "",
-      allergies: [],
-      medicalConditions: [],
-      medications: [],
-      emergencyMedicalContact: "",
-      insuranceProvider: "",
-      insurancePolicyNumber: "",
-    });
-    setFormErrors({});
+  // Upload new document directly in Edit form
+  const handleUploadNewDocument = async () => {
+    if (!newDocData.file) {
+      setError("Please select a file to upload.");
+      return;
+    }
+
+    setIsUploadingNewDoc(true);
     setError("");
-    setSuccess("");
-  };
+    try {
+      const formData = new FormData();
+      formData.append("file", newDocData.file);
+      formData.append(
+        "documentData",
+        JSON.stringify({
+          employeeId: employee._id,
+          documentType: newDocData.category,
+          type: newDocData.category,
+          title: newDocData.title.trim() || newDocData.file.name.replace(/\.[^/.]+$/, ""),
+          description: newDocData.description.trim(),
+          expiryDate: newDocData.expiryDate || "",
+          category: "employee",
+          status: "active",
+        })
+      );
 
-  // Helper functions for dynamic arrays
-  const addEmploymentEntry = () => {
-    setEmploymentHistory([
-      ...employmentHistory,
-      {
-        id: Date.now(),
-        company: "",
-        position: "",
-        startDate: "",
-        endDate: "",
-        responsibilities: "",
-        reasonForLeaving: "",
-      },
-    ]);
-  };
-
-  const removeEmploymentEntry = (index) => {
-    setEmploymentHistory(employmentHistory.filter((_, i) => i !== index));
-  };
-
-  const addCertification = () => {
-    setCertifications([
-      ...certifications,
-      {
-        id: Date.now(),
-        title: "",
-        issuer: "",
-        issueDate: "",
-        expiryDate: "",
-        credentialId: "",
-        description: "",
-      },
-    ]);
-  };
-
-  const removeCertification = (index) => {
-    setCertifications(certifications.filter((_, i) => i !== index));
-  };
-
-  const addSkill = () => {
-    setSkills([
-      ...skills,
-      {
-        id: Date.now(),
-        skillName: "",
-        proficiencyLevel: "Beginner",
-        experienceYears: "",
-        category: "Technical",
-      },
-    ]);
-  };
-
-  const removeSkill = (index) => {
-    setSkills(skills.filter((_, i) => i !== index));
-  };
-
-  const addHealthItem = (type, value) => {
-    if (value.trim()) {
-      setHealthRecords({
-        ...healthRecords,
-        [type]: [...healthRecords[type], value.trim()],
+      const res = await fetch("/api/documents/upload", {
+        method: "POST",
+        body: formData,
       });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to upload document");
+      }
+
+      setSuccess("Document uploaded successfully!");
+      setNewDocData({
+        category: "National ID / Passport",
+        title: "",
+        description: "",
+        expiryDate: "",
+        file: null,
+      });
+      if (uploadFileInputRef.current) uploadFileInputRef.current.value = "";
+
+      // Refresh documents
+      await fetchEmployeeDocuments(employee._id);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      console.error("Error uploading document:", err);
+      setError(err.message || "Failed to upload document");
+    } finally {
+      setIsUploadingNewDoc(false);
     }
   };
 
-  const removeHealthItem = (type, index) => {
-    setHealthRecords({
-      ...healthRecords,
-      [type]: healthRecords[type].filter((_, i) => i !== index),
-    });
+  // Replace existing document file
+  const handleReplaceDocumentFile = async () => {
+    if (!replacingDoc || !selectedReplaceFile) return;
+
+    setLoading(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedReplaceFile);
+      formData.append(
+        "documentData",
+        JSON.stringify({
+          title: replacingDoc.title,
+          documentType: replacingDoc.documentType || replacingDoc.type,
+          description: replacingDoc.description || "",
+          expiryDate: replacingDoc.expiryDate || "",
+        })
+      );
+
+      const res = await fetch(`/api/documents/${replacingDoc._id}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to replace document file");
+      }
+
+      setSuccess("Document file replaced successfully!");
+      setIsReplaceModalOpen(false);
+      setReplacingDoc(null);
+      setSelectedReplaceFile(null);
+      await fetchEmployeeDocuments(employee._id);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      console.error("Error replacing document:", err);
+      setError(err.message || "Failed to replace document file");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete document
+  const handleDeleteDocument = async (docId, docTitle) => {
+    if (!window.confirm(`Are you sure you want to delete "${docTitle}"?`)) return;
+
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/documents/${docId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete document");
+      }
+
+      setSuccess("Document deleted successfully!");
+      await fetchEmployeeDocuments(employee._id);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      console.error("Error deleting document:", err);
+      setError(err.message || "Failed to delete document");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setCurrentStep(1);
+    setFormErrors({});
+    setError("");
+    setSuccess("");
+    setReplacingDoc(null);
+    setSelectedReplaceFile(null);
+    setIsReplaceModalOpen(false);
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes && bytes !== 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "N/A";
+    try {
+      const d = new Date(dateValue);
+      if (isNaN(d.getTime())) return String(dateValue);
+      return d.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return String(dateValue);
+    }
   };
 
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-8">
-            <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-black mb-2">
-                Personal Information
+          <div className="space-y-6">
+            <div className="border-b border-slate-200 pb-4">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <User className="w-5 h-5 text-indigo-600" />
+                Personal Details & Contract Terms
               </h3>
-              <p className="text-gray-600">
-                Update the basic details about the employee
+              <p className="text-xs text-slate-500 mt-1">
+                Edit core identification, role assignment, and contractual dates.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Full Name <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={personalDetails.name}
-                    onChange={(e) =>
-                      setPersonalDetails({
-                        ...personalDetails,
-                        name: e.target.value,
-                      })
-                    }
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200 bg-white text-black placeholder-gray-500 ${
-                      formErrors.name
-                        ? "border-red-300 focus:ring-red-500 bg-red-50"
-                        : "border-gray-300 focus:ring-blue-500 hover:border-gray-400"
-                    }`}
-                    placeholder="Enter full name"
-                  />
-                  {formErrors.name && (
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <X className="h-5 w-5 text-red-500" />
-                    </div>
-                  )}
-                </div>
+                <input
+                  type="text"
+                  value={personalDetails.name}
+                  onChange={(e) =>
+                    setPersonalDetails({ ...personalDetails, name: e.target.value })
+                  }
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm text-slate-900 bg-white shadow-sm ${
+                    formErrors.name
+                      ? "border-red-400 focus:ring-2 focus:ring-red-200 bg-red-50"
+                      : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  }`}
+                />
                 {formErrors.name && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <X className="w-4 h-4 mr-1" />
-                    {formErrors.name}
-                  </p>
+                  <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email Address <span className="text-red-500">*</span>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Email Address
                 </label>
                 <input
                   type="email"
                   value={personalDetails.email}
                   onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      email: e.target.value,
-                    })
+                    setPersonalDetails({ ...personalDetails, email: e.target.value })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm text-slate-900 bg-white shadow-sm ${
                     formErrors.email
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                      ? "border-red-400 focus:ring-2 focus:ring-red-200"
+                      : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   }`}
-                  placeholder="Enter email address"
                 />
                 {formErrors.email && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.email}
-                  </p>
+                  <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Employee ID
                 </label>
                 <input
@@ -692,34 +789,16 @@ export default function EditStepperEmployeeForm({
                   value={personalDetails.employeeId}
                   readOnly
                   disabled
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-black cursor-not-allowed"
-                  placeholder="Auto-generated"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 text-sm font-mono cursor-not-allowed shadow-inner"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Phone Number
                 </label>
                 <input
-                  type="date"
-                  value={personalDetails.dateOfBirth}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      dateOfBirth: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contact Number
-                </label>
-                <input
-                  type="text"
+                  type="tel"
                   value={personalDetails.contactNumber}
                   onChange={(e) =>
                     setPersonalDetails({
@@ -727,13 +806,12 @@ export default function EditStepperEmployeeForm({
                       contactNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                  placeholder="Enter contact number"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Department <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -742,13 +820,13 @@ export default function EditStepperEmployeeForm({
                     setPersonalDetails({
                       ...personalDetails,
                       department: e.target.value,
-                      designation: "", // Clear designation when department changes
+                      designation: "",
                     })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm text-slate-900 bg-white shadow-sm ${
                     formErrors.department
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
+                      ? "border-red-400 focus:ring-2 focus:ring-red-200"
+                      : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   }`}
                 >
                   <option value="">Select Department</option>
@@ -759,14 +837,12 @@ export default function EditStepperEmployeeForm({
                   ))}
                 </select>
                 {formErrors.department && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.department}
-                  </p>
+                  <p className="text-red-500 text-xs mt-1">{formErrors.department}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Designation <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -777,37 +853,47 @@ export default function EditStepperEmployeeForm({
                       designation: e.target.value,
                     })
                   }
-                  disabled={!personalDetails.department}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm text-slate-900 bg-white shadow-sm ${
                     formErrors.designation
-                      ? "border-red-300 focus:ring-red-500"
-                      : !personalDetails.department
-                      ? "border-slate-300 bg-gray-100 cursor-not-allowed"
-                      : "border-gray-300 focus:ring-blue-500"
+                      ? "border-red-400 focus:ring-2 focus:ring-red-200"
+                      : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   }`}
                 >
-                  <option value="">
-                    {!personalDetails.department
-                      ? "Select Department First"
-                      : "Select Designation"}
-                  </option>
+                  <option value="">Select Designation</option>
                   {filteredDesignations.map((des) => (
-                    <option key={`edit-des-${des}`} value={des}>
-                      {des}
+                    <option key={des._id || des.name} value={des.name}>
+                      {des.name}
                     </option>
                   ))}
                 </select>
                 {formErrors.designation && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.designation}
-                  </p>
+                  <p className="text-red-500 text-xs mt-1">{formErrors.designation}</p>
                 )}
               </div>
 
-              {/* Work Location removed - configured later in settings */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Employment Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={personalDetails.employeeType}
+                  onChange={(e) =>
+                    setPersonalDetails({
+                      ...personalDetails,
+                      employeeType: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                >
+                  <option value="Full Time">Full Time</option>
+                  <option value="Part Time">Part Time</option>
+                  <option value="Contractual">Contractual</option>
+                  <option value="Intern">Intern</option>
+                </select>
+              </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Joining Date <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -819,55 +905,13 @@ export default function EditStepperEmployeeForm({
                       joiningDate: e.target.value,
                     })
                   }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                    formErrors.joiningDate
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
-                  }`}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                 />
-                {formErrors.joiningDate && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.joiningDate}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Employee Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={personalDetails.employeeType}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      employeeType: e.target.value,
-                      // Clear contract expiry date if not contractual
-                      contractExpiryDate: e.target.value === "Contractual" ? personalDetails.contractExpiryDate : "",
-                    })
-                  }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black ${
-                    formErrors.employeeType
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
-                  }`}
-                >
-                  <option value="">Select Employee Type</option>
-                  <option value="Full Time">Full Time</option>
-                  <option value="Part Time">Part Time</option>
-                  <option value="Contractual">Contractual</option>
-                  <option value="Freelance">Freelance</option>
-                </select>
-                {formErrors.employeeType && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.employeeType}
-                  </p>
-                )}
               </div>
 
               {personalDetails.employeeType === "Contractual" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Contract Expiry Date <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -879,15 +923,10 @@ export default function EditStepperEmployeeForm({
                         contractExpiryDate: e.target.value,
                       })
                     }
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black ${
-                      formErrors.contractExpiryDate
-                        ? "border-red-300 focus:ring-red-500"
-                        : "border-gray-300 focus:ring-blue-500"
-                    }`}
-                    min={new Date().toISOString().split("T")[0]}
+                    className="w-full px-4 py-2.5 rounded-xl border border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 text-sm text-slate-900 bg-white shadow-sm"
                   />
                   {formErrors.contractExpiryDate && (
-                    <p className="text-red-500 text-sm mt-1">
+                    <p className="text-red-500 text-xs mt-1">
                       {formErrors.contractExpiryDate}
                     </p>
                   )}
@@ -895,117 +934,72 @@ export default function EditStepperEmployeeForm({
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Name
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Work Location
+                </label>
+                <select
+                  value={personalDetails.workLocation}
+                  onChange={(e) =>
+                    setPersonalDetails({
+                      ...personalDetails,
+                      workLocation: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                >
+                  <option value="">Select Work Location</option>
+                  {workLocations.map((loc) => (
+                    <option key={loc._id || loc.id} value={loc.name}>
+                      {loc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Residential Address
                 </label>
                 <input
                   type="text"
-                  value={personalDetails.emergencyContactName}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      emergencyContactName: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                  placeholder="Enter emergency contact name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Number
-                </label>
-                <input
-                  type="text"
-                  value={personalDetails.emergencyContactNumber}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      emergencyContactNumber: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                  placeholder="Enter emergency contact number"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Transport Allowance (ETB)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={personalDetails.transportAllowance}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      transportAllowance: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                  placeholder="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Telephone Allowance (ETB)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={personalDetails.telephoneAllowance}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      telephoneAllowance: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                  placeholder="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  POS Allowance (ETB)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={personalDetails.posAllowance}
-                  onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      posAllowance: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                  placeholder="0"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address
-                </label>
-                <textarea
                   value={personalDetails.address}
                   onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      address: e.target.value,
-                    })
+                    setPersonalDetails({ ...personalDetails, address: e.target.value })
                   }
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                  placeholder="Enter full address"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Emergency Contact Name & Phone
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={personalDetails.emergencyContactName}
+                    onChange={(e) =>
+                      setPersonalDetails({
+                        ...personalDetails,
+                        emergencyContactName: e.target.value,
+                      })
+                    }
+                    placeholder="Name"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900"
+                  />
+                  <input
+                    type="tel"
+                    value={personalDetails.emergencyContactNumber}
+                    onChange={(e) =>
+                      setPersonalDetails({
+                        ...personalDetails,
+                        emergencyContactNumber: e.target.value,
+                      })
+                    }
+                    placeholder="Phone"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1014,1139 +1008,986 @@ export default function EditStepperEmployeeForm({
       case 2:
         return (
           <div className="space-y-6">
-            <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-black mb-2">
-                Employment History
-              </h3>
-              <p className="text-gray-600">
-                Update previous work experience and professional background
-              </p>
-            </div>
-
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-blue-600" />
-                <span className="text-lg font-semibold text-black">
-                  Work Experience
-                </span>
-              </div>
-              <Button
-                onClick={addEmploymentEntry}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-              >
-                <Plus className="w-4 h-4" />
-                Add Experience
-              </Button>
-            </div>
-
-            {employmentHistory.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-xl">
-                <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 mb-4">
-                  No employment history added yet
+            <div className="border-b border-slate-200 pb-4 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-indigo-600" />
+                  Employment History
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage previous job roles and companies.
                 </p>
-                <Button
-                  onClick={addEmploymentEntry}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add First Experience
-                </Button>
               </div>
-            ) : (
-              employmentHistory.map((job, index) => (
-                <div
-                  key={job.id || index}
-                  className="p-6 border border-gray-200 rounded-xl space-y-6 bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
-                >
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Briefcase className="w-5 h-5 text-blue-600" />
+              <button
+                type="button"
+                onClick={() =>
+                  setEmploymentHistory([
+                    ...employmentHistory,
+                    {
+                      company: "",
+                      position: "",
+                      startDate: "",
+                      endDate: "",
+                      responsibilities: "",
+                      reasonForLeaving: "",
+                    },
+                  ])
+                }
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Entry
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {employmentHistory.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
+                  <Briefcase className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-slate-700">
+                    No employment history recorded
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Click "Add Entry" to record past experience.
+                  </p>
+                </div>
+              ) : (
+                employmentHistory.map((job, index) => (
+                  <div
+                    key={index}
+                    className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-all space-y-4 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                        Experience #{index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEmploymentHistory(
+                            employmentHistory.filter((_, i) => i !== index)
+                          )
+                        }
+                        className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1 font-semibold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Company Name
+                        </label>
+                        <input
+                          type="text"
+                          value={job.company || ""}
+                          onChange={(e) => {
+                            const updated = [...employmentHistory];
+                            updated[index].company = e.target.value;
+                            setEmploymentHistory(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                          placeholder="Company"
+                        />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-black">
-                          Experience #{index + 1}
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          Professional experience details
-                        </p>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Position
+                        </label>
+                        <input
+                          type="text"
+                          value={job.position || ""}
+                          onChange={(e) => {
+                            const updated = [...employmentHistory];
+                            updated[index].position = e.target.value;
+                            setEmploymentHistory(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                          placeholder="Position"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={job.startDate || ""}
+                          onChange={(e) => {
+                            const updated = [...employmentHistory];
+                            updated[index].startDate = e.target.value;
+                            setEmploymentHistory(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          End Date
+                        </label>
+                        <input
+                          type="date"
+                          value={job.endDate || ""}
+                          onChange={(e) => {
+                            const updated = [...employmentHistory];
+                            updated[index].endDate = e.target.value;
+                            setEmploymentHistory(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        />
                       </div>
                     </div>
-                    {employmentHistory.length > 1 && (
-                      <Button
-                        onClick={() => removeEmploymentEntry(index)}
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300 transition-all duration-200"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Company Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={job.company || ""}
-                        onChange={(e) => {
-                          const updated = [...employmentHistory];
-                          updated[index] = {
-                            ...updated[index],
-                            company: e.target.value,
-                          };
-                          setEmploymentHistory(updated);
-                        }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                          formErrors[`employment_${index}_company`]
-                            ? "border-red-300 focus:ring-red-500"
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                        placeholder="Enter company name"
-                      />
-                      {formErrors[`employment_${index}_company`] && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {formErrors[`employment_${index}_company`]}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Position <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={job.position || ""}
-                        onChange={(e) => {
-                          const updated = [...employmentHistory];
-                          updated[index] = {
-                            ...updated[index],
-                            position: e.target.value,
-                          };
-                          setEmploymentHistory(updated);
-                        }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                          formErrors[`employment_${index}_position`]
-                            ? "border-red-300 focus:ring-red-500"
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                        placeholder="Enter position/role"
-                      />
-                      {formErrors[`employment_${index}_position`] && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {formErrors[`employment_${index}_position`]}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Start Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={job.startDate || ""}
-                        onChange={(e) => {
-                          const updated = [...employmentHistory];
-                          updated[index] = {
-                            ...updated[index],
-                            startDate: e.target.value,
-                          };
-                          setEmploymentHistory(updated);
-                        }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                          formErrors[`employment_${index}_startDate`]
-                            ? "border-red-300 focus:ring-red-500"
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                      />
-                      {formErrors[`employment_${index}_startDate`] && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {formErrors[`employment_${index}_startDate`]}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        End Date
-                      </label>
-                      <input
-                        type="date"
-                        value={job.endDate || ""}
-                        onChange={(e) => {
-                          const updated = [...employmentHistory];
-                          updated[index] = {
-                            ...updated[index],
-                            endDate: e.target.value,
-                          };
-                          setEmploymentHistory(updated);
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Key Responsibilities
-                      </label>
-                      <textarea
-                        value={job.responsibilities || ""}
-                        onChange={(e) => {
-                          const updated = [...employmentHistory];
-                          updated[index] = {
-                            ...updated[index],
-                            responsibilities: e.target.value,
-                          };
-                          setEmploymentHistory(updated);
-                        }}
-                        rows={3}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                        placeholder="Describe key responsibilities and achievements"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Reason for Leaving
-                      </label>
-                      <input
-                        type="text"
-                        value={job.reasonForLeaving || ""}
-                        onChange={(e) => {
-                          const updated = [...employmentHistory];
-                          updated[index] = {
-                            ...updated[index],
-                            reasonForLeaving: e.target.value,
-                          };
-                          setEmploymentHistory(updated);
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                        placeholder="Reason for leaving (optional)"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         );
 
       case 3:
         return (
           <div className="space-y-6">
-            <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-black mb-2">
-                Certifications
-              </h3>
-              <p className="text-gray-600">
-                Update professional certifications and qualifications
-              </p>
-            </div>
-
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-yellow-600" />
-                <span className="text-lg font-semibold text-black">
-                  Professional Certifications
-                </span>
-              </div>
-              <Button
-                onClick={addCertification}
-                className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-              >
-                <Plus className="w-4 h-4" />
-                Add Certification
-              </Button>
-            </div>
-
-            {certifications.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-xl">
-                <Award className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 mb-4">
-                  No certifications added yet
+            <div className="border-b border-slate-200 pb-4 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-indigo-600" />
+                  Certifications & Qualifications
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage professional credentials and licenses.
                 </p>
-                <Button
-                  onClick={addCertification}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add First Certification
-                </Button>
               </div>
-            ) : (
-              certifications.map((cert, index) => (
-                <div
-                  key={cert.id || index}
-                  className="p-6 border border-gray-200 rounded-xl space-y-6 bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
-                >
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                        <Award className="w-5 h-5 text-yellow-600" />
+              <button
+                type="button"
+                onClick={() =>
+                  setCertifications([
+                    ...certifications,
+                    {
+                      title: "",
+                      issuer: "",
+                      issueDate: "",
+                      expiryDate: "",
+                      credentialId: "",
+                      description: "",
+                    },
+                  ])
+                }
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Certification
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {certifications.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
+                  <Award className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-slate-700">
+                    No certifications recorded
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Click "Add Certification" to record certificates.
+                  </p>
+                </div>
+              ) : (
+                certifications.map((cert, index) => (
+                  <div
+                    key={index}
+                    className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-all space-y-4 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                        Certification #{index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCertifications(certifications.filter((_, i) => i !== index))
+                        }
+                        className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1 font-semibold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Certification Title
+                        </label>
+                        <input
+                          type="text"
+                          value={cert.title || ""}
+                          onChange={(e) => {
+                            const updated = [...certifications];
+                            updated[index].title = e.target.value;
+                            setCertifications(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-black">
-                          Certification #{index + 1}
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          Professional qualification details
-                        </p>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Issuer / Institution
+                        </label>
+                        <input
+                          type="text"
+                          value={cert.issuer || ""}
+                          onChange={(e) => {
+                            const updated = [...certifications];
+                            updated[index].issuer = e.target.value;
+                            setCertifications(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Issue Date
+                        </label>
+                        <input
+                          type="date"
+                          value={cert.issueDate || ""}
+                          onChange={(e) => {
+                            const updated = [...certifications];
+                            updated[index].issueDate = e.target.value;
+                            setCertifications(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Expiry Date
+                        </label>
+                        <input
+                          type="date"
+                          value={cert.expiryDate || ""}
+                          onChange={(e) => {
+                            const updated = [...certifications];
+                            updated[index].expiryDate = e.target.value;
+                            setCertifications(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        />
                       </div>
                     </div>
-                    <Button
-                      onClick={() => removeCertification(index)}
-                      variant="outline"
-                      size="sm"
-                      className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 border-yellow-200 hover:border-yellow-300 transition-all duration-200"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Certification Title{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={cert.title || ""}
-                        onChange={(e) => {
-                          const updated = [...certifications];
-                          updated[index] = {
-                            ...updated[index],
-                            title: e.target.value,
-                          };
-                          setCertifications(updated);
-                        }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                          formErrors[`cert_${index}_title`]
-                            ? "border-red-300 focus:ring-red-500"
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                        placeholder="Enter certification title"
-                      />
-                      {formErrors[`cert_${index}_title`] && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {formErrors[`cert_${index}_title`]}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Issuing Institution{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={cert.issuer || ""}
-                        onChange={(e) => {
-                          const updated = [...certifications];
-                          updated[index] = {
-                            ...updated[index],
-                            issuer: e.target.value,
-                          };
-                          setCertifications(updated);
-                        }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                          formErrors[`cert_${index}_institution`]
-                            ? "border-red-300 focus:ring-red-500"
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                        placeholder="Enter issuing institution"
-                      />
-                      {formErrors[`cert_${index}_institution`] && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {formErrors[`cert_${index}_institution`]}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Date Obtained <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={cert.issueDate || ""}
-                        onChange={(e) => {
-                          const updated = [...certifications];
-                          updated[index] = {
-                            ...updated[index],
-                            issueDate: e.target.value,
-                          };
-                          setCertifications(updated);
-                        }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                          formErrors[`cert_${index}_dateObtained`]
-                            ? "border-red-300 focus:ring-red-500"
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                      />
-                      {formErrors[`cert_${index}_dateObtained`] && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {formErrors[`cert_${index}_dateObtained`]}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Expiry Date
-                      </label>
-                      <input
-                        type="date"
-                        value={cert.expiryDate || ""}
-                        onChange={(e) => {
-                          const updated = [...certifications];
-                          updated[index] = {
-                            ...updated[index],
-                            expiryDate: e.target.value,
-                          };
-                          setCertifications(updated);
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Credential ID
-                      </label>
-                      <input
-                        type="text"
-                        value={cert.credentialId || ""}
-                        onChange={(e) => {
-                          const updated = [...certifications];
-                          updated[index] = {
-                            ...updated[index],
-                            credentialId: e.target.value,
-                          };
-                          setCertifications(updated);
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                        placeholder="Enter credential ID (optional)"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        value={cert.description || ""}
-                        onChange={(e) => {
-                          const updated = [...certifications];
-                          updated[index] = {
-                            ...updated[index],
-                            description: e.target.value,
-                          };
-                          setCertifications(updated);
-                        }}
-                        rows={2}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                        placeholder="Brief description of the certification"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         );
 
       case 4:
         return (
           <div className="space-y-6">
-            <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-black mb-2">
-                Skills & Expertise
-              </h3>
-              <p className="text-gray-600">
-                Update technical and professional skills
-              </p>
-            </div>
-
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-blue-600" />
-                <span className="text-lg font-semibold text-black">
-                  Professional Skills
-                </span>
+            <div className="border-b border-slate-200 pb-4 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-indigo-600" />
+                  Skills & Competencies
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage skills and proficiency levels.
+                </p>
               </div>
-              <Button
-                onClick={addSkill}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+              <button
+                type="button"
+                onClick={() =>
+                  setSkills([
+                    ...skills,
+                    {
+                      skillName: "",
+                      proficiencyLevel: "Intermediate",
+                      yearsOfExperience: "",
+                      category: "Technical",
+                    },
+                  ])
+                }
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-all"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 Add Skill
-              </Button>
+              </button>
             </div>
 
-            {skills.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-xl">
-                <Brain className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 mb-4">No skills added yet</p>
-                <Button
-                  onClick={addSkill}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add First Skill
-                </Button>
-              </div>
-            ) : (
-              skills.map((skill, index) => (
-                <div
-                  key={skill.id || index}
-                  className="p-6 border border-gray-200 rounded-xl space-y-6 bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
-                >
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Brain className="w-5 h-5 text-blue-600" />
+            <div className="space-y-4">
+              {skills.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
+                  <Brain className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-slate-700">
+                    No skills recorded
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Click "Add Skill" to record technical competencies.
+                  </p>
+                </div>
+              ) : (
+                skills.map((skill, index) => (
+                  <div
+                    key={index}
+                    className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-all space-y-4 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                        Skill #{index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSkills(skills.filter((_, i) => i !== index))}
+                        className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1 font-semibold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Skill Name
+                        </label>
+                        <input
+                          type="text"
+                          value={skill.skillName || ""}
+                          onChange={(e) => {
+                            const updated = [...skills];
+                            updated[index].skillName = e.target.value;
+                            setSkills(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-black">
-                          Skill #{index + 1}
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          Professional skill details
-                        </p>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Proficiency
+                        </label>
+                        <select
+                          value={skill.proficiencyLevel || "Intermediate"}
+                          onChange={(e) => {
+                            const updated = [...skills];
+                            updated[index].proficiencyLevel = e.target.value;
+                            setSkills(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        >
+                          <option value="Beginner">Beginner</option>
+                          <option value="Intermediate">Intermediate</option>
+                          <option value="Advanced">Advanced</option>
+                          <option value="Expert">Expert</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Years Experience
+                        </label>
+                        <input
+                          type="number"
+                          value={skill.yearsOfExperience || ""}
+                          onChange={(e) => {
+                            const updated = [...skills];
+                            updated[index].yearsOfExperience = e.target.value;
+                            setSkills(updated);
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-900"
+                        />
                       </div>
                     </div>
-                    <Button
-                      onClick={() => removeSkill(index)}
-                      variant="outline"
-                      size="sm"
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 transition-all duration-200"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Skill Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={skill.skillName || ""}
-                        onChange={(e) => {
-                          const updated = [...skills];
-                          updated[index] = {
-                            ...updated[index],
-                            skillName: e.target.value,
-                          };
-                          setSkills(updated);
-                        }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-black placeholder-gray-500 ${
-                          formErrors[`skill_${index}_skillName`]
-                            ? "border-red-300 focus:ring-red-500"
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                        placeholder="Enter skill name"
-                      />
-                      {formErrors[`skill_${index}_skillName`] && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {formErrors[`skill_${index}_skillName`]}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Proficiency Level
-                      </label>
-                      <select
-                        value={skill.proficiencyLevel || "Beginner"}
-                        onChange={(e) => {
-                          const updated = [...skills];
-                          updated[index] = {
-                            ...updated[index],
-                            proficiencyLevel: e.target.value,
-                          };
-                          setSkills(updated);
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                      >
-                        <option value="Beginner">Beginner</option>
-                        <option value="Intermediate">Intermediate</option>
-                        <option value="Advanced">Advanced</option>
-                        <option value="Expert">Expert</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Experience (Years)
-                      </label>
-                      <input
-                        type="number"
-                        value={skill.experienceYears || ""}
-                        onChange={(e) => {
-                          const updated = [...skills];
-                          updated[index] = {
-                            ...updated[index],
-                            experienceYears: e.target.value,
-                          };
-                          setSkills(updated);
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                        placeholder="Years of experience"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Category
-                      </label>
-                      <select
-                        value={skill.category || "Technical"}
-                        onChange={(e) => {
-                          const updated = [...skills];
-                          updated[index] = {
-                            ...updated[index],
-                            category: e.target.value,
-                          };
-                          setSkills(updated);
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                      >
-                        <option value="">Select Category</option>
-                        <option value="Technical">Technical</option>
-                        <option value="Management">Management</option>
-                        <option value="Communication">Communication</option>
-                        <option value="Design">Design</option>
-                        <option value="Languages">Languages</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         );
 
       case 5:
         return (
           <div className="space-y-6">
-            <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-black mb-2">
-                Health Records
+            <div className="border-b border-slate-200 pb-4">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Heart className="w-5 h-5 text-indigo-600" />
+                Health & Emergency Records
               </h3>
-              <p className="text-gray-600">
-                Update confidential health and medical information
+              <p className="text-xs text-slate-500 mt-1">
+                Confidential medical notes and insurance coverage details.
               </p>
             </div>
 
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Blood Type
-                  </label>
-                  <select
-                    value={healthRecords.bloodType}
-                    onChange={(e) =>
-                      setHealthRecords({
-                        ...healthRecords,
-                        bloodType: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                  >
-                    <option value="">Select Blood Type</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Emergency Medical Contact
-                  </label>
-                  <input
-                    type="text"
-                    value={healthRecords.emergencyMedicalContact}
-                    onChange={(e) =>
-                      setHealthRecords({
-                        ...healthRecords,
-                        emergencyMedicalContact: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                    placeholder="Emergency medical contact"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Insurance Provider
-                  </label>
-                  <input
-                    type="text"
-                    value={healthRecords.insuranceProvider}
-                    onChange={(e) =>
-                      setHealthRecords({
-                        ...healthRecords,
-                        insuranceProvider: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                    placeholder="Insurance provider name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Insurance Policy Number
-                  </label>
-                  <input
-                    type="text"
-                    value={healthRecords.insurancePolicyNumber}
-                    onChange={(e) =>
-                      setHealthRecords({
-                        ...healthRecords,
-                        insurancePolicyNumber: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-black placeholder-gray-500"
-                    placeholder="Policy number"
-                  />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Blood Type
+                </label>
+                <select
+                  value={healthRecords.bloodType || ""}
+                  onChange={(e) =>
+                    setHealthRecords({ ...healthRecords, bloodType: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 bg-white shadow-sm"
+                >
+                  <option value="">Select Blood Group</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </select>
               </div>
 
-              {/* Allergies */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Allergies
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Emergency Medical Contact
                 </label>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Add allergy"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && e.target.value.trim()) {
-                          addHealthItem("allergies", e.target.value);
-                          e.target.value = "";
-                        }
-                      }}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500"
-                    />
-                    <Button
-                      onClick={(e) => {
-                        const input =
-                          e.target.parentElement.querySelector("input");
-                        if (input && input.value && input.value.trim()) {
-                          addHealthItem("allergies", input.value);
-                          input.value = "";
-                        }
-                      }}
-                      className="bg-red-600 hover:bg-red-700 text-white"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {healthRecords.allergies.map((allergy, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
-                      >
-                        {allergy}
-                        <button
-                          onClick={() => removeHealthItem("allergies", index)}
-                          className="ml-1 text-red-600 hover:text-red-800"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                <input
+                  type="text"
+                  value={healthRecords.emergencyMedicalContact || ""}
+                  onChange={(e) =>
+                    setHealthRecords({
+                      ...healthRecords,
+                      emergencyMedicalContact: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 bg-white shadow-sm"
+                />
               </div>
 
-              {/* Medical Conditions */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Medical Conditions
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Insurance Provider
                 </label>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Add medical condition"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && e.target.value.trim()) {
-                          addHealthItem("medicalConditions", e.target.value);
-                          e.target.value = "";
-                        }
-                      }}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500"
-                    />
-                    <Button
-                      onClick={(e) => {
-                        const input =
-                          e.target.parentElement.querySelector("input");
-                        if (input && input.value && input.value.trim()) {
-                          addHealthItem("medicalConditions", input.value);
-                          input.value = "";
-                        }
-                      }}
-                      className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {healthRecords.medicalConditions.map((condition, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm"
-                      >
-                        {condition}
-                        <button
-                          onClick={() =>
-                            removeHealthItem("medicalConditions", index)
-                          }
-                          className="ml-1 text-yellow-600 hover:text-yellow-800"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                <input
+                  type="text"
+                  value={healthRecords.insuranceProvider || ""}
+                  onChange={(e) =>
+                    setHealthRecords({
+                      ...healthRecords,
+                      insuranceProvider: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 bg-white shadow-sm"
+                />
               </div>
 
-              {/* Medications */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Medications
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Insurance Policy Number
                 </label>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Add medication"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && e.target.value.trim()) {
-                          addHealthItem("medications", e.target.value);
-                          e.target.value = "";
-                        }
-                      }}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500"
-                    />
-                    <Button
-                      onClick={(e) => {
-                        const input =
-                          e.target.parentElement.querySelector("input");
-                        if (input && input.value && input.value.trim()) {
-                          addHealthItem("medications", input.value);
-                          input.value = "";
-                        }
-                      }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {healthRecords.medications.map((medication, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-                      >
-                        {medication}
-                        <button
-                          onClick={() => removeHealthItem("medications", index)}
-                          className="ml-1 text-blue-600 hover:text-blue-800"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                <input
+                  type="text"
+                  value={healthRecords.insurancePolicyNumber || ""}
+                  onChange={(e) =>
+                    setHealthRecords({
+                      ...healthRecords,
+                      insurancePolicyNumber: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 bg-white shadow-sm"
+                />
               </div>
             </div>
           </div>
         );
 
+      case 6:
+        /* Documents and Files Management in Edit */
+        return (
+          <div className="space-y-6">
+            <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-indigo-600" />
+                  Employee Documents & Attachments
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  View in detail, download, change/replace existing documents, or upload new files.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsUploadingNewDoc(!isUploadingNewDoc)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                {isUploadingNewDoc ? "Hide Upload Form" : "Upload New Document"}
+              </button>
+            </div>
+
+            {/* Upload New Document Card */}
+            {isUploadingNewDoc && (
+              <div className="p-5 rounded-2xl border border-indigo-200 bg-indigo-50/40 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Upload className="w-4 h-4 text-indigo-600" />
+                    Upload New Document for {personalDetails.name || "Employee"}
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadingNewDoc(false)}
+                    className="text-slate-400 hover:text-slate-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Document Category
+                    </label>
+                    <select
+                      value={newDocData.category}
+                      onChange={(e) =>
+                        setNewDocData({ ...newDocData, category: e.target.value })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white text-slate-900"
+                    >
+                      {DOCUMENT_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Document Title
+                    </label>
+                    <input
+                      type="text"
+                      value={newDocData.title}
+                      onChange={(e) =>
+                        setNewDocData({ ...newDocData, title: e.target.value })
+                      }
+                      placeholder="e.g. Passport Copy"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      value={newDocData.expiryDate}
+                      onChange={(e) =>
+                        setNewDocData({ ...newDocData, expiryDate: e.target.value })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <input
+                    ref={uploadFileInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.xlsx,.xls"
+                    className="w-full sm:flex-1 text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer"
+                    onChange={(e) =>
+                      setNewDocData({ ...newDocData, file: e.target.files?.[0] || null })
+                    }
+                  />
+
+                  <Button
+                    type="button"
+                    disabled={!newDocData.file || isUploadingNewDoc}
+                    onClick={handleUploadNewDocument}
+                    className="w-full sm:w-auto px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm"
+                  >
+                    {isUploadingNewDoc ? (
+                      <span className="flex items-center gap-1.5">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Uploading...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5">
+                        <Upload className="w-3.5 h-3.5" />
+                        Upload & Attach
+                      </span>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* List of Existing Documents */}
+            <div className="space-y-3">
+              {fetchingDocs ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
+                  <RefreshCw className="w-6 h-6 text-indigo-600 animate-spin mx-auto mb-2" />
+                  <p className="text-xs text-slate-600">Loading documents...</p>
+                </div>
+              ) : documents.length === 0 ? (
+                <div className="p-10 text-center bg-slate-50 rounded-2xl border border-slate-200">
+                  <FileText className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                  <h4 className="text-sm font-bold text-slate-800">
+                    No documents attached yet
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    Click "Upload New Document" above to upload ID cards, contracts, CVs, or credentials.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {documents.map((doc) => {
+                    const docId = doc._id || doc.id;
+                    const isPdf =
+                      doc.mimeType?.includes("pdf") ||
+                      doc.originalName?.toLowerCase().endsWith(".pdf") ||
+                      doc.documentType === "pdf";
+                    const isImage =
+                      doc.mimeType?.startsWith("image/") ||
+                      doc.originalName?.match(/\.(jpg|jpeg|png|webp)$/i);
+
+                    return (
+                      <div
+                        key={docId}
+                        className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all flex flex-col justify-between space-y-3"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex-shrink-0">
+                            {isPdf ? (
+                              <FileText className="w-6 h-6 text-rose-500" />
+                            ) : isImage ? (
+                              <ImageIcon className="w-6 h-6 text-emerald-500" />
+                            ) : (
+                              <FileCheck className="w-6 h-6 text-indigo-500" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h5 className="text-sm font-bold text-slate-900 truncate">
+                              {doc.title || doc.originalName || "Document"}
+                            </h5>
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium text-[10px]">
+                                {doc.documentType || doc.type || "Document"}
+                              </span>
+                              <span>•</span>
+                              <span>{formatFileSize(doc.fileSize)}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              Uploaded: {formatDate(doc.uploadDate || doc.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons for Document */}
+                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            {/* See in Detail / View */}
+                            <button
+                              type="button"
+                              onClick={() => setViewingDoc(doc)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-all"
+                              title="See in Detail & Preview"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View</span>
+                            </button>
+
+                            {/* Download */}
+                            <a
+                              href={`/api/documents/${docId}/download`}
+                              download={doc.originalName || "document"}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all"
+                              title="Download File"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Download</span>
+                            </a>
+
+                            {/* Change / Replace File */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplacingDoc(doc);
+                                setSelectedReplaceFile(null);
+                                setIsReplaceModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold border border-amber-200 transition-all"
+                              title="Change / Replace Document File"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              <span>Replace</span>
+                            </button>
+                          </div>
+
+                          {/* Delete Document */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeleteDocument(
+                                docId,
+                                doc.title || doc.originalName
+                              )
+                            }
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                            title="Delete Document"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        );
       default:
         return null;
     }
   };
 
   return (
-    <ClientOnly
-      fallback={
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden animate-pulse">
-            <div className="h-32 bg-gradient-to-r from-blue-50 to-indigo-50"></div>
-            <div className="p-8 space-y-4">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-            </div>
-          </div>
-        </div>
-      }
-    >
-      <div
-        className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        suppressHydrationWarning={true}
-      >
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col border border-gray-100">
-          {/* Enhanced Header */}
-          <div className="relative bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 px-8 py-6 text-white">
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.4),transparent_50%)]" />
-            <div className="relative flex items-center justify-between">
+    <ClientOnly>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-3 sm:p-6 animate-in fade-in duration-200">
+        <div className="relative w-full max-w-4xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                <Sparkles className="w-5 h-5" />
+              </div>
               <div>
-                <h2 className="text-3xl font-bold mb-2 drop-shadow-sm">
-                  Edit Employee
+                <h2 className="text-lg font-bold text-white leading-tight">
+                  Edit Employee: {personalDetails.name || "Employee"}
                 </h2>
-                <p className="text-white text-opacity-90 text-sm">
-                  Step {currentStep} of {STEPS.length} -{" "}
-                  {STEPS[currentStep - 1]?.title}
+                <p className="text-xs text-slate-300">
+                  Step {currentStep} of {STEPS.length}: {STEPS[currentStep - 1]?.title}
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  onClose();
-                  resetForm();
-                }}
-                className="text-white hover:text-white transition-colors p-2 hover:bg-white hover:bg-opacity-20 rounded-full backdrop-blur-sm"
-              >
-                <X className="w-6 h-6" />
-              </button>
             </div>
 
-            {/* Enhanced Step Indicator */}
-            <div className="relative mt-8">
-              {/* Progress Bar Background */}
-              <div className="absolute top-5 left-0 right-0 h-1.5 bg-white bg-opacity-25 rounded-full"></div>
-              {/* Progress Bar Fill */}
-              <div
-                className="absolute top-5 left-0 h-1.5 bg-gradient-to-r from-yellow-300 to-amber-400 rounded-full transition-all duration-500 ease-out shadow-lg"
-                style={{
-                  width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%`,
-                }}
-              ></div>
+            <button
+              onClick={() => {
+                onClose();
+                resetForm();
+              }}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-all"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-              <div className="relative flex justify-between">
-                {STEPS.map((step, index) => (
-                  <div
+          {/* Stepper Navigation Bar */}
+          <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 overflow-x-auto flex-shrink-0">
+            <div className="flex items-center justify-between min-w-max gap-2">
+              {STEPS.map((step) => {
+                const stepNumber = step.id;
+                const isCompleted = currentStep > stepNumber;
+                const isCurrent = currentStep === stepNumber;
+
+                return (
+                  <button
                     key={step.id}
-                    className="flex flex-col items-center group"
+                    type="button"
+                    onClick={() => {
+                      if (canNavigateToStep(stepNumber)) {
+                        setCurrentStep(stepNumber);
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      isCurrent
+                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-105"
+                        : isCompleted
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+                    }`}
                   >
-                    {/* Step Circle */}
                     <div
-                      onClick={() => {
-                        if (canNavigateToStep(step.id)) setCurrentStep(step.id);
-                      }}
-                      role="button"
-                      title={step.title}
-                      className={`relative flex items-center justify-center w-12 h-12 rounded-full border-3 transition-all duration-300 transform cursor-pointer ${
-                        currentStep > step.id
-                          ? "bg-amber-400 border-amber-300 text-white scale-110 shadow-xl shadow-amber-500/50"
-                          : currentStep === step.id
-                          ? "bg-white border-white text-teal-700 scale-110 shadow-xl shadow-white/50 animate-pulse"
-                          : "bg-teal-400 bg-opacity-40 border-teal-300 text-white hover:scale-105 hover:bg-opacity-60"
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                        isCurrent
+                          ? "bg-white text-indigo-700 font-bold"
+                          : isCompleted
+                          ? "bg-emerald-600 text-white font-bold"
+                          : "bg-slate-200 text-slate-600"
                       }`}
                     >
-                      {currentStep > step.id ? (
-                        <Check className="w-6 h-6 animate-in zoom-in duration-300" />
-                      ) : (
-                        <step.icon
-                          className={`w-6 h-6 ${
-                            currentStep === step.id ? "animate-bounce" : ""
-                          }`}
-                        />
-                      )}
-
-                      {/* Pulse Animation for Current Step */}
-                      {currentStep === step.id && (
-                        <div className="absolute inset-0 rounded-full border-3 border-white animate-ping opacity-75"></div>
-                      )}
+                      {isCompleted ? <Check className="w-3 h-3 stroke-[3]" /> : stepNumber}
                     </div>
-
-                    {/* Step Label */}
-                    <div className="mt-3 text-center">
-                      <p
-                        className={`text-sm font-semibold transition-colors ${
-                          currentStep >= step.id
-                            ? "text-white drop-shadow"
-                            : "text-white text-opacity-60"
-                        }`}
-                      >
-                        {step.title}
-                      </p>
-                      <p
-                        className={`text-xs mt-1 ${
-                          currentStep >= step.id
-                            ? "text-white text-opacity-90"
-                            : "text-white text-opacity-50"
-                        }`}
-                      >
-                        {step.description}
-                      </p>
-                    </div>
-
-                    {/* Connection Line - Removed for cleaner look */}
-                    {index < STEPS.length - 1 && false && (
-                      <div className="absolute top-6 left-12 w-full h-0.5 bg-green-200/60 hidden lg:block">
-                        <div
-                          className={`h-0.5 transition-all duration-500 ${
-                            currentStep > step.id
-                              ? "bg-white w-full"
-                              : "bg-transparent w-0"
-                          }`}
-                        ></div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                    <span>{step.title}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Enhanced Status Messages */}
+          {/* Alert Banners */}
           {error && (
-            <div className="mx-8 mt-6 bg-red-50 border-l-4 border-red-400 rounded-r-lg p-4 shadow-sm animate-in slide-in-from-top duration-300">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <X className="w-5 h-5 text-red-400" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-red-800 font-medium">{error}</p>
-                </div>
-              </div>
+            <div className="mx-6 mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="mx-8 mt-6 bg-green-50 border-l-4 border-green-400 rounded-r-lg p-4 shadow-sm animate-in slide-in-from-top duration-300">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <Check className="w-5 h-5 text-green-400" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-green-800 font-medium">{success}</p>
-                </div>
-              </div>
+            <div className="mx-6 mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>{success}</span>
             </div>
           )}
 
-          {/* Enhanced Content Area */}
-          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 to-white">
-            <div className="px-8 py-6">
-              <div className="bg-white rounded-xl shadow-md border border-slate-200 p-8 min-h-[400px]">
-                {fetchingData ? (
-                  <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-                    <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-gray-600 font-medium">
-                      Loading employee data...
-                    </p>
-                  </div>
-                ) : (
-                  <div className="animate-in fade-in slide-in-from-right duration-300">
-                    {renderStepContent()}
-                  </div>
-                )}
-              </div>
+          {/* Content Area */}
+          <div className="p-6 overflow-y-auto flex-1 bg-slate-50/30">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm min-h-[380px]">
+              {fetchingData ? (
+                <div className="p-12 text-center">
+                  <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-slate-700">
+                    Loading employee data...
+                  </p>
+                </div>
+              ) : (
+                renderStepContent()
+              )}
             </div>
           </div>
 
-          {/* Enhanced Footer */}
-          <div className="flex-shrink-0 px-8 py-6 bg-gradient-to-t from-slate-50 to-white border-t border-slate-200">
-            <div className="flex justify-between items-center">
-              <Button
-                onClick={handlePrevious}
-                disabled={currentStep === 1 || loading}
-                variant="outline"
-                className="flex items-center gap-2 px-6 py-3 text-gray-800 border-gray-300 hover:bg-gray-100 disabled:text-gray-600 disabled:bg-white disabled:opacity-90 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span className="text-gray-800 disabled:text-gray-600">
-                  Previous
-                </span>
-              </Button>
+          {/* Footer Controls */}
+          <div className="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={currentStep === 1 || loading}
+              onClick={handlePrevious}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 border-slate-300 hover:bg-slate-100 flex items-center gap-1.5"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </Button>
 
-              <div className="flex items-center gap-4">
-                {/* Keyboard Shortcuts Hint */}
-                <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
-                  <span>⌨️ Shortcuts:</span>
-                  <span className="bg-gray-100 px-2 py-1 rounded">← →</span>
-                  <span>Navigate</span>
-                  <span className="bg-gray-100 px-2 py-1 rounded">Esc</span>
-                  <span>Close</span>
-                  {currentStep === STEPS.length && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+                Step {currentStep} of {STEPS.length}
+              </span>
+
+              {currentStep < STEPS.length ? (
+                <Button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={loading}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all flex items-center gap-1.5"
+                >
+                  Next Step
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md transition-all flex items-center gap-1.5"
+                >
+                  {loading ? (
                     <>
-                      <span className="bg-gray-100 px-2 py-1 rounded">
-                        Ctrl+Enter
-                      </span>
-                      <span>Submit</span>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Saving Changes...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Save & Update Employee
                     </>
                   )}
-                </div>
-
-                {/* Step Counter */}
-                <span className="text-sm text-gray-500 font-medium">
-                  {currentStep} of {STEPS.length}
-                </span>
-
-                {currentStep < STEPS.length ? (
-                  <Button
-                    onClick={handleNext}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-                  >
-                    <span className="text-white">Next</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:bg-gray-300 disabled:text-gray-700 disabled:opacity-100"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Updating Employee...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-5 h-5" />
-                        <span className="text-white">Update Employee</span>
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Document Detail / Preview Viewer Modal */}
+      {viewingDoc && (
+        <DocumentDetailViewerModal
+          isOpen={!!viewingDoc}
+          document={viewingDoc}
+          employeeName={personalDetails.name}
+          onClose={() => setViewingDoc(null)}
+          onReplaceFile={(doc) => {
+            setViewingDoc(null);
+            setReplacingDoc(doc);
+            setSelectedReplaceFile(null);
+            setIsReplaceModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* Replace Document Modal Dialog */}
+      {isReplaceModalOpen && replacingDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 text-indigo-600" />
+                Replace Document File
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsReplaceModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <p className="text-xs text-slate-500 font-medium">Target Document</p>
+              <p className="text-sm font-bold text-slate-800 truncate">
+                {replacingDoc.title || replacingDoc.originalName}
+              </p>
+              <p className="text-[11px] text-slate-400">
+                {replacingDoc.documentType || replacingDoc.type} • Current: {replacingDoc.originalName}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Select New Replacement File
+              </label>
+              <input
+                ref={replaceFileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.xlsx,.xls"
+                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer"
+                onChange={(e) => setSelectedReplaceFile(e.target.files?.[0] || null)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsReplaceModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!selectedReplaceFile || loading}
+                onClick={handleReplaceDocumentFile}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold shadow-sm flex items-center gap-1.5"
+              >
+                {loading ? "Replacing..." : "Confirm Replacement"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ClientOnly>
   );
 }

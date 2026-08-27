@@ -35,8 +35,36 @@ export async function GET(req) {
   // Build query
   let query = {};
   if (employeeId) {
-    query.employeeId = employeeId;
+    const trimmedEmpId = employeeId.trim();
+    // Try to find the matching employee document first to resolve IDs
+    let matchedEmp = null;
+    if (ObjectId.isValid(trimmedEmpId)) {
+      matchedEmp = await db.collection("employees").findOne({ _id: new ObjectId(trimmedEmpId) });
+    }
+    if (!matchedEmp) {
+      matchedEmp = await db.collection("employees").findOne({
+        $or: [
+          { employeeId: trimmedEmpId },
+          { empId: trimmedEmpId },
+          { "personalDetails.employeeId": trimmedEmpId },
+        ],
+      });
+    }
+
+    if (matchedEmp) {
+      const possibleIds = [
+        matchedEmp._id.toString(),
+        matchedEmp._id,
+        trimmedEmpId,
+        matchedEmp.employeeId,
+        matchedEmp.empId,
+      ].filter(Boolean);
+      query.employeeId = { $in: possibleIds };
+    } else {
+      query.employeeId = trimmedEmpId;
+    }
   }
+
   if (startDate && endDate) {
     query.date = {
       $gte: startDate,
@@ -52,31 +80,61 @@ export async function GET(req) {
       .sort({ date: -1, checkInTime: -1 })
       .toArray();
 
-    // Get employee details for each record
-    const employeeIds = [
-      ...new Set(attendanceRecords.map((record) => record.employeeId)),
+    // Get employee details for each record safely
+    const rawEmployeeIds = [
+      ...new Set(attendanceRecords.map((record) => record.employeeId).filter(Boolean)),
     ];
+    const validObjectIds = rawEmployeeIds
+      .filter((id) => ObjectId.isValid(id))
+      .map((id) => (typeof id === "string" ? new ObjectId(id) : id));
+
     const employees = await db
       .collection("employees")
-      .find({ _id: { $in: employeeIds.map((id) => new ObjectId(id)) } })
+      .find({
+        $or: [
+          ...(validObjectIds.length > 0 ? [{ _id: { $in: validObjectIds } }] : []),
+          { employeeId: { $in: rawEmployeeIds } },
+          { empId: { $in: rawEmployeeIds } },
+        ],
+      })
       .toArray();
 
     // Create employee lookup map
     const employeeMap = {};
     employees.forEach((emp) => {
-      employeeMap[emp._id.toString()] = {
+      const empCode =
+        emp.employeeId ||
+        emp.empId ||
+        emp.personalDetails?.employeeId ||
+        emp._id.toString();
+      const empData = {
+        _id: emp._id.toString(),
+        employeeId: empCode,
+        empId: empCode,
         name: emp.personalDetails?.name || emp.name || "Unknown",
         email: emp.personalDetails?.email || emp.email || "",
         department: emp.department || emp.personalDetails?.department || "",
         designation: emp.designation || emp.personalDetails?.designation || "",
       };
+      employeeMap[emp._id.toString()] = empData;
+      if (emp.employeeId) employeeMap[emp.employeeId] = empData;
+      if (emp.empId) employeeMap[emp.empId] = empData;
     });
 
     // Enhance attendance records with employee details
-    const enhancedRecords = attendanceRecords.map((record) => ({
-      ...record,
-      employee: employeeMap[record.employeeId] || { name: "Unknown Employee" },
-    }));
+    const enhancedRecords = attendanceRecords.map((record) => {
+      const emp =
+        employeeMap[record.employeeId?.toString()] ||
+        employeeMap[record.employeeId] || {
+          name: record.employeeName || "Unknown Employee",
+          employeeId: record.employeeId || "—",
+          empId: record.employeeId || "—",
+        };
+      return {
+        ...record,
+        employee: emp,
+      };
+    });
 
     return Response.json(enhancedRecords);
   } else {

@@ -301,13 +301,35 @@ export async function GET(request, { params }) {
     console.log("Fetching enhanced employee data for ID:", id);
 
     // Fetch all related data in parallel
-    const [employee, employmentHistory, certifications, skills, healthRecords] =
+    const [employee, employmentHistory, certifications, skills, healthRecords, documents] =
       await Promise.all([
         db.collection("employees").findOne({ _id: new ObjectId(id) }),
         db.collection("employment_history").find({ employeeId: id }).toArray(),
         db.collection("certifications").find({ employeeId: id }).toArray(),
         db.collection("employee_skills").find({ employeeId: id }).toArray(),
         db.collection("health_records").findOne({ employeeId: id }),
+        db
+          .collection("documents")
+          .find(
+            {
+              $or: [
+                { employeeId: id },
+                { employeeId: new ObjectId(id) },
+                { "documentData.employeeId": id },
+              ],
+            },
+            {
+              projection: {
+                fileData: 0,
+                content: 0,
+                data: 0,
+                buffer: 0,
+                binary: 0,
+              },
+            }
+          )
+          .sort({ uploadDate: -1, createdAt: -1 })
+          .toArray(),
       ]);
 
     if (!employee) {
@@ -323,6 +345,7 @@ export async function GET(request, { params }) {
       certifications,
       skills,
       healthRecords: healthRecords || {},
+      documents: documents || [],
     });
   } catch (error) {
     console.error("Error fetching enhanced employee data:", error);

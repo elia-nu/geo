@@ -140,14 +140,58 @@ export async function PUT(request, { params }) {
         expectedAmount:
           data.expectedAmount !== undefined
             ? data.expectedAmount
+            : data.totalProjectAmount !== undefined
+            ? data.totalProjectAmount
             : existing.expectedAmount,
+        totalProjectAmount:
+          data.totalProjectAmount !== undefined
+            ? data.totalProjectAmount
+            : data.expectedAmount !== undefined
+            ? data.expectedAmount
+            : existing.totalProjectAmount || existing.expectedAmount,
         amount:
-          data.amount !== undefined ? data.amount : existing.amount,
+          data.amount !== undefined
+            ? data.amount
+            : data.totalPaid !== undefined
+            ? data.totalPaid
+            : existing.amount,
+        totalPaid:
+          data.totalPaid !== undefined
+            ? data.totalPaid
+            : data.amount !== undefined
+            ? data.amount
+            : existing.totalPaid || existing.amount,
         receivedDate:
           data.receivedDate !== undefined
             ? data.receivedDate
             : existing.receivedDate,
         dueDate: data.dueDate !== undefined ? data.dueDate : existing.dueDate,
+        nextPaymentDate:
+          data.nextPaymentDate !== undefined
+            ? data.nextPaymentDate
+            : existing.nextPaymentDate,
+        nextPaymentAmount:
+          data.nextPaymentAmount !== undefined
+            ? Number(data.nextPaymentAmount)
+            : existing.nextPaymentAmount,
+        frequency:
+          data.frequency !== undefined
+            ? data.frequency
+            : existing.frequency || "lump_sum",
+        recurringDay:
+          data.recurringDay !== undefined
+            ? parseInt(data.recurringDay, 10)
+            : existing.recurringDay,
+        durationMonths:
+          data.durationMonths !== undefined
+            ? parseInt(data.durationMonths, 10)
+            : existing.durationMonths,
+        startDate:
+          data.startDate !== undefined ? data.startDate : existing.startDate,
+        installmentAmount:
+          data.installmentAmount !== undefined
+            ? Number(data.installmentAmount)
+            : existing.installmentAmount,
         paymentMethod:
           data.paymentMethod !== undefined
             ? data.paymentMethod
@@ -156,6 +200,10 @@ export async function PUT(request, { params }) {
             : existing.paymentMethod,
         clientName:
           data.clientName !== undefined ? data.clientName : existing.clientName,
+        projectName:
+          data.projectName !== undefined
+            ? data.projectName
+            : existing.projectName || project.name || "",
         categoryId: nextCategoryId || "",
         categoryName: nextCategoryName || "",
         invoiceNumber:

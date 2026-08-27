@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Users,
   MapPin,
@@ -8,15 +8,20 @@ import {
   Filter,
   Plus,
   X,
-  CheckCircle,
-  AlertCircle,
+  CheckCircle2,
+  AlertTriangle,
   Loader2,
   RefreshCw,
   UserCheck,
   UserX,
   Settings,
+  Building,
+  Check,
+  Compass,
 } from "lucide-react";
 import EmployeeSetupModal from "./EmployeeSetupModal";
+import Pagination from "./ui/Pagination";
+import { toast } from "./ui/toast";
 
 export default function EmployeeLocationManagement() {
   const [employees, setEmployees] = useState([]);
@@ -31,8 +36,9 @@ export default function EmployeeLocationManagement() {
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
-  const [selectedLocation, setSelectedLocation] = useState("");
   const [filterByLocation, setFilterByLocation] = useState("all"); // "all", "assigned", "unassigned"
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Bulk operations
   const [selectedEmployees, setSelectedEmployees] = useState([]);
@@ -63,8 +69,7 @@ export default function EmployeeLocationManagement() {
       if (result.success) {
         setEmployees(result.employees || []);
       } else {
-        console.error("API returned error:", result.error);
-        showMessage(result.error || "Failed to load employees", "error");
+        setEmployees(Array.isArray(result) ? result : []);
       }
     } catch (error) {
       console.error("Error fetching employees:", error);
@@ -79,6 +84,8 @@ export default function EmployeeLocationManagement() {
 
       if (result.success) {
         setWorkLocations(result.locations || []);
+      } else {
+        setWorkLocations(Array.isArray(result) ? result : []);
       }
     } catch (error) {
       console.error("Error fetching work locations:", error);
@@ -101,10 +108,6 @@ export default function EmployeeLocationManagement() {
           locationData[employee._id] = [];
         }
       } catch (error) {
-        console.error(
-          `Error fetching locations for employee ${employee._id}:`,
-          error
-        );
         locationData[employee._id] = [];
       }
     }
@@ -121,42 +124,51 @@ export default function EmployeeLocationManagement() {
   const showMessage = (msg, type = "info") => {
     setMessage(msg);
     setMessageType(type);
+    if (type === "success") toast.success(msg);
+    else if (type === "error") toast.error(msg);
     setTimeout(() => {
       setMessage("");
     }, 5000);
   };
 
   // Filter employees based on search and filter criteria
-  const filteredEmployees = employees.filter((employee) => {
-    const name = employee.personalDetails?.name || employee.name || "";
-    const employeeId =
-      employee.personalDetails?.employeeId || employee.employeeId || "";
-    const department =
-      employee.personalDetails?.department || employee.department || "";
+  const filteredEmployees = useMemo(() => {
+    return employees.filter((employee) => {
+      const name = employee.personalDetails?.name || employee.name || "";
+      const employeeId =
+        employee.personalDetails?.employeeId || employee.employeeId || "";
+      const department =
+        employee.personalDetails?.department || employee.department || "";
+      const employeeLocationCount =
+        employeeLocations[employee._id]?.length || 0;
 
-    // Search filter
-    const matchesSearch =
-      searchTerm === "" ||
-      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+      const term = searchTerm.toLowerCase().trim();
+      const matchesSearch =
+        !term ||
+        name.toLowerCase().includes(term) ||
+        employeeId.toLowerCase().includes(term) ||
+        department.toLowerCase().includes(term);
 
-    // Department filter
-    const matchesDepartment =
-      selectedDepartment === "" || department === selectedDepartment;
+      const matchesDepartment =
+        !selectedDepartment || department === selectedDepartment;
 
-    // Location filter
-    const employeeLocationCount = employeeLocations[employee._id]?.length || 0;
-    let matchesLocation = true;
-    if (filterByLocation === "assigned") {
-      matchesLocation = employeeLocationCount > 0;
-    } else if (filterByLocation === "unassigned") {
-      matchesLocation = employeeLocationCount === 0;
-    }
+      let matchesLocation = true;
+      if (filterByLocation === "assigned") {
+        matchesLocation = employeeLocationCount > 0;
+      } else if (filterByLocation === "unassigned") {
+        matchesLocation = employeeLocationCount === 0;
+      }
 
-    return matchesSearch && matchesDepartment && matchesLocation;
-  });
+      return matchesSearch && matchesDepartment && matchesLocation;
+    });
+  }, [
+    employees,
+    employeeLocations,
+    searchTerm,
+    selectedDepartment,
+    filterByLocation,
+  ]);
 
-  // Get unique departments
   const getUniqueDepartments = () => {
     const departments = employees
       .map((emp) => emp.personalDetails?.department || emp.department)
@@ -164,7 +176,7 @@ export default function EmployeeLocationManagement() {
     return [...new Set(departments)];
   };
 
-  const handleLocationSelection = (employeeId, locationId) => {
+  const handleLocationSelection = (employeeId) => {
     setSelectedEmployees((prev) => {
       if (prev.includes(employeeId)) {
         return prev.filter((id) => id !== employeeId);
@@ -214,7 +226,6 @@ export default function EmployeeLocationManagement() {
       setBulkLocation("");
       setShowBulkAssign(false);
 
-      // Refresh data
       await fetchEmployeeLocations();
     } catch (error) {
       console.error("Error assigning locations:", error);
@@ -247,8 +258,6 @@ export default function EmployeeLocationManagement() {
       }
 
       showMessage("Location removed successfully!", "success");
-
-      // Refresh data
       await fetchEmployeeLocations();
     } catch (error) {
       console.error("Error removing location:", error);
@@ -269,392 +278,515 @@ export default function EmployeeLocationManagement() {
   const clearFilters = () => {
     setSearchTerm("");
     setSelectedDepartment("");
-    setSelectedLocation("");
     setFilterByLocation("all");
     setSelectedEmployees([]);
+    setCurrentPage(1);
   };
 
+  // Stats calculation
+  const stats = useMemo(() => {
+    let assigned = 0;
+    let unassigned = 0;
+
+    employees.forEach((emp) => {
+      const count = employeeLocations[emp._id]?.length || 0;
+      if (count > 0) assigned++;
+      else unassigned++;
+    });
+
+    return {
+      total: employees.length,
+      assigned,
+      unassigned,
+      totalLocations: workLocations.length,
+    };
+  }, [employees, employeeLocations, workLocations]);
+
+  const totalPages =
+    Math.ceil((filteredEmployees.length || 0) / itemsPerPage) || 1;
+  const paginatedEmployees = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredEmployees.slice(start, start + itemsPerPage);
+  }, [filteredEmployees, currentPage, itemsPerPage]);
+
   return (
-    <div className="space-y-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-black mb-2">
-                Employee Location Management
-              </h1>
-              <p className="text-gray-600">
-                Manage work location assignments for all employees
-              </p>
+    <div className="space-y-6 animate-in fade-in duration-200">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 p-6 sm:p-8 shadow-xl text-white">
+        <div className="absolute -top-12 -right-12 w-56 h-56 bg-teal-500/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-emerald-500/10 rounded-full blur-2xl" />
+
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 shadow-inner">
+                <MapPin className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  Employee Location Management
+                </h1>
+                <p className="text-teal-100/80 text-xs sm:text-sm mt-0.5">
+                  Assign GPS geofence zones, multiple work premises, and branch placements.
+                </p>
+              </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={fetchData}
-                disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 disabled:opacity-50"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                />
-                <span>Refresh</span>
-              </button>
-              <button
-                onClick={() => setShowBulkAssign(!showBulkAssign)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Bulk Assign</span>
-              </button>
+
+            {/* Quick KPI Badges */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md text-xs font-semibold text-white flex items-center gap-1.5 border border-white/10">
+                <span className="w-2 h-2 rounded-full bg-blue-400" />
+                <span>{stats.total} Total Personnel</span>
+              </div>
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md text-xs font-semibold text-emerald-300 flex items-center gap-1.5 border border-white/10">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>{stats.assigned} Assigned</span>
+              </div>
+              {stats.unassigned > 0 && (
+                <div className="px-3 py-1.5 rounded-xl bg-amber-500/20 backdrop-blur-md text-xs font-semibold text-amber-200 flex items-center gap-1.5 border border-amber-400/30">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span>{stats.unassigned} Unassigned</span>
+                </div>
+              )}
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md text-xs font-semibold text-teal-200 flex items-center gap-1.5 border border-white/10">
+                <Compass className="w-3.5 h-3.5" />
+                <span>{stats.totalLocations} Active Zones</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Message Display */}
-        {message && (
-          <div
-            className={`p-4 rounded-lg flex items-center space-x-2 mb-6 ${
-              messageType === "success"
-                ? "bg-green-100 text-green-700"
-                : messageType === "error"
-                ? "bg-red-100 text-red-700"
-                : "bg-blue-100 text-blue-700"
-            }`}
-          >
+          <div className="flex items-center gap-2.5 self-start md:self-auto">
+            <button
+              onClick={fetchData}
+              disabled={loading}
+              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 transition-all flex items-center gap-2 text-xs font-semibold"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+
+            <button
+              onClick={() => setShowBulkAssign(!showBulkAssign)}
+              className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs shadow-lg shadow-teal-600/30 transition-all flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Bulk Assign</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Message Alert */}
+      {message && (
+        <div
+          className={`p-4 rounded-xl flex items-center justify-between text-xs font-medium border shadow-sm ${
+            messageType === "success"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : messageType === "error"
+              ? "bg-rose-50 border-rose-200 text-rose-800"
+              : "bg-teal-50 border-teal-200 text-teal-800"
+          }`}
+        >
+          <div className="flex items-center gap-2">
             {messageType === "success" ? (
-              <CheckCircle className="w-5 h-5" />
-            ) : messageType === "error" ? (
-              <AlertCircle className="w-5 h-5" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
             ) : (
-              <AlertCircle className="w-5 h-5" />
+              <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
             )}
             <span>{message}</span>
           </div>
-        )}
+          <button
+            onClick={() => setMessage("")}
+            className="text-slate-400 hover:text-slate-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
-        {/* Bulk Assignment Section */}
-        {showBulkAssign && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-              <Plus className="w-5 h-5 text-green-600" />
-              <span>Bulk Location Assignment</span>
-            </h3>
-
-            <div className="grid md:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Selected Employees ({selectedEmployees.length})
-                </label>
-                <div className="text-sm text-gray-600">
-                  {selectedEmployees.length > 0 ? (
-                    <div className="max-h-32 overflow-y-auto">
-                      {selectedEmployees.map((empId) => {
-                        const emp = employees.find((e) => e._id === empId);
-                        return (
-                          <div
-                            key={empId}
-                            className="flex items-center justify-between py-1"
-                          >
-                            <span>
-                              {emp?.personalDetails?.name ||
-                                emp?.name ||
-                                "Unknown"}
-                            </span>
-                            <button
-                              onClick={() => handleLocationSelection(empId)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    "No employees selected"
-                  )}
-                </div>
+      {/* Bulk Assignment Drawer */}
+      {showBulkAssign && (
+        <div className="bg-white rounded-2xl shadow-sm border border-teal-200 p-5 space-y-4 animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600">
+                <UserCheck className="w-4 h-4" />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Work Location
-                </label>
-                <select
-                  value={bulkLocation}
-                  onChange={(e) => setBulkLocation(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
-                >
-                  <option value="">Select a work location...</option>
-                  {workLocations.map((location) => (
-                    <option key={location._id} value={location._id}>
-                      {location.name} -{" "}
-                      {location.address ||
-                        `${location.latitude?.toFixed(
-                          6
-                        )}, ${location.longitude?.toFixed(6)}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-end">
-                <button
-                  onClick={handleBulkAssign}
-                  disabled={
-                    loading || selectedEmployees.length === 0 || !bulkLocation
-                  }
-                  className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <UserCheck className="w-4 h-4" />
-                  )}
-                  <span>Assign Location</span>
-                </button>
-              </div>
+              <h3 className="text-sm font-bold text-slate-800">
+                Bulk Work Location Assignment
+              </h3>
             </div>
+            <button
+              onClick={() => setShowBulkAssign(false)}
+              className="text-slate-400 hover:text-slate-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-        )}
 
-        {/* Search and Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <div className="grid md:grid-cols-4 gap-4">
-            {/* Search */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search Employees
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                Selected Personnel ({selectedEmployees.length})
               </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by name or ID..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
-                />
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs min-h-[42px] max-h-32 overflow-y-auto">
+                {selectedEmployees.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedEmployees.map((empId) => {
+                      const emp = employees.find((e) => e._id === empId);
+                      return (
+                        <span
+                          key={empId}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[11px] font-semibold text-slate-700 shadow-2xs"
+                        >
+                          {emp?.personalDetails?.name || emp?.name || "Employee"}
+                          <button
+                            onClick={() => handleLocationSelection(empId)}
+                            className="text-rose-500 hover:text-rose-700 ml-0.5"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span className="text-slate-400 italic">
+                    Select checkboxes in the table below
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Department Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Department
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                Target Work Location / Geofence
               </label>
               <select
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                value={bulkLocation}
+                onChange={(e) => setBulkLocation(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-all"
               >
-                <option value="">All Departments</option>
-                {getUniqueDepartments().map((dept) => (
-                  <option key={dept} value={dept}>
-                    {dept}
+                <option value="">Choose work location...</option>
+                {workLocations.map((location) => (
+                  <option key={location._id} value={location._id}>
+                    {location.name} ({location.address || "Designated zone"})
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Location Status Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Location Status
-              </label>
-              <select
-                value={filterByLocation}
-                onChange={(e) => setFilterByLocation(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
-              >
-                <option value="all">All Employees</option>
-                <option value="assigned">With Locations</option>
-                <option value="unassigned">Without Locations</option>
-              </select>
-            </div>
-
-            {/* Clear Filters */}
-            <div className="flex items-end">
               <button
-                onClick={clearFilters}
-                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center justify-center space-x-2"
+                onClick={handleBulkAssign}
+                disabled={
+                  loading || selectedEmployees.length === 0 || !bulkLocation
+                }
+                className="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <X className="w-4 h-4" />
-                <span>Clear Filters</span>
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                <span>Apply Location to {selectedEmployees.length} Selected</span>
               </button>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Employee List */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-black">
-                Employees ({filteredEmployees.length})
-              </h3>
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={handleSelectAll}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  {selectedEmployees.length === filteredEmployees.length
-                    ? "Deselect All"
-                    : "Select All"}
-                </button>
-                <span className="text-sm text-gray-500">
-                  {selectedEmployees.length} selected
-                </span>
-              </div>
-            </div>
+      {/* Search and Filters Bar */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-teal-600" />
+            <h3 className="text-sm font-bold text-slate-800">
+              Filter Employees & Assignments
+            </h3>
+            {(searchTerm || selectedDepartment || filterByLocation !== "all") && (
+              <span className="text-xs text-teal-700 font-semibold bg-teal-50 px-2.5 py-0.5 rounded-full">
+                {filteredEmployees.length} of {employees.length} shown
+              </span>
+            )}
           </div>
 
-          {loading ? (
-            <div className="p-8 text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-              <p className="text-gray-600">Loading employees...</p>
-            </div>
-          ) : filteredEmployees.length === 0 ? (
-            <div className="p-8 text-center">
-              <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-500">
-                No employees found matching your criteria.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedEmployees.length ===
-                            filteredEmployees.length &&
-                          filteredEmployees.length > 0
-                        }
-                        onChange={handleSelectAll}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Employee
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Department
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Work Locations
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredEmployees.map((employee) => {
-                    const employeeLocationList =
-                      employeeLocations[employee._id] || [];
-                    const isSelected = selectedEmployees.includes(employee._id);
-
-                    return (
-                      <tr
-                        key={employee._id}
-                        className={isSelected ? "bg-blue-50" : ""}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() =>
-                              handleLocationSelection(employee._id)
-                            }
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-black">
-                              {employee.personalDetails?.name ||
-                                employee.name ||
-                                "Unknown"}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {employee.personalDetails?.employeeId ||
-                                employee.employeeId ||
-                                "No ID"}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-black">
-                            {employee.personalDetails?.department ||
-                              employee.department ||
-                              "Not specified"}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="space-y-2">
-                            {employeeLocationList.length > 0 ? (
-                              employeeLocationList.map((location) => (
-                                <div
-                                  key={location._id}
-                                  className="flex items-center justify-between bg-green-50 rounded-lg p-2"
-                                >
-                                  <div className="flex items-center space-x-2">
-                                    <MapPin className="w-4 h-4 text-green-600" />
-                                    <span className="text-sm font-medium text-green-800">
-                                      {location.name}
-                                    </span>
-                                  </div>
-                                  <button
-                                    onClick={() =>
-                                      handleRemoveLocation(
-                                        employee._id,
-                                        location._id
-                                      )
-                                    }
-                                    disabled={loading}
-                                    className="text-red-600 hover:text-red-800 p-1"
-                                    title="Remove location"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="flex items-center space-x-2 text-gray-500">
-                                <UserX className="w-4 h-4" />
-                                <span className="text-sm">
-                                  No locations assigned
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <button
-                            onClick={() => {
-                              setSelectedEmployee(employee);
-                              setIsSetupModalOpen(true);
-                            }}
-                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all hover:scale-110 transform"
-                            title="Setup Employee (Password & Locations)"
-                          >
-                            <Settings className="w-5 h-5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          {(searchTerm || selectedDepartment || filterByLocation !== "all") && (
+            <button
+              onClick={clearFilters}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all self-start sm:self-auto"
+            >
+              Clear Filters
+            </button>
           )}
         </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by Employee ID, Name, Department..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-all"
+            />
+          </div>
+
+          <div>
+            <select
+              value={selectedDepartment}
+              onChange={(e) => {
+                setSelectedDepartment(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-all"
+            >
+              <option value="">All Departments</option>
+              {getUniqueDepartments().map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={filterByLocation}
+              onChange={(e) => {
+                setFilterByLocation(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-all"
+            >
+              <option value="all">All Personnel ({employees.length})</option>
+              <option value="assigned">Assigned with Locations ({stats.assigned})</option>
+              <option value="unassigned">Unassigned / No Locations ({stats.unassigned})</option>
+            </select>
+          </div>
+        </div>
       </div>
-      {/* Employee Setup Modal - Default to Location Tab */}
+
+      {/* Main Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-teal-600" />
+            <h3 className="font-bold text-sm text-slate-800">
+              Personnel Directory ({filteredEmployees.length})
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs font-semibold">
+            <button
+              onClick={handleSelectAll}
+              className="text-teal-600 hover:text-teal-800 transition-colors"
+            >
+              {selectedEmployees.length === filteredEmployees.length &&
+              filteredEmployees.length > 0
+                ? "Deselect All"
+                : "Select All Page"}
+            </button>
+            <span className="text-slate-400 font-normal">
+              {selectedEmployees.length} selected
+            </span>
+          </div>
+        </div>
+
+        {loading && employees.length === 0 ? (
+          <div className="py-20 text-center space-y-3">
+            <RefreshCw className="w-8 h-8 text-teal-600 animate-spin mx-auto" />
+            <p className="text-sm font-semibold text-slate-700">
+              Loading personnel locations...
+            </p>
+          </div>
+        ) : filteredEmployees.length === 0 ? (
+          <div className="py-16 text-center space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto">
+              <Users className="w-8 h-8" />
+            </div>
+            <h4 className="text-base font-bold text-slate-800">
+              No employees match your search
+            </h4>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Try adjusting your filter options or clearing search keywords.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+              <thead>
+                <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-3.5 w-12">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedEmployees.length ===
+                          filteredEmployees.length &&
+                        filteredEmployees.length > 0
+                      }
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 rounded text-teal-600 border-slate-300 focus:ring-teal-500"
+                    />
+                  </th>
+                  <th className="px-6 py-3.5">Employee</th>
+                  <th className="px-6 py-3.5">Department</th>
+                  <th className="px-6 py-3.5">Assigned Work Locations</th>
+                  <th className="px-6 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedEmployees.map((employee) => {
+                  const employeeLocationList =
+                    employeeLocations[employee._id] || [];
+                  const isSelected = selectedEmployees.includes(employee._id);
+                  const name =
+                    employee.personalDetails?.name || employee.name || "Employee";
+                  const empId =
+                    employee.personalDetails?.employeeId ||
+                    employee.employeeId ||
+                    "";
+
+                  return (
+                    <tr
+                      key={employee._id}
+                      className={`hover:bg-slate-50/80 transition-colors ${
+                        isSelected ? "bg-teal-50/40" : ""
+                      }`}
+                    >
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() =>
+                            handleLocationSelection(employee._id)
+                          }
+                          className="w-4 h-4 rounded text-teal-600 border-slate-300 focus:ring-teal-500"
+                        />
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                            {name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{name}</p>
+                            {empId && (
+                              <p className="text-[11px] text-slate-400 font-mono">
+                                {empId}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-medium text-[11px]">
+                          {employee.personalDetails?.department ||
+                            employee.department ||
+                            "General"}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-1.5 max-w-md">
+                          {employeeLocationList.length > 0 ? (
+                            employeeLocationList.map((location) => (
+                              <span
+                                key={location._id}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 text-[11px] font-medium shadow-2xs"
+                              >
+                                <MapPin className="w-3 h-3 text-teal-600 flex-shrink-0" />
+                                <span>{location.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoveLocation(
+                                      employee._id,
+                                      location._id
+                                    )
+                                  }
+                                  disabled={loading}
+                                  className="text-rose-500 hover:text-rose-700 p-0.5 rounded-full hover:bg-rose-50 transition-colors"
+                                  title="Unassign this location"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-slate-400 text-xs italic">
+                              <UserX className="w-3.5 h-3.5" />
+                              No locations assigned
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedEmployee(employee);
+                            setIsSetupModalOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 font-semibold text-xs transition-all"
+                          title="Configure Geofences & Locations"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                          <span>Configure Locations</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {filteredEmployees.length > 0 && (
+          <div className="px-6 py-4 bg-slate-50/60 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span>
+                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                {Math.min(currentPage * itemsPerPage, filteredEmployees.length)} of{" "}
+                {filteredEmployees.length} employees
+              </span>
+              <div className="flex items-center gap-1.5 ml-2">
+                <span>Per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(p) => setCurrentPage(p)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Employee Setup Modal (Opens Location tab by default) */}
       {isSetupModalOpen && selectedEmployee && (
         <EmployeeSetupModal
           employee={selectedEmployee}
@@ -664,16 +796,13 @@ export default function EmployeeLocationManagement() {
             setSelectedEmployee(null);
           }}
           onSuccess={(msg) => {
-            setMessage(msg);
-            setMessageType("success");
+            showMessage(msg, "success");
             setIsSetupModalOpen(false);
             setSelectedEmployee(null);
-            // Refresh data to reflect changes
             fetchData();
           }}
           onError={(msg) => {
-            setMessage(msg);
-            setMessageType("error");
+            showMessage(msg, "error");
           }}
         />
       )}

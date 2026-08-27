@@ -91,7 +91,7 @@ const Layout = ({
       {/* Main Content */}
       <div
         className={`transition-all duration-300 w-full ${
-          isSidebarCollapsed ? "ml-0" : "ml-64"
+          isSidebarCollapsed ? "ml-16" : "ml-64"
         }`}
       >
         {/* Top Header */}

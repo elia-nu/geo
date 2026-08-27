@@ -25,6 +25,8 @@ import {
   LineChart,
   DollarSign,
   Calculator,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 const Sidebar = ({
@@ -123,6 +125,29 @@ const Sidebar = ({
         ...prev,
         project: true,
       }));
+    }
+
+    // Auto-expand employee management menu
+    if (
+      activeSection === "employees" ||
+      activeSection === "employee-location" ||
+      activeSection === "contracts"
+    ) {
+      setExpandedMenus((prev) => ({ ...prev, employees: true }));
+    }
+
+    // Auto-expand attendance menu
+    if (
+      activeSection === "admin-attendance" ||
+      activeSection === "attendance-all" ||
+      activeSection === "attendance-reports"
+    ) {
+      setExpandedMenus((prev) => ({ ...prev, attendance: true }));
+    }
+
+    // Auto-expand organization menu
+    if (activeSection === "departments" || activeSection === "designations") {
+      setExpandedMenus((prev) => ({ ...prev, organization: true }));
     }
   }, [activeSection]);
 
@@ -239,6 +264,11 @@ const Sidebar = ({
           id: "leave-approval",
           label: "Leave Approval",
           path: "/hrm?section=leave-approval",
+        },
+        {
+          id: "leave-history",
+          label: "Leave Request History",
+          path: "/hrm?section=leave-history",
         },
         {
           id: "leave-balances",
@@ -405,7 +435,15 @@ const Sidebar = ({
 
   const handleMenuClick = (item) => {
     if (item.submenu) {
-      toggleSubmenu(item.id);
+      if (isCollapsed) {
+        // When collapsed, expand sidebar first then open the menu
+        onToggleCollapse();
+        setTimeout(() => {
+          setExpandedMenus((prev) => ({ ...prev, [item.id]: true }));
+        }, 50);
+      } else {
+        toggleSubmenu(item.id);
+      }
     } else {
       if (item.id === "dashboard") {
         router.push("/hrm");
@@ -432,21 +470,23 @@ const Sidebar = ({
       <div
         role="navigation"
         aria-label="Primary"
-        className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 flex flex-col ${
-          isCollapsed ? "w-0" : "w-64"
-        } ${
-          !isCollapsed ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
+        className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 z-50 flex flex-col overflow-hidden ${
+          isCollapsed ? "w-16" : "w-64"
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-700">
+        <div
+          className={`flex items-center border-b border-slate-700 flex-shrink-0 ${
+            isCollapsed ? "justify-center p-3" : "justify-between p-4"
+          }`}
+        >
           {!isCollapsed && (
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="flex items-center space-x-3 min-w-0">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Users className="w-5 h-5 text-white" strokeWidth={2.2} />
               </div>
-              <div>
-                <h1 className="text-lg font-bold">HRM System</h1>
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold truncate">HRM System</h1>
                 <p className="text-xs text-slate-300">Human Resources</p>
               </div>
             </div>
@@ -456,22 +496,21 @@ const Sidebar = ({
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-pressed={!isCollapsed}
             onClick={onToggleCollapse}
-            className="p-2 rounded-lg hover:bg-slate-700 transition-colors"
+            className="p-2 rounded-lg hover:bg-slate-700 transition-colors flex-shrink-0"
           >
             {isCollapsed ? (
-              <Menu className="w-5 h-5" strokeWidth={2.2} />
+              <PanelLeftOpen className="w-5 h-5" strokeWidth={2.2} />
             ) : (
-              <X className="w-5 h-5" strokeWidth={2.2} />
+              <PanelLeftClose className="w-5 h-5" strokeWidth={2.2} />
             )}
           </button>
         </div>
 
         {/* Navigation */}
         <nav
-          className="flex-1 px-2 py-4 space-y-2 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800"
+          className="flex-1 py-3 overflow-y-auto overflow-x-hidden"
           aria-label="Main menu"
           style={{
-            maxHeight: "calc(100vh - 140px)",
             scrollbarWidth: "thin",
             scrollbarColor: "#475569 #1e293b",
           }}
@@ -492,7 +531,7 @@ const Sidebar = ({
             const isExpanded = !!expandedMenus[item.id];
 
             return (
-              <div key={item.id}>
+              <div key={item.id} className="px-2 mb-0.5">
                 <button
                   type="button"
                   onClick={() => handleMenuClick(item)}
@@ -505,7 +544,9 @@ const Sidebar = ({
                   aria-current={isActive ? "page" : undefined}
                   aria-expanded={item.submenu ? isExpanded : undefined}
                   aria-haspopup={item.submenu ? "true" : undefined}
-                  className={`w-full flex items-center px-3 py-2.5 rounded-lg text-left transition-all duration-200 group ${
+                  className={`relative w-full flex items-center rounded-lg text-left transition-all duration-200 ${
+                    isCollapsed ? "justify-center p-3" : "px-3 py-2.5"
+                  } ${
                     isActive
                       ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                       : "hover:bg-slate-700 text-slate-300 hover:text-white"
@@ -513,14 +554,18 @@ const Sidebar = ({
                   title={isCollapsed ? item.label : undefined}
                 >
                   <Icon
-                    className={`w-5 h-5 ${isCollapsed ? "mx-auto" : "mr-3"}`}
+                    className={`w-5 h-5 flex-shrink-0 ${
+                      isCollapsed ? "" : "mr-3"
+                    }`}
                     strokeWidth={2.1}
                   />
                   {!isCollapsed && (
                     <>
-                      <span className="flex-1 font-medium">{item.label}</span>
+                      <span className="flex-1 font-medium text-sm truncate">
+                        {item.label}
+                      </span>
                       {item.submenu && (
-                        <div className="ml-2">
+                        <div className="ml-2 flex-shrink-0">
                           {isExpanded ? (
                             <ChevronDown
                               className="w-4 h-4"
@@ -536,17 +581,25 @@ const Sidebar = ({
                       )}
                     </>
                   )}
+                  {/* Active indicator for collapsed */}
+                  {isCollapsed && isActive && (
+                    <span className="absolute right-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-300 rounded-full" />
+                  )}
                 </button>
 
                 {/* Submenu */}
                 {item.submenu && !isCollapsed && isExpanded && (
                   <div
-                    className="ml-4 mt-2 space-y-1 border-l-2 border-slate-700 pl-4"
+                    className="ml-4 mt-1 space-y-0.5 border-l-2 border-slate-700 pl-3"
                     role="group"
                     aria-label={`${item.label} submenu`}
                   >
                     {item.submenu.map((submenuItem) => {
                       const SubmenuIcon = submenuItem.icon;
+                      const isSubActive =
+                        activeSection === submenuItem.id ||
+                        (submenuItem.id === "projects-list" &&
+                          activeSection === "projects");
                       return (
                         <button
                           key={submenuItem.id}
@@ -561,11 +614,8 @@ const Sidebar = ({
                             }
                           }}
                           className={`w-full flex items-center px-3 py-2 rounded-md text-left text-sm transition-colors ${
-                            activeSection === submenuItem.id ||
-                            // Special case: highlight "Projects" submenu when activeSection is "projects"
-                            (submenuItem.id === "projects-list" &&
-                              activeSection === "projects")
-                              ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400"
+                            isSubActive
+                              ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400 -ml-px"
                               : "text-slate-400 hover:text-white hover:bg-slate-700/50"
                           }`}
                         >
@@ -575,32 +625,12 @@ const Sidebar = ({
                               strokeWidth={2.1}
                             />
                           )}
-                          <span className="flex-1">{submenuItem.label}</span>
+                          <span className="flex-1 truncate">
+                            {submenuItem.label}
+                          </span>
                         </button>
                       );
                     })}
-                    {/*
-                    {item.submenu.map((submenuItem) => (
-                      <button
-                        key={submenuItem.id}
-                        type="button"
-                        onClick={() => handleSubmenuClick(item.id, submenuItem)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            handleSubmenuClick(item.id, submenuItem);
-                          }
-                        }}
-                        className={`w-full flex items-center px-3 py-2 rounded-md text-left text-sm transition-colors ${
-                          activeSection === submenuItem.id
-                            ? "bg-blue-500/20 text-blue-300 border-l-2 border-blue-400"
-                            : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                        }`}
-                      >
-                        {submenuItem.label}
-                      </button>
-                    ))}
-*/}
                   </div>
                 )}
               </div>
@@ -609,16 +639,24 @@ const Sidebar = ({
         </nav>
 
         {/* Footer */}
-        {!isCollapsed && (
-          <div className="p-4 border-t border-slate-700 mt-auto">
+        {!isCollapsed ? (
+          <div className="p-4 border-t border-slate-700 flex-shrink-0">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
                 <span className="text-xs font-bold text-white">AD</span>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Admin User</p>
-                <p className="text-xs text-slate-400">admin@company.com</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">Admin User</p>
+                <p className="text-xs text-slate-400 truncate">
+                  admin@company.com
+                </p>
               </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 border-t border-slate-700 flex-shrink-0 flex justify-center">
+            <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+              <span className="text-xs font-bold text-white">AD</span>
             </div>
           </div>
         )}
@@ -639,17 +677,6 @@ const Sidebar = ({
             }
           }}
         />
-      )}
-
-      {/* Mobile menu button - only visible when sidebar is collapsed on mobile */}
-      {isCollapsed && (
-        <button
-          className="fixed top-3 left-3 z-50 p-2 rounded-md bg-slate-800 text-white sm:hidden"
-          onClick={onToggleCollapse}
-          aria-label="Open menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
       )}
     </>
   );

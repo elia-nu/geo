@@ -392,13 +392,28 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                             <span>{doc.files?.length || 0} files</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4">
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.bgColor} ${status.color}`}
                           >
                             <StatusIcon className="w-3 h-3 mr-1" />
                             {status.text}
                           </span>
+                          {doc.status === "rejected" && (
+                            <div className="mt-1.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-1.5 max-w-xs">
+                              <span className="font-semibold block text-[11px] text-rose-800">
+                                Rejection Reason:
+                              </span>
+                              <span className="text-rose-900">
+                                {doc.rejectionReason ||
+                                  doc.comments ||
+                                  doc.supervisorNotes ||
+                                  doc.notes ||
+                                  doc.adminApproval?.rejectionReason ||
+                                  "No reason provided"}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(doc.submittedAt)}

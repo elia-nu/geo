@@ -139,9 +139,18 @@ export async function POST(request, { params }) {
       title,
       description,
       amount,
+      totalPaid,
       expectedAmount,
+      totalProjectAmount,
+      frequency,
+      recurringDay,
+      durationMonths,
+      startDate,
+      installmentAmount,
       receivedDate,
       dueDate,
+      nextPaymentDate,
+      nextPaymentAmount,
       paymentMethod,
       clientName,
       categoryId,
@@ -152,25 +161,23 @@ export async function POST(request, { params }) {
     } = data;
 
     const hasExpected =
-      expectedAmount !== undefined &&
-      expectedAmount !== null &&
-      String(expectedAmount).trim() !== "";
+      (expectedAmount !== undefined &&
+        expectedAmount !== null &&
+        String(expectedAmount).trim() !== "") ||
+      (totalProjectAmount !== undefined &&
+        totalProjectAmount !== null &&
+        String(totalProjectAmount).trim() !== "");
     const hasAmount =
-      amount !== undefined &&
-      amount !== null &&
-      String(amount).trim() !== "";
+      (amount !== undefined &&
+        amount !== null &&
+        String(amount).trim() !== "") ||
+      (totalPaid !== undefined &&
+        totalPaid !== null &&
+        String(totalPaid).trim() !== "");
 
     if (!title || (!hasAmount && !hasExpected)) {
       return NextResponse.json(
         { error: "Title and either amount or expectedAmount is required" },
-        { status: 400 }
-      );
-    }
-
-    // Expected-only records require a due date
-    if (hasExpected && !hasAmount && !dueDate) {
-      return NextResponse.json(
-        { error: "Due date is required for expected income" },
         { status: 400 }
       );
     }
@@ -199,16 +206,30 @@ export async function POST(request, { params }) {
       _id: new ObjectId(),
       title,
       description,
-      amount: hasAmount ? amount : 0,
+      amount: hasAmount ? (amount ?? totalPaid) : 0,
+      totalPaid: hasAmount ? (amount ?? totalPaid) : 0,
       expectedAmount: hasExpected
-        ? expectedAmount
+        ? (expectedAmount ?? totalProjectAmount)
         : hasAmount
-        ? amount
+        ? (amount ?? totalPaid)
         : 0,
+      totalProjectAmount: hasExpected
+        ? (totalProjectAmount ?? expectedAmount)
+        : hasAmount
+        ? (amount ?? totalPaid)
+        : 0,
+      frequency: frequency || "lump_sum",
+      recurringDay: recurringDay ? parseInt(recurringDay, 10) : null,
+      durationMonths: durationMonths ? parseInt(durationMonths, 10) : null,
+      startDate: startDate || null,
+      installmentAmount: installmentAmount ? Number(installmentAmount) : 0,
       receivedDate,
       dueDate,
-      paymentMethod,
-      clientName,
+      nextPaymentDate: nextPaymentDate || null,
+      nextPaymentAmount: Number(nextPaymentAmount) || 0,
+      paymentMethod: paymentMethod || "advance_payment",
+      clientName: clientName || "",
+      projectName: existingProject.name || "",
       categoryId: normalizedCategoryId,
       categoryName,
       invoiceNumber,

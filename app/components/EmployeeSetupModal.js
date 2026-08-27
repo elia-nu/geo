@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   X,
   Lock,
@@ -9,7 +9,32 @@ import {
   Plus,
   Trash2,
   DollarSign,
+  FileText,
+  Download,
+  Eye,
+  Upload,
+  RefreshCw,
+  Image as ImageIcon,
+  FileCheck,
+  CheckCircle2,
+  Calendar,
+  AlertCircle,
+  Shield,
+  Briefcase,
+  Building,
 } from "lucide-react";
+import DocumentDetailViewerModal from "./DocumentDetailViewerModal";
+
+const DOCUMENT_CATEGORIES = [
+  "National ID / Passport",
+  "Resume / CV",
+  "Employment Contract",
+  "Educational Certificate",
+  "Professional License",
+  "Medical Clearance",
+  "Recommendation Letter",
+  "Other Attachment",
+];
 
 export default function EmployeeSetupModal({
   employee,
@@ -18,7 +43,8 @@ export default function EmployeeSetupModal({
   onError,
   defaultTab = "password",
 }) {
-  const [setupType, setSetupType] = useState(defaultTab); // "password" | "location" | "salary"
+  const uploadDocInputRef = useRef(null);
+  const [setupType, setSetupType] = useState(defaultTab); // "password" | "location" | "salary" | "documents"
   const [loading, setLoading] = useState(false);
   const [savingStatus, setSavingStatus] = useState("");
 
@@ -39,6 +65,20 @@ export default function EmployeeSetupModal({
     transportAllowance: "",
     telephoneAllowance: "",
     posAllowance: "",
+  });
+
+  // Documents state for Setup
+  const [documents, setDocuments] = useState([]);
+  const [fetchingDocs, setFetchingDocs] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState(null);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [newDocData, setNewDocData] = useState({
+    category: "Employment Contract",
+    title: "",
+    description: "",
+    expiryDate: "",
+    file: null,
   });
 
   // Populate salary fields from existing employee data
@@ -83,6 +123,10 @@ export default function EmployeeSetupModal({
       if (employee?._id) {
         fetchEmployeeWorkLocations();
       }
+    } else if (setupType === "documents") {
+      if (employee?._id) {
+        fetchEmployeeDocuments();
+      }
     }
   }, [setupType, employee?._id]);
 
@@ -107,11 +151,8 @@ export default function EmployeeSetupModal({
       if (data.success && data.workLocations) {
         const locations = data.workLocations || [];
         setEmployeeWorkLocations(locations);
-        // Only update selectedWorkLocations if they're empty
-        // This preserves user selections when switching tabs
         setSelectedWorkLocations((prev) => {
           if (prev.length === 0) {
-            // If no selections, use existing employee locations
             return locations
               .map((loc) => {
                 const id = loc._id || loc.id;
@@ -119,17 +160,29 @@ export default function EmployeeSetupModal({
               })
               .filter(Boolean);
           }
-          // Keep existing selections
           return prev;
         });
       } else {
         setEmployeeWorkLocations([]);
-        // Don't clear selectedWorkLocations - preserve user selections
       }
     } catch (error) {
       console.error("Error fetching employee work locations:", error);
       setEmployeeWorkLocations([]);
-      // Don't clear selectedWorkLocations on error - preserve user selections
+    }
+  };
+
+  const fetchEmployeeDocuments = async () => {
+    try {
+      setFetchingDocs(true);
+      const res = await fetch(`/api/documents?employeeId=${employee._id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDocuments(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error("Error fetching documents:", e);
+    } finally {
+      setFetchingDocs(false);
     }
   };
 
@@ -184,7 +237,6 @@ export default function EmployeeSetupModal({
 
     setLoading(true);
     try {
-      // Assign employee to each selected work location
       const assignmentPromises = selectedWorkLocations.map((locationId) =>
         fetch(`/api/work-locations/${locationId}/assign-employees`, {
           method: "POST",
@@ -198,7 +250,6 @@ export default function EmployeeSetupModal({
       const responses = await Promise.all(assignmentPromises);
       const results = await Promise.all(responses.map((res) => res.json()));
 
-      // Check if all assignments were successful
       const failedAssignments = results.filter((result) => !result.success);
 
       if (failedAssignments.length > 0) {
@@ -279,251 +330,56 @@ export default function EmployeeSetupModal({
     }
   };
 
-  const handleSaveAll = async () => {
-    console.log("Save All clicked", { loading, setupType });
-
-    if (loading) {
-      console.log("Already loading, ignoring click");
+  const handleUploadDocument = async () => {
+    if (!newDocData.file) {
+      onError("Please select a document file to upload");
       return;
     }
 
-    const errors = [];
-    const shouldSavePassword =
-      passwordForm.password && passwordForm.confirmPassword;
-
-    // Validate password (only if provided)
-    if (shouldSavePassword) {
-      if (passwordForm.password !== passwordForm.confirmPassword) {
-        errors.push("Passwords do not match");
-      } else if (passwordForm.password.length < 6) {
-        errors.push("Password must be at least 6 characters long");
-      }
-    }
-
-    // Validate location - check if employee has locations or if new ones are selected
-    // Make this optional - if no locations, we'll skip location saving
-    const hasExistingLocations = employeeWorkLocations.length > 0;
-    const hasSelectedLocations = selectedWorkLocations.length > 0;
-    const shouldSaveLocations = hasExistingLocations || hasSelectedLocations;
-
-    // Validate salary
-    const gross = Number(salaryForm.grossSalary);
-    const transport = Number(salaryForm.transportAllowance);
-    const telephone = Number(
-      salaryForm.telephoneAllowance === ""
-        ? 0
-        : salaryForm.telephoneAllowance
-    );
-    const pos = Number(
-      salaryForm.posAllowance === "" ? 0 : salaryForm.posAllowance
-    );
-    if (Number.isNaN(gross) || gross <= 0) {
-      errors.push("Please enter a valid gross salary");
-    }
-    if (Number.isNaN(transport) || transport < 0) {
-      errors.push("Please enter a valid transport allowance");
-    }
-    if (Number.isNaN(telephone) || telephone < 0) {
-      errors.push("Please enter a valid telephone allowance");
-    }
-    if (Number.isNaN(pos) || pos < 0) {
-      errors.push("Please enter a valid POS allowance");
-    }
-
-    if (errors.length > 0) {
-      onError(errors.join(". "));
-      return;
-    }
-
-    setLoading(true);
-    setSavingStatus("Starting...");
-    const results = {
-      password: false,
-      location: false,
-      salary: false,
-    };
-    const errorMessages = [];
-    const savedItems = [];
-
+    setIsUploadingDoc(true);
     try {
-      // Save password (only if provided)
-      if (shouldSavePassword) {
-        setSavingStatus("Saving password...");
-        try {
-          const passwordResponse = await fetch("/api/employee/setup-password", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              employeeId: employee._id,
-              password: passwordForm.password,
-            }),
-          });
-          const passwordData = await passwordResponse.json();
-          if (passwordData.success) {
-            results.password = true;
-            savedItems.push("Password");
-            setPasswordForm({ password: "", confirmPassword: "" });
-          } else {
-            errorMessages.push(
-              "Password: " + (passwordData.error || "Failed to setup password")
-            );
-          }
-        } catch (error) {
-          console.error("Password save error:", error);
-          errorMessages.push("Password: Failed to setup password");
-        }
+      const formData = new FormData();
+      formData.append("file", newDocData.file);
+      formData.append(
+        "documentData",
+        JSON.stringify({
+          employeeId: employee._id,
+          documentType: newDocData.category,
+          type: newDocData.category,
+          title: newDocData.title.trim() || newDocData.file.name.replace(/\.[^/.]+$/, ""),
+          description: newDocData.description.trim(),
+          expiryDate: newDocData.expiryDate || "",
+          category: "employee",
+          status: "active",
+        })
+      );
+
+      const res = await fetch("/api/documents/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to upload document");
       }
 
-      // Save locations (only if we have locations to save)
-      if (shouldSaveLocations) {
-        setSavingStatus("Saving work locations...");
-        try {
-          // Determine which locations to assign
-          // Use selected locations if available, otherwise use existing employee locations
-          const locationsToAssign =
-            selectedWorkLocations.length > 0
-              ? selectedWorkLocations
-              : employeeWorkLocations
-                  .map((loc) => loc._id || loc.id)
-                  .filter(Boolean);
-
-          console.log("Locations to assign:", locationsToAssign);
-          console.log("Selected locations:", selectedWorkLocations);
-          console.log("Employee locations:", employeeWorkLocations);
-
-          if (locationsToAssign.length > 0) {
-            // Assign employee to each location
-            const assignmentPromises = locationsToAssign.map((locationId) => {
-              // Ensure locationId is a string
-              const locationIdStr =
-                typeof locationId === "string"
-                  ? locationId
-                  : String(locationId);
-              return fetch(
-                `/api/work-locations/${locationIdStr}/assign-employees`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ employeeIds: [employee._id] }),
-                }
-              );
-            });
-
-            const locationResponses = await Promise.all(assignmentPromises);
-            const locationResults = await Promise.all(
-              locationResponses.map(async (res) => {
-                if (!res.ok) {
-                  const errorText = await res.text();
-                  console.error("Location assignment error:", errorText);
-                  return { success: false, error: errorText };
-                }
-                return res.json();
-              })
-            );
-
-            const failedAssignments = locationResults.filter(
-              (result) => !result.success
-            );
-
-            if (failedAssignments.length === 0) {
-              results.location = true;
-              savedItems.push(
-                `Locations (${locationsToAssign.length} assigned)`
-              );
-              // Refresh employee locations to get updated list
-              await fetchEmployeeWorkLocations();
-            } else {
-              const successCount =
-                locationsToAssign.length - failedAssignments.length;
-              if (successCount > 0) {
-                results.location = true;
-                savedItems.push(
-                  `Locations (${successCount}/${locationsToAssign.length} assigned)`
-                );
-                errorMessages.push(
-                  `Location: Failed to assign ${failedAssignments.length} location(s)`
-                );
-                await fetchEmployeeWorkLocations();
-              } else {
-                errorMessages.push(
-                  `Location: Failed to assign all ${locationsToAssign.length} location(s)`
-                );
-              }
-            }
-          } else {
-            // No locations to assign
-            if (employeeWorkLocations.length > 0) {
-              // Employee already has locations, consider it successful
-              results.location = true;
-              savedItems.push("Locations (kept existing)");
-            } else {
-              errorMessages.push("Location: No locations selected or assigned");
-            }
-          }
-        } catch (error) {
-          console.error("Location save error:", error);
-          errorMessages.push(
-            "Location: Failed to assign work locations - " + error.message
-          );
-        }
-      } else {
-        // Skip location saving if no locations
-        savedItems.push("Locations (skipped - none selected)");
-      }
-
-      // Save salary
-      setSavingStatus("Saving salary...");
-      try {
-        const salaryResponse = await fetch(`/api/employee/${employee._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            grossSalary: gross,
-            transportAllowance: transport,
-            telephoneAllowance: telephone,
-            posAllowance: pos,
-          }),
-        });
-        const salaryData = await salaryResponse.json();
-        if (salaryResponse.ok && salaryData.success) {
-          results.salary = true;
-          savedItems.push("Salary");
-        } else {
-          errorMessages.push(
-            "Salary: " + (salaryData.error || "Failed to save salary settings")
-          );
-        }
-      } catch (error) {
-        console.error("Salary save error:", error);
-        errorMessages.push("Salary: Failed to save salary settings");
-      }
-
-      // Show success or partial success message
-      const successCount = Object.values(results).filter(Boolean).length;
-      const totalExpected =
-        (shouldSavePassword ? 1 : 0) + (shouldSaveLocations ? 1 : 0) + 1; // password + location + salary
-
-      setSavingStatus("");
-      if (successCount === totalExpected) {
-        onSuccess(
-          `All settings saved successfully! (${savedItems.join(", ")})`
-        );
-      } else if (successCount > 0) {
-        onError(
-          `Partially saved: ${savedItems.join(
-            ", "
-          )}. Errors: ${errorMessages.join(". ")}`
-        );
-      } else {
-        onError(`Failed to save: ${errorMessages.join(". ")}`);
-      }
-    } catch (error) {
-      console.error("Error saving all settings:", error);
-      setSavingStatus("");
-      onError("Failed to save all settings. Please try again.");
+      onSuccess("Document uploaded successfully!");
+      setNewDocData({
+        category: "Employment Contract",
+        title: "",
+        description: "",
+        expiryDate: "",
+        file: null,
+      });
+      setShowUploadForm(false);
+      if (uploadDocInputRef.current) uploadDocInputRef.current.value = "";
+      await fetchEmployeeDocuments();
+    } catch (e) {
+      console.error("Document upload error:", e);
+      onError(e.message || "Failed to upload document");
     } finally {
-      setLoading(false);
-      setSavingStatus("");
+      setIsUploadingDoc(false);
     }
   };
 
@@ -570,275 +426,301 @@ export default function EmployeeSetupModal({
     return employee.personalDetails?.name || employee.name || "Employee";
   };
 
+  const formatFileSize = (bytes) => {
+    if (!bytes && bytes !== 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "N/A";
+    try {
+      const d = new Date(dateValue);
+      if (isNaN(d.getTime())) return String(dateValue);
+      return d.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return String(dateValue);
+    }
+  };
+
+  const totalMonthlyCompensation =
+    (Number(salaryForm.grossSalary) || 0) +
+    (Number(salaryForm.transportAllowance) || 0) +
+    (Number(salaryForm.telephoneAllowance) || 0) +
+    (Number(salaryForm.posAllowance) || 0);
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5 text-white flex-shrink-0">
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 text-white flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                <Lock className="w-7 h-7 text-purple-900" strokeWidth={2.2} />
+            <div className="flex items-center space-x-3.5">
+              <div className="w-11 h-11 bg-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center justify-center text-indigo-300">
+                <Shield className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-2xl font-bold">Employee Setup</h3>
-                <p className="text-purple-100 text-sm">
-                  {getEmployeeName()} - Configure password & work locations
+                <h3 className="text-xl font-bold text-white leading-tight">
+                  Employee Setup: {getEmployeeName()}
+                </h3>
+                <p className="text-slate-300 text-xs mt-0.5 flex items-center gap-2">
+                  <span>ID: {employee.employeeId || employee.personalDetails?.employeeId || "N/A"}</span>
+                  <span>•</span>
+                  <span>{employee.department || employee.personalDetails?.department || "General"}</span>
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center hover:bg-opacity-30 transition-all"
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-slate-300 hover:text-white transition-all"
             >
-              <X className="w-6 h-6 text-purple-900" strokeWidth={2.2} />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200 bg-gray-50 flex-shrink-0">
-          <div className="flex">
+        <div className="border-b border-slate-200 bg-slate-50 px-6 flex-shrink-0">
+          <div className="flex space-x-2 py-2 overflow-x-auto">
             <button
               onClick={() => setSetupType("password")}
-              className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 setupType === "password"
-                  ? "border-b-2 border-purple-600 text-purple-600 bg-white"
-                  : "text-gray-600 hover:text-black hover:bg-gray-100"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
               }`}
             >
-              <div className="flex items-center justify-center space-x-2">
-                <Lock className="w-5 h-5" strokeWidth={2.2} />
-                <span>Password Setup</span>
-              </div>
+              <Lock className="w-4 h-4" />
+              <span>Password & Access</span>
             </button>
+
             <button
               onClick={() => setSetupType("location")}
-              className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 setupType === "location"
-                  ? "border-b-2 border-purple-600 text-purple-600 bg-white"
-                  : "text-gray-600 hover:text-black hover:bg-gray-100"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
               }`}
             >
-              <div className="flex items-center justify-center space-x-2">
-                <MapPin className="w-5 h-5" strokeWidth={2.2} />
-                <span>Work Locations</span>
-              </div>
+              <MapPin className="w-4 h-4" />
+              <span>Work Locations</span>
             </button>
+
             <button
               onClick={() => setSetupType("salary")}
-              className={`flex-1 px-6 py-4 text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 setupType === "salary"
-                  ? "border-b-2 border-purple-600 text-purple-600 bg-white"
-                  : "text-gray-600 hover:text-black hover:bg-gray-100"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
               }`}
             >
-              <div className="flex items-center justify-center space-x-2">
-                <DollarSign className="w-5 h-5" strokeWidth={2.2} />
-                <span>Salary</span>
-              </div>
+              <DollarSign className="w-4 h-4" />
+              <span>Salary & Allowances</span>
+            </button>
+
+            <button
+              onClick={() => setSetupType("documents")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                setupType === "documents"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Documents & Compliance</span>
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/40">
           {setupType === "password" ? (
-            <div className="space-y-6">
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
-                <div className="flex">
-                  <div className="ml-3">
-                    <p className="text-sm text-blue-800">
-                      Set up a secure password for{" "}
-                      <span className="font-semibold">{getEmployeeName()}</span>{" "}
-                      to access the employee portal.
-                    </p>
-                  </div>
+            <div className="space-y-5">
+              <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4 flex items-start gap-3">
+                <Shield className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-indigo-950">
+                    Employee Portal Access Setup
+                  </p>
+                  <p className="text-xs text-indigo-700 mt-0.5">
+                    Set or reset credentials for {getEmployeeName()} to sign in to the self-service mobile & web portal.
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-black mb-2">
-                  New Password <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.password}
-                  onChange={(e) =>
-                    setPasswordForm({
-                      ...passwordForm,
-                      password: e.target.value,
-                    })
-                  }
-                  placeholder="Enter password (min. 6 characters)"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
-                />
-              </div>
+              <div className="space-y-4 max-w-md">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    New Password <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordForm.password}
+                    onChange={(e) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        password: e.target.value,
+                      })
+                    }
+                    placeholder="Enter password (min. 6 characters)"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-black mb-2">
-                  Confirm Password <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) =>
-                    setPasswordForm({
-                      ...passwordForm,
-                      confirmPassword: e.target.value,
-                    })
-                  }
-                  placeholder="Re-enter password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
-                />
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Confirm Password <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        confirmPassword: e.target.value,
+                      })
+                    }
+                    placeholder="Re-enter password"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={loading || !passwordForm.password}
+                    onClick={handlePasswordSubmit}
+                    className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4" />
+                    )}
+                    Save New Password
+                  </button>
+                </div>
               </div>
             </div>
           ) : setupType === "location" ? (
-            <div className="space-y-6">
-              <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
-                <div className="flex">
-                  <div className="ml-3">
-                    <p className="text-sm text-green-800">
-                      Assign work locations where{" "}
-                      <span className="font-semibold">{getEmployeeName()}</span>{" "}
-                      can check in/out for attendance.
-                    </p>
-                  </div>
+            <div className="space-y-5">
+              <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-4 flex items-start gap-3">
+                <MapPin className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-emerald-950">
+                    Geofenced Work Site Assignments
+                  </p>
+                  <p className="text-xs text-emerald-700 mt-0.5">
+                    Select the work locations where this employee is authorized to clock-in and record GPS attendance.
+                  </p>
                 </div>
               </div>
 
-              {/* Current Assigned Locations */}
-              {employeeWorkLocations.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                  <h4 className="text-sm font-semibold text-black mb-3">
-                    Currently Assigned Locations ({employeeWorkLocations.length}
-                    )
-                  </h4>
-                  <div className="space-y-2">
-                    {employeeWorkLocations.map((location) => (
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Available Work Locations ({workLocations.length})
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[340px] overflow-y-auto pr-1">
+                  {workLocations.map((loc) => {
+                    const locId = loc._id || loc.id;
+                    const isSelected = selectedWorkLocations.includes(locId);
+
+                    return (
                       <div
-                        key={location._id || location.id}
-                        className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200"
+                        key={locId}
+                        onClick={() => toggleWorkLocation(locId)}
+                        className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                          isSelected
+                            ? "border-indigo-500 bg-indigo-50/60 shadow-sm"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
                       >
-                        <div className="flex items-center space-x-2">
-                          <CheckCircle
-                            className="w-5 h-5 text-green-600"
-                            strokeWidth={2.2}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
                           />
-                          <div>
-                            <p className="font-medium text-black">
-                              {location.name}
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-900 truncate">
+                              {loc.name}
                             </p>
-                            <p className="text-xs text-gray-500">
-                              {location.address}
+                            <p className="text-[11px] text-slate-500 truncate">
+                              {loc.address || "No address specified"}
                             </p>
                           </div>
                         </div>
-                        <button
-                          onClick={() =>
-                            handleRemoveLocation(location._id || location.id)
-                          }
-                          disabled={loading}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Remove location"
-                        >
-                          <Trash2 className="w-4 h-4" strokeWidth={2.2} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* Available Locations */}
-              <div>
-                <h4 className="text-sm font-semibold text-black mb-3">
-                  Available Work Locations
-                </h4>
-                {workLocations.length === 0 ? (
-                  <p className="text-gray-500 text-sm">
-                    No work locations available. Please create work locations
-                    first.
-                  </p>
-                ) : (
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {workLocations.map((location) => (
-                      <label
-                        key={location._id}
-                        className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          selectedWorkLocations.includes(location._id)
-                            ? "border-purple-500 bg-purple-50"
-                            : "border-gray-200 hover:border-purple-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedWorkLocations.includes(location._id)}
-                          onChange={() => toggleWorkLocation(location._id)}
-                          className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                        />
-                        <div className="ml-3 flex-1">
-                          <p className="font-medium text-black">
-                            {location.name}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {location.address}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Radius: {location.radius}m
-                          </p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                          {loc.radius || 100}m
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-3 flex justify-end">
+                  <button
+                    type="button"
+                    disabled={loading || selectedWorkLocations.length === 0}
+                    onClick={handleLocationSubmit}
+                    className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4" />
+                    )}
+                    Save Location Assignments ({selectedWorkLocations.length})
+                  </button>
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {loading && savingStatus && (
-                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
-                  <div className="flex items-center space-x-3">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                    <p className="text-sm text-blue-800 font-medium">
-                      {savingStatus}
-                    </p>
-                  </div>
-                </div>
-              )}
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-                <div className="flex">
-                  <div className="ml-3">
-                    <p className="text-sm text-yellow-800">
-                      Store salary inputs for later calculations.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-black mb-2">
-                  Gross Salary (ETB) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={salaryForm.grossSalary}
-                  onChange={(e) =>
-                    setSalaryForm({
-                      ...salaryForm,
-                      grossSalary: e.target.value,
-                    })
-                  }
-                  placeholder="e.g. 15000"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          ) : setupType === "salary" ? (
+            <div className="space-y-5">
+              <div className="bg-amber-50/70 border border-amber-100 rounded-2xl p-4 flex items-start gap-3">
+                <DollarSign className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">
+                  <p className="text-xs font-semibold text-amber-950">
+                    Compensation & Payroll Rates
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Configure base gross salary, transport, telephone, and position allowances in ETB.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Gross Salary (ETB) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={salaryForm.grossSalary}
+                    onChange={(e) =>
+                      setSalaryForm({
+                        ...salaryForm,
+                        grossSalary: e.target.value,
+                      })
+                    }
+                    placeholder="0.00"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-semibold text-slate-900 bg-white shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Transport Allowance (ETB)
                   </label>
                   <input
@@ -852,13 +734,13 @@ export default function EmployeeSetupModal({
                         transportAllowance: e.target.value,
                       })
                     }
-                    placeholder="e.g. 1000"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
+                    placeholder="0.00"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Telephone Allowance (ETB)
                   </label>
                   <input
@@ -872,13 +754,13 @@ export default function EmployeeSetupModal({
                         telephoneAllowance: e.target.value,
                       })
                     }
-                    placeholder="e.g. 500"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
+                    placeholder="0.00"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     POS Allowance (ETB)
                   </label>
                   <input
@@ -892,97 +774,227 @@ export default function EmployeeSetupModal({
                         posAllowance: e.target.value,
                       })
                     }
-                    placeholder="e.g. 300"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
+                    placeholder="0.00"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                   />
                 </div>
               </div>
+
+              {/* Total Summary Card */}
+              <div className="p-4 rounded-xl bg-slate-900 text-white flex items-center justify-between shadow-md">
+                <div>
+                  <span className="text-xs text-slate-400 font-medium">
+                    Total Estimated Monthly Gross:
+                  </span>
+                  <p className="text-lg font-bold text-emerald-400">
+                    {totalMonthlyCompensation.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                    })}{" "}
+                    ETB
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={loading || !salaryForm.grossSalary}
+                  onClick={handleSalarySubmit}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-2"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
+                  Save Salary Settings
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Documents & Compliance Tab */
+            <div className="space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Employee Documents & Verification
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Inspect uploaded ID documents, credentials, contracts, and upload compliance files.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowUploadForm(!showUploadForm)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {showUploadForm ? "Close Form" : "Upload Document"}
+                </button>
+              </div>
+
+              {/* Upload Document Sub-form */}
+              {showUploadForm && (
+                <div className="p-4 rounded-2xl border border-indigo-200 bg-indigo-50/50 space-y-3 animate-in fade-in slide-in-from-top-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Category
+                      </label>
+                      <select
+                        value={newDocData.category}
+                        onChange={(e) =>
+                          setNewDocData({ ...newDocData, category: e.target.value })
+                        }
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white text-slate-900"
+                      >
+                        {DOCUMENT_CATEGORIES.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Document Title
+                      </label>
+                      <input
+                        type="text"
+                        value={newDocData.title}
+                        onChange={(e) =>
+                          setNewDocData({ ...newDocData, title: e.target.value })
+                        }
+                        placeholder="e.g. 2026 Contract"
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Expiry Date
+                      </label>
+                      <input
+                        type="date"
+                        value={newDocData.expiryDate}
+                        onChange={(e) =>
+                          setNewDocData({ ...newDocData, expiryDate: e.target.value })
+                        }
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white text-slate-900"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <input
+                      ref={uploadDocInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.xlsx,.xls"
+                      className="w-full sm:flex-1 text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer"
+                      onChange={(e) =>
+                        setNewDocData({ ...newDocData, file: e.target.files?.[0] || null })
+                      }
+                    />
+                    <button
+                      type="button"
+                      disabled={!newDocData.file || isUploadingDoc}
+                      onClick={handleUploadDocument}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition-all"
+                    >
+                      {isUploadingDoc ? "Uploading..." : "Upload & Attach"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Document List */}
+              {fetchingDocs ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
+                  <Loader2 className="w-6 h-6 text-indigo-600 animate-spin mx-auto mb-2" />
+                  <p className="text-xs text-slate-600">Loading documents...</p>
+                </div>
+              ) : documents.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
+                  <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-slate-700">
+                    No documents uploaded for this employee
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Upload employee identification and contracts using the button above.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[340px] overflow-y-auto pr-1">
+                  {documents.map((doc) => {
+                    const docId = doc._id || doc.id;
+                    const isPdf =
+                      doc.mimeType?.includes("pdf") ||
+                      doc.originalName?.toLowerCase().endsWith(".pdf") ||
+                      doc.documentType === "pdf";
+                    const isImage =
+                      doc.mimeType?.startsWith("image/") ||
+                      doc.originalName?.match(/\.(jpg|jpeg|png|webp)$/i);
+
+                    return (
+                      <div
+                        key={docId}
+                        className="p-3.5 rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-between gap-2 hover:border-indigo-300 transition-all"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 flex-shrink-0">
+                            {isPdf ? (
+                              <FileText className="w-4 h-4 text-rose-500" />
+                            ) : isImage ? (
+                              <ImageIcon className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <FileCheck className="w-4 h-4 text-indigo-500" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-900 truncate">
+                              {doc.title || doc.originalName || "Document"}
+                            </p>
+                            <p className="text-[10px] text-slate-500">
+                              {doc.documentType || doc.type || "Document"} • {formatFileSize(doc.fileSize)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setViewingDoc(doc)}
+                            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 text-xs font-semibold"
+                            title="See in Detail"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <a
+                            href={`/api/documents/${docId}/download`}
+                            download={doc.originalName || "document"}
+                            className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-semibold"
+                            title="Download"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3 flex-shrink-0">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
-          {setupType === "salary" ? (
-            <>
-              <button
-                onClick={handleSalarySubmit}
-                disabled={loading}
-                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5" />
-                    <span>Save Salary</span>
-                  </>
-                )}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!loading) {
-                    handleSaveAll();
-                  }
-                }}
-                disabled={loading}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 cursor-pointer relative z-10"
-                type="button"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>{savingStatus || "Saving All..."}</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5" />
-                    <span>Save All</span>
-                  </>
-                )}
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={
-                setupType === "password"
-                  ? handlePasswordSubmit
-                  : handleLocationSubmit
-              }
-              disabled={loading}
-              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  <span>
-                    {setupType === "password"
-                      ? "Set Password"
-                      : "Assign Locations"}
-                  </span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
       </div>
+
+      {/* Document Detail Viewer Modal */}
+      {viewingDoc && (
+        <DocumentDetailViewerModal
+          isOpen={!!viewingDoc}
+          document={viewingDoc}
+          employeeName={getEmployeeName()}
+          onClose={() => setViewingDoc(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FileText,
   AlertTriangle,
@@ -11,13 +11,23 @@ import {
   Filter,
   RefreshCw,
   Clock,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   TrendingDown,
+  LayoutGrid,
+  List,
+  Sparkles,
+  Send,
+  ExternalLink,
 } from "lucide-react";
+import Pagination from "./ui/Pagination";
+import { toast } from "./ui/toast";
 
 export default function ContractsManagement() {
   const [contracts, setContracts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(9);
+  const [viewMode, setViewMode] = useState("grid"); // "grid" | "table"
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,8 +47,7 @@ export default function ContractsManagement() {
       const data = await response.json();
 
       if (data.success) {
-        // Transform the data to show contracts
-        const contractsData = data.employees.map((emp) => ({
+        const contractsData = (data.employees || []).map((emp) => ({
           employeeId: emp.employeeId,
           employeeName: emp.name,
           employeeEmail: emp.email,
@@ -62,9 +71,12 @@ export default function ContractsManagement() {
 
   const sendNotificationForContract = async (contract) => {
     try {
-      setSendingNotifications((prev) => ({ ...prev, [contract.employeeId]: true }));
+      setSendingNotifications((prev) => ({
+        ...prev,
+        [contract.employeeId]: true,
+      }));
       setNotificationResult(null);
-      
+
       const response = await fetch(
         `/api/notifications/contract-expiry?force=true`,
         { method: "POST" }
@@ -72,334 +84,567 @@ export default function ContractsManagement() {
       const data = await response.json();
 
       if (data.success) {
+        const msg = `Notifications sent! Sent: ${data.sent}, Failed: ${data.failed}`;
+        toast.success(msg);
         setNotificationResult({
           type: "success",
-          message: `Notifications sent! Sent: ${data.sent}, Failed: ${data.failed}`,
+          message: msg,
         });
-        // Refresh contracts after a short delay
         setTimeout(() => {
           fetchContracts();
         }, 1000);
       } else {
+        const err = data.error || "Failed to send notifications";
+        toast.error(err);
         setNotificationResult({
           type: "error",
-          message: data.error || "Failed to send notifications",
+          message: err,
         });
       }
     } catch (err) {
       console.error("Error sending notification:", err);
+      toast.error("Failed to send notification");
       setNotificationResult({
         type: "error",
-        message: "Failed to send notification",
+        message: "Failed to dispatch notification",
       });
     } finally {
-      setSendingNotifications((prev) => ({ ...prev, [contract.employeeId]: false }));
+      setSendingNotifications((prev) => ({
+        ...prev,
+        [contract.employeeId]: false,
+      }));
     }
   };
 
   const getStatusBadge = (daysUntilExpiry, shouldNotify) => {
-    if (daysUntilExpiry === null) return null;
-
+    if (daysUntilExpiry === null) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+          No Expiry
+        </span>
+      );
+    }
     if (daysUntilExpiry < 0) {
       return (
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 flex items-center gap-1">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 gap-1">
           <XCircle className="w-3 h-3" />
           Expired
         </span>
       );
-    } else if (daysUntilExpiry <= 7) {
+    }
+    if (daysUntilExpiry <= 15) {
       return (
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 flex items-center gap-1">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 gap-1">
           <AlertTriangle className="w-3 h-3" />
-          Urgent ({daysUntilExpiry} days)
-        </span>
-      );
-    } else if (daysUntilExpiry <= 15) {
-      return (
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          Expiring Soon ({daysUntilExpiry} days)
-        </span>
-      );
-    } else {
-      return (
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 flex items-center gap-1">
-          <CheckCircle className="w-3 h-3" />
-          Active ({daysUntilExpiry} days)
+          Expiring Soon
         </span>
       );
     }
-  };
-
-  const getCardColor = (daysUntilExpiry) => {
-    if (daysUntilExpiry === null) return "border-gray-200 bg-white";
-    if (daysUntilExpiry < 0) return "border-red-300 bg-red-50";
-    if (daysUntilExpiry <= 7) return "border-orange-300 bg-orange-50";
-    if (daysUntilExpiry <= 15) return "border-yellow-300 bg-yellow-50";
-    return "border-green-300 bg-green-50";
-  };
-
-  const filteredContracts = contracts.filter((contract) => {
-    // Search filter
-    const matchesSearch =
-      contract.employeeName
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      contract.employeeEmail
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      (contract.contractExpiryDate &&
-        contract.contractExpiryDate.includes(searchTerm));
-
-    // Status filter
-    let matchesStatus = true;
-    if (filterStatus === "expired") {
-      matchesStatus = contract.daysUntilExpiry !== null && contract.daysUntilExpiry < 0;
-    } else if (filterStatus === "expiring") {
-      matchesStatus =
-        contract.daysUntilExpiry !== null &&
-        contract.daysUntilExpiry >= 0 &&
-        contract.daysUntilExpiry <= 15;
-    } else if (filterStatus === "active") {
-      matchesStatus =
-        contract.daysUntilExpiry !== null && contract.daysUntilExpiry > 15;
-    }
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const stats = {
-    total: contracts.length,
-    expired: contracts.filter(
-      (c) => c.daysUntilExpiry !== null && c.daysUntilExpiry < 0
-    ).length,
-    expiring: contracts.filter(
-      (c) =>
-        c.daysUntilExpiry !== null &&
-        c.daysUntilExpiry >= 0 &&
-        c.daysUntilExpiry <= 15
-    ).length,
-    active: contracts.filter(
-      (c) => c.daysUntilExpiry !== null && c.daysUntilExpiry > 15
-    ).length,
-  };
-
-  if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-3 text-gray-600">Loading contracts...</span>
-      </div>
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 gap-1">
+        <CheckCircle2 className="w-3 h-3" />
+        Active
+      </span>
     );
-  }
+  };
+
+  const filteredContracts = useMemo(() => {
+    return contracts.filter((contract) => {
+      const term = searchTerm.toLowerCase().trim();
+      const matchesSearch =
+        !term ||
+        (contract.employeeName || "").toLowerCase().includes(term) ||
+        (contract.employeeId || "").toLowerCase().includes(term) ||
+        (contract.employeeEmail || "").toLowerCase().includes(term) ||
+        (contract.employeeType || "").toLowerCase().includes(term) ||
+        (contract.contractExpiryDate && contract.contractExpiryDate.includes(term));
+
+      let matchesStatus = true;
+      if (filterStatus === "expired") {
+        matchesStatus =
+          contract.daysUntilExpiry !== null && contract.daysUntilExpiry < 0;
+      } else if (filterStatus === "expiring") {
+        matchesStatus =
+          contract.daysUntilExpiry !== null &&
+          contract.daysUntilExpiry >= 0 &&
+          contract.daysUntilExpiry <= 15;
+      } else if (filterStatus === "active") {
+        matchesStatus =
+          contract.daysUntilExpiry !== null && contract.daysUntilExpiry > 15;
+      }
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [contracts, searchTerm, filterStatus]);
+
+  const totalPages =
+    Math.ceil((filteredContracts.length || 0) / itemsPerPage) || 1;
+  const paginatedContracts = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredContracts.slice(start, start + itemsPerPage);
+  }, [filteredContracts, currentPage, itemsPerPage]);
+
+  const stats = useMemo(() => {
+    return {
+      total: contracts.length,
+      expired: contracts.filter(
+        (c) => c.daysUntilExpiry !== null && c.daysUntilExpiry < 0
+      ).length,
+      expiring: contracts.filter(
+        (c) =>
+          c.daysUntilExpiry !== null &&
+          c.daysUntilExpiry >= 0 &&
+          c.daysUntilExpiry <= 15
+      ).length,
+      active: contracts.filter(
+        (c) => c.daysUntilExpiry !== null && c.daysUntilExpiry > 15
+      ).length,
+    };
+  }, [contracts]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-black">Contract Management</h2>
-          <p className="text-gray-600 mt-1">
-            Monitor and manage employee contracts
-          </p>
+    <div className="space-y-6 animate-in fade-in duration-200">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-amber-950 to-slate-900 p-6 sm:p-8 shadow-xl text-white">
+        <div className="absolute -top-12 -right-12 w-56 h-56 bg-amber-500/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-orange-500/10 rounded-full blur-2xl" />
+
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shadow-inner">
+                <FileText className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  Contract Management
+                </h1>
+                <p className="text-amber-100/80 text-xs sm:text-sm mt-0.5">
+                  Track employee contract lifecycles, expiration dates, and automated notice dispatches.
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Stat Badges */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md text-xs font-semibold text-white flex items-center gap-1.5 border border-white/10">
+                <span className="w-2 h-2 rounded-full bg-blue-400" />
+                <span>{stats.total} Total Contracts</span>
+              </div>
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md text-xs font-semibold text-emerald-300 flex items-center gap-1.5 border border-white/10">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>{stats.active} Active</span>
+              </div>
+              {stats.expiring > 0 && (
+                <div className="px-3 py-1.5 rounded-xl bg-amber-500/20 backdrop-blur-md text-xs font-semibold text-amber-200 flex items-center gap-1.5 border border-amber-400/30">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span>{stats.expiring} Expiring Soon</span>
+                </div>
+              )}
+              {stats.expired > 0 && (
+                <div className="px-3 py-1.5 rounded-xl bg-rose-500/20 backdrop-blur-md text-xs font-semibold text-rose-200 flex items-center gap-1.5 border border-rose-400/30">
+                  <span className="w-2 h-2 rounded-full bg-rose-400" />
+                  <span>{stats.expired} Expired</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 self-start md:self-auto">
+            <button
+              onClick={fetchContracts}
+              disabled={loading}
+              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 transition-all flex items-center gap-2 text-xs font-semibold"
+              title="Refresh Contracts"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+          </div>
         </div>
-        <button
-          onClick={fetchContracts}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Contracts</p>
-              <p className="text-2xl font-bold text-black">{stats.total}</p>
-            </div>
-            <FileText className="w-8 h-8 text-blue-500" />
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active</p>
-              <p className="text-2xl font-bold text-black">{stats.active}</p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-500" />
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Expiring Soon</p>
-              <p className="text-2xl font-bold text-black">{stats.expiring}</p>
-            </div>
-            <AlertTriangle className="w-8 h-8 text-yellow-500" />
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Expired</p>
-              <p className="text-2xl font-bold text-black">{stats.expired}</p>
-            </div>
-            <XCircle className="w-8 h-8 text-red-500" />
-          </div>
-        </div>
-      </div>
-
-      {/* Notification Result */}
+      {/* Notification Feedback */}
       {notificationResult && (
         <div
-          className={`rounded-lg p-4 ${
+          className={`rounded-2xl p-4 flex items-center justify-between gap-3 text-xs font-medium border shadow-sm ${
             notificationResult.type === "success"
-              ? "bg-green-50 border border-green-200 text-green-800"
-              : "bg-red-50 border border-red-200 text-red-800"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : "bg-rose-50 border-rose-200 text-rose-800"
           }`}
         >
-          <p className="font-semibold">{notificationResult.message}</p>
+          <div className="flex items-center gap-2">
+            {notificationResult.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+            )}
+            <span>{notificationResult.message}</span>
+          </div>
           <button
             onClick={() => setNotificationResult(null)}
-            className="mt-2 text-sm underline"
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-2.5 py-1 bg-white rounded-lg border border-slate-200"
           >
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+      {/* Filters Bar */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-amber-600" />
+            <h3 className="text-sm font-bold text-slate-800">
+              Filter Contracts
+            </h3>
+            {(searchTerm || filterStatus !== "all") && (
+              <span className="text-xs text-amber-700 font-semibold bg-amber-50 px-2.5 py-0.5 rounded-full">
+                {filteredContracts.length} matching of {contracts.length}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  viewMode === "grid"
+                    ? "bg-white text-amber-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Grid View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  viewMode === "table"
+                    ? "bg-white text-amber-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Table View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+
+            {(searchTerm || filterStatus !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  setFilterStatus("all");
+                  setCurrentPage(1);
+                }}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div className="lg:col-span-2 relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input
               type="text"
-              placeholder="Search by name, email, or expiry date..."
+              placeholder="Search by Employee ID, Name, Email, or Type..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-amber-100 focus:border-amber-500 transition-all"
             />
           </div>
-          <div className="flex gap-2">
+
+          <div>
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-amber-100 focus:border-amber-500 transition-all"
             >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="expiring">Expiring Soon</option>
-              <option value="expired">Expired</option>
+              <option value="all">All Statuses ({contracts.length})</option>
+              <option value="active">Active ({stats.active})</option>
+              <option value="expiring">Expiring Soon ({stats.expiring})</option>
+              <option value="expired">Expired ({stats.expired})</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Contracts List */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error}</p>
-        </div>
-      )}
+      {/* Main Content */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+        {loading && contracts.length === 0 ? (
+          <div className="py-20 text-center space-y-3">
+            <RefreshCw className="w-8 h-8 text-amber-600 animate-spin mx-auto" />
+            <p className="text-sm font-semibold text-slate-700">
+              Loading contract directory...
+            </p>
+          </div>
+        ) : filteredContracts.length === 0 ? (
+          <div className="py-16 text-center space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto">
+              <FileText className="w-8 h-8" />
+            </div>
+            <h4 className="text-base font-bold text-slate-800">
+              {contracts.length === 0
+                ? "No contractual records registered"
+                : "No contracts matching your filters"}
+            </h4>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              {contracts.length === 0
+                ? "Personnel with fixed-term or probationary contracts will appear here."
+                : "Try clearing your search or status filter."}
+            </p>
+          </div>
+        ) : viewMode === "table" ? (
+          /* Table View */
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+              <thead>
+                <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-3.5">Employee</th>
+                  <th className="px-6 py-3.5">Type</th>
+                  <th className="px-6 py-3.5">Expiry Date</th>
+                  <th className="px-6 py-3.5">Remaining Days</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedContracts.map((contract) => (
+                  <tr
+                    key={contract.employeeId}
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold text-xs">
+                          {contract.employeeName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">
+                            {contract.employeeName}
+                          </p>
+                          <p className="text-[11px] text-slate-400 font-mono">
+                            {contract.employeeId} &bull; {contract.employeeEmail}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
 
-      {filteredContracts.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">
-            {contracts.length === 0
-              ? "No contractual employees found"
-              : "No contracts match your filters"}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredContracts.map((contract) => (
-            <div
-              key={contract.employeeId}
-              className={`bg-white rounded-lg shadow-lg p-6 border-2 ${getCardColor(
-                contract.daysUntilExpiry
-              )} transition-all hover:shadow-xl`}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                    {contract.employeeName.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-black">
-                      {contract.employeeName}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {contract.employeeType}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                    <td className="px-6 py-4">
+                      <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-medium text-[11px]">
+                        {contract.employeeType || "Contractual"}
+                      </span>
+                    </td>
 
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Mail className="w-4 h-4" />
-                  <span className="truncate">{contract.employeeEmail}</span>
-                </div>
-                {contract.contractExpiryDate && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="w-4 h-4" />
-                    <span>
-                      Expires:{" "}
-                      {new Date(contract.contractExpiryDate).toLocaleDateString(
-                        "en-US",
-                        {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        }
+                    <td className="px-6 py-4 text-slate-700 font-medium">
+                      {contract.contractExpiryDate
+                        ? new Date(contract.contractExpiryDate).toLocaleDateString()
+                        : "No Expiry"}
+                    </td>
+
+                    <td className="px-6 py-4">
+                      {contract.daysUntilExpiry !== null ? (
+                        <span
+                          className={`font-semibold flex items-center gap-1 ${
+                            contract.daysUntilExpiry < 0
+                              ? "text-rose-600"
+                              : contract.daysUntilExpiry <= 15
+                              ? "text-amber-600"
+                              : "text-emerald-600"
+                          }`}
+                        >
+                          <Clock className="w-3 h-3" />
+                          {contract.daysUntilExpiry < 0
+                            ? `${Math.abs(contract.daysUntilExpiry)} days overdue`
+                            : `${contract.daysUntilExpiry} days`}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">&mdash;</span>
                       )}
-                    </span>
-                  </div>
-                )}
-              </div>
+                    </td>
 
-              <div className="pt-4 border-t border-gray-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  {getStatusBadge(contract.daysUntilExpiry, contract.shouldNotify)}
-                  {contract.daysUntilExpiry !== null &&
-                    contract.daysUntilExpiry >= 0 && (
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <TrendingDown className="w-3 h-3" />
-                        {contract.daysUntilExpiry} days left
+                    <td className="px-6 py-4">
+                      {getStatusBadge(
+                        contract.daysUntilExpiry,
+                        contract.shouldNotify
+                      )}
+                    </td>
+
+                    <td className="px-6 py-4 text-right">
+                      {(contract.daysUntilExpiry === null ||
+                        contract.daysUntilExpiry <= 15) && (
+                        <button
+                          type="button"
+                          onClick={() => sendNotificationForContract(contract)}
+                          disabled={sendingNotifications[contract.employeeId]}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs shadow-xs transition-all disabled:opacity-50"
+                        >
+                          <Send className="w-3 h-3" />
+                          <span>Dispatch Alert</span>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          /* Grid View */
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedContracts.map((contract) => (
+              <div
+                key={contract.employeeId}
+                className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 hover:border-amber-300 hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-11 h-11 bg-gradient-to-br from-amber-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-sm">
+                        {contract.employeeName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-slate-900 text-sm truncate">
+                          {contract.employeeName}
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-mono truncate">
+                          {contract.employeeId} &bull; {contract.employeeType || "Contractual"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex-shrink-0">
+                      {getStatusBadge(
+                        contract.daysUntilExpiry,
+                        contract.shouldNotify
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 py-3 border-y border-slate-100 text-xs text-slate-600">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span className="truncate">
+                        {contract.employeeEmail || "No email registered"}
+                      </span>
+                    </div>
+                    {contract.contractExpiryDate && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                        <span>
+                          Expires:{" "}
+                          <strong className="text-slate-900 font-semibold">
+                            {new Date(
+                              contract.contractExpiryDate
+                            ).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </strong>
+                        </span>
                       </div>
                     )}
+                  </div>
                 </div>
-                {(contract.daysUntilExpiry === null ||
-                  contract.daysUntilExpiry <= 15) && (
-                  <button
-                    onClick={() => sendNotificationForContract(contract)}
-                    disabled={sendingNotifications[contract.employeeId]}
-                    className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {sendingNotifications[contract.employeeId] ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Mail className="w-4 h-4" />
-                        Send Notification
-                      </>
+
+                <div className="pt-2 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-medium">
+                      Timeline Status:
+                    </span>
+                    {contract.daysUntilExpiry !== null && (
+                      <span
+                        className={`font-semibold flex items-center gap-1 ${
+                          contract.daysUntilExpiry < 0
+                            ? "text-rose-600"
+                            : contract.daysUntilExpiry <= 7
+                            ? "text-amber-600"
+                            : "text-emerald-600"
+                        }`}
+                      >
+                        <Clock className="w-3 h-3" />
+                        {contract.daysUntilExpiry < 0
+                          ? `${Math.abs(contract.daysUntilExpiry)} days overdue`
+                          : `${contract.daysUntilExpiry} days remaining`}
+                      </span>
                     )}
-                  </button>
-                )}
+                  </div>
+
+                  {(contract.daysUntilExpiry === null ||
+                    contract.daysUntilExpiry <= 15) && (
+                    <button
+                      onClick={() => sendNotificationForContract(contract)}
+                      disabled={sendingNotifications[contract.employeeId]}
+                      className="w-full px-3.5 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {sendingNotifications[contract.employeeId] ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Dispatching Alert...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>Dispatch Expiry Notice</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {filteredContracts.length > 0 && (
+          <div className="px-6 py-4 bg-slate-50/60 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span>
+                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                {Math.min(currentPage * itemsPerPage, filteredContracts.length)} of{" "}
+                {filteredContracts.length} records
+              </span>
+              <div className="flex items-center gap-1.5 ml-2">
+                <span>Per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700"
+                >
+                  <option value={9}>9</option>
+                  <option value={18}>18</option>
+                  <option value={36}>36</option>
+                </select>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(p) => setCurrentPage(p)}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-

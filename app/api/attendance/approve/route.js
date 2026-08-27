@@ -144,7 +144,33 @@ export async function GET(request) {
 
     // Filter by employee
     if (employeeId) {
-      query.employeeId = employeeId;
+      const trimmedEmpId = employeeId.trim();
+      let matchedEmp = null;
+      if (ObjectId.isValid(trimmedEmpId)) {
+        matchedEmp = await db.collection("employees").findOne({ _id: new ObjectId(trimmedEmpId) });
+      }
+      if (!matchedEmp) {
+        matchedEmp = await db.collection("employees").findOne({
+          $or: [
+            { employeeId: trimmedEmpId },
+            { empId: trimmedEmpId },
+            { "personalDetails.employeeId": trimmedEmpId },
+          ],
+        });
+      }
+
+      if (matchedEmp) {
+        const possibleIds = [
+          matchedEmp._id.toString(),
+          matchedEmp._id,
+          trimmedEmpId,
+          matchedEmp.employeeId,
+          matchedEmp.empId,
+        ].filter(Boolean);
+        query.employeeId = { $in: possibleIds };
+      } else {
+        query.employeeId = trimmedEmpId;
+      }
     }
 
     // Filter by date range
@@ -170,7 +196,11 @@ export async function GET(request) {
               {
                 $match: {
                   $expr: {
-                    $eq: ["$_id", { $toObjectId: "$$employeeId" }],
+                    $or: [
+                      { $eq: [{ $toString: "$_id" }, { $toString: "$$employeeId" }] },
+                      { $eq: ["$employeeId", "$$employeeId"] },
+                      { $eq: ["$empId", "$$employeeId"] },
+                    ],
                   },
                 },
               },
@@ -186,7 +216,10 @@ export async function GET(request) {
               {
                 $match: {
                   $expr: {
-                    $eq: ["$_id", { $toObjectId: "$$workLocationId" }],
+                    $or: [
+                      { $eq: [{ $toString: "$_id" }, { $toString: "$$workLocationId" }] },
+                      { $eq: ["$workLocationId", "$$workLocationId"] },
+                    ],
                   },
                 },
               },
@@ -211,20 +244,44 @@ export async function GET(request) {
       .collection("daily_attendance")
       .countDocuments(query);
 
-    // Process records to include employee names and clean data
-    const processedRecords = attendanceRecords.map((record) => ({
-      ...record,
-      employeeName: record.employeeName || "Unknown Employee",
-      employeeEmail:
-        record.employee?.personalDetails?.email || record.employee?.email || "",
-      department:
-        record.employee?.department ||
-        record.employee?.personalDetails?.department ||
-        "",
-      workLocationName:
-        record.geofenceValidation?.workLocationName || "Unknown Location",
-      approvalStatus: record.adminApproval?.status || "pending",
-    }));
+    // Process records to include employee names, empId and clean data
+    const processedRecords = attendanceRecords.map((record) => {
+      const empCode =
+        record.employee?.employeeId ||
+        record.employee?.empId ||
+        record.employee?.personalDetails?.employeeId ||
+        (record.employee?._id ? record.employee._id.toString() : record.employeeId || "—");
+
+      return {
+        ...record,
+        employeeId: empCode,
+        employeeCode: empCode,
+        employeeDbId: record.employee?._id?.toString() || record.employeeId,
+        employeeName:
+          record.employee?.personalDetails?.name ||
+          record.employee?.name ||
+          record.employeeName ||
+          "Unknown Employee",
+        employeeEmail:
+          record.employee?.personalDetails?.email || record.employee?.email || "",
+        department:
+          record.employee?.department ||
+          record.employee?.personalDetails?.department ||
+          record.department ||
+          "",
+        designation:
+          record.employee?.designation ||
+          record.employee?.personalDetails?.designation ||
+          record.designation ||
+          "",
+        workLocationName:
+          record.workLocation?.name ||
+          record.geofenceValidation?.workLocationName ||
+          record.workLocationName ||
+          "Unknown Location",
+        approvalStatus: record.adminApproval?.status || "pending",
+      };
+    });
 
     return NextResponse.json({
       success: true,

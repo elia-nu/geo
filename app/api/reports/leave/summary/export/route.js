@@ -28,6 +28,7 @@ export async function POST(request) {
       summary = {},
       byDepartment = [],
       byProject = [],
+      byPerson = [],
       bySite = [],
       filters = {},
     } = data;
@@ -50,6 +51,7 @@ export async function POST(request) {
         summary,
         byDepartment,
         byProject,
+        byPerson,
         bySite,
         filters
       );
@@ -57,25 +59,30 @@ export async function POST(request) {
 
     const workbook = XLSX.utils.book_new();
 
+    // Summary Sheet
     const summaryRows = [
       ["LEAVE REQUEST SUMMARY REPORT"],
       [],
       ["Generated", new Date().toLocaleString()],
       [],
-      ["SUMMARY"],
+      ["OVERALL METRICS"],
       ["Total Requests", summary.totalRequests || 0],
+      ["Total Requested Days", summary.totalDays || 0],
+      ["Total Approved Days", summary.totalApprovedDays || 0],
+      ["Total Persons on Leave", summary.totalPersons || byPerson.length || 0],
+      ["Total Projects Involved", summary.totalProjects || byProject.length || 0],
       [],
-      ["By Type"],
+      ["BY LEAVE TYPE"],
       ["Type", "Count"],
       ...(summary.byType || []).map((r) => [r.type, r.count]),
       [],
-      ["By Status"],
+      ["BY REQUEST STATUS"],
       ["Status", "Count"],
       ...(summary.byStatus || []).map((r) => [r.status, r.count]),
     ];
 
     if (filters && Object.keys(filters).length) {
-      summaryRows.push([], ["FILTERS"]);
+      summaryRows.push([], ["ACTIVE FILTERS"]);
       Object.entries(filters).forEach(([k, v]) => {
         if (v != null && v !== "") summaryRows.push([k, String(v)]);
       });
@@ -84,22 +91,31 @@ export async function POST(request) {
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.aoa_to_sheet(summaryRows),
-      "Summary"
+      "Overview Summary"
     );
 
-    const deptRows = [
-      ["Department", "Total Requests"],
-      ...byDepartment.map((r) => [r.department || r.name, r.total]),
-    ];
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.aoa_to_sheet(deptRows),
-      "By Department"
-    );
-
+    // By Project Sheet
     const projRows = [
-      ["Project", "Total Requests"],
-      ...byProject.map((r) => [r.projectName || r.name, r.total]),
+      [
+        "Project Name",
+        "Total Requests",
+        "Approved Requests",
+        "Pending Requests",
+        "Rejected Requests",
+        "Total Leave Days",
+        "Approved Days",
+        "Employees on Leave",
+      ],
+      ...byProject.map((r) => [
+        r.projectName || r.name || "Unassigned",
+        r.total || 0,
+        r.approved || 0,
+        r.pending || 0,
+        r.rejected || 0,
+        r.totalDays || 0,
+        r.approvedDays || 0,
+        r.uniqueEmployeesCount || (r.employeeIds ? r.employeeIds.length : 0),
+      ]),
     ];
     XLSX.utils.book_append_sheet(
       workbook,
@@ -107,6 +123,60 @@ export async function POST(request) {
       "By Project"
     );
 
+    // By Person Sheet
+    const personRows = [
+      [
+        "Employee Code",
+        "Employee Name",
+        "Department",
+        "Designation",
+        "Assigned Project(s)",
+        "Total Requests",
+        "Approved Requests",
+        "Pending Requests",
+        "Rejected Requests",
+        "Total Days Requested",
+        "Approved Days",
+      ],
+      ...byPerson.map((r) => [
+        r.employeeCode || "—",
+        r.employeeName || "—",
+        r.department || "—",
+        r.designation || "—",
+        r.projectNames || "None",
+        r.total || 0,
+        r.approved || 0,
+        r.pending || 0,
+        r.rejected || 0,
+        r.totalDays || 0,
+        r.approvedDays || 0,
+      ]),
+    ];
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet(personRows),
+      "By Person"
+    );
+
+    // By Department Sheet
+    const deptRows = [
+      ["Department", "Total Requests", "Total Days", "Approved", "Pending", "Rejected"],
+      ...byDepartment.map((r) => [
+        r.department || r.name,
+        r.total || 0,
+        r.days || 0,
+        r.approved || 0,
+        r.pending || 0,
+        r.rejected || 0,
+      ]),
+    ];
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet(deptRows),
+      "By Department"
+    );
+
+    // By Site Sheet
     const siteRows = [
       ["Site", "Total Requests"],
       ...bySite.map((r) => [r.siteName || r.name, r.total]),
@@ -145,10 +215,16 @@ function escapeCSV(v) {
   return s;
 }
 
-function generateCSV(summary, byDepartment, byProject, bySite, filters) {
+function generateCSV(summary, byDepartment, byProject, byPerson, bySite, filters) {
   const rows = [];
-  rows.push("Section,Key,Value");
+  rows.push("LEAVE REQUEST SUMMARY REPORT");
+  rows.push("");
+  rows.push("Section,Metric,Value");
   rows.push(["Summary", "Total Requests", summary.totalRequests || 0].map(escapeCSV).join(","));
+  rows.push(["Summary", "Total Days Requested", summary.totalDays || 0].map(escapeCSV).join(","));
+  rows.push(["Summary", "Total Approved Days", summary.totalApprovedDays || 0].map(escapeCSV).join(","));
+  rows.push(["Summary", "Total Persons", byPerson.length || 0].map(escapeCSV).join(","));
+  rows.push(["Summary", "Total Projects", byProject.length || 0].map(escapeCSV).join(","));
   (summary.byType || []).forEach((r) => {
     rows.push(["By Type", r.type, r.count].map(escapeCSV).join(","));
   });
@@ -160,20 +236,70 @@ function generateCSV(summary, byDepartment, byProject, bySite, filters) {
       if (v != null && v !== "") rows.push(["Filter", k, v].map(escapeCSV).join(","));
     });
   }
+
   rows.push("");
-  rows.push("Department,Total Requests");
-  byDepartment.forEach((r) => {
-    rows.push([r.department || r.name, r.total].map(escapeCSV).join(","));
-  });
-  rows.push("");
-  rows.push("Project,Total Requests");
+  rows.push("=== LEAVE SUMMARY BY PROJECT ===");
+  rows.push(
+    "Project Name,Total Requests,Approved Requests,Pending Requests,Rejected Requests,Total Days,Approved Days,Employees on Leave"
+  );
   byProject.forEach((r) => {
-    rows.push([r.projectName || r.name, r.total].map(escapeCSV).join(","));
+    rows.push(
+      [
+        r.projectName || r.name || "Unassigned",
+        r.total || 0,
+        r.approved || 0,
+        r.pending || 0,
+        r.rejected || 0,
+        r.totalDays || 0,
+        r.approvedDays || 0,
+        r.uniqueEmployeesCount || 0,
+      ]
+        .map(escapeCSV)
+        .join(",")
+    );
   });
+
   rows.push("");
-  rows.push("Site,Total Requests");
-  bySite.forEach((r) => {
-    rows.push([r.siteName || r.name, r.total].map(escapeCSV).join(","));
+  rows.push("=== LEAVE SUMMARY PER PERSON ===");
+  rows.push(
+    "Employee Code,Employee Name,Department,Designation,Project(s),Total Requests,Approved,Pending,Rejected,Total Days,Approved Days"
+  );
+  byPerson.forEach((r) => {
+    rows.push(
+      [
+        r.employeeCode || "—",
+        r.employeeName || "—",
+        r.department || "—",
+        r.designation || "—",
+        r.projectNames || "None",
+        r.total || 0,
+        r.approved || 0,
+        r.pending || 0,
+        r.rejected || 0,
+        r.totalDays || 0,
+        r.approvedDays || 0,
+      ]
+        .map(escapeCSV)
+        .join(",")
+    );
+  });
+
+  rows.push("");
+  rows.push("=== LEAVE SUMMARY BY DEPARTMENT ===");
+  rows.push("Department,Total Requests,Total Days,Approved,Pending,Rejected");
+  byDepartment.forEach((r) => {
+    rows.push(
+      [
+        r.department || r.name,
+        r.total || 0,
+        r.days || 0,
+        r.approved || 0,
+        r.pending || 0,
+        r.rejected || 0,
+      ]
+        .map(escapeCSV)
+        .join(",")
+    );
   });
 
   const csv = rows.join("\n");

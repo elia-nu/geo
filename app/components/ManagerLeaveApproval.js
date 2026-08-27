@@ -17,13 +17,19 @@ import {
   Download,
   Users,
   TrendingUp,
+  ChevronDown,
+  Shield,
 } from "lucide-react";
+import Pagination from "./ui/Pagination";
+import { toast } from "./ui/toast";
 
 export default function ManagerLeaveApproval({
   managerId,
   managerName = "Manager",
 }) {
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
@@ -80,6 +86,10 @@ export default function ManagerLeaveApproval({
   const showMessage = (msg, type = "info") => {
     setMessage(msg);
     setMessageType(type);
+    if (type === "success") toast.success(msg);
+    else if (type === "error") toast.error(msg);
+    else if (type === "warning") toast.warning(msg);
+    else toast.info(msg);
     setTimeout(() => {
       setMessage("");
     }, 5000);
@@ -213,57 +223,95 @@ export default function ManagerLeaveApproval({
     return true;
   });
 
+  const totalPages = Math.ceil((filteredRequests.length || 0) / itemsPerPage) || 1;
+  const paginatedRequests = React.useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredRequests.slice(start, start + itemsPerPage);
+  }, [filteredRequests, currentPage, itemsPerPage]);
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-black">
-            Leave Request Approval
-          </h1>
-          <p className="text-black mt-1">
-            Review and approve leave requests from your team
-          </p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={fetchLeaveRequests}
-            className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Refresh</span>
-          </button>
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 p-6 shadow-xl">
+        <div className="absolute -top-10 -right-10 w-48 h-48 bg-purple-500/10 rounded-full" />
+        <div className="absolute -bottom-8 -left-8 w-36 h-36 bg-indigo-500/10 rounded-full" />
+        <div className="relative">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-indigo-500/20 backdrop-blur rounded-xl flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-indigo-300" />
+                </div>
+                <h1 className="text-2xl font-bold text-white">Leave Management</h1>
+              </div>
+              <p className="text-indigo-200 text-sm">
+                Review and manage leave requests from your team
+              </p>
+            </div>
+            <button
+              onClick={fetchLeaveRequests}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl font-medium transition-colors self-start"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+          </div>
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-3 mt-5">
+            <div className="bg-white/10 rounded-xl p-3 text-center">
+              <p className="text-2xl font-bold text-yellow-300">
+                {leaveRequests.filter((r) => r.status === "pending").length}
+              </p>
+              <p className="text-xs text-indigo-200 mt-0.5">Pending</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-3 text-center">
+              <p className="text-2xl font-bold text-green-300">
+                {leaveRequests.filter((r) => r.status === "approved").length}
+              </p>
+              <p className="text-xs text-indigo-200 mt-0.5">Approved</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-3 text-center">
+              <p className="text-2xl font-bold text-red-300">
+                {leaveRequests.filter((r) => r.status === "rejected").length}
+              </p>
+              <p className="text-xs text-indigo-200 mt-0.5">Rejected</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Message Display */}
       {message && (
         <div
-          className={`p-4 rounded-lg flex items-center space-x-2 ${
+          className={`p-4 rounded-xl flex items-center gap-3 ${
             messageType === "success"
-              ? "bg-green-100 text-green-700"
+              ? "bg-green-50 text-green-700 border border-green-200"
               : messageType === "error"
-              ? "bg-red-100 text-red-700"
-              : "bg-blue-100 text-blue-700"
+              ? "bg-red-50 text-red-700 border border-red-200"
+              : "bg-blue-50 text-blue-700 border border-blue-200"
           }`}
         >
           {messageType === "success" ? (
-            <CheckCircle className="w-5 h-5" />
+            <CheckCircle className="w-5 h-5 flex-shrink-0" />
           ) : messageType === "error" ? (
-            <XCircle className="w-5 h-5" />
+            <XCircle className="w-5 h-5 flex-shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5" />
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
           )}
-          <span>{message}</span>
+          <span className="text-sm font-medium">{message}</span>
         </div>
       )}
 
-      {/* Filters and Search */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Filters */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="w-4 h-4 text-indigo-500" />
+          <h3 className="text-sm font-semibold text-gray-700">Filters</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {/* Status Filter */}
           <div>
-            <label className="block text-sm font-medium text-black mb-2">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Status
             </label>
             <select
@@ -271,7 +319,7 @@ export default function ManagerLeaveApproval({
               onChange={(e) =>
                 setFilters({ ...filters, status: e.target.value })
               }
-              className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 text-black text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             >
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
@@ -280,9 +328,44 @@ export default function ManagerLeaveApproval({
             </select>
           </div>
 
+          {/* Leave Type Filter */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Leave Type
+            </label>
+            <select
+              value={filters.leaveType}
+              onChange={(e) =>
+                setFilters({ ...filters, leaveType: e.target.value })
+              }
+              className="w-full px-3 py-2 text-black text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            >
+              <option value="annual">Annual Leave</option>
+            </select>
+          </div>
+
+          {/* Date Range Filter */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Date Range
+            </label>
+            <select
+              value={filters.dateRange}
+              onChange={(e) =>
+                setFilters({ ...filters, dateRange: e.target.value })
+              }
+              className="w-full px-3 py-2 text-black text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
+
           {/* Department Filter */}
           <div>
-            <label className="block text-sm font-medium text-black mb-2">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Department
             </label>
             <select
@@ -290,7 +373,7 @@ export default function ManagerLeaveApproval({
               onChange={(e) =>
                 setFilters({ ...filters, department: e.target.value })
               }
-              className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 text-black text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             >
               <option value="">All Departments</option>
               <option value="IT">IT</option>
@@ -301,60 +384,19 @@ export default function ManagerLeaveApproval({
             </select>
           </div>
 
-          {/* Leave Type Filter */}
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Leave Type
-            </label>
-            <select
-              value={filters.leaveType}
-              onChange={(e) =>
-                setFilters({ ...filters, leaveType: e.target.value })
-              }
-              className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">All Types</option>
-              <option value="annual">Annual</option>
-              <option value="sick">Sick</option>
-              <option value="personal">Personal</option>
-              <option value="maternity">Maternity</option>
-              <option value="paternity">Paternity</option>
-              <option value="bereavement">Bereavement</option>
-            </select>
-          </div>
-
-          {/* Date Range Filter */}
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Date Range
-            </label>
-            <select
-              value={filters.dateRange}
-              onChange={(e) =>
-                setFilters({ ...filters, dateRange: e.target.value })
-              }
-              className="w-full p-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-            </select>
-          </div>
-
           {/* Search */}
           <div>
-            <label className="block text-sm font-medium text-black mb-2">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Search
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-black" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search employees..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-500"
+                className="w-full pl-9 pr-3 py-2 text-black text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-gray-400"
               />
             </div>
           </div>
@@ -362,174 +404,150 @@ export default function ManagerLeaveApproval({
       </div>
 
       {/* Leave Requests List */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold flex items-center space-x-2 text-black">
-            <FileText className="w-6 h-6 text-black" />
-            <span>Leave Requests ({filteredRequests.length})</span>
-          </h2>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-indigo-600" />
+            <h2 className="font-semibold text-gray-800">
+              Leave Requests
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ({filteredRequests.length})
+              </span>
+            </h2>
+          </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <p className="text-gray-400 text-sm">Loading requests...</p>
           </div>
         ) : filteredRequests.length > 0 ? (
-          <div className="space-y-4">
-            {filteredRequests.map((request, index) => {
-              const status = getStatusDisplay(request.status);
-              const StatusIcon = status.icon;
-              const leaveDays = calculateLeaveDays(
-                request.startDate,
-                request.endDate
-              );
+          <div>
+            <div className="divide-y divide-gray-50">
+              {paginatedRequests.map((request, index) => {
+                const status = getStatusDisplay(request.status);
+                const StatusIcon = status.icon;
+                const leaveDays = calculateLeaveDays(
+                  request.startDate,
+                  request.endDate
+                );
+                const empName = request.employeeName || "Employee";
+                const initials = empName
+                  .split(" ")
+                  .slice(0, 2)
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase();
 
-              return (
-                <div
-                  key={index}
-                  className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start space-x-4">
-                      <div className="bg-blue-100 p-3 rounded-lg">
-                        <User className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-black">
-                          {request.employeeName}
-                        </h3>
-                        <p className="text-sm text-black">
-                          {request.department}
-                        </p>
-                        <p className="text-sm text-black">
-                          {request.designation}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <StatusIcon className="w-5 h-5" />
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${status.bgColor} ${status.color}`}
-                      >
-                        {status.text}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    <div>
-                      <span className="text-sm font-medium text-black">
-                        Leave Type:
-                      </span>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${getLeaveTypeColor(
-                            request.leaveType
-                          )}`}
-                        >
-                          {request.leaveType}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className="text-sm font-medium text-black">
-                        Duration:
-                      </span>
-                      <p className="text-sm text-black mt-1">
-                        {formatDate(request.startDate)} -{" "}
-                        {formatDate(request.endDate)}
-                      </p>
-                      <p className="text-xs text-black">
-                        {leaveDays} working days
-                      </p>
-                    </div>
-
-                    <div>
-                      <span className="text-sm font-medium text-black">
-                        Submitted:
-                      </span>
-                      <p className="text-sm text-black mt-1">
-                        {formatDate(request.submittedAt)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <span className="text-sm font-medium text-black">
-                        Reason:
-                      </span>
-                      <p className="text-sm text-black mt-1 line-clamp-2">
-                        {request.reason}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Approval Actions */}
-                  {request.status === "pending" && (
-                    <div className="flex items-center space-x-3 pt-4 border-t border-gray-200">
-                      <button
-                        onClick={() => handleApprovalAction(request, "approve")}
-                        className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        <span>Approve</span>
-                      </button>
-                      <button
-                        onClick={() => handleApprovalAction(request, "reject")}
-                        className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                      >
-                        <XCircle className="w-4 h-4" />
-                        <span>Reject</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Approval History */}
-                  {request.approvalHistory &&
-                    request.approvalHistory.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <h4 className="text-sm font-medium text-black mb-2">
-                          Approval History:
-                        </h4>
-                        <div className="space-y-2">
-                          {request.approvalHistory.map((approval, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between text-sm"
+                return (
+                  <div key={index} className="px-5 py-4 hover:bg-gray-50/50 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Left: Avatar + Name */}
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <span className="text-white text-xs font-bold">{initials}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold text-gray-900 text-sm">
+                              {request.employeeName}
+                            </h3>
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getLeaveTypeColor(request.leaveType)}`}
                             >
-                              <div>
-                                <span className="font-medium">
-                                  {approval.approverName}
-                                </span>
-                                <span className="text-black">
-                                  {" "}
-                                  - {approval.action}
-                                </span>
-                              </div>
-                              <span className="text-black">
-                                {new Date(
-                                  approval.approvedAt
-                                ).toLocaleDateString()}
+                              {request.leaveType}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {request.department} {request.designation && `· ${request.designation}`}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {formatDate(request.startDate)} → {formatDate(request.endDate)}
+                            <span className="ml-2 text-gray-400">({leaveDays} working days)</span>
+                          </p>
+                          {request.reason && (
+                            <p className="text-xs text-gray-500 mt-1 italic line-clamp-1">
+                              "{request.reason}"
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right: Status + Actions */}
+                      <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${status.bgColor} ${status.color}`}
+                        >
+                          <StatusIcon className="w-3.5 h-3.5" />
+                          {status.text}
+                        </span>
+                        {request.status === "pending" && (
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => handleApprovalAction(request, "approve")}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleApprovalAction(request, "reject")}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-colors"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Approval History */}
+                    {request.approvalHistory && request.approvalHistory.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Approval History</p>
+                        <div className="space-y-1">
+                          {request.approvalHistory.map((approval, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-xs text-gray-500">
+                              <span>
+                                <span className="font-medium text-gray-700">{approval.approverName}</span>
+                                {" "}&mdash; {approval.action}
                               </span>
+                              <span>{new Date(approval.approvedAt).toLocaleDateString()}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="px-5 py-3 border-t border-gray-100">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredRequests.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(sz) => {
+                  setItemsPerPage(sz);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
           </div>
         ) : (
-          <div className="text-center py-12 text-gray-500">
-            <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-black mb-2">
-              No leave requests found
-            </h3>
-            <p className="text-gray-600">
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+              <FileText className="w-8 h-8 text-gray-300" />
+            </div>
+            <p className="text-gray-600 font-medium">No leave requests found</p>
+            <p className="text-gray-400 text-sm">
               {filters.status === "pending"
-                ? "No pending leave requests to review"
-                : "No leave requests match your current filters"}
+                ? "No pending requests to review"
+                : "No requests match your filters"}
             </p>
           </div>
         )}

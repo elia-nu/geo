@@ -17,6 +17,8 @@ import {
   Eye,
   Filter,
 } from "lucide-react";
+import Pagination from "./ui/Pagination";
+import { toast } from "./ui/toast";
 
 export default function NotificationManager() {
   const [notifications, setNotifications] = useState([]);
@@ -85,6 +87,7 @@ export default function NotificationManager() {
 
       if (response.ok) {
         const result = await response.json();
+        toast.success(result.message);
         setSuccess(result.message);
         await fetchCronStatus();
       } else {
@@ -93,6 +96,7 @@ export default function NotificationManager() {
       }
     } catch (error) {
       console.error("Error managing cron job:", error);
+      toast.error(error.message);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -112,9 +116,9 @@ export default function NotificationManager() {
 
       if (response.ok) {
         const result = await response.json();
-        setSuccess(
-          `${result.message}. Sent: ${result.sent}, Failed: ${result.failed}`
-        );
+        const msg = `${result.message}. Sent: ${result.sent}, Failed: ${result.failed}`;
+        toast.success(msg);
+        setSuccess(msg);
         await fetchNotifications();
       } else {
         const errorData = await response.json();
@@ -122,6 +126,7 @@ export default function NotificationManager() {
       }
     } catch (error) {
       console.error("Error sending notifications:", error);
+      toast.error(error.message);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -363,29 +368,13 @@ export default function NotificationManager() {
               ))}
 
               {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-2 pt-4">
-                  <Button
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    disabled={page === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-gray-600">
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button
-                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                    disabled={page === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Next
-                  </Button>
-                </div>
-              )}
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={notifications.length}
+                itemsPerPage={20}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </CardContent>

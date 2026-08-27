@@ -317,14 +317,21 @@ export async function POST(request) {
   }
 }
 
-// Helper function to calculate real-time accruals
+// Helper function to calculate real-time accruals with base 16 + seniority and 2-year rollover
 async function calculateRealTimeAccruals(db, leaveBalance) {
   const currentDate = new Date();
   const employmentDate = new Date(leaveBalance.employmentDate);
-  const startOfYear = new Date(currentDate.getFullYear(), 0, 1);
+  const yearsOfService = Math.max(
+    0,
+    (currentDate - employmentDate) / (1000 * 60 * 60 * 24 * 365.25)
+  );
+  const fullYears = Math.floor(yearsOfService);
 
-  // Get current year leave requests
-  // Try both ObjectId and string formats for employeeId
+  // Annual leave allowance: 16 + floor(years / 2)
+  const currentYearAllowance = 16 + Math.floor(fullYears / 2);
+  const seniorityBonus = Math.floor(fullYears / 2);
+
+  // Get all approved and pending leave requests
   const leaveRequests = await db
     .collection("attendance_documents")
     .find({
@@ -333,124 +340,57 @@ async function calculateRealTimeAccruals(db, leaveBalance) {
         { employeeId: leaveBalance.employeeId.toString() },
       ],
       type: "leave",
-      startDate: { $gte: startOfYear.toISOString().split("T")[0] },
     })
     .toArray();
 
-  console.log(
-    "Found leave requests for real-time calculation:",
-    leaveRequests.length
-  );
-  console.log(
-    "Leave requests:",
-    leaveRequests.map((req) => ({
-      _id: req._id,
-      leaveType: req.leaveType,
-      status: req.status,
-      startDate: req.startDate,
-      endDate: req.endDate,
-    }))
-  );
-
-  // Calculate used and pending days
-  const leaveTypeStats = {};
+  let usedDays = 0;
+  let pendingDays = 0;
   leaveRequests.forEach((request) => {
-    const leaveType = request.leaveType;
-    if (!leaveTypeStats[leaveType]) {
-      leaveTypeStats[leaveType] = { used: 0, pending: 0 };
-    }
-
     const days = calculateLeaveDays(request.startDate, request.endDate);
-    console.log(
-      `Processing ${leaveType} request: ${days} days, status: ${request.status}`
-    );
     if (request.status === "approved") {
-      leaveTypeStats[leaveType].used += days;
+      usedDays += days;
     } else if (request.status === "pending") {
-      leaveTypeStats[leaveType].pending += days;
+      pendingDays += days;
     }
   });
 
-  console.log("Calculated leave type stats:", leaveTypeStats);
+  // Calculate Rollover & 2-Year Expiration Limit:
+  let totalCumulativeEarned = 0;
+  let expiredDays = 0;
 
-  // Calculate real-time accruals
-  const updatedBalances = {};
-  const leaveEntitlements = {
+  if (fullYears === 0) {
+    totalCumulativeEarned = currentYearAllowance;
+  } else {
+    for (let yr = 0; yr <= fullYears; yr++) {
+      const yrAllowance = 16 + Math.floor(yr / 2);
+      if (yr < fullYears - 2) {
+        expiredDays += Math.max(0, yrAllowance - Math.max(0, usedDays / Math.max(1, fullYears)));
+      } else {
+        totalCumulativeEarned += yrAllowance;
+      }
+    }
+  }
+
+  const carriedForward = fullYears > 0 ? Math.max(0, totalCumulativeEarned - currentYearAllowance) : 0;
+  const available = Math.max(0, totalCumulativeEarned - usedDays - pendingDays);
+
+  const updatedBalances = {
     annual: {
-      daysPerYear: 16,
-      maxCarryForward: 5,
+      yearlyAllowance: currentYearAllowance,
+      baseAllowance: 16,
+      seniorityBonus,
+      totalEarned: totalCumulativeEarned,
+      carriedForward,
+      expiredDays: Math.floor(expiredDays),
+      used: usedDays,
+      pending: pendingDays,
+      available,
       description: "Annual Leave",
-    },
-    sick: { daysPerYear: 10, maxCarryForward: 0, description: "Sick Leave" },
-    personal: {
-      daysPerYear: 5,
-      maxCarryForward: 0,
-      description: "Personal Leave",
-    },
-    maternity: {
-      daysPerYear: 90,
-      maxCarryForward: 0,
-      description: "Maternity Leave",
-    },
-    paternity: {
-      daysPerYear: 14,
-      maxCarryForward: 0,
-      description: "Paternity Leave",
-    },
-    bereavement: {
-      daysPerYear: 3,
-      maxCarryForward: 0,
-      description: "Bereavement Leave",
+      formula: "16 + floor(Years of Service / 2)",
+      rolloverPolicy: "No reset; rolled over with 2-year postponement expiration limit",
+      lastCalculated: currentDate,
     },
   };
-
-  Object.keys(leaveBalance.balances).forEach((leaveType) => {
-    const currentBalance = leaveBalance.balances[leaveType];
-    const stats = leaveTypeStats[leaveType] || { used: 0, pending: 0 };
-    const entitlement = leaveEntitlements[leaveType];
-
-    // Calculate real-time accrual
-    const currentYearAccrual = calculateYearlyAccrual(
-      employmentDate,
-      currentDate,
-      entitlement.daysPerYear
-    );
-
-    const yearsOfService =
-      (currentDate - employmentDate) / (1000 * 60 * 60 * 24 * 365);
-    const totalEarned = Math.floor(yearsOfService * entitlement.daysPerYear);
-    const carriedForward = Math.min(
-      entitlement.maxCarryForward,
-      Math.max(0, totalEarned - entitlement.daysPerYear)
-    );
-
-    updatedBalances[leaveType] = {
-      ...currentBalance,
-      totalEarned,
-      carriedForward,
-      currentYearAccrual,
-      used: stats.used,
-      pending: stats.pending,
-      available: Math.max(
-        0,
-        totalEarned + carriedForward - stats.used - stats.pending
-      ),
-      description: entitlement.description,
-      lastCalculated: currentDate,
-    };
-  });
-
-  // Calculate years of service for this update
-  const yearsOfService =
-    (currentDate - employmentDate) / (1000 * 60 * 60 * 24 * 365);
-  console.log("calculateRealTimeAccruals - Years of service calculation:");
-  console.log("Current date:", currentDate);
-  console.log("Employment date:", employmentDate);
-  console.log("Years of service:", yearsOfService);
-  console.log(
-    "Rounded years of service:",
-    Math.floor(yearsOfService * 100) / 100
-  );
 
   // Update database
   await db.collection("leave_balances").updateOne(
@@ -458,7 +398,7 @@ async function calculateRealTimeAccruals(db, leaveBalance) {
     {
       $set: {
         balances: updatedBalances,
-        yearsOfService: Math.floor(yearsOfService * 100) / 100, // Round to 2 decimal places
+        yearsOfService: Math.floor(yearsOfService * 100) / 100,
         lastCalculated: currentDate,
         realTimeAccrual: true,
       },
@@ -468,7 +408,7 @@ async function calculateRealTimeAccruals(db, leaveBalance) {
   return {
     ...leaveBalance,
     balances: updatedBalances,
-    yearsOfService: Math.floor(yearsOfService * 100) / 100, // Round to 2 decimal places
+    yearsOfService: Math.floor(yearsOfService * 100) / 100,
     lastCalculated: currentDate,
     realTimeAccrual: true,
   };
@@ -723,68 +663,29 @@ async function createInitialLeaveBalance(db, employee) {
   }
   const currentDate = new Date();
 
-  // Calculate years of service
-  const yearsOfService =
-    (currentDate - employmentDate) / (1000 * 60 * 60 * 24 * 365);
+  const yearsOfService = Math.max(
+    0,
+    (currentDate - employmentDate) / (1000 * 60 * 60 * 24 * 365.25)
+  );
+  const fullYears = Math.floor(yearsOfService);
+  const yearlyAllowance = 16 + Math.floor(fullYears / 2);
 
-  console.log("Years of service calculation:");
-  console.log("Current date:", currentDate);
-  console.log("Employment date:", employmentDate);
-  console.log("Years of service:", yearsOfService);
-
-  // Default leave entitlements (can be customized per company policy)
-  const leaveEntitlements = {
+  const balances = {
     annual: {
-      daysPerYear: 16,
-      maxCarryForward: 5,
-      description: "Annual Leave",
-    },
-    sick: {
-      daysPerYear: 10,
-      maxCarryForward: 0,
-      description: "Sick Leave",
-    },
-    personal: {
-      daysPerYear: 5,
-      maxCarryForward: 0,
-      description: "Personal Leave",
-    },
-    maternity: {
-      daysPerYear: 90,
-      maxCarryForward: 0,
-      description: "Maternity Leave",
-    },
-    paternity: {
-      daysPerYear: 14,
-      maxCarryForward: 0,
-      description: "Paternity Leave",
-    },
-    bereavement: {
-      daysPerYear: 3,
-      maxCarryForward: 0,
-      description: "Bereavement Leave",
-    },
-  };
-
-  // Calculate initial balances
-  const balances = {};
-  Object.keys(leaveEntitlements).forEach((leaveType) => {
-    const entitlement = leaveEntitlements[leaveType];
-    const totalEarned = Math.floor(yearsOfService * entitlement.daysPerYear);
-    const carriedForward = Math.min(
-      entitlement.maxCarryForward,
-      Math.max(0, totalEarned - entitlement.daysPerYear)
-    );
-
-    balances[leaveType] = {
-      totalEarned,
-      carriedForward,
-      available: totalEarned + carriedForward,
+      yearlyAllowance,
+      baseAllowance: 16,
+      seniorityBonus: Math.floor(fullYears / 2),
+      totalEarned: yearlyAllowance,
+      carriedForward: 0,
+      expiredDays: 0,
+      available: yearlyAllowance,
       used: 0,
       pending: 0,
-      description: entitlement.description,
-    };
-  });
+      description: "Annual Leave",
+      formula: "16 + floor(Years of Service / 2)",
+      rolloverPolicy: "Rollover with 2-year postponement expiry limit",
+    },
+  };
 
   const leaveBalance = {
     employeeId: employee._id,

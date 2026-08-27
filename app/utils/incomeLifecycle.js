@@ -27,26 +27,77 @@ export const INCOME_STATUSES = [
   "cancelled",
 ];
 
+export const PAYMENT_FREQUENCIES = [
+  { value: "lump_sum", label: "Lump Sum" },
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+];
+
 /**
- * Derive lifecycle status from amounts + due date.
- * Explicit cancelled is preserved.
+ * Calculate the next recurring payment date for monthly or quarterly plans.
+ */
+export function getNextScheduledDate({
+  frequency = "lump_sum",
+  recurringDay = 1,
+  startDate = null,
+  dueDate = null,
+  nextPaymentDate = null,
+  totalPaid = 0,
+  installmentAmount = 0,
+  totalProjectAmount = 0,
+}) {
+  if (nextPaymentDate) {
+    const parsed = parseDate(nextPaymentDate);
+    if (parsed) return parsed;
+  }
+
+  if (frequency === "lump_sum" || !frequency) {
+    return parseDate(dueDate);
+  }
+
+  const start = parseDate(startDate) || parseDate(dueDate) || new Date();
+  const day = Math.min(31, Math.max(1, parseInt(recurringDay, 10) || start.getDate() || 1));
+  const installment = Number(installmentAmount) || (Number(totalProjectAmount) > 0 ? Number(totalProjectAmount) / 12 : 0);
+  const paid = Number(totalPaid) || 0;
+
+  // Number of installments already covered
+  const installmentsCovered = installment > 0 ? Math.floor(paid / installment) : 0;
+  const stepMonths = frequency === "quarterly" ? 3 : 1;
+
+  const targetDate = new Date(start);
+  targetDate.setMonth(targetDate.getMonth() + installmentsCovered * stepMonths);
+  // Clamp day to valid month day
+  const maxDaysInMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
+  targetDate.setDate(Math.min(day, maxDaysInMonth));
+  targetDate.setHours(0, 0, 0, 0);
+
+  return targetDate;
+}
+
+/**
+ * Derive lifecycle status from amounts + due date + recurring schedules.
  */
 export function deriveIncomeStatus({
   amount = 0,
   expectedAmount = 0,
   dueDate = null,
+  nextPaymentDate = null,
+  frequency = "lump_sum",
   status = null,
 }) {
   if (status === "cancelled") return "cancelled";
 
   const received = Number(amount) || 0;
   const expected = Number(expectedAmount) || 0;
-  const due = parseDate(dueDate);
   const today = startOfToday();
-  const isPastDue = due ? due < today : false;
   const isFullyCollected = expected > 0 ? received >= expected : received > 0;
 
   if (isFullyCollected) return "collected";
+
+  // Check effective due date: if recurring schedule has nextPaymentDate, check if that next payment date is past
+  const effectiveDueDate = parseDate(nextPaymentDate) || parseDate(dueDate);
+  const isPastDue = effectiveDueDate ? effectiveDueDate < today : false;
+
   if (received > 0 && expected > 0 && received < expected) {
     return isPastDue ? "overdue" : "partial";
   }
@@ -59,14 +110,42 @@ export function deriveIncomeStatus({
  */
 export function enrichIncomeRecord(income = {}) {
   const expectedAmount = Number(
-    income.expectedAmount ?? income.amount ?? 0
+    income.expectedAmount ?? income.totalProjectAmount ?? income.amount ?? 0
   );
-  const amount = Number(income.amount ?? 0);
+  const amount = Number(income.amount ?? income.totalPaid ?? 0);
   const dueDate = parseDate(income.dueDate);
   const receivedDate = parseDate(income.receivedDate);
+  const startDate = parseDate(income.startDate) || parseDate(income.receivedDate) || parseDate(income.dueDate);
+  const frequency = income.frequency || (income.paymentMethod === "monthly_payment" ? "monthly" : income.paymentMethod === "advance_payment" || income.paymentMethod === "lump_sum" ? "lump_sum" : "lump_sum");
+  const recurringDay = parseInt(income.recurringDay, 10) || (startDate ? startDate.getDate() : 1);
+  const durationMonths = parseInt(income.durationMonths || income.duration, 10) || (frequency === "monthly" ? 12 : frequency === "quarterly" ? 12 : 1);
+  const installmentAmount = Number(income.installmentAmount) || (frequency === "monthly" ? expectedAmount / (durationMonths || 12) : frequency === "quarterly" ? expectedAmount / ((durationMonths || 12) / 3) : expectedAmount);
+
   const now = new Date();
 
+  // Next scheduled payment date for recurring cycles
+  const computedNextDate = getNextScheduledDate({
+    frequency,
+    recurringDay,
+    startDate,
+    dueDate,
+    nextPaymentDate: income.nextPaymentDate,
+    totalPaid: amount,
+    installmentAmount,
+    totalProjectAmount: expectedAmount,
+  });
+
+  const nextPaymentDate = computedNextDate;
+  const nextPaymentAmount =
+    Number(income.nextPaymentAmount) > 0
+      ? Number(income.nextPaymentAmount)
+      : Math.min(expectedAmount - amount > 0 ? expectedAmount - amount : 0, installmentAmount > 0 ? installmentAmount : expectedAmount);
+
   const uncollectedAmount = Math.max(0, expectedAmount - amount);
+  const outstandingAmount = uncollectedAmount;
+  const totalProjectAmount = expectedAmount;
+  const totalPaid = amount;
+
   const collectionRate =
     expectedAmount > 0 ? (amount / expectedAmount) * 100 : amount > 0 ? 100 : 0;
   const isFullyCollected =
@@ -76,23 +155,26 @@ export function enrichIncomeRecord(income = {}) {
     amount,
     expectedAmount,
     dueDate,
+    nextPaymentDate,
+    frequency,
     status: income.status,
   });
 
+  const effectiveDueDate = nextPaymentDate || dueDate;
   const isOverdue =
     status !== "collected" &&
     status !== "cancelled" &&
-    !!dueDate &&
-    dueDate < startOfToday();
+    !!effectiveDueDate &&
+    effectiveDueDate < startOfToday();
 
   const daysPastDue =
-    isOverdue && dueDate
-      ? Math.ceil((now - dueDate) / (1000 * 60 * 60 * 24))
+    isOverdue && effectiveDueDate
+      ? Math.ceil((now - effectiveDueDate) / (1000 * 60 * 60 * 24))
       : 0;
 
   const daysUntilDue =
-    dueDate && dueDate >= startOfToday()
-      ? Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
+    effectiveDueDate && effectiveDueDate >= startOfToday()
+      ? Math.ceil((effectiveDueDate - now) / (1000 * 60 * 60 * 24))
       : null;
 
   const paymentType =
@@ -115,14 +197,24 @@ export function enrichIncomeRecord(income = {}) {
 
   return {
     ...income,
+    frequency,
+    recurringDay,
+    durationMonths,
+    installmentAmount: Number.isFinite(installmentAmount) ? installmentAmount : 0,
+    startDate: startDate || null,
     amount,
+    totalPaid,
     expectedAmount,
+    totalProjectAmount,
     uncollectedAmount,
+    outstandingAmount,
+    nextPaymentDate: isFullyCollected ? null : nextPaymentDate,
+    nextPaymentAmount: isFullyCollected ? 0 : Number.isFinite(nextPaymentAmount) ? nextPaymentAmount : 0,
     collectionRate: Math.round(collectionRate * 100) / 100,
     isFullyCollected,
     status,
     dueDate,
-    receivedDate: amount > 0 ? receivedDate || now : receivedDate,
+    receivedDate: amount > 0 ? receivedDate || now : null,
     isOverdue,
     daysPastDue,
     daysUntilDue,
@@ -144,6 +236,8 @@ export function applyCollection(
     paymentMethod,
     paymentReference,
     invoiceNumber,
+    nextPaymentDate,
+    nextPaymentAmount,
     notes,
     setTotalAmount = false,
   } = {}
@@ -156,9 +250,24 @@ export function applyCollection(
   const current = Number(income.amount) || 0;
   const nextAmount = setTotalAmount ? add : current + add;
 
+  const historyItem = {
+    amount: add,
+    date: receivedDate || new Date(),
+    paymentMethod: paymentMethod || income.paymentMethod || "bank_transfer",
+    paymentReference: paymentReference || "",
+    invoiceNumber: invoiceNumber || "",
+    notes: notes || "",
+    createdAt: new Date(),
+  };
+
+  const existingHistory = Array.isArray(income.paymentHistory)
+    ? income.paymentHistory
+    : [];
+
   return enrichIncomeRecord({
     ...income,
     amount: nextAmount,
+    totalPaid: nextAmount,
     receivedDate: receivedDate || new Date(),
     paymentMethod: paymentMethod || income.paymentMethod || "bank_transfer",
     invoiceNumber:
@@ -167,7 +276,16 @@ export function applyCollection(
       paymentReference !== undefined
         ? paymentReference
         : income.paymentReference,
+    nextPaymentDate:
+      nextPaymentDate !== undefined
+        ? nextPaymentDate
+        : income.nextPaymentDate || null,
+    nextPaymentAmount:
+      nextPaymentAmount !== undefined
+        ? Number(nextPaymentAmount) || 0
+        : income.nextPaymentAmount || 0,
     notes: notes !== undefined ? notes : income.notes,
+    paymentHistory: [...existingHistory, historyItem],
   });
 }
 
@@ -176,28 +294,39 @@ export function applyCollection(
  */
 export function buildIncomeRecord(data = {}) {
   const expectedAmount = Number(
-    data.expectedAmount ?? data.amount ?? 0
+    data.expectedAmount ?? data.totalProjectAmount ?? data.amount ?? 0
   );
   const amount = data.amount != null && data.amount !== ""
     ? Number(data.amount)
-    : 0;
+    : Number(data.totalPaid) || 0;
 
   const base = {
     _id: data._id,
     title: data.title,
     description: data.description || "",
     amount: Number.isFinite(amount) ? amount : 0,
+    totalPaid: Number.isFinite(amount) ? amount : 0,
     expectedAmount: Number.isFinite(expectedAmount) ? expectedAmount : 0,
+    totalProjectAmount: Number.isFinite(expectedAmount) ? expectedAmount : 0,
     dueDate: data.dueDate || null,
     receivedDate: data.receivedDate || null,
-    paymentMethod: data.paymentMethod || "bank_transfer",
+    paymentMethod: data.paymentMethod || "advance_payment",
+    frequency: data.frequency || "lump_sum",
+    recurringDay: data.recurringDay ? parseInt(data.recurringDay, 10) : null,
+    durationMonths: data.durationMonths ? parseInt(data.durationMonths, 10) : null,
+    installmentAmount: data.installmentAmount ? Number(data.installmentAmount) : 0,
+    startDate: data.startDate || null,
     clientName: data.clientName || "",
+    projectName: data.projectName || "",
+    nextPaymentDate: data.nextPaymentDate || null,
+    nextPaymentAmount: Number(data.nextPaymentAmount) || 0,
     categoryId: data.categoryId || "",
     categoryName: data.categoryName || "",
     invoiceNumber: data.invoiceNumber || "",
     paymentReference: data.paymentReference || "",
     notes: data.notes || "",
     status: data.status || "pending",
+    paymentHistory: Array.isArray(data.paymentHistory) ? data.paymentHistory : [],
     createdAt: data.createdAt || new Date(),
   };
 
@@ -228,11 +357,11 @@ export function summarizeIncome(incomeList = []) {
   const { income } = refreshIncomeList(incomeList);
 
   const totalExpected = income.reduce(
-    (sum, i) => sum + (Number(i.expectedAmount) || 0),
+    (sum, i) => sum + (Number(i.expectedAmount || i.totalProjectAmount) || 0),
     0
   );
   const totalCollected = income.reduce(
-    (sum, i) => sum + (Number(i.amount) || 0),
+    (sum, i) => sum + (Number(i.amount || i.totalPaid) || 0),
     0
   );
   const totalUncollected = Math.max(0, totalExpected - totalCollected);
@@ -241,9 +370,9 @@ export function summarizeIncome(incomeList = []) {
     income.filter((i) => i.status === status);
 
   const sumExpected = (list) =>
-    list.reduce((s, i) => s + (Number(i.expectedAmount) || 0), 0);
+    list.reduce((s, i) => s + (Number(i.expectedAmount || i.totalProjectAmount) || 0), 0);
   const sumReceived = (list) =>
-    list.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+    list.reduce((s, i) => s + (Number(i.amount || i.totalPaid) || 0), 0);
 
   const pending = byStatus("pending");
   const partial = byStatus("partial");
@@ -253,8 +382,11 @@ export function summarizeIncome(incomeList = []) {
   return {
     income,
     totalExpected,
+    totalProjectAmount: totalExpected,
     totalCollected,
+    totalPaid: totalCollected,
     totalUncollected,
+    outstandingAmount: totalUncollected,
     collectionRate:
       totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0,
     pendingCount: pending.length,

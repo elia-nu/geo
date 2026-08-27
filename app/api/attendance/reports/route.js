@@ -51,7 +51,33 @@ export async function POST(request) {
     };
 
     if (employeeId) {
-      query.employeeId = employeeId;
+      const trimmedEmpId = employeeId.trim();
+      let matchedEmp = null;
+      if (ObjectId.isValid(trimmedEmpId)) {
+        matchedEmp = await db.collection("employees").findOne({ _id: new ObjectId(trimmedEmpId) });
+      }
+      if (!matchedEmp) {
+        matchedEmp = await db.collection("employees").findOne({
+          $or: [
+            { employeeId: trimmedEmpId },
+            { empId: trimmedEmpId },
+            { "personalDetails.employeeId": trimmedEmpId },
+          ],
+        });
+      }
+
+      if (matchedEmp) {
+        const possibleIds = [
+          matchedEmp._id.toString(),
+          matchedEmp._id,
+          trimmedEmpId,
+          matchedEmp.employeeId,
+          matchedEmp.empId,
+        ].filter(Boolean);
+        query.employeeId = { $in: possibleIds };
+      } else {
+        query.employeeId = trimmedEmpId;
+      }
     }
 
     // Get attendance records with employee and work location details
@@ -64,7 +90,17 @@ export async function POST(request) {
             from: "employees",
             let: { employeeId: "$employeeId" },
             pipeline: [
-              { $match: { $expr: { $eq: ["$_id", "$$employeeId"] } } },
+              {
+                $match: {
+                  $expr: {
+                    $or: [
+                      { $eq: [{ $toString: "$_id" }, { $toString: "$$employeeId" }] },
+                      { $eq: ["$employeeId", "$$employeeId"] },
+                      { $eq: ["$empId", "$$employeeId"] },
+                    ],
+                  },
+                },
+              },
             ],
             as: "employee",
           },
@@ -74,7 +110,16 @@ export async function POST(request) {
             from: "work_locations",
             let: { workLocationId: "$workLocationId" },
             pipeline: [
-              { $match: { $expr: { $eq: ["$_id", "$$workLocationId"] } } },
+              {
+                $match: {
+                  $expr: {
+                    $or: [
+                      { $eq: [{ $toString: "$_id" }, { $toString: "$$workLocationId" }] },
+                      { $eq: ["$workLocationId", "$$workLocationId"] },
+                    ],
+                  },
+                },
+              },
             ],
             as: "workLocation",
           },
@@ -90,19 +135,27 @@ export async function POST(request) {
       .toArray();
 
     // Process records
-    const processedRecords = attendanceRecords.map((record) => ({
-      _id: record._id,
-      employeeId: record.employeeId,
-      employeeName:
-        record.employee?.personalDetails?.name ||
-        record.employee?.name ||
-        "Unknown Employee",
-      employeeEmail:
-        record.employee?.personalDetails?.email || record.employee?.email || "",
-      department:
-        record.employee?.department ||
-        record.employee?.personalDetails?.department ||
-        "",
+    const processedRecords = attendanceRecords.map((record) => {
+      const empCode =
+        record.employee?.employeeId ||
+        record.employee?.empId ||
+        record.employee?.personalDetails?.employeeId ||
+        (record.employee?._id ? record.employee._id.toString() : record.employeeId || "—");
+
+      return {
+        _id: record._id,
+        employeeId: empCode,
+        employeeCode: empCode,
+        employeeName:
+          record.employee?.personalDetails?.name ||
+          record.employee?.name ||
+          "Unknown Employee",
+        employeeEmail:
+          record.employee?.personalDetails?.email || record.employee?.email || "",
+        department:
+          record.employee?.department ||
+          record.employee?.personalDetails?.department ||
+          "",
       date: record.date,
       checkInTime: record.checkInTime,
       checkOutTime: record.checkOutTime,
@@ -117,7 +170,8 @@ export async function POST(request) {
       checkOutNotes: record.checkOutNotes,
       adminApproval: record.adminApproval,
       approvalStatus: record.adminApproval?.status || "pending",
-    }));
+      };
+    });
 
     // Generate report based on type
     let reportData;

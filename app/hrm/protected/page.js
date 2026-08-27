@@ -8,6 +8,7 @@ import DocumentManager from "../../components/DocumentManager";
 import NotificationManager from "../../components/NotificationManager";
 import AttendanceReporting from "../../components/AttendanceReporting";
 import ManagerLeaveApproval from "../../components/ManagerLeaveApproval";
+import AdminLeaveHistory from "../../components/AdminLeaveHistory";
 import LeaveBalance from "../../components/LeaveBalance";
 import AdminLeaveBalanceManagement from "../../components/AdminLeaveBalanceManagement";
 import LeaveManagementReports from "../../components/LeaveManagementReports";
@@ -185,6 +186,8 @@ export default function ProtectedHRMDashboard() {
             <ManagerLeaveApproval />
           </div>
         );
+      case "leave-history":
+        return <AdminLeaveHistory />;
       case "leave-balances":
         return <AdminLeaveBalanceManagement />;
       case "leave-reports":

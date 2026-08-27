@@ -19,13 +19,17 @@ import {
   UserIcon,
   BuildingOfficeIcon,
   TagIcon,
+  PhotoIcon,
+  XMarkIcon,
+  ArrowTopRightOnSquareIcon,
+  CreditCardIcon,
+  BanknotesIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import FinancialDashboard from "./FinancialDashboard";
-import EntityManagement from "./EntityManagement";
 import {
   validateBudgetForm,
   validateExpenseForm,
-  validateAllocationForm,
   validateIncomeForm,
   validateExpectedPaymentForm,
   validateCollectPaymentForm,
@@ -44,6 +48,42 @@ import {
 } from "../utils/currency";
 import MetricCard from "./financial/MetricCard";
 import AmountCell from "./financial/AmountCell";
+
+const PAYMENT_FREQUENCIES = [
+  { value: "lump_sum", label: "Lump Sum (One-time / Direct)" },
+  { value: "monthly", label: "Monthly Recurring" },
+  { value: "quarterly", label: "Quarterly Recurring" },
+];
+
+const formatFrequencyLabel = (freq) => {
+  if (freq === "monthly") return "Monthly";
+  if (freq === "quarterly") return "Quarterly";
+  return "Lump Sum";
+};
+
+const PAYMENT_METHODS = [
+  { value: "advance_payment", label: "Advance Payment" },
+  { value: "monthly_payment", label: "Monthly Payment" },
+  { value: "milestone_payment", label: "Milestone Payment" },
+  { value: "installment", label: "Installment" },
+  { value: "lump_sum", label: "Lump Sum" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+  { value: "cash", label: "Cash" },
+  { value: "check", label: "Check" },
+  { value: "wire_transfer", label: "Wire Transfer" },
+  { value: "credit_card", label: "Credit Card" },
+  { value: "other", label: "Other" },
+];
+
+const formatPaymentMethodLabel = (method) => {
+  const found = PAYMENT_METHODS.find((m) => m.value === method);
+  if (found) return found.label;
+  if (!method) return "Advance / Direct";
+  return method
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+};
 
 const LoadingSpinner = ({ className = "h-4 w-4" }) => (
   <span
@@ -83,8 +123,6 @@ const ActionButton = ({
 
 const modalOverlayClass =
   "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-2 sm:p-4 animate-[fadeIn_0.2s_ease-out]";
-const modalOverlayNestedClass =
-  "fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-2 sm:p-4 animate-[fadeIn_0.2s_ease-out]";
 const modalPanelClass =
   "bg-white rounded-xl shadow-xl w-full border border-slate-200 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto";
 const modalHeaderClass = "p-4 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white";
@@ -127,76 +165,7 @@ const formatMoneyDisplay = (value, currency = "ETB") => {
   })} ${currency}`;
 };
 
-const BudgetAvailabilityCard = ({
-  total,
-  allocated,
-  remaining,
-  currency = "ETB",
-  overBudget = false,
-}) => {
-  const safeTotal = Math.max(0, Number(total) || 0);
-  const pct =
-    safeTotal > 0
-      ? Math.min(100, Math.max(0, ((Number(allocated) || 0) / safeTotal) * 100))
-      : 0;
-
-  return (
-    <div
-      className={`rounded-xl border p-3 sm:p-4 space-y-3 ${
-        overBudget
-          ? "bg-rose-50 border-rose-200"
-          : "bg-slate-50 border-slate-200"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Budget availability
-          </p>
-          <p
-            className={`mt-1 text-lg sm:text-xl font-semibold tabular-nums ${
-              overBudget ? "text-rose-700" : "text-slate-900"
-            }`}
-          >
-            {formatMoneyDisplay(remaining, currency)}
-          </p>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {overBudget ? "Over-allocated — reduce amounts" : "Available to allocate"}
-          </p>
-        </div>
-        <div className="text-right text-xs text-slate-600 space-y-0.5">
-          <div>
-            Total{" "}
-            <span className="font-medium text-slate-800">
-              {formatMoneyDisplay(total, currency)}
-            </span>
-          </div>
-          <div>
-            Allocated{" "}
-            <span className="font-medium text-slate-800">
-              {formatMoneyDisplay(allocated, currency)}
-            </span>
-          </div>
-        </div>
-      </div>
-      <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-300 ${
-            overBudget
-              ? "bg-rose-500"
-              : pct > 90
-              ? "bg-amber-500"
-              : "bg-emerald-500"
-          }`}
-          style={{ width: `${overBudget ? 100 : pct}%` }}
-        />
-      </div>
-    </div>
-  );
-};
-
 const ModalChrome = ({
-  nested = false,
   maxWidth = "max-w-2xl",
   title,
   subtitle,
@@ -206,7 +175,7 @@ const ModalChrome = ({
   closeDisabled = false,
 }) => (
   <div
-    className={nested ? modalOverlayNestedClass : modalOverlayClass}
+    className={modalOverlayClass}
     onMouseDown={(e) => {
       if (e.target === e.currentTarget && onClose && !closeDisabled) onClose();
     }}
@@ -330,6 +299,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         return "bg-gray-50 text-gray-700 border-gray-200";
     }
   }
+
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -340,16 +310,20 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const [expenses, setExpenses] = useState([]);
   const [income, setIncome] = useState([]);
   const [financialReports, setFinancialReports] = useState(null);
+  const [budgetAllocationCategories, setBudgetAllocationCategories] = useState([]);
+  const [incomeCategories, setIncomeCategories] = useState([]);
 
   // Modal states
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showEditBudgetModal, setShowEditBudgetModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [showIncomeModal, setShowIncomeModal] = useState(false);
-  const [showAllocationModal, setShowAllocationModal] = useState(false);
-  const [editingAllocationId, setEditingAllocationId] = useState(null);
-  const [currentItem, setCurrentItem] = useState(null);
-  const [showAllocationEditModal, setShowAllocationEditModal] = useState(false);
+  const [editingIncomeId, setEditingIncomeId] = useState(null);
+  const [showExpectedPaymentModal, setShowExpectedPaymentModal] = useState(false);
+  const [showCollectModal, setShowCollectModal] = useState(false);
+  const [collectTargetIncome, setCollectTargetIncome] = useState(null);
+  const [previewReceiptImage, setPreviewReceiptImage] = useState(null);
 
   // Form states
   const [budgetForm, setBudgetForm] = useState({
@@ -358,227 +332,185 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     description: "",
     approvedBy: "",
     approvalDate: "",
-    budgetAllocations: [],
   });
 
   const [expenseForm, setExpenseForm] = useState({
     title: "",
-    description: "",
+    reason: "",
     amount: "",
     category: "general",
     categoryId: "",
     expenseDate: new Date().toISOString().split("T")[0],
-    allocationId: "",
     vendor: "",
     receiptUrl: "",
+    receiptImage: "",
     status: "pending",
+    description: "",
     tags: [],
   });
-
-  // Form validation states
-  const [budgetFormErrors, setBudgetFormErrors] = useState({});
-  const [expenseFormErrors, setExpenseFormErrors] = useState({});
-  const [allocationFormErrors, setAllocationFormErrors] = useState({});
-  const [incomeFormErrors, setIncomeFormErrors] = useState({});
-  const [expectedPaymentFormErrors, setExpectedPaymentFormErrors] = useState(
-    {}
-  );
 
   const [incomeForm, setIncomeForm] = useState({
     title: "",
-    description: "",
-    amount: "",
-    expectedAmount: "",
-    receivedDate: new Date().toISOString().split("T")[0],
-    dueDate: "",
-    paymentMethod: "bank_transfer",
     clientName: "",
+    projectName: projectName || "",
+    totalProjectAmount: "",
+    expectedAmount: "",
+    amount: "",
+    totalPaid: "",
+    frequency: "lump_sum",
+    recurringDay: "15",
+    durationMonths: "12",
+    startDate: todayInputValue(),
+    installmentAmount: "",
+    paymentMethod: "advance_payment",
+    receivedDate: todayInputValue(),
+    dueDate: "",
+    nextPaymentDate: "",
+    nextPaymentAmount: "",
     categoryId: "",
     invoiceNumber: "",
     status: "pending",
     paymentReference: "",
-    notes: "",
-  });
-
-  // Expected payment (expected-only) form state
-  const [expectedPaymentForm, setExpectedPaymentForm] = useState({
-    title: "",
-    expectedAmount: "",
-    clientName: "",
-    categoryId: "",
-    dueDate: "",
     description: "",
     notes: "",
-    status: "pending",
   });
 
-  const [editingIncomeId, setEditingIncomeId] = useState(null);
-  const [editingExpenseId, setEditingExpenseId] = useState(null);
-  const [showExpectedPaymentModal, setShowExpectedPaymentModal] =
-    useState(false);
-  const [showCollectModal, setShowCollectModal] = useState(false);
-  const [collectingIncome, setCollectingIncome] = useState(null);
+  const [expectedPaymentForm, setExpectedPaymentForm] = useState({
+    title: "",
+    clientName: "",
+    totalProjectAmount: "",
+    expectedAmount: "",
+    amount: "",
+    frequency: "lump_sum",
+    recurringDay: "15",
+    durationMonths: "12",
+    startDate: todayInputValue(),
+    installmentAmount: "",
+    paymentMethod: "advance_payment",
+    dueDate: "",
+    nextPaymentDate: "",
+    nextPaymentAmount: "",
+    categoryId: "",
+    invoiceNumber: "",
+    description: "",
+    notes: "",
+  });
+
   const [collectForm, setCollectForm] = useState({
     collectAmount: "",
     receivedDate: new Date().toISOString().split("T")[0],
-    invoiceNumber: "",
     paymentMethod: "bank_transfer",
+    invoiceNumber: "",
     paymentReference: "",
+    nextPaymentDate: "",
+    nextPaymentAmount: "",
     notes: "",
   });
+
+  // Errors
+  const [budgetFormErrors, setBudgetFormErrors] = useState({});
+  const [expenseFormErrors, setExpenseFormErrors] = useState({});
+  const [incomeFormErrors, setIncomeFormErrors] = useState({});
+  const [expectedPaymentFormErrors, setExpectedPaymentFormErrors] = useState({});
   const [collectFormErrors, setCollectFormErrors] = useState({});
 
-  const [allocationForm, setAllocationForm] = useState({
-    name: "",
-    category: "general",
-    categoryId: "",
-    amount: "",
-    description: "",
-    allocationType: "general",
-    departmentId: "",
-    taskId: "",
-    activityId: "",
-    milestoneId: "",
-    priority: "medium",
-    startDate: "",
-    endDate: "",
-    tags: [],
-  });
-
-  // Entity data states
-  const [departments, setDepartments] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [activities, setActivities] = useState([]);
-  const [budgetAllocationCategories, setBudgetAllocationCategories] = useState(
-    []
-  );
-  const [incomeCategories, setIncomeCategories] = useState([]);
-  const [milestones, setMilestones] = useState([]);
-
-  // Fetch all financial data
   useEffect(() => {
     if (projectId) {
-      fetchFinancialData();
-      fetchEntityData();
-      fetchCategoryData();
+      fetchAllData();
     }
   }, [projectId]);
 
-  const fetchFinancialData = async () => {
+  const fetchAllData = async () => {
     try {
       setLoading(true);
-      const [budgetRes, expensesRes, incomeRes, reportsRes] = await Promise.all(
-        [
-          fetch(`/api/projects/${projectId}/budget`),
-          fetch(`/api/projects/${projectId}/expenses`),
-          fetch(`/api/projects/${projectId}/income`),
-          fetch(`/api/projects/${projectId}/financial-reports?type=summary`),
-        ]
-      );
-
-      const [budgetData, expensesData, incomeData, reportsData] =
-        await Promise.all([
-          budgetRes.json(),
-          expensesRes.json(),
-          incomeRes.json(),
-          reportsRes.json(),
-        ]);
-
-      if (budgetData.success) setBudgetData(budgetData.budget);
-      if (expensesData.success) setExpenses(expensesData.expenses);
-      if (incomeData.success) setIncome(incomeData.income);
-      if (reportsData.success) setFinancialReports(reportsData.data);
+      await Promise.all([
+        fetchBudgetData(),
+        fetchExpenses(),
+        fetchIncome(),
+        fetchCategories(),
+        fetchFinancialReports(),
+      ]);
     } catch (err) {
-      setError("Failed to fetch financial data: " + err.message);
+      setError("Error loading project finances: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchEntityData = async () => {
+  const fetchCategories = async () => {
     try {
-      const [departmentsRes, tasksRes, activitiesRes, milestonesRes] =
-        await Promise.all([
-          fetch(`/api/departments`), // Fetch all departments (main system)
-          fetch(`/api/tasks?projectId=${projectId}`),
-          fetch(`/api/activities?projectId=${projectId}`),
-          fetch(`/api/projects/${projectId}/milestones`),
-        ]);
-
-      const [departmentsData, tasksData, activitiesData, milestonesData] =
-        await Promise.all([
-          departmentsRes.json(),
-          tasksRes.json(),
-          activitiesRes.json(),
-          milestonesRes.json(),
-        ]);
-
-      if (departmentsData.success) {
-        setDepartments(departmentsData.departments || []);
-      }
-      if (tasksData.success) {
-        setTasks(tasksData.tasks || []);
-      }
-      if (activitiesData.success) {
-        setActivities(activitiesData.activities || []);
-      }
-      if (milestonesData.success) {
-        setMilestones(milestonesData.milestones || []);
-      }
-    } catch (err) {
-      console.error("Error fetching entity data:", err);
-    }
-  };
-
-  const fetchCategoryData = async () => {
-    try {
-      const [budgetCategoriesRes, incomeCategoriesRes] = await Promise.all([
+      const [bRes, iRes] = await Promise.all([
         fetch("/api/budget-allocation-categories"),
         fetch("/api/income-categories"),
       ]);
-
-      const [budgetCategoriesData, incomeCategoriesData] = await Promise.all([
-        budgetCategoriesRes.json(),
-        incomeCategoriesRes.json(),
-      ]);
-
-      if (budgetCategoriesData.success) {
-        setBudgetAllocationCategories(budgetCategoriesData.categories || []);
-      }
-      if (incomeCategoriesData.success) {
-        setIncomeCategories(incomeCategoriesData.categories || []);
-      }
-    } catch (error) {
-      console.error("Error fetching category data:", error);
+      const bData = await bRes.json();
+      const iData = await iRes.json();
+      if (bData.success) setBudgetAllocationCategories(bData.categories || []);
+      if (iData.success) setIncomeCategories(iData.categories || []);
+    } catch (e) {
+      console.error("Failed to fetch categories:", e);
     }
   };
 
-  const runAction = async (
-    key,
-    actionFn,
-    { successTitle, successText, errorTitle = "Error" } = {}
-  ) => {
-    if (actionLoading) return null;
-    setActionLoading(key);
-    setError(null);
-    const started = Date.now();
+  const fetchBudgetData = async () => {
     try {
-      const result = await actionFn();
-      const elapsed = Date.now() - started;
-      if (elapsed < 350) {
-        await new Promise((resolve) => setTimeout(resolve, 350 - elapsed));
+      const res = await fetch(`/api/projects/${projectId}/budget`);
+      const data = await res.json();
+      if (data.success) {
+        setBudgetData(data.budget);
       }
-      if (successTitle) {
-        showSuccessToast(successTitle, successText || "");
+    } catch (e) {
+      console.error("Failed to fetch budget:", e);
+    }
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/expenses`);
+      const data = await res.json();
+      if (data.success) {
+        setExpenses(data.expenses || []);
       }
-      return result;
-    } catch (err) {
-      const msg = err?.message || "Something went wrong. Please try again.";
-      setError(msg);
-      showErrorToast(errorTitle, msg);
-      return null;
-    } finally {
-      setActionLoading(null);
+    } catch (e) {
+      console.error("Failed to fetch expenses:", e);
+    }
+  };
+
+  const fetchIncome = async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/income`);
+      const data = await res.json();
+      if (data.success) {
+        setIncome(data.income || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch income:", e);
+    }
+  };
+
+  const fetchFinancialReports = async () => {
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/financial-summary?includeDetails=true`
+      );
+      const data = await res.json();
+      if (data.success) {
+        setFinancialReports(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch reports:", e);
+    }
+  };
+
+  // Handlers for Budget
+  const handleBudgetFormChange = (field, value) => {
+    setBudgetForm((prev) => ({ ...prev, [field]: value }));
+    if (budgetFormErrors[field]) {
+      setBudgetFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
     }
   };
 
@@ -589,35 +521,42 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       showValidationErrors(errors);
       return;
     }
-
     setBudgetFormErrors({});
+    setActionLoading("budget");
 
-    const result = await runAction(
-      "budget",
-      async () => {
-        const response = await fetch(`/api/projects/${projectId}/budget`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(budgetForm),
-        });
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to create budget");
-        }
-        return data;
-      },
-      {
-        successTitle: "Budget Created!",
-        successText: "Project budget has been created successfully",
-        errorTitle: "Budget Error",
+    try {
+      const res = await fetch(`/api/projects/${projectId}/budget`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(budgetForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Budget created successfully");
+        setShowBudgetModal(false);
+        fetchBudgetData();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to create budget");
       }
-    );
-
-    if (result?.success) {
-      setShowBudgetModal(false);
-      fetchFinancialData();
-      resetBudgetForm();
+    } catch (err) {
+      showErrorToast(err.message || "Failed to create budget");
+    } finally {
+      setActionLoading(null);
     }
+  };
+
+  const handleOpenEditBudget = () => {
+    if (!budgetData) return;
+    setBudgetForm({
+      totalAmount: budgetData.totalAmount || "",
+      currency: budgetData.currency || "ETB",
+      description: budgetData.description || "",
+      approvedBy: budgetData.approvedBy || "",
+      approvalDate: toDateInputValue(budgetData.approvalDate) || "",
+    });
+    setBudgetFormErrors({});
+    setShowEditBudgetModal(true);
   };
 
   const handleEditBudget = async () => {
@@ -627,53 +566,58 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       showValidationErrors(errors);
       return;
     }
-
     setBudgetFormErrors({});
+    setActionLoading("budget");
 
-    const result = await runAction(
-      "budget",
-      async () => {
-        const response = await fetch(`/api/projects/${projectId}/budget`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(budgetForm),
-        });
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to update budget");
-        }
-        return data;
-      },
-      {
-        successTitle: "Budget Updated!",
-        successText: "Project budget has been updated successfully",
-        errorTitle: "Budget Error",
+    try {
+      const res = await fetch(`/api/projects/${projectId}/budget`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(budgetForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Budget updated successfully");
+        setShowEditBudgetModal(false);
+        fetchBudgetData();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to update budget");
       }
-    );
-
-    if (result?.success) {
-      setShowEditBudgetModal(false);
-      fetchFinancialData();
-      resetBudgetForm();
+    } catch (err) {
+      showErrorToast(err.message || "Failed to update budget");
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleOpenEditBudget = () => {
-    if (budgetData) {
-      setBudgetForm({
-        totalAmount: budgetData.totalAmount || 0,
-        currency: budgetData.currency || "ETB",
-        description: budgetData.description || "",
-        approvedBy: budgetData.approvedBy || "",
-        approvalDate: toDateInputValue(budgetData.approvalDate),
-        budgetAllocations: (budgetData.allocations || []).map((alloc) => ({
-          ...alloc,
-          startDate: toDateInputValue(alloc.startDate),
-          endDate: toDateInputValue(alloc.endDate),
-        })),
+  // Handlers for Expenses
+  const resetExpenseForm = () => {
+    setExpenseForm({
+      title: "",
+      reason: "",
+      amount: "",
+      category: "general",
+      categoryId: "",
+      expenseDate: todayInputValue(),
+      vendor: "",
+      receiptUrl: "",
+      receiptImage: "",
+      status: "pending",
+      description: "",
+      tags: [],
+    });
+    setExpenseFormErrors({});
+  };
+
+  const handleExpenseFormChange = (field, value) => {
+    setExpenseForm((prev) => ({ ...prev, [field]: value }));
+    if (expenseFormErrors[field]) {
+      setExpenseFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
       });
-      setBudgetFormErrors({});
-      setShowEditBudgetModal(true);
     }
   };
 
@@ -684,37 +628,176 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       showValidationErrors(errors);
       return;
     }
-
     setExpenseFormErrors({});
+    setActionLoading("expense");
 
-    const result = await runAction(
-      "expense",
-      async () => {
-        const response = await fetch(`/api/projects/${projectId}/expenses`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...expenseForm,
-            tags: expenseForm.tags.filter((tag) => tag.trim() !== ""),
-          }),
-        });
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to add expense");
-        }
-        return data;
-      },
-      {
-        successTitle: "Expense Added!",
-        successText: "Expense has been added successfully",
-        errorTitle: "Expense Error",
+    try {
+      const res = await fetch(`/api/projects/${projectId}/expenses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(expenseForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Expense recorded successfully");
+        setShowExpenseModal(false);
+        resetExpenseForm();
+        fetchExpenses();
+        fetchBudgetData();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to record expense");
       }
-    );
+    } catch (err) {
+      showErrorToast(err.message || "Failed to record expense");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
-    if (result?.success) {
-      setShowExpenseModal(false);
-      fetchFinancialData();
-      resetExpenseForm();
+  const handleOpenEditExpense = (expense) => {
+    setEditingExpenseId(expense._id);
+    setExpenseForm({
+      title: expense.title || "",
+      reason: expense.reason || "",
+      amount: expense.amount || "",
+      category: expense.category || "general",
+      categoryId: expense.categoryId || "",
+      expenseDate: toDateInputValue(expense.expenseDate) || todayInputValue(),
+      vendor: expense.vendor || "",
+      receiptUrl: expense.receiptUrl || "",
+      receiptImage: expense.receiptUrl || "",
+      status: expense.status || "pending",
+      description: expense.description || "",
+      tags: Array.isArray(expense.tags) ? expense.tags : [],
+    });
+    setExpenseFormErrors({});
+    setShowExpenseModal(true);
+  };
+
+  const handleEditExpense = async () => {
+    if (!editingExpenseId) return;
+    const errors = validateExpenseForm(expenseForm);
+    if (hasFormErrors(errors)) {
+      setExpenseFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
+    setExpenseFormErrors({});
+    setActionLoading("expense");
+
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/expenses/${editingExpenseId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(expenseForm),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Expense updated successfully");
+        setShowExpenseModal(false);
+        setEditingExpenseId(null);
+        resetExpenseForm();
+        fetchExpenses();
+        fetchBudgetData();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to update expense");
+      }
+    } catch (err) {
+      showErrorToast(err.message || "Failed to update expense");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId) => {
+    const confirmed = await showDeleteConfirmDialog({
+      title: "Delete Expense",
+      text: "Are you sure you want to delete this expense record?",
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/expenses/${expenseId}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Expense deleted successfully");
+        fetchExpenses();
+        fetchBudgetData();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to delete expense");
+      }
+    } catch (err) {
+      showErrorToast(err.message || "Failed to delete expense");
+    }
+  };
+
+  // Handlers for Income
+  const resetIncomeForm = () => {
+    setIncomeForm({
+      title: "",
+      clientName: "",
+      projectName: projectName || "",
+      totalProjectAmount: "",
+      expectedAmount: "",
+      amount: "",
+      totalPaid: "",
+      frequency: "lump_sum",
+      recurringDay: "15",
+      durationMonths: "12",
+      startDate: todayInputValue(),
+      installmentAmount: "",
+      paymentMethod: "advance_payment",
+      receivedDate: todayInputValue(),
+      dueDate: "",
+      nextPaymentDate: "",
+      nextPaymentAmount: "",
+      categoryId: "",
+      invoiceNumber: "",
+      status: "pending",
+      paymentReference: "",
+      description: "",
+      notes: "",
+    });
+    setIncomeFormErrors({});
+  };
+
+  const handleIncomeFormChange = (field, value) => {
+    setIncomeForm((prev) => {
+      const next = { ...prev, [field]: value };
+      // If total amount or duration or frequency changes, recalculate installment amount
+      if (field === "totalProjectAmount" || field === "durationMonths" || field === "frequency") {
+        const total = Number(field === "totalProjectAmount" ? value : next.totalProjectAmount) || 0;
+        const dur = parseInt(field === "durationMonths" ? value : next.durationMonths, 10) || 12;
+        const freq = field === "frequency" ? value : next.frequency;
+        if (freq === "monthly" && dur > 0) {
+          next.installmentAmount = (total / dur).toFixed(2);
+          next.nextPaymentAmount = (total / dur).toFixed(2);
+        } else if (freq === "quarterly" && dur > 0) {
+          const quarters = Math.max(1, Math.round(dur / 3));
+          next.installmentAmount = (total / quarters).toFixed(2);
+          next.nextPaymentAmount = (total / quarters).toFixed(2);
+        } else {
+          next.installmentAmount = total ? total.toFixed(2) : "";
+        }
+      }
+      return next;
+    });
+
+    if (incomeFormErrors[field]) {
+      setIncomeFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
     }
   };
 
@@ -725,109 +808,252 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       showValidationErrors(errors);
       return;
     }
-
     setIncomeFormErrors({});
+    setActionLoading("income");
 
-    const result = await runAction(
-      "income",
-      async () => {
-        const response = await fetch(`/api/projects/${projectId}/income`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(incomeForm),
-        });
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to add income");
-        }
-        return data;
-      },
-      {
-        successTitle: "Income Added!",
-        successText: "Income has been recorded successfully",
-        errorTitle: "Income Error",
+    try {
+      const payload = {
+        ...incomeForm,
+        expectedAmount: incomeForm.totalProjectAmount || incomeForm.expectedAmount,
+        totalProjectAmount: incomeForm.totalProjectAmount || incomeForm.expectedAmount,
+        amount: incomeForm.totalPaid || incomeForm.amount || 0,
+        totalPaid: incomeForm.totalPaid || incomeForm.amount || 0,
+      };
+
+      const res = await fetch(`/api/projects/${projectId}/income`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Income record saved successfully");
+        setShowIncomeModal(false);
+        resetIncomeForm();
+        fetchIncome();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to save income");
       }
-    );
-
-    if (result?.success) {
-      setShowIncomeModal(false);
-      fetchFinancialData();
-      resetIncomeForm();
+    } catch (err) {
+      showErrorToast(err.message || "Failed to save income");
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleAddExpectedPayment = async () => {
+  const handleOpenEditIncome = (inc) => {
+    setEditingIncomeId(inc._id);
+    const totalProjectAmt = inc.totalProjectAmount || inc.expectedAmount || inc.amount || "";
+    const paidAmt = inc.totalPaid !== undefined ? inc.totalPaid : inc.amount || "";
+
+    setIncomeForm({
+      title: inc.title || "",
+      clientName: inc.clientName || "",
+      projectName: inc.projectName || projectName || "",
+      totalProjectAmount: totalProjectAmt,
+      expectedAmount: totalProjectAmt,
+      amount: paidAmt,
+      totalPaid: paidAmt,
+      frequency: inc.frequency || "lump_sum",
+      recurringDay: inc.recurringDay ? String(inc.recurringDay) : "15",
+      durationMonths: inc.durationMonths ? String(inc.durationMonths) : "12",
+      startDate: toDateInputValue(inc.startDate) || todayInputValue(),
+      installmentAmount: inc.installmentAmount || "",
+      paymentMethod: inc.paymentMethod || "advance_payment",
+      receivedDate: toDateInputValue(inc.receivedDate) || todayInputValue(),
+      dueDate: toDateInputValue(inc.dueDate) || "",
+      nextPaymentDate: toDateInputValue(inc.nextPaymentDate) || "",
+      nextPaymentAmount: inc.nextPaymentAmount || "",
+      categoryId: inc.categoryId || "",
+      invoiceNumber: inc.invoiceNumber || "",
+      status: inc.status || "pending",
+      paymentReference: inc.paymentReference || "",
+      description: inc.description || "",
+      notes: inc.notes || "",
+    });
+    setIncomeFormErrors({});
+    setShowIncomeModal(true);
+  };
+
+  const handleEditIncome = async () => {
+    if (!editingIncomeId) return;
+    const errors = validateIncomeForm(incomeForm, { isEdit: true });
+    if (hasFormErrors(errors)) {
+      setIncomeFormErrors(errors);
+      showValidationErrors(errors);
+      return;
+    }
+    setIncomeFormErrors({});
+    setActionLoading("income");
+
+    try {
+      const payload = {
+        ...incomeForm,
+        expectedAmount: incomeForm.totalProjectAmount || incomeForm.expectedAmount,
+        totalProjectAmount: incomeForm.totalProjectAmount || incomeForm.expectedAmount,
+        amount: incomeForm.totalPaid || incomeForm.amount || 0,
+        totalPaid: incomeForm.totalPaid || incomeForm.amount || 0,
+      };
+
+      const res = await fetch(
+        `/api/projects/${projectId}/income/${editingIncomeId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Income record updated successfully");
+        setShowIncomeModal(false);
+        setEditingIncomeId(null);
+        resetIncomeForm();
+        fetchIncome();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to update income");
+      }
+    } catch (err) {
+      showErrorToast(err.message || "Failed to update income");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteIncome = async (incomeId) => {
+    const confirmed = await showDeleteConfirmDialog({
+      title: "Delete Income Record",
+      text: "Are you sure you want to delete this income record?",
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/income/${incomeId}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Income deleted successfully");
+        fetchIncome();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to delete income");
+      }
+    } catch (err) {
+      showErrorToast(err.message || "Failed to delete income");
+    }
+  };
+
+  // Expected Income Modal & Handlers
+  const handleAddExpectedIncome = async () => {
     const errors = validateExpectedPaymentForm(expectedPaymentForm);
     if (hasFormErrors(errors)) {
       setExpectedPaymentFormErrors(errors);
       showValidationErrors(errors);
       return;
     }
-
     setExpectedPaymentFormErrors({});
+    setActionLoading("expected");
 
-    const result = await runAction(
-      "expected",
-      async () => {
-        const payload = {
-          title: expectedPaymentForm.title,
-          expectedAmount: expectedPaymentForm.expectedAmount,
-          clientName: expectedPaymentForm.clientName,
-          categoryId: expectedPaymentForm.categoryId || "",
-          dueDate: expectedPaymentForm.dueDate,
-          description: expectedPaymentForm.description,
-          notes: expectedPaymentForm.notes,
-          status: "pending",
-        };
-        const response = await fetch(`/api/projects/${projectId}/income`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to add expected income");
-        }
-        return data;
-      },
-      {
-        successTitle: "Expected Income Set!",
-        successText:
-          "Waiting for collection. Status becomes overdue if the due date passes.",
-        errorTitle: "Payment Error",
-      }
-    );
-
-    if (result?.success) {
-      setShowExpectedPaymentModal(false);
-      fetchFinancialData();
-      setExpectedPaymentForm({
-        title: "",
-        expectedAmount: "",
-        clientName: "",
-        categoryId: "",
-        dueDate: "",
-        description: "",
-        notes: "",
+    try {
+      const payload = {
+        title: expectedPaymentForm.title,
+        clientName: expectedPaymentForm.clientName,
+        projectName: projectName,
+        totalProjectAmount: expectedPaymentForm.totalProjectAmount || expectedPaymentForm.expectedAmount,
+        expectedAmount: expectedPaymentForm.totalProjectAmount || expectedPaymentForm.expectedAmount,
+        amount: expectedPaymentForm.amount || 0,
+        totalPaid: expectedPaymentForm.amount || 0,
+        frequency: expectedPaymentForm.frequency || "lump_sum",
+        recurringDay: expectedPaymentForm.recurringDay || 15,
+        durationMonths: expectedPaymentForm.durationMonths || 12,
+        startDate: expectedPaymentForm.startDate || todayInputValue(),
+        installmentAmount: expectedPaymentForm.installmentAmount || 0,
+        paymentMethod: expectedPaymentForm.paymentMethod || "advance_payment",
+        dueDate: expectedPaymentForm.dueDate || null,
+        nextPaymentDate: expectedPaymentForm.nextPaymentDate || null,
+        nextPaymentAmount: expectedPaymentForm.nextPaymentAmount || 0,
+        categoryId: expectedPaymentForm.categoryId || "",
+        invoiceNumber: expectedPaymentForm.invoiceNumber || "",
+        description: expectedPaymentForm.description || "",
+        notes: expectedPaymentForm.notes || "",
         status: "pending",
+      };
+
+      const res = await fetch(`/api/projects/${projectId}/income`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      setExpectedPaymentFormErrors({});
-      setActiveTab("income");
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Expected income scheduled successfully");
+        setShowExpectedPaymentModal(false);
+        setExpectedPaymentForm({
+          title: "",
+          clientName: "",
+          totalProjectAmount: "",
+          expectedAmount: "",
+          amount: "",
+          frequency: "lump_sum",
+          recurringDay: "15",
+          durationMonths: "12",
+          startDate: todayInputValue(),
+          installmentAmount: "",
+          paymentMethod: "advance_payment",
+          dueDate: "",
+          nextPaymentDate: "",
+          nextPaymentAmount: "",
+          categoryId: "",
+          invoiceNumber: "",
+          description: "",
+          notes: "",
+        });
+        fetchIncome();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to schedule expected income");
+      }
+    } catch (err) {
+      showErrorToast(err.message || "Failed to schedule expected income");
+    } finally {
+      setActionLoading(null);
     }
   };
 
+  // Collect Payment
   const openCollectModal = (inc) => {
-    const remaining = Math.max(
-      0,
-      (Number(inc.expectedAmount) || 0) - (Number(inc.amount) || 0)
-    );
-    setCollectingIncome(inc);
+    setCollectTargetIncome(inc);
+    const totalAmt = Number(inc.totalProjectAmount || inc.expectedAmount || inc.amount || 0);
+    const paidAmt = Number(inc.totalPaid || inc.amount || 0);
+    const remaining = Math.max(0, totalAmt - paidAmt);
+    const installment = Number(inc.installmentAmount) || remaining;
+    const defaultCollect = inc.frequency !== "lump_sum" && installment > 0 ? Math.min(remaining, installment) : remaining;
+
+    // Calculate next payment date for recurring
+    let nextDate = "";
+    if (inc.frequency === "monthly" || inc.frequency === "quarterly") {
+      const baseDate = inc.nextPaymentDate ? new Date(inc.nextPaymentDate) : new Date();
+      const step = inc.frequency === "quarterly" ? 3 : 1;
+      const target = new Date(baseDate);
+      target.setMonth(target.getMonth() + step);
+      const day = parseInt(inc.recurringDay, 10) || target.getDate();
+      const maxDays = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+      target.setDate(Math.min(day, maxDays));
+      nextDate = target.toISOString().split("T")[0];
+    }
+
     setCollectForm({
-      collectAmount: remaining > 0 ? remaining.toFixed(2) : "",
-      receivedDate: new Date().toISOString().split("T")[0],
-      invoiceNumber: inc.invoiceNumber || "",
+      collectAmount: defaultCollect > 0 ? defaultCollect.toFixed(2) : "",
+      receivedDate: todayInputValue(),
       paymentMethod: inc.paymentMethod || "bank_transfer",
+      invoiceNumber: inc.invoiceNumber || "",
       paymentReference: "",
+      nextPaymentDate: nextDate,
+      nextPaymentAmount: inc.installmentAmount || "",
       notes: "",
     });
     setCollectFormErrors({});
@@ -835,13 +1061,11 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   };
 
   const handleCollectPayment = async () => {
-    if (!collectingIncome?._id) return;
+    if (!collectTargetIncome) return;
+    const totalAmt = Number(collectTargetIncome.totalProjectAmount || collectTargetIncome.expectedAmount || 0);
+    const paidAmt = Number(collectTargetIncome.totalPaid || collectTargetIncome.amount || 0);
+    const remaining = Math.max(0, totalAmt - paidAmt);
 
-    const remaining = Math.max(
-      0,
-      (Number(collectingIncome.expectedAmount) || 0) -
-        (Number(collectingIncome.amount) || 0)
-    );
     const errors = validateCollectPaymentForm(collectForm, {
       remainingAmount: remaining > 0 ? remaining : Infinity,
     });
@@ -850,621 +1074,36 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       showValidationErrors(errors);
       return;
     }
-
     setCollectFormErrors({});
+    setActionLoading("collect");
 
-    const result = await runAction(
-      "collect",
-      async () => {
-        const response = await fetch(
-          `/api/projects/${projectId}/income/${collectingIncome._id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "collect",
-              collectAmount: collectForm.collectAmount,
-              receivedDate: collectForm.receivedDate,
-              invoiceNumber: collectForm.invoiceNumber,
-              paymentMethod: collectForm.paymentMethod,
-              paymentReference: collectForm.paymentReference,
-              notes: collectForm.notes,
-            }),
-          }
-        );
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to collect payment");
-        }
-        return data;
-      },
-      {
-        successTitle:
-          Number(collectForm.collectAmount) >= remaining
-            ? "Fully Collected!"
-            : "Partial Collection Recorded!",
-        successText:
-          Number(collectForm.collectAmount) >= remaining
-            ? "This income is now marked as collected."
-            : "Remaining balance is still pending collection.",
-        errorTitle: "Collection Error",
-      }
-    );
-
-    if (result?.success) {
-      setShowCollectModal(false);
-      setCollectingIncome(null);
-      fetchFinancialData();
-    }
-  };
-
-  const handleOpenEditIncome = (inc) => {
-    setIncomeForm({
-      title: inc.title || "",
-      description: inc.description || "",
-      amount: (inc.amount ?? "").toString(),
-      expectedAmount: (inc.expectedAmount ?? "").toString(),
-      receivedDate: inc.receivedDate
-        ? new Date(inc.receivedDate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0],
-      dueDate: inc.dueDate
-        ? new Date(inc.dueDate).toISOString().split("T")[0]
-        : "",
-      paymentMethod: inc.paymentMethod || "bank_transfer",
-      clientName: inc.clientName || "",
-      categoryId: inc.categoryId || "",
-      invoiceNumber: inc.invoiceNumber || "",
-      status: inc.status || "pending",
-      paymentReference: inc.paymentReference || "",
-      notes: inc.notes || "",
-    });
-    setEditingIncomeId(inc._id);
-    setIncomeFormErrors({});
-    setShowIncomeModal(true);
-  };
-
-  const handleOpenEditExpense = (expense) => {
-    setExpenseForm({
-      title: expense.title || "",
-      description: expense.description || "",
-      amount: expense.amount || "",
-      category: expense.category || "general",
-      categoryId: expense.categoryId || "",
-      expenseDate:
-        expense.expenseDate || new Date().toISOString().split("T")[0],
-      allocationId: expense.allocationId || "",
-      vendor: expense.vendor || "",
-      receiptUrl: expense.receiptUrl || "",
-      status: expense.status || "pending",
-      tags: expense.tags || [],
-    });
-    setEditingExpenseId(expense._id);
-    setShowExpenseModal(true);
-  };
-
-  const handleEditIncome = async () => {
-    if (!editingIncomeId) return;
-
-    const errors = validateIncomeForm(incomeForm, { isEdit: true });
-    if (hasFormErrors(errors)) {
-      setIncomeFormErrors(errors);
-      showValidationErrors(errors);
-      return;
-    }
-
-    setIncomeFormErrors({});
-
-    const result = await runAction(
-      "income",
-      async () => {
-        const response = await fetch(
-          `/api/projects/${projectId}/income/${editingIncomeId}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(incomeForm),
-          }
-        );
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to update income");
-        }
-        return data;
-      },
-      {
-        successTitle: "Income Updated!",
-        successText: "Income has been updated successfully",
-        errorTitle: "Income Error",
-      }
-    );
-
-    if (result?.success) {
-      setShowIncomeModal(false);
-      setEditingIncomeId(null);
-      fetchFinancialData();
-      resetIncomeForm();
-    }
-  };
-
-  const handleEditExpense = async () => {
-    if (!editingExpenseId) return;
-
-    const errors = validateExpenseForm(expenseForm);
-    if (hasFormErrors(errors)) {
-      setExpenseFormErrors(errors);
-      showValidationErrors(errors);
-      return;
-    }
-
-    setExpenseFormErrors({});
-
-    const result = await runAction(
-      "expense",
-      async () => {
-        const response = await fetch(
-          `/api/projects/${projectId}/expenses/${editingExpenseId}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...expenseForm,
-              tags: expenseForm.tags.filter((tag) => tag.trim() !== ""),
-            }),
-          }
-        );
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to update expense");
-        }
-        return data;
-      },
-      {
-        successTitle: "Expense Updated!",
-        successText: "Expense has been updated successfully",
-        errorTitle: "Expense Error",
-      }
-    );
-
-    if (result?.success) {
-      setShowExpenseModal(false);
-      setEditingExpenseId(null);
-      fetchFinancialData();
-      resetExpenseForm();
-    }
-  };
-
-  const handleDeleteExpense = async (expenseId) => {
-    const confirmed = await showDeleteConfirmDialog(
-      "Delete Expense",
-      "Are you sure you want to delete this expense? This action cannot be undone.",
-      "Delete",
-      "Cancel"
-    );
-
-    if (!confirmed?.isConfirmed) return;
-
-    const result = await runAction(
-      "delete-expense",
-      async () => {
-        const response = await fetch(
-          `/api/projects/${projectId}/expenses/${expenseId}`,
-          { method: "DELETE" }
-        );
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to delete expense");
-        }
-        return data;
-      },
-      {
-        successTitle: "Expense Deleted!",
-        successText: "Expense has been deleted successfully",
-        errorTitle: "Delete Error",
-      }
-    );
-
-    if (result?.success) {
-      fetchFinancialData();
-    }
-  };
-
-  const handleDeleteIncome = async (incomeId) => {
-    const confirmed = await showDeleteConfirmDialog(
-      "Delete Income",
-      "Are you sure you want to delete this income record? This action cannot be undone.",
-      "Delete",
-      "Cancel"
-    );
-
-    if (!confirmed?.isConfirmed) return;
-
-    const result = await runAction(
-      "delete-income",
-      async () => {
-        const response = await fetch(
-          `/api/projects/${projectId}/income/${incomeId}`,
-          { method: "DELETE" }
-        );
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to delete income");
-        }
-        return data;
-      },
-      {
-        successTitle: "Income Deleted!",
-        successText: "Income has been deleted successfully",
-        errorTitle: "Delete Error",
-      }
-    );
-
-    if (result?.success) {
-      fetchFinancialData();
-    }
-  };
-
-  const getAvailableBudgetForNewAllocation = () => {
-    const total = Number(budgetForm.totalAmount) || 0;
-    const allocated = (budgetForm.budgetAllocations || []).reduce(
-      (sum, alloc) => sum + (Number(alloc.amount) || 0),
-      0
-    );
-    return total - allocated;
-  };
-
-  const getAvailableBudgetForEditAllocation = () => {
-    const total = Number(budgetData?.totalAmount) || 0;
-    const otherAllocated = (budgetData?.allocations || [])
-      .filter((alloc) => String(alloc._id) !== String(editingAllocationId))
-      .reduce((sum, alloc) => sum + (Number(alloc.amount) || 0), 0);
-    return total - otherAllocated;
-  };
-
-  const handleAddAllocation = async () => {
-    const availableAmount = getAvailableBudgetForNewAllocation();
-    const errors = validateAllocationForm(allocationForm, {
-      availableAmount,
-      currency: budgetForm.currency || "ETB",
-    });
-    if (hasFormErrors(errors)) {
-      setAllocationFormErrors(errors);
-      showValidationErrors(errors);
-      return;
-    }
-
-    setAllocationFormErrors({});
-
-    if (editingAllocationId) {
-      await handleUpdateAllocation();
-    } else {
-      const selectedCategory = budgetAllocationCategories.find(
-        (c) => String(c._id) === String(allocationForm.categoryId)
-      );
-      const newAllocation = {
-        ...allocationForm,
-        category:
-          selectedCategory?.name || allocationForm.category || "general",
-        amount: parseFloat(allocationForm.amount),
-        _id: Date.now().toString(),
-      };
-
-      setBudgetForm((prev) => ({
-        ...prev,
-        budgetAllocations: [...prev.budgetAllocations, newAllocation],
-      }));
-
-      setShowAllocationModal(false);
-      resetAllocationForm();
-      projectToasts.allocationAdded();
-    }
-  };
-
-  const handleUpdateAllocation = async () => {
-    const currentAllocation = (budgetData?.allocations || []).find(
-      (alloc) => String(alloc._id) === String(editingAllocationId)
-    );
-    const spentAmount = Number(currentAllocation?.spentAmount) || 0;
-    const availableAmount = getAvailableBudgetForEditAllocation();
-    const errors = validateAllocationForm(allocationForm, {
-      availableAmount,
-      minAmount: spentAmount,
-      currency: budgetData?.currency || "ETB",
-    });
-    if (hasFormErrors(errors)) {
-      setAllocationFormErrors(errors);
-      showValidationErrors(errors);
-      return;
-    }
-
-    setAllocationFormErrors({});
-
-    const result = await runAction(
-      "allocation",
-      async () => {
-        const inferredType =
-          allocationForm.allocationType ||
-          (allocationForm.departmentId
-            ? "department"
-            : allocationForm.taskId
-            ? "task"
-            : allocationForm.activityId
-            ? "activity"
-            : allocationForm.milestoneId
-            ? "milestone"
-            : "");
-
-        const selectedCategory = budgetAllocationCategories.find(
-          (c) => String(c._id) === String(allocationForm.categoryId)
-        );
-
-        const body = {
-          name: allocationForm.name,
-          description: allocationForm.description,
-          category:
-            selectedCategory?.name || allocationForm.category || "general",
-          categoryId: allocationForm.categoryId || "",
-          budgetedAmount: parseFloat(allocationForm.amount),
-          startDate: allocationForm.startDate || "",
-          endDate: allocationForm.endDate || "",
-          allocationType: inferredType,
-          priority: allocationForm.priority || "medium",
-        };
-
-        if (inferredType === "department")
-          body.departmentId = allocationForm.departmentId || "";
-        if (inferredType === "task") body.taskId = allocationForm.taskId || "";
-        if (inferredType === "activity")
-          body.activityId = allocationForm.activityId || "";
-        if (inferredType === "milestone")
-          body.milestoneId = allocationForm.milestoneId || "";
-
-        const response = await fetch(
-          `/api/projects/${projectId}/budget/allocations/${editingAllocationId}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          }
-        );
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to update allocation");
-        }
-        return data;
-      },
-      {
-        successTitle: "Allocation Updated!",
-        successText: "Budget allocation has been updated successfully",
-        errorTitle: "Allocation Error",
-      }
-    );
-
-    if (result?.success) {
-      setShowAllocationModal(false);
-      setShowAllocationEditModal(false);
-      setEditingAllocationId(null);
-      resetAllocationForm();
-      fetchFinancialData();
-    }
-  };
-
-  const handleEditAllocation = async (allocation) => {
     try {
-      const matchedCategory = budgetAllocationCategories.find(
-        (c) =>
-          String(c._id) === String(allocation.categoryId) ||
-          c.name === allocation.category
-      );
-
-      setAllocationForm({
-        name: allocation.name || "",
-        description: allocation.description || "",
-        category: allocation.category || matchedCategory?.name || "general",
-        categoryId: allocation.categoryId || matchedCategory?._id || "",
-        amount: (
-          allocation.amount ??
-          allocation.budgetedAmount ??
-          0
-        ).toString(),
-        departmentId: allocation.departmentId || "",
-        taskId: allocation.taskId || "",
-        activityId: allocation.activityId || "",
-        milestoneId: allocation.milestoneId || "",
-        priority: allocation.priority || "medium",
-        startDate: toDateInputValue(allocation.startDate),
-        endDate: toDateInputValue(allocation.endDate),
-        tags: allocation.tags || [],
-        allocationType:
-          allocation.allocationType ||
-          (allocation.departmentId
-            ? "department"
-            : allocation.taskId
-            ? "task"
-            : allocation.activityId
-            ? "activity"
-            : allocation.milestoneId
-            ? "milestone"
-            : "general"),
-      });
-
-      setEditingAllocationId(allocation._id);
-      setShowAllocationEditModal(true);
-    } catch (err) {
-      setError("Failed to edit allocation: " + err.message);
-    }
-  };
-
-  const handleDeleteAllocation = async (allocationId) => {
-    const confirmed = await showDeleteConfirmDialog(
-      "Delete Allocation",
-      "Are you sure you want to delete this allocation? This action cannot be undone.",
-      "Delete",
-      "Cancel"
-    );
-
-    if (!confirmed?.isConfirmed) return;
-
-    const result = await runAction(
-      "delete-allocation",
-      async () => {
-        const response = await fetch(
-          `/api/projects/${projectId}/budget/allocations/${allocationId}`,
-          { method: "DELETE" }
-        );
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to delete allocation");
+      const res = await fetch(
+        `/api/projects/${projectId}/income/${collectTargetIncome._id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "collect",
+            ...collectForm,
+          }),
         }
-        return data;
-      },
-      {
-        successTitle: "Allocation Deleted!",
-        successText: "Budget allocation has been deleted successfully",
-        errorTitle: "Delete Error",
+      );
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Payment collected and recorded successfully");
+        setShowCollectModal(false);
+        setCollectTargetIncome(null);
+        fetchIncome();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to record collection");
       }
-    );
-
-    if (result?.success) {
-      fetchFinancialData();
+    } catch (err) {
+      showErrorToast(err.message || "Failed to record collection");
+    } finally {
+      setActionLoading(null);
     }
-  };
-
-  const resetBudgetForm = () => {
-    setBudgetForm({
-      totalAmount: "",
-      currency: "ETB",
-      description: "",
-      approvedBy: "",
-      approvalDate: "",
-      budgetAllocations: [],
-    });
-    setBudgetFormErrors({});
-  };
-
-  // Form change handlers that clear validation errors
-  const handleBudgetFormChange = (field, value) => {
-    setBudgetForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-
-    // Clear field-specific error when user starts typing
-    if (budgetFormErrors[field] || budgetFormErrors.budgetAllocations) {
-      setBudgetFormErrors((prev) => ({
-        ...prev,
-        [field]: "",
-        ...(field === "totalAmount" ? { budgetAllocations: "" } : {}),
-      }));
-    }
-  };
-
-  const handleExpenseFormChange = (field, value) => {
-    setExpenseForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-
-    // Clear field-specific error when user starts typing
-    if (expenseFormErrors[field]) {
-      setExpenseFormErrors((prev) => ({
-        ...prev,
-        [field]: "",
-      }));
-    }
-  };
-
-  const handleAllocationFormChange = (field, value) => {
-    setAllocationForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-
-    // Clear field-specific error when user starts typing
-    if (allocationFormErrors[field]) {
-      setAllocationFormErrors((prev) => ({
-        ...prev,
-        [field]: "",
-      }));
-    }
-  };
-
-  const resetExpenseForm = () => {
-    setExpenseForm({
-      title: "",
-      description: "",
-      amount: "",
-      category: "general",
-      categoryId: "",
-      expenseDate: new Date().toISOString().split("T")[0],
-      allocationId: "",
-      vendor: "",
-      receiptUrl: "",
-      status: "pending",
-      tags: [],
-    });
-    setExpenseFormErrors({});
-  };
-
-  const resetIncomeForm = () => {
-    setIncomeForm({
-      title: "",
-      description: "",
-      amount: "",
-      expectedAmount: "",
-      receivedDate: new Date().toISOString().split("T")[0],
-      dueDate: "",
-      paymentMethod: "bank_transfer",
-      clientName: "",
-      categoryId: "",
-      invoiceNumber: "",
-      status: "pending",
-      paymentReference: "",
-      notes: "",
-    });
-    setIncomeFormErrors({});
-  };
-
-  const handleIncomeFormChange = (field, value) => {
-    setIncomeForm((prev) => ({ ...prev, [field]: value }));
-    if (incomeFormErrors[field]) {
-      setIncomeFormErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
-    }
-  };
-
-  const handleExpectedPaymentFormChange = (field, value) => {
-    setExpectedPaymentForm((prev) => ({ ...prev, [field]: value }));
-    if (expectedPaymentFormErrors[field]) {
-      setExpectedPaymentFormErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
-    }
-  };
-
-  const resetAllocationForm = () => {
-    setAllocationForm({
-      name: "",
-      category: "general",
-      categoryId: "",
-      amount: "",
-      description: "",
-      allocationType: "general",
-      departmentId: "",
-      taskId: "",
-      activityId: "",
-      milestoneId: "",
-      priority: "medium",
-      startDate: "",
-      endDate: "",
-      tags: [],
-    });
-    setAllocationFormErrors({});
-    setEditingAllocationId(null);
   };
 
   const formatCurrency = (amount, currency = "ETB") =>
@@ -1494,8 +1133,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
   const financeTabs = [
     { id: "overview", name: "Overview", icon: ChartBarIcon },
-    { id: "dashboard", name: "Dashboard", icon: ChartBarIcon },
-    { id: "entities", name: "Entities", icon: BuildingOfficeIcon },
+    { id: "dashboard", name: "Dashboard", icon: BanknotesIcon },
     { id: "budget", name: "Budget", icon: CurrencyDollarIcon },
     { id: "expenses", name: "Expenses", icon: DocumentTextIcon },
     { id: "income", name: "Income", icon: ArrowTrendingUpIcon },
@@ -1504,6 +1142,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
   return (
     <div className="w-full min-w-0 space-y-5 sm:space-y-6">
+      {/* Top Banner */}
       <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-blue-50/40 p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -1517,7 +1156,17 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           <div className="flex flex-wrap gap-2">
             {!budgetData ? (
               <button
-                onClick={() => setShowBudgetModal(true)}
+                onClick={() => {
+                  setBudgetForm({
+                    totalAmount: "",
+                    currency: "ETB",
+                    description: "",
+                    approvedBy: "",
+                    approvalDate: "",
+                  });
+                  setBudgetFormErrors({});
+                  setShowBudgetModal(true);
+                }}
                 disabled={!!actionLoading}
                 className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 hover:shadow disabled:opacity-60"
               >
@@ -1570,6 +1219,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         </div>
       )}
 
+      {/* Tabs */}
       <div className="rounded-xl border border-slate-200 bg-white p-1">
         <nav className="flex overflow-x-auto gap-1 scrollbar-hide">
           {financeTabs.map((tab) => (
@@ -1589,343 +1239,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         </nav>
       </div>
 
-      {/* Expected Payment Modal */}
-      {showExpectedPaymentModal && (
-        <ModalChrome
-          maxWidth="max-w-xl"
-          title="Set Expected Income"
-          subtitle="Due date is required. Collect later as partial or full payment."
-          footer={
-            <>
-              <button
-                onClick={() => {
-                  if (actionLoading === "expected") return;
-                  setShowExpectedPaymentModal(false);
-                  setExpectedPaymentFormErrors({});
-                }}
-                disabled={actionLoading === "expected"}
-                className={cancelBtnClass}
-              >
-                Cancel
-              </button>
-              <ActionButton
-                onClick={handleAddExpectedPayment}
-                loading={actionLoading === "expected"}
-                loadingText="Saving…"
-                disabled={
-                  !expectedPaymentForm.title ||
-                  !expectedPaymentForm.expectedAmount ||
-                  !expectedPaymentForm.dueDate
-                }
-                className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 shadow-sm transition-all duration-200 disabled:opacity-50"
-              >
-                Set Expected Income
-              </ActionButton>
-            </>
-          }
-        >
-          <div>
-            <label className={fieldLabelClass}>Title *</label>
-            <input
-              type="text"
-              value={expectedPaymentForm.title}
-              onChange={(e) =>
-                handleExpectedPaymentFormChange("title", e.target.value)
-              }
-              disabled={actionLoading === "expected"}
-              className={fieldInputClass(!!expectedPaymentFormErrors.title)}
-              placeholder="e.g., Phase 1 Payment"
-            />
-            {expectedPaymentFormErrors.title && (
-              <p className={fieldErrorClass}>
-                {expectedPaymentFormErrors.title}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Expected Amount *</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={expectedPaymentForm.expectedAmount}
-              onChange={(e) =>
-                handleExpectedPaymentFormChange(
-                  "expectedAmount",
-                  e.target.value
-                )
-              }
-              disabled={actionLoading === "expected"}
-              className={fieldInputClass(
-                !!expectedPaymentFormErrors.expectedAmount
-              )}
-              placeholder="0.00"
-            />
-            {expectedPaymentFormErrors.expectedAmount && (
-              <p className={fieldErrorClass}>
-                {expectedPaymentFormErrors.expectedAmount}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Client Name</label>
-            <input
-              type="text"
-              value={expectedPaymentForm.clientName}
-              onChange={(e) =>
-                handleExpectedPaymentFormChange("clientName", e.target.value)
-              }
-              disabled={actionLoading === "expected"}
-              className={fieldInputClass()}
-              placeholder="Client name"
-            />
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Category</label>
-            <select
-              value={expectedPaymentForm.categoryId}
-              onChange={(e) =>
-                handleExpectedPaymentFormChange("categoryId", e.target.value)
-              }
-              disabled={actionLoading === "expected"}
-              className={fieldInputClass()}
-            >
-              <option value="">Select Category</option>
-              {incomeCategories.map((category) => (
-                <option key={category._id} value={category._id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Due Date *</label>
-            <input
-              type="date"
-              value={expectedPaymentForm.dueDate}
-              onChange={(e) =>
-                handleExpectedPaymentFormChange("dueDate", e.target.value)
-              }
-              disabled={actionLoading === "expected"}
-              className={fieldInputClass(!!expectedPaymentFormErrors.dueDate)}
-            />
-            {expectedPaymentFormErrors.dueDate && (
-              <p className={fieldErrorClass}>
-                {expectedPaymentFormErrors.dueDate}
-              </p>
-            )}
-            <p className="text-xs text-slate-500 mt-1">
-              Auto-marked overdue if this date passes without full collection.
-            </p>
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Description</label>
-            <textarea
-              rows={2}
-              value={expectedPaymentForm.description}
-              onChange={(e) =>
-                handleExpectedPaymentFormChange("description", e.target.value)
-              }
-              disabled={actionLoading === "expected"}
-              className={fieldInputClass()}
-              placeholder="Describe the payment"
-            />
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Notes</label>
-            <textarea
-              rows={2}
-              value={expectedPaymentForm.notes}
-              onChange={(e) =>
-                handleExpectedPaymentFormChange("notes", e.target.value)
-              }
-              disabled={actionLoading === "expected"}
-              className={fieldInputClass()}
-              placeholder="Any additional notes"
-            />
-          </div>
-        </ModalChrome>
-      )}
-
-      {showCollectModal && collectingIncome && (
-        <ModalChrome
-          maxWidth="max-w-lg"
-          title="Collect Payment"
-          subtitle={`${collectingIncome.title} · Remaining ${formatCurrency(
-            Math.max(
-              0,
-              (Number(collectingIncome.expectedAmount) || 0) -
-                (Number(collectingIncome.amount) || 0)
-            )
-          )}`}
-          footer={
-            <>
-              <button
-                onClick={() => {
-                  if (actionLoading === "collect") return;
-                  setShowCollectModal(false);
-                  setCollectingIncome(null);
-                }}
-                disabled={actionLoading === "collect"}
-                className={cancelBtnClass}
-              >
-                Cancel
-              </button>
-              <ActionButton
-                onClick={handleCollectPayment}
-                loading={actionLoading === "collect"}
-                loadingText="Collecting…"
-                disabled={!collectForm.collectAmount}
-                className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm disabled:opacity-50"
-              >
-                Record Collection
-              </ActionButton>
-            </>
-          }
-        >
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs sm:text-sm text-slate-600 space-y-1">
-            <p>
-              Expected:{" "}
-              <span className="font-semibold text-slate-900">
-                {formatCurrency(collectingIncome.expectedAmount)}
-              </span>
-            </p>
-            <p>
-              Already received:{" "}
-              <span className="font-semibold text-slate-900">
-                {formatCurrency(collectingIncome.amount)}
-              </span>
-            </p>
-            <p>
-              Due:{" "}
-              <span className="font-semibold text-slate-900">
-                {formatDate(collectingIncome.dueDate)}
-              </span>
-            </p>
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Amount Received Now *</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={collectForm.collectAmount}
-              onChange={(e) => {
-                setCollectForm((p) => ({
-                  ...p,
-                  collectAmount: e.target.value,
-                }));
-                if (collectFormErrors.collectAmount) {
-                  setCollectFormErrors((prev) => {
-                    const next = { ...prev };
-                    delete next.collectAmount;
-                    return next;
-                  });
-                }
-              }}
-              disabled={actionLoading === "collect"}
-              className={fieldInputClass(!!collectFormErrors.collectAmount)}
-              placeholder="0.00"
-            />
-            {collectFormErrors.collectAmount && (
-              <p className={fieldErrorClass}>
-                {collectFormErrors.collectAmount}
-              </p>
-            )}
-            <p className="text-xs text-slate-500 mt-1">
-              Full remaining → Collected. Less than remaining → Partial.
-            </p>
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Received Date *</label>
-            <input
-              type="date"
-              value={collectForm.receivedDate}
-              onChange={(e) =>
-                setCollectForm((p) => ({
-                  ...p,
-                  receivedDate: e.target.value,
-                }))
-              }
-              disabled={actionLoading === "collect"}
-              className={fieldInputClass(!!collectFormErrors.receivedDate)}
-            />
-            {collectFormErrors.receivedDate && (
-              <p className={fieldErrorClass}>
-                {collectFormErrors.receivedDate}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Invoice Number</label>
-            <input
-              type="text"
-              value={collectForm.invoiceNumber}
-              onChange={(e) =>
-                setCollectForm((p) => ({
-                  ...p,
-                  invoiceNumber: e.target.value,
-                }))
-              }
-              disabled={actionLoading === "collect"}
-              className={fieldInputClass()}
-              placeholder="e.g., INV-2026-001"
-            />
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Payment Type</label>
-            <select
-              value={collectForm.paymentMethod}
-              onChange={(e) =>
-                setCollectForm((p) => ({
-                  ...p,
-                  paymentMethod: e.target.value,
-                }))
-              }
-              disabled={actionLoading === "collect"}
-              className={fieldInputClass()}
-            >
-              <option value="bank_transfer">Bank Transfer</option>
-              <option value="cash">Cash</option>
-              <option value="check">Check</option>
-              <option value="wire_transfer">Wire Transfer</option>
-              <option value="credit_card">Credit Card</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Payment Reference</label>
-            <input
-              type="text"
-              value={collectForm.paymentReference}
-              onChange={(e) =>
-                setCollectForm((p) => ({
-                  ...p,
-                  paymentReference: e.target.value,
-                }))
-              }
-              disabled={actionLoading === "collect"}
-              className={fieldInputClass()}
-              placeholder="Transaction / receipt ref"
-            />
-          </div>
-          <div>
-            <label className={fieldLabelClass}>Notes</label>
-            <textarea
-              rows={2}
-              value={collectForm.notes}
-              onChange={(e) =>
-                setCollectForm((p) => ({ ...p, notes: e.target.value }))
-              }
-              disabled={actionLoading === "collect"}
-              className={fieldInputClass()}
-              placeholder="Optional notes"
-            />
-          </div>
-        </ModalChrome>
-      )}
-
-      {/* Tab Content */}
+      {/* Tab Contents */}
       <div className="space-y-6">
         {activeTab === "overview" && (
           <OverviewTab
@@ -1944,20 +1258,26 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           <FinancialDashboard projectId={projectId} projectName={projectName} />
         )}
 
-        {activeTab === "entities" && (
-          <EntityManagement projectId={projectId} projectName={projectName} />
-        )}
-
         {activeTab === "budget" && (
           <BudgetTab
             budgetData={budgetData}
+            expenses={expenses}
             formatCurrency={formatCurrency}
             currencyTitle={currencyTitle}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
-            onCreateBudget={() => setShowBudgetModal(true)}
-            handleEditAllocation={handleEditAllocation}
-            handleDeleteAllocation={handleDeleteAllocation}
+            onCreateBudget={() => {
+              setBudgetForm({
+                totalAmount: "",
+                currency: "ETB",
+                description: "",
+                approvedBy: "",
+                approvalDate: "",
+              });
+              setBudgetFormErrors({});
+              setShowBudgetModal(true);
+            }}
+            onEditBudget={handleOpenEditBudget}
           />
         )}
 
@@ -1971,6 +1291,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             formatDate={formatDate}
             onEditExpense={handleOpenEditExpense}
             onDeleteExpense={handleDeleteExpense}
+            onPreviewReceipt={(url) => setPreviewReceiptImage(url)}
           />
         )}
 
@@ -1978,6 +1299,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           <IncomeTab
             projectId={projectId}
             income={income}
+            projectName={projectName}
             formatCurrency={formatCurrency}
             currencyTitle={currencyTitle}
             getStatusColor={getStatusColor}
@@ -2003,81 +1325,54 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         )}
       </div>
 
-      {/* Modals */}
-      {showBudgetModal && (
+      {/* ----------------- MODALS ----------------- */}
+
+      {/* Budget Modal (Create or Edit) */}
+      {(showBudgetModal || showEditBudgetModal) && (
         <BudgetModal
           budgetForm={budgetForm}
           setBudgetForm={setBudgetForm}
           budgetFormErrors={budgetFormErrors}
           handleBudgetFormChange={handleBudgetFormChange}
-          allocationForm={allocationForm}
-          setAllocationForm={setAllocationForm}
-          allocationFormErrors={allocationFormErrors}
-          handleAllocationFormChange={handleAllocationFormChange}
-          showAllocationModal={showAllocationModal}
-          setShowAllocationModal={setShowAllocationModal}
-          handleCreateBudget={handleCreateBudget}
-          handleAddAllocation={handleAddAllocation}
-          setShowBudgetModal={setShowBudgetModal}
-          resetAllocationForm={resetAllocationForm}
-          milestones={milestones}
-          departments={departments}
-          tasks={tasks}
-          activities={activities}
-          budgetAllocationCategories={budgetAllocationCategories}
-          isEdit={false}
+          onSubmit={showEditBudgetModal ? handleEditBudget : handleCreateBudget}
+          onClose={() => {
+            if (actionLoading === "budget") return;
+            setShowBudgetModal(false);
+            setShowEditBudgetModal(false);
+          }}
+          isEdit={showEditBudgetModal}
           actionLoading={actionLoading}
         />
       )}
 
-      {showEditBudgetModal && (
-        <BudgetModal
-          budgetForm={budgetForm}
-          setBudgetForm={setBudgetForm}
-          budgetFormErrors={budgetFormErrors}
-          handleBudgetFormChange={handleBudgetFormChange}
-          allocationForm={allocationForm}
-          setAllocationForm={setAllocationForm}
-          allocationFormErrors={allocationFormErrors}
-          handleAllocationFormChange={handleAllocationFormChange}
-          showAllocationModal={showAllocationModal}
-          setShowAllocationModal={setShowAllocationModal}
-          handleCreateBudget={handleEditBudget}
-          handleAddAllocation={handleAddAllocation}
-          setShowBudgetModal={setShowEditBudgetModal}
-          resetAllocationForm={resetAllocationForm}
-          milestones={milestones}
-          departments={departments}
-          tasks={tasks}
-          activities={activities}
-          budgetAllocationCategories={budgetAllocationCategories}
-          isEdit={true}
-          actionLoading={actionLoading}
-        />
-      )}
-
+      {/* Expense Modal (Create or Edit) */}
       {showExpenseModal && (
         <ExpenseModal
           expenseForm={expenseForm}
           setExpenseForm={setExpenseForm}
           expenseFormErrors={expenseFormErrors}
           handleExpenseFormChange={handleExpenseFormChange}
-          budgetData={budgetData}
           budgetAllocationCategories={budgetAllocationCategories}
           onSubmit={editingExpenseId ? handleEditExpense : handleAddExpense}
-          setShowExpenseModal={setShowExpenseModal}
-          setEditingExpenseId={setEditingExpenseId}
-          resetExpenseForm={resetExpenseForm}
+          onClose={() => {
+            if (actionLoading === "expense") return;
+            setShowExpenseModal(false);
+            setEditingExpenseId(null);
+            resetExpenseForm();
+          }}
           isEdit={!!editingExpenseId}
           actionLoading={actionLoading}
         />
       )}
 
+      {/* Income Modal (Full Create or Edit with Lump Sum / Monthly / Quarterly options) */}
       {showIncomeModal && (
         <IncomeModal
           incomeForm={incomeForm}
           incomeFormErrors={incomeFormErrors}
           handleIncomeFormChange={handleIncomeFormChange}
+          projectName={projectName}
+          incomeCategories={incomeCategories}
           onSubmit={editingIncomeId ? handleEditIncome : handleAddIncome}
           onClose={() => {
             if (actionLoading === "income") return;
@@ -2085,373 +1380,298 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             setEditingIncomeId(null);
             setIncomeFormErrors({});
           }}
-          incomeCategories={incomeCategories}
           isEdit={!!editingIncomeId}
           actionLoading={actionLoading}
         />
       )}
 
-      {showAllocationEditModal && (() => {
-        const availableAmount = getAvailableBudgetForEditAllocation();
-        const currentAllocation = (budgetData?.allocations || []).find(
-          (alloc) => String(alloc._id) === String(editingAllocationId)
-        );
-        const spentAmount = Number(currentAllocation?.spentAmount) || 0;
-        const otherAllocated =
-          (Number(budgetData?.totalAmount) || 0) - availableAmount;
-        const currency = budgetData?.currency || "ETB";
-        const isSavingAllocation = actionLoading === "allocation";
-        const closeEditAllocation = () => {
-          if (isSavingAllocation) return;
-          setShowAllocationEditModal(false);
-          setEditingAllocationId(null);
-          resetAllocationForm();
-          setAllocationFormErrors({});
-        };
+      {/* Expected Payment Modal with Lump Sum / Monthly / Quarterly */}
+      {showExpectedPaymentModal && (
+        <ExpectedIncomeModal
+          expectedPaymentForm={expectedPaymentForm}
+          setExpectedPaymentForm={setExpectedPaymentForm}
+          expectedPaymentFormErrors={expectedPaymentFormErrors}
+          projectName={projectName}
+          incomeCategories={incomeCategories}
+          onSubmit={handleAddExpectedIncome}
+          onClose={() => {
+            if (actionLoading === "expected") return;
+            setShowExpectedPaymentModal(false);
+            setExpectedPaymentFormErrors({});
+          }}
+          actionLoading={actionLoading}
+        />
+      )}
 
-        return (
-          <ModalChrome
-            nested
-            maxWidth="max-w-lg"
-            title="Edit Budget Allocation"
-            subtitle="Adjust amount, category, and schedule within available budget"
-            onClose={closeEditAllocation}
-            closeDisabled={isSavingAllocation}
-            footer={
-              <>
-                <button
-                  onClick={closeEditAllocation}
-                  disabled={isSavingAllocation}
-                  className={`${cancelBtnClass} order-2 sm:order-1`}
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  onClick={handleUpdateAllocation}
-                  loading={isSavingAllocation}
-                  loadingText="Saving…"
-                  disabled={!allocationForm.name || !allocationForm.amount}
-                  className={`${primaryBtnClass} order-1 sm:order-2`}
-                >
-                  Save Changes
-                </ActionButton>
-              </>
-            }
-          >
-            <BudgetAvailabilityCard
-              total={budgetData?.totalAmount || 0}
-              allocated={otherAllocated}
-              remaining={availableAmount}
-              currency={currency}
-              overBudget={availableAmount < -0.001}
-            />
-
-            {spentAmount > 0 && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                Already spent: {formatMoneyDisplay(spentAmount, currency)}.
-                Amount cannot go below this.
-              </p>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div className="sm:col-span-2">
-                <label className={fieldLabelClass}>Allocation Name *</label>
-                <input
-                  type="text"
-                  value={allocationForm.name}
-                  onChange={(e) =>
-                    handleAllocationFormChange("name", e.target.value)
-                  }
-                  disabled={isSavingAllocation}
-                  className={fieldInputClass(!!allocationFormErrors.name)}
-                  placeholder="e.g., Field Operations"
-                />
-                {allocationFormErrors.name && (
-                  <p className={fieldErrorClass}>{allocationFormErrors.name}</p>
-                )}
+      {/* Collect Payment Modal */}
+      {showCollectModal && collectTargetIncome && (
+        <ModalChrome
+          maxWidth="max-w-lg"
+          title="Collect Payment"
+          subtitle={`Record incoming collection for: ${collectTargetIncome.title || "Income"}`}
+          onClose={() => {
+            if (actionLoading === "collect") return;
+            setShowCollectModal(false);
+            setCollectTargetIncome(null);
+          }}
+          closeDisabled={actionLoading === "collect"}
+          footer={
+            <>
+              <button
+                onClick={() => {
+                  if (actionLoading === "collect") return;
+                  setShowCollectModal(false);
+                  setCollectTargetIncome(null);
+                }}
+                disabled={actionLoading === "collect"}
+                className={`${cancelBtnClass} order-2 sm:order-1`}
+              >
+                Cancel
+              </button>
+              <ActionButton
+                onClick={handleCollectPayment}
+                loading={actionLoading === "collect"}
+                loadingText="Recording…"
+                disabled={!collectForm.collectAmount}
+                className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm transition-all duration-200 disabled:opacity-50 order-1 sm:order-2"
+              >
+                Confirm Collection
+              </ActionButton>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs sm:text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Client:</span>
+                <span className="font-semibold text-slate-800">
+                  {collectTargetIncome.clientName || "—"}
+                </span>
               </div>
-
-              <div>
-                <label className={fieldLabelClass}>Category</label>
-                <select
-                  value={allocationForm.categoryId || ""}
-                  onChange={(e) => {
-                    const cat = budgetAllocationCategories.find(
-                      (c) => String(c._id) === e.target.value
-                    );
-                    setAllocationForm((prev) => ({
-                      ...prev,
-                      categoryId: e.target.value,
-                      category: cat?.name || prev.category,
-                    }));
-                    if (allocationFormErrors.category) {
-                      setAllocationFormErrors((prev) => ({
-                        ...prev,
-                        category: "",
-                      }));
-                    }
-                  }}
-                  disabled={isSavingAllocation}
-                  className={fieldInputClass()}
-                >
-                  <option value="">Select category</option>
-                  {budgetAllocationCategories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Frequency:</span>
+                <span className="font-semibold text-blue-700 capitalize">
+                  {formatFrequencyLabel(collectTargetIncome.frequency)}
+                  {collectTargetIncome.recurringDay ? ` (Day ${collectTargetIncome.recurringDay})` : ""}
+                </span>
               </div>
-
-              <div>
-                <label className={fieldLabelClass}>Amount *</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={spentAmount > 0 ? spentAmount : 0.01}
-                    max={Math.max(availableAmount, spentAmount, 0.01)}
-                    value={allocationForm.amount}
-                    onChange={(e) =>
-                      handleAllocationFormChange("amount", e.target.value)
-                    }
-                    disabled={isSavingAllocation}
-                    className={fieldInputClass(!!allocationFormErrors.amount)}
-                    placeholder="0.00"
-                  />
-                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
-                    {currency}
-                  </span>
-                </div>
-                {allocationFormErrors.amount ? (
-                  <p className={fieldErrorClass}>
-                    {allocationFormErrors.amount}
-                  </p>
-                ) : (
-                  <p className="text-xs text-slate-500 mt-1">
-                    Max available: {formatMoneyDisplay(availableAmount, currency)}
-                  </p>
-                )}
+              <div className="flex justify-between">
+                <span className="text-slate-500">Total Project Amount:</span>
+                <span className="font-semibold text-slate-800">
+                  {formatCurrency(
+                    collectTargetIncome.totalProjectAmount ||
+                      collectTargetIncome.expectedAmount ||
+                      0
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Already Collected:</span>
+                <span className="font-semibold text-emerald-600">
+                  {formatCurrency(
+                    collectTargetIncome.totalPaid ||
+                      collectTargetIncome.amount ||
+                      0
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-slate-200">
+                <span className="text-slate-600 font-medium">Unpaid Remaining:</span>
+                <span className="font-bold text-amber-700">
+                  {formatCurrency(
+                    Math.max(
+                      0,
+                      (Number(
+                        collectTargetIncome.totalProjectAmount ||
+                          collectTargetIncome.expectedAmount ||
+                          0
+                      ) || 0) -
+                        (Number(
+                          collectTargetIncome.totalPaid ||
+                            collectTargetIncome.amount ||
+                            0
+                        ) || 0)
+                    )
+                  )}
+                </span>
               </div>
             </div>
 
             <div>
-              <label className={fieldLabelClass}>Description</label>
-              <textarea
-                value={allocationForm.description}
+              <label className={fieldLabelClass}>Amount Collected *</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={collectForm.collectAmount}
                 onChange={(e) =>
-                  handleAllocationFormChange("description", e.target.value)
+                  setCollectForm((p) => ({ ...p, collectAmount: e.target.value }))
                 }
-                disabled={isSavingAllocation}
-                className={fieldInputClass(!!allocationFormErrors.description)}
-                rows={2}
-                placeholder="Optional notes for this allocation"
+                disabled={actionLoading === "collect"}
+                className={fieldInputClass(!!collectFormErrors.collectAmount)}
+                placeholder="0.00"
+                required
               />
-              {allocationFormErrors.description && (
+              {collectFormErrors.collectAmount && (
                 <p className={fieldErrorClass}>
-                  {allocationFormErrors.description}
+                  {collectFormErrors.collectAmount}
                 </p>
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className={fieldLabelClass}>Start Date</label>
+                <label className={fieldLabelClass}>Received Date *</label>
                 <input
                   type="date"
-                  value={allocationForm.startDate || ""}
+                  value={collectForm.receivedDate}
+                  max={todayInputValue()}
                   onChange={(e) =>
-                    handleAllocationFormChange("startDate", e.target.value)
+                    setCollectForm((p) => ({ ...p, receivedDate: e.target.value }))
                   }
-                  disabled={isSavingAllocation}
-                  className={fieldInputClass(!!allocationFormErrors.startDate)}
+                  disabled={actionLoading === "collect"}
+                  className={fieldInputClass(!!collectFormErrors.receivedDate)}
                 />
-                {allocationFormErrors.startDate && (
-                  <p className={fieldErrorClass}>
-                    {allocationFormErrors.startDate}
-                  </p>
-                )}
               </div>
               <div>
-                <label className={fieldLabelClass}>End Date</label>
-                <input
-                  type="date"
-                  value={allocationForm.endDate || ""}
-                  min={allocationForm.startDate || undefined}
-                  onChange={(e) =>
-                    handleAllocationFormChange("endDate", e.target.value)
-                  }
-                  disabled={isSavingAllocation}
-                  className={fieldInputClass(!!allocationFormErrors.endDate)}
-                />
-                {allocationFormErrors.endDate && (
-                  <p className={fieldErrorClass}>
-                    {allocationFormErrors.endDate}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className={fieldLabelClass}>Allocation Type</label>
-                <div className="inline-flex items-center px-2.5 py-2 rounded-lg border border-slate-200 text-sm bg-slate-50 text-slate-700 w-full">
-                  {(allocationForm.allocationType || "general")
-                    .charAt(0)
-                    .toUpperCase() +
-                    (allocationForm.allocationType || "general").slice(1)}
-                </div>
-              </div>
-              <div>
-                <label className={fieldLabelClass}>Priority</label>
+                <label className={fieldLabelClass}>Payment Method</label>
                 <select
-                  value={allocationForm.priority || "medium"}
+                  value={collectForm.paymentMethod}
                   onChange={(e) =>
-                    handleAllocationFormChange("priority", e.target.value)
+                    setCollectForm((p) => ({ ...p, paymentMethod: e.target.value }))
                   }
-                  disabled={isSavingAllocation}
+                  disabled={actionLoading === "collect"}
                   className={fieldInputClass()}
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
 
-            {allocationForm.allocationType === "department" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className={fieldLabelClass}>Department</label>
-                <select
-                  value={allocationForm.departmentId || ""}
+                <label className={fieldLabelClass}>Next Payment Date</label>
+                <input
+                  type="date"
+                  value={collectForm.nextPaymentDate}
                   onChange={(e) =>
-                    handleAllocationFormChange("departmentId", e.target.value)
+                    setCollectForm((p) => ({ ...p, nextPaymentDate: e.target.value }))
                   }
-                  disabled={isSavingAllocation}
-                  className={fieldInputClass(!!allocationFormErrors.departmentId)}
-                >
-                  <option value="">Select department</option>
-                  {departments.map((d) => (
-                    <option key={d._id || d.id} value={d._id || d.id}>
-                      {d.name || d.title}
-                    </option>
-                  ))}
-                </select>
-                {allocationFormErrors.departmentId && (
-                  <p className={fieldErrorClass}>
-                    {allocationFormErrors.departmentId}
-                  </p>
-                )}
+                  disabled={actionLoading === "collect"}
+                  className={fieldInputClass()}
+                />
               </div>
-            )}
-
-            {allocationForm.allocationType === "task" && (
               <div>
-                <label className={fieldLabelClass}>Task</label>
-                <select
-                  value={allocationForm.taskId || ""}
+                <label className={fieldLabelClass}>Next Payment Amount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={collectForm.nextPaymentAmount}
                   onChange={(e) =>
-                    handleAllocationFormChange("taskId", e.target.value)
+                    setCollectForm((p) => ({ ...p, nextPaymentAmount: e.target.value }))
                   }
-                  disabled={isSavingAllocation}
-                  className={fieldInputClass(!!allocationFormErrors.taskId)}
-                >
-                  <option value="">Select task</option>
-                  {tasks.map((t) => (
-                    <option key={t._id || t.id} value={t._id || t.id}>
-                      {t.name || t.title}
-                    </option>
-                  ))}
-                </select>
-                {allocationFormErrors.taskId && (
-                  <p className={fieldErrorClass}>
-                    {allocationFormErrors.taskId}
-                  </p>
-                )}
+                  disabled={actionLoading === "collect"}
+                  className={fieldInputClass()}
+                  placeholder="0.00"
+                />
               </div>
-            )}
+            </div>
 
-            {allocationForm.allocationType === "activity" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className={fieldLabelClass}>Activity</label>
-                <select
-                  value={allocationForm.activityId || ""}
+                <label className={fieldLabelClass}>Payment Reference</label>
+                <input
+                  type="text"
+                  value={collectForm.paymentReference}
                   onChange={(e) =>
-                    handleAllocationFormChange("activityId", e.target.value)
+                    setCollectForm((p) => ({
+                      ...p,
+                      paymentReference: e.target.value,
+                    }))
                   }
-                  disabled={isSavingAllocation}
-                  className={fieldInputClass(!!allocationFormErrors.activityId)}
-                >
-                  <option value="">Select activity</option>
-                  {activities.map((a) => (
-                    <option key={a._id || a.id} value={a._id || a.id}>
-                      {a.name || a.title}
-                    </option>
-                  ))}
-                </select>
-                {allocationFormErrors.activityId && (
-                  <p className={fieldErrorClass}>
-                    {allocationFormErrors.activityId}
-                  </p>
-                )}
+                  disabled={actionLoading === "collect"}
+                  className={fieldInputClass()}
+                  placeholder="Ref / Transaction ID"
+                />
               </div>
-            )}
-
-            {allocationForm.allocationType === "milestone" && (
               <div>
-                <label className={fieldLabelClass}>Milestone</label>
-                <select
-                  value={allocationForm.milestoneId || ""}
+                <label className={fieldLabelClass}>Invoice Number</label>
+                <input
+                  type="text"
+                  value={collectForm.invoiceNumber}
                   onChange={(e) =>
-                    handleAllocationFormChange("milestoneId", e.target.value)
+                    setCollectForm((p) => ({
+                      ...p,
+                      invoiceNumber: e.target.value,
+                    }))
                   }
-                  disabled={isSavingAllocation}
-                  className={fieldInputClass(!!allocationFormErrors.milestoneId)}
-                >
-                  <option value="">Select milestone</option>
-                  {milestones.map((m) => (
-                    <option key={m._id || m.id} value={m._id || m.id}>
-                      {m.name || m.title}
-                    </option>
-                  ))}
-                </select>
-                {allocationFormErrors.milestoneId && (
-                  <p className={fieldErrorClass}>
-                    {allocationFormErrors.milestoneId}
-                  </p>
-                )}
+                  disabled={actionLoading === "collect"}
+                  className={fieldInputClass()}
+                  placeholder="e.g. INV-2026-001"
+                />
               </div>
-            )}
-          </ModalChrome>
-        );
-      })()}
+            </div>
 
-      <style jsx global>{`
-        @keyframes shimmer {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
-        }
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(4px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
+            <div>
+              <label className={fieldLabelClass}>Notes</label>
+              <textarea
+                rows={2}
+                value={collectForm.notes}
+                onChange={(e) =>
+                  setCollectForm((p) => ({ ...p, notes: e.target.value }))
+                }
+                disabled={actionLoading === "collect"}
+                className={fieldInputClass()}
+                placeholder="Optional notes regarding this payment receipt"
+              />
+            </div>
+          </div>
+        </ModalChrome>
+      )}
+
+      {/* Receipt Image Lightbox Preview Modal */}
+      {previewReceiptImage && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-[fadeIn_0.2s_ease-out]"
+          onClick={() => setPreviewReceiptImage(null)}
+        >
+          <div
+            className="relative max-w-3xl max-h-[90vh] bg-white rounded-2xl p-4 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
+              <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                <PhotoIcon className="w-4 h-4 text-blue-600" />
+                Receipt Image Preview
+              </h4>
+              <button
+                onClick={() => setPreviewReceiptImage(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex justify-center items-center max-h-[75vh] overflow-auto rounded-lg bg-slate-50">
+              <img
+                src={previewReceiptImage}
+                alt="Receipt Document"
+                className="max-h-[70vh] max-w-full object-contain rounded-lg shadow-sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// Overview Tab Component
+// ----------------- TAB COMPONENTS -----------------
+
 const OverviewTab = ({
   budgetData,
   expenses,
@@ -2463,16 +1683,19 @@ const OverviewTab = ({
   formatDate,
 }) => {
   const summary = financialReports?.financialSummary || {};
-  const totalBudget =
-    Number(summary.totalBudget ?? budgetData?.totalAmount ?? 0) || 0;
-  const totalExpenses = Number(summary.totalExpenses ?? 0) || 0;
-  const totalIncome = Number(summary.totalIncome ?? 0) || 0;
+  const totalBudget = Number(summary.totalBudget ?? budgetData?.totalAmount ?? 0) || 0;
+  const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const totalIncome = income.reduce(
+    (sum, inc) => sum + (Number(inc.amount || inc.totalPaid) || 0),
+    0
+  );
+  const totalExpectedIncome = income.reduce(
+    (sum, inc) => sum + (Number(inc.expectedAmount || inc.totalProjectAmount || inc.amount) || 0),
+    0
+  );
+  const remainingBudget = Math.max(0, totalBudget - totalExpenses);
   const budgetUtilization =
-    Number(
-      summary.budgetUtilization ??
-        (totalBudget > 0 ? (totalExpenses / totalBudget) * 100 : 0)
-    ) || 0;
-  const remaining = Math.max(0, totalBudget - totalExpenses);
+    totalBudget > 0 ? (totalExpenses / totalBudget) * 100 : 0;
 
   return (
     <div className="space-y-4 sm:space-y-5 min-w-0">
@@ -2496,9 +1719,10 @@ const OverviewTab = ({
           iconBg="bg-rose-50"
           iconColor="text-rose-600"
           valueClassName="text-rose-600"
+          subtitle={`${expenses.length} expense records`}
         />
         <MetricCard
-          label="Total Income"
+          label="Total Income (Paid)"
           value={totalIncome}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
@@ -2506,10 +1730,15 @@ const OverviewTab = ({
           iconBg="bg-emerald-50"
           iconColor="text-emerald-600"
           valueClassName="text-emerald-600"
+          subtitle={
+            totalExpectedIncome > 0
+              ? `${((totalIncome / totalExpectedIncome) * 100).toFixed(0)}% of expected collected`
+              : "No income scheduled"
+          }
         />
         <MetricCard
-          label="Remaining"
-          value={remaining}
+          label="Remaining Budget"
+          value={remainingBudget}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
           icon={CheckCircleIcon}
@@ -2554,144 +1783,25 @@ const OverviewTab = ({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-600">
             <p className="min-w-0 truncate" title={currencyTitle(totalExpenses)}>
-              Spent:{" "}
+              Total Spent:{" "}
               <span className="font-semibold text-slate-900 tabular-nums">
                 {formatCurrency(totalExpenses)}
               </span>
             </p>
             <p
               className="min-w-0 truncate sm:text-right"
-              title={currencyTitle(remaining)}
+              title={currencyTitle(remainingBudget)}
             >
-              Remaining:{" "}
+              Remaining Available:{" "}
               <span className="font-semibold text-slate-900 tabular-nums">
-                {formatCurrency(remaining)}
+                {formatCurrency(remainingBudget)}
               </span>
             </p>
           </div>
-
-          {budgetUtilization > 100 && (
-            <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-              <div className="flex items-start gap-2">
-                <ExclamationTriangleIcon className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-rose-800">
-                    Budget Overrun
-                  </p>
-                  <p className="text-xs sm:text-sm text-rose-700 mt-0.5">
-                    Over by {formatCurrency(totalExpenses - totalBudget)} (
-                    {(budgetUtilization - 100).toFixed(1)}%)
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </SectionPanel>
       )}
 
-      {budgetData?.alerts?.length > 0 && (
-        <SectionPanel title="Budget Alerts" subtitle="Items that need attention">
-          <div className="space-y-2">
-            {budgetData.alerts.map((alert, index) => (
-              <div
-                key={index}
-                className={`p-3 rounded-xl border-l-4 min-w-0 ${
-                  alert.severity === "high"
-                    ? "bg-rose-50 border-rose-400"
-                    : alert.severity === "medium"
-                    ? "bg-amber-50 border-amber-400"
-                    : "bg-blue-50 border-blue-400"
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  <ExclamationTriangleIcon
-                    className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
-                      alert.severity === "high"
-                        ? "text-rose-600"
-                        : alert.severity === "medium"
-                        ? "text-amber-600"
-                        : "text-blue-600"
-                    }`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      {(alert.type || "").replace(/_/g, " ")}
-                    </p>
-                    <p className="text-sm text-slate-800 break-words">
-                      {alert.message}
-                    </p>
-                    {alert.amount != null && (
-                      <p className="text-xs mt-1 font-medium tabular-nums text-slate-600">
-                        Amount: {formatCurrency(Math.abs(alert.amount))}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </SectionPanel>
-      )}
-
-      {budgetData?.allocations?.length > 0 && (
-        <SectionPanel
-          title="Budget Allocations"
-          subtitle={`${budgetData.allocations.length} allocation${
-            budgetData.allocations.length === 1 ? "" : "s"
-          }`}
-        >
-          <div className="space-y-3">
-            {budgetData.allocations.map((allocation) => (
-              <div
-                key={allocation._id}
-                className="p-3 sm:p-4 bg-slate-50 border border-slate-100 rounded-xl min-w-0"
-              >
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <h4 className="text-sm font-medium text-slate-900 truncate min-w-0">
-                    {allocation.name || allocation.category}
-                  </h4>
-                  <span
-                    className={`px-2 py-0.5 rounded-md text-xs font-medium border flex-shrink-0 ${getStatusColor(
-                      allocation.status
-                    )}`}
-                  >
-                    {(allocation.utilization || 0).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 mb-2">
-                  <p className="truncate">
-                    Budget:{" "}
-                    <span className="font-semibold text-slate-900 tabular-nums">
-                      {formatCurrency(allocation.budgetedAmount)}
-                    </span>
-                  </p>
-                  <p className="truncate">
-                    Spent:{" "}
-                    <span className="font-semibold text-rose-600 tabular-nums">
-                      {formatCurrency(allocation.spentAmount)}
-                    </span>
-                  </p>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-1.5">
-                  <div
-                    className={`h-1.5 rounded-full ${
-                      allocation.utilization > 100
-                        ? "bg-rose-500"
-                        : allocation.utilization > 90
-                        ? "bg-amber-500"
-                        : "bg-blue-500"
-                    }`}
-                    style={{
-                      width: `${Math.min(allocation.utilization || 0, 100)}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </SectionPanel>
-      )}
-
+      {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionPanel
           title="Recent Expenses"
@@ -2713,18 +1823,17 @@ const OverviewTab = ({
                     {expense.title}
                   </h4>
                   <p className="text-xs text-slate-500 truncate">
-                    {expense.category} · {formatDate(expense.expenseDate)}
+                    {expense.reason ? `${expense.reason} · ` : ""}
+                    {expense.vendor ? `${expense.vendor} · ` : ""}
+                    {formatDate(expense.expenseDate)}
                   </p>
                 </div>
-                <div className="text-right flex-shrink-0 max-w-[40%]">
-                  <p
-                    className="text-sm font-semibold text-rose-600 tabular-nums truncate"
-                    title={currencyTitle(expense.amount)}
-                  >
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-semibold text-rose-600 tabular-nums">
                     {formatCurrency(expense.amount)}
                   </p>
                   <span
-                    className={`inline-block mt-1 px-2 py-0.5 rounded-md text-xs font-medium border ${getStatusColor(
+                    className={`inline-block mt-0.5 px-2 py-0.5 rounded-md text-[11px] font-medium border ${getStatusColor(
                       expense.status
                     )}`}
                   >
@@ -2736,15 +1845,15 @@ const OverviewTab = ({
             {expenses.length === 0 && (
               <EmptyState
                 icon={DocumentTextIcon}
-                title="No expenses yet"
-                description="Add an expense to see it appear here."
+                title="No expenses recorded"
+                description="Add an expense above to start tracking costs."
               />
             )}
           </div>
         </SectionPanel>
 
         <SectionPanel
-          title="Recent Income"
+          title="Recent Income & Expected Payments"
           action={
             <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
               {income.length} total
@@ -2763,18 +1872,18 @@ const OverviewTab = ({
                     {inc.title}
                   </h4>
                   <p className="text-xs text-slate-500 truncate">
-                    {inc.clientName} · {formatDate(inc.receivedDate)}
+                    {inc.clientName ? `${inc.clientName} · ` : ""}
+                    <span className="font-semibold text-blue-700">
+                      {formatFrequencyLabel(inc.frequency)}
+                    </span>
                   </p>
                 </div>
-                <div className="text-right flex-shrink-0 max-w-[40%]">
-                  <p
-                    className="text-sm font-semibold text-emerald-600 tabular-nums truncate"
-                    title={currencyTitle(inc.amount)}
-                  >
-                    {formatCurrency(inc.amount)}
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-semibold text-emerald-600 tabular-nums">
+                    {formatCurrency(inc.totalPaid || inc.amount || 0)}
                   </p>
                   <span
-                    className={`inline-block mt-1 px-2 py-0.5 rounded-md text-xs font-medium border ${getStatusColor(
+                    className={`inline-block mt-0.5 px-2 py-0.5 rounded-md text-[11px] font-medium border capitalize ${getStatusColor(
                       inc.status
                     )}`}
                   >
@@ -2786,8 +1895,8 @@ const OverviewTab = ({
             {income.length === 0 && (
               <EmptyState
                 icon={ArrowTrendingUpIcon}
-                title="No income yet"
-                description="Record income or expected payments to track cash in."
+                title="No income scheduled"
+                description="Add expected income to track receipts and client payment dates."
               />
             )}
           </div>
@@ -2797,24 +1906,23 @@ const OverviewTab = ({
   );
 };
 
-// Budget Tab Component
 const BudgetTab = ({
   budgetData,
+  expenses = [],
   formatCurrency,
   currencyTitle,
   getStatusColor,
   formatDate,
   onCreateBudget,
-  handleEditAllocation,
-  handleDeleteAllocation,
+  onEditBudget,
 }) => {
   if (!budgetData) {
     return (
       <SectionPanel>
         <EmptyState
           icon={CurrencyDollarIcon}
-          title="No budget created"
-          description="Create a budget to start managing allocations and tracking spend."
+          title="No project budget set"
+          description="Create a project budget to track expenses and utilization directly."
           action={
             <button
               onClick={onCreateBudget}
@@ -2829,33 +1937,37 @@ const BudgetTab = ({
     );
   }
 
-  const spent =
-    budgetData.allocations?.reduce(
-      (sum, a) => sum + (Number(a.spentAmount) || 0),
-      0
-    ) || 0;
-  const remaining = Math.max(
-    0,
-    (Number(budgetData.totalAmount) || 0) - spent
-  );
+  const totalBudget = Number(budgetData.totalAmount) || 0;
+  const spent = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+  const remaining = Math.max(0, totalBudget - spent);
+  const utilization = totalBudget > 0 ? (spent / totalBudget) * 100 : 0;
 
   return (
-    <div className="space-y-4 sm:space-y-5 min-w-0">
+    <div className="space-y-5 min-w-0">
       <SectionPanel
-        title="Budget Information"
-        subtitle="Totals, spend, and approval details"
+        title="Project Budget"
+        subtitle="Total allocated budget, total direct expenses, and available funds"
+        action={
+          <button
+            onClick={onEditBudget}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <PencilIcon className="w-4 h-4" />
+            Edit Budget
+          </button>
+        }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <MetricCard
-            label="Total Budget"
-            value={Number(budgetData.totalAmount) || 0}
+            label="Total Project Budget"
+            value={totalBudget}
             formatCurrency={formatCurrency}
             currencyTitle={currencyTitle}
             icon={CurrencyDollarIcon}
             valueClassName="text-blue-900"
           />
           <MetricCard
-            label="Spent"
+            label="Total Spent (Expenses)"
             value={spent}
             formatCurrency={formatCurrency}
             currencyTitle={currencyTitle}
@@ -2865,7 +1977,7 @@ const BudgetTab = ({
             valueClassName="text-rose-600"
           />
           <MetricCard
-            label="Remaining"
+            label="Available Remaining"
             value={remaining}
             formatCurrency={formatCurrency}
             currencyTitle={currencyTitle}
@@ -2876,254 +1988,62 @@ const BudgetTab = ({
           />
           <div className="bg-slate-50 p-4 sm:p-5 rounded-xl border border-slate-200 min-w-0">
             <p className="text-xs sm:text-sm font-medium text-slate-500">
-              Approval
+              Approval Info
             </p>
             <p className="mt-1 text-sm font-semibold text-slate-900 truncate">
-              {budgetData.approvedBy || "Not specified"}
+              {budgetData.approvedBy || "Admin / Approved"}
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              {formatDate(budgetData.approvalDate)}
+              {budgetData.approvalDate ? formatDate(budgetData.approvalDate) : "Direct Project Budget"}
             </p>
           </div>
         </div>
+
+        {/* Utilization Bar */}
+        <div className="mt-5 pt-4 border-t border-slate-100">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Budget Utilization
+            </span>
+            <span
+              className={`px-2 py-0.5 text-xs font-semibold rounded-md border ${getStatusColor(
+                utilization > 100
+                  ? "overrun"
+                  : utilization > 90
+                  ? "warning"
+                  : "normal"
+              )}`}
+            >
+              {utilization.toFixed(1)}%
+            </span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+            <div
+              className={`h-3 rounded-full transition-all duration-500 ${
+                utilization > 100
+                  ? "bg-rose-500"
+                  : utilization > 90
+                  ? "bg-amber-500"
+                  : "bg-blue-600"
+              }`}
+              style={{ width: `${Math.min(utilization, 100)}%` }}
+            />
+          </div>
+        </div>
+
         {budgetData.description && (
           <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-xs text-slate-500 mb-1">Description</p>
+            <p className="text-xs text-slate-500 mb-1">Budget Description / Scope</p>
             <p className="text-sm text-slate-800 break-words">
               {budgetData.description}
             </p>
           </div>
         )}
       </SectionPanel>
-
-      {budgetData.allocations && budgetData.allocations.length > 0 && (
-        <SectionPanel
-          title="Budget Allocations"
-          subtitle="Track spend against each allocation"
-          bodyClassName="p-4 sm:p-5"
-        >
-
-          {/* Mobile cards */}
-          <div className="space-y-3 lg:hidden">
-            {budgetData.allocations.map((allocation) => (
-              <div
-                key={allocation._id}
-                className="p-3 border border-gray-200 rounded-lg min-w-0"
-              >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-black truncate">
-                      {allocation.name || "Unnamed"}
-                    </p>
-                    <span className="inline-flex mt-1 px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">
-                      {allocation.category}
-                    </span>
-                  </div>
-                  <div className="flex gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => handleEditAllocation(allocation)}
-                      className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded"
-                      title="Edit"
-                    >
-                      <PencilIcon className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteAllocation(allocation._id)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                      title="Delete"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                  <div className="min-w-0">
-                    <p className="text-gray-500">Budget</p>
-                    <p
-                      className="font-medium tabular-nums truncate"
-                      title={currencyTitle(allocation.budgetedAmount)}
-                    >
-                      {formatCurrency(allocation.budgetedAmount)}
-                    </p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-gray-500">Spent</p>
-                    <p
-                      className="font-medium text-red-600 tabular-nums truncate"
-                      title={currencyTitle(allocation.spentAmount)}
-                    >
-                      {formatCurrency(allocation.spentAmount)}
-                    </p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-gray-500">Left</p>
-                    <p
-                      className="font-medium tabular-nums truncate"
-                      title={currencyTitle(allocation.remainingAmount)}
-                    >
-                      {formatCurrency(allocation.remainingAmount)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                    <div
-                      className={`h-1.5 rounded-full ${
-                        allocation.utilization > 100
-                          ? "bg-red-500"
-                          : allocation.utilization > 90
-                          ? "bg-yellow-500"
-                          : "bg-blue-500"
-                      }`}
-                      style={{
-                        width: `${Math.min(allocation.utilization || 0, 100)}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs tabular-nums text-gray-700 w-10 text-right">
-                    {(allocation.utilization || 0).toFixed(0)}%
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Desktop table */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 table-fixed">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="w-[18%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Allocation
-                  </th>
-                  <th className="w-[10%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Category
-                  </th>
-                  <th className="w-[12%] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Budget
-                  </th>
-                  <th className="w-[12%] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Spent
-                  </th>
-                  <th className="w-[12%] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Remaining
-                  </th>
-                  <th className="w-[14%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Utilization
-                  </th>
-                  <th className="w-[10%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
-                  </th>
-                  <th className="w-[8%] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {budgetData.allocations.map((allocation) => (
-                  <tr key={allocation._id}>
-                    <td className="px-3 py-3">
-                      <div className="text-sm font-medium text-black truncate">
-                        {allocation.name || "Unnamed"}
-                      </div>
-                      {allocation.description && (
-                        <div className="text-xs text-gray-500 truncate">
-                          {allocation.description}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 truncate max-w-full">
-                        {allocation.category}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <AmountCell
-                        amount={allocation.budgetedAmount}
-                        formatCurrency={formatCurrency}
-                        currencyTitle={currencyTitle}
-                      />
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <AmountCell
-                        amount={allocation.spentAmount}
-                        formatCurrency={formatCurrency}
-                        currencyTitle={currencyTitle}
-                        className="text-red-600"
-                      />
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <AmountCell
-                        amount={allocation.remainingAmount}
-                        formatCurrency={formatCurrency}
-                        currencyTitle={currencyTitle}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="flex-1 max-w-[4rem] bg-gray-200 rounded-full h-1.5">
-                          <div
-                            className={`h-1.5 rounded-full ${
-                              allocation.utilization > 100
-                                ? "bg-red-500"
-                                : allocation.utilization > 90
-                                ? "bg-yellow-500"
-                                : "bg-blue-500"
-                            }`}
-                            style={{
-                              width: `${Math.min(
-                                allocation.utilization || 0,
-                                100
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs tabular-nums text-black w-10">
-                          {(allocation.utilization || 0).toFixed(0)}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span
-                        className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded border ${getStatusColor(
-                          allocation.status
-                        )}`}
-                      >
-                        {allocation.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <div className="inline-flex gap-1">
-                        <button
-                          onClick={() => handleEditAllocation(allocation)}
-                          className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
-                          title="Edit Allocation"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleDeleteAllocation(allocation._id)
-                          }
-                          className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                          title="Delete Allocation"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SectionPanel>
-      )}
     </div>
   );
 };
 
-// Expenses Tab Component
 const ExpensesTab = ({
   expenses,
   budgetData,
@@ -3133,13 +2053,14 @@ const ExpensesTab = ({
   formatDate,
   onEditExpense,
   onDeleteExpense,
+  onPreviewReceipt,
 }) => {
   const total = expenses.reduce(
     (sum, exp) => sum + (Number(exp.amount) || 0),
     0
   );
   const approved = expenses
-    .filter((exp) => exp.status === "approved")
+    .filter((exp) => exp.status === "approved" || exp.status === "paid")
     .reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
   const pending = expenses
     .filter((exp) => exp.status === "pending")
@@ -3159,7 +2080,7 @@ const ExpensesTab = ({
           valueClassName="text-rose-600"
         />
         <MetricCard
-          label="Approved"
+          label="Approved / Paid"
           value={approved}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
@@ -3169,7 +2090,7 @@ const ExpensesTab = ({
           valueClassName="text-emerald-600"
         />
         <MetricCard
-          label="Pending"
+          label="Pending Approval"
           value={pending}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
@@ -3188,85 +2109,105 @@ const ExpensesTab = ({
       </div>
 
       <SectionPanel
-        title="All Expenses"
-        subtitle="Edit or remove expense records"
+        title="Project Expenses"
+        subtitle="Manage and view expense records with title, reason, vendor, receipt images, and dates"
         bodyClassName="p-0"
       >
         {expenses.length === 0 ? (
           <EmptyState
             icon={DocumentTextIcon}
             title="No expenses recorded"
-            description="Add an expense from the actions above to start tracking spend."
+            description="Click 'Add Expense' above to record an expense."
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  {[
-                    "Expense",
-                    "Amount",
-                    "Category",
-                    "Date",
-                    "Vendor",
-                    "Status",
-                    "Actions",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-3 sm:px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Title & Reason
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Vendor
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Receipt
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-100">
+              <tbody className="bg-white divide-y divide-slate-100 text-xs sm:text-sm">
                 {expenses.map((expense) => (
                   <tr
                     key={expense._id}
                     className="hover:bg-slate-50/80 transition-colors"
                   >
-                    <td className="px-3 sm:px-5 py-3 sm:py-4">
-                      <div className="text-xs sm:text-sm font-medium text-slate-900">
+                    <td className="px-3 sm:px-4 py-3 sm:py-4">
+                      <div className="font-semibold text-slate-900">
                         {expense.title}
                       </div>
+                      {expense.reason && (
+                        <div className="text-xs text-blue-700 font-medium mt-0.5">
+                          Reason: {expense.reason}
+                        </div>
+                      )}
                       {expense.description && (
-                        <div className="text-xs text-slate-500 truncate max-w-[14rem]">
+                        <div className="text-xs text-slate-500 truncate max-w-[14rem] mt-0.5">
                           {expense.description}
                         </div>
                       )}
                     </td>
-                    <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
+                    <td className="px-3 sm:px-4 py-3 sm:py-4 text-right">
                       <AmountCell
                         amount={expense.amount}
                         formatCurrency={formatCurrency}
                         currencyTitle={currencyTitle}
-                        className="text-rose-600 font-semibold"
+                        className="text-rose-600 font-bold"
                       />
                     </td>
-                    <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
-                        {expense.category}
-                      </span>
-                    </td>
-                    <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-700">
-                      {formatDate(expense.expenseDate)}
-                    </td>
-                    <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-700">
+                    <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-slate-700">
                       {expense.vendor || "—"}
                     </td>
-                    <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-slate-700">
+                      {formatDate(expense.expenseDate)}
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
+                      {expense.receiptUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => onPreviewReceipt(expense.receiptUrl)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+                          title="View Receipt"
+                        >
+                          <PhotoIcon className="w-3.5 h-3.5" />
+                          <span>View</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400">No receipt</span>
+                      )}
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 inline-flex text-xs font-semibold rounded-md border ${getStatusColor(
+                        className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded-md border capitalize ${getStatusColor(
                           expense.status
                         )}`}
                       >
                         {expense.status}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1">
+                    <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-right">
+                      <div className="inline-flex items-center gap-1">
                         <button
                           onClick={() => onEditExpense(expense)}
                           className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -3294,10 +2235,11 @@ const ExpensesTab = ({
   );
 };
 
-// Income Tab Component — expected → collect (partial/full) → overdue
+// Income Tab Component (Lump Sum, Monthly, Quarterly, Paid vs Pending Schedule, Overdue)
 const IncomeTab = ({
   projectId,
   income,
+  projectName,
   formatCurrency,
   currencyTitle,
   getStatusColor,
@@ -3307,33 +2249,26 @@ const IncomeTab = ({
   onDeleteIncome,
   onAddExpected,
 }) => {
-  const totalExpected = income.reduce(
-    (sum, inc) => sum + (Number(inc.expectedAmount) || 0),
+  const totalProjectIncomeAmount = income.reduce(
+    (sum, inc) =>
+      sum +
+      (Number(inc.totalProjectAmount || inc.expectedAmount || inc.amount) || 0),
     0
   );
   const totalReceived = income.reduce(
-    (sum, inc) => sum + (Number(inc.amount) || 0),
+    (sum, inc) => sum + (Number(inc.totalPaid || inc.amount) || 0),
     0
   );
+  const totalOutstanding = Math.max(0, totalProjectIncomeAmount - totalReceived);
   const overdueUncollected = income
-    .filter((inc) => inc.status === "overdue")
+    .filter((inc) => inc.status === "overdue" || inc.isOverdue)
     .reduce(
       (sum, inc) =>
         sum +
         Math.max(
           0,
-          (Number(inc.expectedAmount) || 0) - (Number(inc.amount) || 0)
-        ),
-      0
-    );
-  const pendingExpected = income
-    .filter((inc) => inc.status === "pending" || inc.status === "partial")
-    .reduce(
-      (sum, inc) =>
-        sum +
-        Math.max(
-          0,
-          (Number(inc.expectedAmount) || 0) - (Number(inc.amount) || 0)
+          (Number(inc.totalProjectAmount || inc.expectedAmount || inc.amount) || 0) -
+            (Number(inc.totalPaid || inc.amount) || 0)
         ),
       0
     );
@@ -3341,29 +2276,30 @@ const IncomeTab = ({
   const canCollect = (inc) =>
     inc.status !== "collected" &&
     inc.status !== "cancelled" &&
-    (Number(inc.expectedAmount) || 0) > (Number(inc.amount) || 0);
+    (Number(inc.totalProjectAmount || inc.expectedAmount || 0) >
+      (Number(inc.totalPaid || inc.amount) || 0) ||
+      (Number(inc.totalPaid || inc.amount) || 0) === 0);
 
   return (
     <div className="space-y-4 sm:space-y-5 min-w-0">
       <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-xs sm:text-sm text-emerald-900">
-        <strong>Flow:</strong> Set expected income with a due date → when money
-        arrives use <em>Collect</em> (partial or full) → past due without full
-        collection becomes <em>Overdue</em> automatically.
+        <strong>Income & Payment Flow:</strong> Flexible schedule options for <strong>Lump Sum</strong>, <strong>Monthly</strong>, and <strong>Quarterly</strong> payments. Shows date paid when collected, upcoming due date when pending, and alerts automatically if overdue.
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
-          label="Expected"
-          value={totalExpected}
+          label="Total Project Income"
+          value={totalProjectIncomeAmount}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
           icon={CurrencyDollarIcon}
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
           valueClassName="text-blue-900"
+          subtitle="Total contract value"
         />
         <MetricCard
-          label="Collected"
+          label="Total Paid / Collected"
           value={totalReceived}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
@@ -3371,20 +2307,25 @@ const IncomeTab = ({
           iconBg="bg-emerald-50"
           iconColor="text-emerald-600"
           valueClassName="text-emerald-600"
+          subtitle={`${
+            totalProjectIncomeAmount > 0
+              ? ((totalReceived / totalProjectIncomeAmount) * 100).toFixed(0)
+              : 0
+          }% collected`}
         />
         <MetricCard
-          label="Outstanding"
-          value={pendingExpected}
+          label="Outstanding / Unpaid"
+          value={totalOutstanding}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
           icon={ClockIcon}
           iconBg="bg-amber-50"
           iconColor="text-amber-600"
           valueClassName="text-amber-700"
-          subtitle="Pending + partial remaining"
+          subtitle="Remaining to collect"
         />
         <MetricCard
-          label="Overdue"
+          label="Overdue Balance"
           value={overdueUncollected}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
@@ -3392,20 +2333,21 @@ const IncomeTab = ({
           iconBg="bg-rose-50"
           iconColor="text-rose-600"
           valueClassName="text-rose-600"
+          subtitle="Requires attention"
         />
       </div>
 
       <SectionPanel
-        title="Income Collection"
-        subtitle="Expected amounts, collections, and overdue items"
+        title="Income & Payment Management"
+        subtitle="Track payment schedules (Lump sum, Monthly, Quarterly), date paid, expected due dates, and overdue cycles"
         action={
           onAddExpected ? (
             <button
               onClick={onAddExpected}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-emerald-700 rounded-lg hover:bg-emerald-800"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 shadow-sm"
             >
               <PlusIcon className="w-4 h-4" />
-              Expected Income
+              Schedule Income
             </button>
           ) : null
         }
@@ -3414,16 +2356,16 @@ const IncomeTab = ({
         {income.length === 0 ? (
           <EmptyState
             icon={ArrowTrendingUpIcon}
-            title="No expected income yet"
-            description="Set an expected income with a due date, then collect when payment arrives."
+            title="No project income records yet"
+            description="Add project income to track client collections, unpaid balances, and next payment dates."
             action={
               onAddExpected ? (
                 <button
                   onClick={onAddExpected}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 text-sm font-medium"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 text-sm font-medium shadow-sm"
                 >
                   <PlusIcon className="w-4 h-4" />
-                  Set Expected Income
+                  Schedule Income
                 </button>
               ) : null
             }
@@ -3433,103 +2375,156 @@ const IncomeTab = ({
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  {[
-                    "Income",
-                    "Category",
-                    "Expected",
-                    "Received",
-                    "Remaining",
-                    "Due",
-                    "Status",
-                    "Actions",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-3 sm:px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Client & Title
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Payment Plan
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Total Amount
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Paid / Collected
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Outstanding
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Paid / Expected Date
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-100">
+              <tbody className="bg-white divide-y divide-slate-100 text-xs sm:text-sm">
                 {income.map((inc) => {
-                  const expected = Number(inc.expectedAmount) || 0;
-                  const received = Number(inc.amount) || 0;
-                  const remaining = Math.max(0, expected - received);
+                  const totalAmt = Number(
+                    inc.totalProjectAmount || inc.expectedAmount || inc.amount || 0
+                  );
+                  const paidAmt = Number(inc.totalPaid !== undefined ? inc.totalPaid : inc.amount || 0);
+                  const unpaidAmt = Math.max(0, totalAmt - paidAmt);
+                  const rate = totalAmt > 0 ? (paidAmt / totalAmt) * 100 : 0;
+                  const isFullyPaid = paidAmt >= totalAmt && totalAmt > 0;
+                  const isOverdue = inc.status === "overdue" || inc.isOverdue;
+
                   return (
                     <tr
                       key={inc._id}
                       className="hover:bg-slate-50/80 transition-colors"
                     >
-                      <td className="px-3 sm:px-5 py-3 sm:py-4">
+                      <td className="px-3 sm:px-4 py-3 sm:py-4">
                         <Link
                           href={`/project-budget/${projectId}/income/${inc._id}`}
-                          className="text-xs sm:text-sm font-medium text-slate-900 hover:text-emerald-700 hover:underline"
+                          className="font-semibold text-slate-900 hover:text-emerald-700 hover:underline block"
                         >
-                          {inc.title}
+                          {inc.clientName ? inc.clientName : inc.title}
                         </Link>
-                        <div className="text-xs text-slate-500 truncate max-w-[12rem]">
-                          {inc.clientName || "No client"}
-                          {inc.invoiceNumber
-                            ? ` · ${inc.invoiceNumber}`
-                            : ""}
+                        <div className="text-xs text-slate-500 truncate max-w-[12rem] mt-0.5">
+                          {inc.title} {inc.invoiceNumber ? `· ${inc.invoiceNumber}` : ""}
                         </div>
                       </td>
-                      <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-600">
-                        {inc.categoryName || "—"}
+                      <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 w-fit">
+                            {formatFrequencyLabel(inc.frequency)}
+                          </span>
+                          {inc.frequency !== "lump_sum" && (
+                            <span className="text-[11px] text-slate-500">
+                              {inc.recurringDay ? `Day ${inc.recurringDay} of cycle` : ""}
+                              {inc.durationMonths ? ` · ${inc.durationMonths} mos` : ""}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
+                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-right">
                         <AmountCell
-                          amount={expected}
+                          amount={totalAmt}
                           formatCurrency={formatCurrency}
                           currencyTitle={currencyTitle}
-                          className="text-slate-800 font-semibold"
+                          className="text-slate-900 font-semibold"
                         />
-                      </td>
-                      <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
-                        <AmountCell
-                          amount={received}
-                          formatCurrency={formatCurrency}
-                          currencyTitle={currencyTitle}
-                          className="text-emerald-600 font-semibold"
-                        />
-                      </td>
-                      <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
-                        <AmountCell
-                          amount={remaining}
-                          formatCurrency={formatCurrency}
-                          currencyTitle={currencyTitle}
-                          className={
-                            remaining > 0
-                              ? "text-amber-700 font-semibold"
-                              : "text-slate-500"
-                          }
-                        />
-                      </td>
-                      <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-700">
-                        {formatDate(inc.dueDate)}
-                        {inc.daysPastDue > 0 && (
-                          <div className="text-xs text-rose-600">
-                            {inc.daysPastDue}d past due
+                        {inc.installmentAmount > 0 && inc.frequency !== "lump_sum" && (
+                          <div className="text-[11px] text-slate-400 font-normal">
+                            {formatCurrency(inc.installmentAmount)}/{inc.frequency === "monthly" ? "mo" : "qtr"}
                           </div>
                         )}
                       </td>
-                      <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap">
+                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-right">
+                        <AmountCell
+                          amount={paidAmt}
+                          formatCurrency={formatCurrency}
+                          currencyTitle={currencyTitle}
+                          className="text-emerald-600 font-bold"
+                        />
+                        <div className="text-[11px] text-slate-400 font-normal">
+                          {rate.toFixed(0)}% paid
+                        </div>
+                      </td>
+                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-right">
+                        <AmountCell
+                          amount={unpaidAmt}
+                          formatCurrency={formatCurrency}
+                          currencyTitle={currencyTitle}
+                          className={
+                            unpaidAmt > 0
+                              ? "text-amber-700 font-bold"
+                              : "text-slate-400"
+                          }
+                        />
+                      </td>
+                      <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap">
+                        {isFullyPaid && inc.receivedDate ? (
+                          <div>
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                              <CheckCircleIcon className="w-3.5 h-3.5" />
+                              Paid: {formatDate(inc.receivedDate)}
+                            </span>
+                          </div>
+                        ) : inc.nextPaymentDate ? (
+                          <div>
+                            <div className={`font-medium flex items-center gap-1 text-xs ${isOverdue ? "text-rose-600 font-bold" : "text-slate-800"}`}>
+                              <CalendarIcon className={`w-3.5 h-3.5 ${isOverdue ? "text-rose-500" : "text-blue-500"}`} />
+                              Due: {formatDate(inc.nextPaymentDate)}
+                            </div>
+                            {Number(inc.nextPaymentAmount) > 0 && (
+                              <div className="text-xs text-blue-600 font-semibold mt-0.5">
+                                {formatCurrency(inc.nextPaymentAmount)}
+                              </div>
+                            )}
+                            {isOverdue && inc.daysPastDue > 0 && (
+                              <span className="text-[11px] text-rose-600 font-semibold block">
+                                {inc.daysPastDue}d overdue
+                              </span>
+                            )}
+                          </div>
+                        ) : inc.dueDate ? (
+                          <div className="text-xs text-slate-700">
+                            Due: {formatDate(inc.dueDate)}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">Not set</span>
+                        )}
+                      </td>
+                      <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap">
                         <span
-                          className={`px-2 py-1 inline-flex text-xs font-semibold rounded-md border capitalize ${getStatusColor(
+                          className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded-md border capitalize ${getStatusColor(
                             inc.status
                           )}`}
                         >
                           {inc.status}
                         </span>
                       </td>
-                      <td className="px-3 sm:px-5 py-3 sm:py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
+                      <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-right">
+                        <div className="inline-flex items-center gap-1">
                           {canCollect(inc) && (
                             <button
                               onClick={() => onCollectIncome(inc)}
-                              className="px-2 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
+                              className="px-2.5 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors shadow-sm"
                               title="Collect payment"
                             >
                               Collect
@@ -3572,7 +2567,6 @@ const IncomeTab = ({
   );
 };
 
-// Reports Tab Component
 const ReportsTab = ({
   projectId,
   financialReports,
@@ -3623,20 +2617,20 @@ const ReportsTab = ({
   return (
     <div className="space-y-4 sm:space-y-5">
       <SectionPanel
-        title="Generate Reports"
-        subtitle="Choose a report type to refresh financial insights"
+        title="Generate Financial Reports"
+        subtitle="Export and review project budget summaries and financial health"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             {
               id: "summary",
               name: "Financial Summary",
-              description: "Overview of budget, expenses, and income",
+              description: "High-level overview of budget, expenses, and income collection",
             },
             {
               id: "utilization",
-              name: "Utilization Report",
-              description: "Detailed budget utilization with overrun alerts",
+              name: "Utilization & Overrun Report",
+              description: "Budget utilization breakdown and expense variance analysis",
             },
           ].map((report) => (
             <button
@@ -3689,316 +2683,34 @@ const ReportsTab = ({
             </div>
           }
         >
-
-          {/* Report Content Based on Type */}
           {reportType === "summary" && reportData?.financialSummary && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <MetricCard
                   label="Total Budget"
                   value={reportData.financialSummary.totalBudget}
                   formatCurrency={formatCurrency}
-                  currencyTitle={currencyTitle}
-                  icon={CurrencyDollarIcon}
-                  iconBg="bg-blue-50"
-                  iconColor="text-blue-600"
-                  valueClassName="text-blue-900"
                 />
                 <MetricCard
                   label="Total Expenses"
                   value={reportData.financialSummary.totalExpenses}
                   formatCurrency={formatCurrency}
-                  currencyTitle={currencyTitle}
-                  icon={ArrowTrendingDownIcon}
-                  iconBg="bg-red-50"
-                  iconColor="text-red-600"
-                  valueClassName="text-red-900"
                 />
                 <MetricCard
                   label="Total Income"
                   value={reportData.financialSummary.totalIncome}
                   formatCurrency={formatCurrency}
-                  currencyTitle={currencyTitle}
-                  icon={ArrowTrendingUpIcon}
-                  iconBg="bg-green-50"
-                  iconColor="text-green-600"
-                  valueClassName="text-green-900"
                 />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-4 border border-gray-200 rounded-lg">
-                  <p className="text-sm text-gray-600">Budget Utilization</p>
-                  <p className="text-xl font-bold text-black">
-                    {reportData.financialSummary.budgetUtilization?.toFixed(1)}%
-                  </p>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        reportData.financialSummary.budgetUtilization > 100
-                          ? "bg-red-500"
-                          : reportData.financialSummary.budgetUtilization > 90
-                          ? "bg-yellow-500"
-                          : "bg-blue-500"
-                      }`}
-                      style={{
-                        width: `${Math.min(
-                          reportData.financialSummary.budgetUtilization || 0,
-                          100
-                        )}%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-                <div className="p-4 border border-gray-200 rounded-lg">
-                  <p className="text-sm text-gray-600">Profit/Loss</p>
-                  <p
-                    className={`text-xl font-bold ${
-                      reportData.financialSummary.profitLoss >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {formatCurrency(reportData.financialSummary.profitLoss)}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    ROI: {reportData.financialSummary.roi?.toFixed(1)}%
-                  </p>
-                </div>
-              </div>
             </div>
           )}
-
-          {/* Utilization Report */}
-          {reportType === "utilization" && reportData && (
-            <div className="space-y-6">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-4 bg-blue-50 rounded-lg min-w-0">
-                  <p className="text-sm text-blue-600">Budget Utilization</p>
-                  <p className="text-xl font-bold text-blue-900 tabular-nums">
-                    {reportData.summary.budgetUtilization.toFixed(1)}%
-                  </p>
-                </div>
-                <div className="p-4 bg-green-50 rounded-lg min-w-0">
-                  <p className="text-sm text-green-600">Overall Score</p>
-                  <p className="text-xl font-bold text-green-900 tabular-nums">
-                    {reportData.performance.overallScore.toFixed(0)}
-                  </p>
-                </div>
-                <div className="p-4 bg-yellow-50 rounded-lg min-w-0">
-                  <p className="text-sm text-yellow-600">Active Alerts</p>
-                  <p className="text-xl font-bold text-yellow-900 tabular-nums">
-                    {reportData.alerts.length}
-                  </p>
-                </div>
-                <div className="p-4 bg-red-50 rounded-lg min-w-0 overflow-hidden">
-                  <p className="text-sm text-red-600">Overrun Amount</p>
-                  <p
-                    className="text-lg sm:text-xl font-bold text-red-900 tabular-nums truncate"
-                    title={currencyTitle(reportData.summary.overrunAmount)}
-                  >
-                    {formatCurrency(reportData.summary.overrunAmount)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Alerts Section */}
-              {reportData.alerts.length > 0 && (
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-black mb-4">
-                    Active Alerts
-                  </h4>
-                  <div className="space-y-3">
-                    {reportData.alerts.map((alert, index) => (
-                      <div
-                        key={index}
-                        className={`p-3 rounded-lg border-l-4 ${
-                          alert.severity === "high"
-                            ? "bg-red-50 border-red-400"
-                            : alert.severity === "medium"
-                            ? "bg-yellow-50 border-yellow-400"
-                            : "bg-blue-50 border-blue-400"
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p
-                              className={`font-medium text-sm ${
-                                alert.severity === "high"
-                                  ? "text-red-800"
-                                  : alert.severity === "medium"
-                                  ? "text-yellow-800"
-                                  : "text-blue-800"
-                              }`}
-                            >
-                              {alert.type.replace(/_/g, " ").toUpperCase()}
-                            </p>
-                            <p
-                              className={`text-sm ${
-                                alert.severity === "high"
-                                  ? "text-red-700"
-                                  : alert.severity === "medium"
-                                  ? "text-yellow-700"
-                                  : "text-blue-700"
-                              }`}
-                            >
-                              {alert.message}
-                            </p>
-                          </div>
-                          {alert.amount && (
-                            <span
-                              className={`text-sm font-medium ${
-                                alert.severity === "high"
-                                  ? "text-red-600"
-                                  : alert.severity === "medium"
-                                  ? "text-yellow-600"
-                                  : "text-blue-600"
-                              }`}
-                            >
-                              {formatCurrency(Math.abs(alert.amount))}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Allocation Performance */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6">
-                <h4 className="text-lg font-semibold text-black mb-4">
-                  Budget Allocation Performance
-                </h4>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Allocation
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Budget
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Spent
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Utilization
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Efficiency
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.allocations.map((allocation) => (
-                        <tr key={allocation._id}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-black">
-                              {allocation.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {allocation.category}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                            {formatCurrency(allocation.budgetedAmount)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-                            {formatCurrency(allocation.spentAmount)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                <div
-                                  className={`h-2 rounded-full ${
-                                    allocation.utilization > 100
-                                      ? "bg-red-500"
-                                      : allocation.utilization > 90
-                                      ? "bg-yellow-500"
-                                      : "bg-blue-500"
-                                  }`}
-                                  style={{
-                                    width: `${Math.min(
-                                      allocation.utilization,
-                                      100
-                                    )}%`,
-                                  }}
-                                ></div>
-                              </div>
-                              <span className="text-sm text-black">
-                                {allocation.utilization.toFixed(1)}%
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                            {allocation.efficiency.toFixed(1)}%
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(
-                                allocation.status
-                              )}`}
-                            >
-                              {allocation.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Recommendations */}
-              {reportData.recommendations.length > 0 && (
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-black mb-4">
-                    Recommendations
-                  </h4>
-                  <div className="space-y-3">
-                    {reportData.recommendations.map((rec, index) => (
-                      <div
-                        key={index}
-                        className="p-3 bg-blue-50 border border-blue-200 rounded-lg"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0">
-                            <CheckCircleIcon className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-blue-800 text-sm">
-                              {rec.type.replace(/_/g, " ").toUpperCase()} -{" "}
-                              {rec.priority.toUpperCase()} PRIORITY
-                            </p>
-                            <p className="text-blue-700 text-sm">
-                              {rec.message}
-                            </p>
-                            <p className="text-blue-600 text-xs mt-1">
-                              Action: {rec.action}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
         </SectionPanel>
       ) : (
         <SectionPanel>
           <EmptyState
             icon={ChartBarIcon}
             title="No report generated"
-            description="Select a report type above to generate financial reports."
+            description="Select a report type above to view report details."
           />
         </SectionPanel>
       )}
@@ -4006,617 +2718,135 @@ const ReportsTab = ({
   );
 };
 
-// Budget Modal Component
+// Budget Modal
 const BudgetModal = ({
   budgetForm,
-  setBudgetForm,
   budgetFormErrors,
   handleBudgetFormChange,
-  allocationForm,
-  setAllocationForm,
-  allocationFormErrors,
-  handleAllocationFormChange,
-  showAllocationModal,
-  setShowAllocationModal,
-  handleCreateBudget,
-  handleAddAllocation,
-  setShowBudgetModal,
-  resetAllocationForm,
-  milestones,
-  departments,
-  tasks,
-  activities,
-  budgetAllocationCategories,
+  onSubmit,
+  onClose,
   isEdit = false,
   actionLoading = null,
 }) => {
   const isSaving = actionLoading === "budget";
   const currency = budgetForm.currency || "ETB";
-  const totalAllocated = budgetForm.budgetAllocations.reduce(
-    (sum, alloc) => sum + (Number(alloc.amount) || 0),
-    0
-  );
-  const totalBudget = Number(budgetForm.totalAmount) || 0;
-  const remainingBudget = totalBudget - totalAllocated;
-  const overBudget = remainingBudget < -0.001;
-  const canAddAllocation =
-    totalBudget > 0 && remainingBudget > 0.001 && !isSaving;
-
-  const closeBudgetModal = () => {
-    if (isSaving) return;
-    setShowBudgetModal(false);
-  };
-
-  const closeAllocationModal = () => {
-    setShowAllocationModal(false);
-    resetAllocationForm();
-  };
 
   return (
-    <>
-      <ModalChrome
-        maxWidth="max-w-2xl"
-        title={isEdit ? "Edit Project Budget" : "Create Project Budget"}
-        subtitle="Set the total amount, approval details, and how the budget is allocated"
-        onClose={closeBudgetModal}
-        closeDisabled={isSaving}
-        footer={
-          <>
-            <button
-              onClick={closeBudgetModal}
-              disabled={isSaving}
-              className={`${cancelBtnClass} order-2 sm:order-1`}
-            >
-              Cancel
-            </button>
-            <ActionButton
-              onClick={handleCreateBudget}
-              loading={isSaving}
-              loadingText={isEdit ? "Updating…" : "Creating…"}
-              disabled={!budgetForm.totalAmount || overBudget}
-              className={`${primaryBtnClass} order-1 sm:order-2`}
-            >
-              {isEdit ? "Update Budget" : "Create Budget"}
-            </ActionButton>
-          </>
-        }
-      >
-        <BudgetAvailabilityCard
-          total={totalBudget}
-          allocated={totalAllocated}
-          remaining={remainingBudget}
-          currency={currency}
-          overBudget={overBudget}
-        />
-
-        {(overBudget || budgetFormErrors.budgetAllocations) && (
-          <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-            {budgetFormErrors.budgetAllocations ||
-              `Allocations (${formatMoneyDisplay(
-                totalAllocated,
-                currency
-              )}) exceed total budget (${formatMoneyDisplay(
-                totalBudget,
-                currency
-              )}). Reduce allocations or increase the budget.`}
-          </p>
-        )}
-
-        <div className="rounded-xl border border-slate-200 p-3 sm:p-4 space-y-3 sm:space-y-4">
-          <h4 className="text-sm font-semibold text-slate-900">
-            Budget details
-          </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div>
-              <label className={fieldLabelClass}>Total Budget Amount *</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={budgetForm.totalAmount}
-                  onChange={(e) =>
-                    handleBudgetFormChange("totalAmount", e.target.value)
-                  }
-                  disabled={isSaving}
-                  className={fieldInputClass(!!budgetFormErrors.totalAmount)}
-                  placeholder="0.00"
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
-                  {currency}
-                </span>
-              </div>
-              {budgetFormErrors.totalAmount && (
-                <p className={fieldErrorClass}>
-                  {budgetFormErrors.totalAmount}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className={fieldLabelClass}>Currency</label>
-              <select
-                value={budgetForm.currency}
+    <ModalChrome
+      maxWidth="max-w-xl"
+      title={isEdit ? "Edit Project Budget" : "Create Project Budget"}
+      subtitle="Set the total project budget amount, currency, and approval details"
+      onClose={onClose}
+      closeDisabled={isSaving}
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            disabled={isSaving}
+            className={`${cancelBtnClass} order-2 sm:order-1`}
+          >
+            Cancel
+          </button>
+          <ActionButton
+            onClick={onSubmit}
+            loading={isSaving}
+            loadingText={isEdit ? "Updating…" : "Creating…"}
+            disabled={!budgetForm.totalAmount}
+            className={`${primaryBtnClass} order-1 sm:order-2`}
+          >
+            {isEdit ? "Update Budget" : "Save Budget"}
+          </ActionButton>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div>
+            <label className={fieldLabelClass}>Total Budget Amount *</label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={budgetForm.totalAmount}
                 onChange={(e) =>
-                  handleBudgetFormChange("currency", e.target.value)
+                  handleBudgetFormChange("totalAmount", e.target.value)
                 }
                 disabled={isSaving}
-                className={fieldInputClass(!!budgetFormErrors.currency)}
-              >
-                <option value="ETB">ETB - Ethiopian Birr</option>
-              </select>
-              {budgetFormErrors.currency && (
-                <p className={fieldErrorClass}>{budgetFormErrors.currency}</p>
-              )}
+                className={fieldInputClass(!!budgetFormErrors.totalAmount)}
+                placeholder="0.00"
+                required
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
+                {currency}
+              </span>
             </div>
-          </div>
-
-          <div>
-            <label className={fieldLabelClass}>Description</label>
-            <textarea
-              value={budgetForm.description}
-              onChange={(e) =>
-                handleBudgetFormChange("description", e.target.value)
-              }
-              rows={2}
-              disabled={isSaving}
-              className={fieldInputClass(!!budgetFormErrors.description)}
-              placeholder="What this budget covers…"
-            />
-            {budgetFormErrors.description && (
-              <p className={fieldErrorClass}>
-                {budgetFormErrors.description}
-              </p>
+            {budgetFormErrors.totalAmount && (
+              <p className={fieldErrorClass}>{budgetFormErrors.totalAmount}</p>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div>
-              <label className={fieldLabelClass}>Approved By</label>
-              <input
-                type="text"
-                value={budgetForm.approvedBy}
-                onChange={(e) =>
-                  handleBudgetFormChange("approvedBy", e.target.value)
-                }
-                disabled={isSaving}
-                className={fieldInputClass(!!budgetFormErrors.approvedBy)}
-                placeholder="Approver name"
-              />
-              {budgetFormErrors.approvedBy && (
-                <p className={fieldErrorClass}>
-                  {budgetFormErrors.approvedBy}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className={fieldLabelClass}>Approval Date</label>
-              <input
-                type="date"
-                value={budgetForm.approvalDate}
-                max={todayInputValue()}
-                onChange={(e) =>
-                  handleBudgetFormChange("approvalDate", e.target.value)
-                }
-                disabled={isSaving}
-                className={fieldInputClass(!!budgetFormErrors.approvalDate)}
-              />
-              {budgetFormErrors.approvalDate ? (
-                <p className={fieldErrorClass}>
-                  {budgetFormErrors.approvalDate}
-                </p>
-              ) : (
-                <p className="text-xs text-slate-500 mt-1">
-                  Cannot be a future date
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 p-3 sm:p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-            <div>
-              <h4 className="text-sm font-semibold text-slate-900">
-                Budget Allocations
-              </h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Split the budget across categories or teams
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                resetAllocationForm();
-                setShowAllocationModal(true);
-              }}
-              disabled={!canAddAllocation}
-              title={
-                !totalBudget
-                  ? "Enter a total budget first"
-                  : remainingBudget <= 0
-                  ? "No available budget remaining"
-                  : "Add allocation"
+          <div>
+            <label className={fieldLabelClass}>Currency</label>
+            <select
+              value={budgetForm.currency}
+              onChange={(e) =>
+                handleBudgetFormChange("currency", e.target.value)
               }
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 self-start sm:self-auto transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSaving}
+              className={fieldInputClass(!!budgetFormErrors.currency)}
             >
-              <PlusIcon className="w-4 h-4" />
-              Add Allocation
-            </button>
+              <option value="ETB">ETB - Ethiopian Birr</option>
+              <option value="USD">USD - US Dollar</option>
+            </select>
           </div>
-
-          {budgetForm.budgetAllocations.length > 0 ? (
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
-              {budgetForm.budgetAllocations.map((allocation, index) => (
-                <div
-                  key={allocation._id || index}
-                  className="flex items-start sm:items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm text-slate-900 truncate">
-                      {allocation.name}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {allocation.category || "General"}
-                      {allocation.startDate || allocation.endDate
-                        ? ` · ${
-                            toDateInputValue(allocation.startDate) || "…"
-                          } → ${toDateInputValue(allocation.endDate) || "…"}`
-                        : ""}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="font-semibold text-sm text-slate-800 tabular-nums">
-                      {formatMoneyDisplay(allocation.amount, currency)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBudgetForm((prev) => ({
-                          ...prev,
-                          budgetAllocations: prev.budgetAllocations.filter(
-                            (_, i) => i !== index
-                          ),
-                        }));
-                      }}
-                      disabled={isSaving}
-                      className="p-1.5 rounded-md text-rose-600 hover:bg-rose-50 hover:text-rose-800 disabled:opacity-50"
-                      aria-label="Remove allocation"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-4 py-6 text-center">
-              <p className="text-sm text-slate-600">No allocations yet</p>
-              <p className="text-xs text-slate-500 mt-1">
-                Optional — you can allocate now or later
-              </p>
-            </div>
-          )}
         </div>
-      </ModalChrome>
 
-      {showAllocationModal && (
-        <ModalChrome
-          nested
-          maxWidth="max-w-lg"
-          title="Add Budget Allocation"
-          subtitle="Use only the remaining available budget"
-          onClose={closeAllocationModal}
-          footer={
-            <>
-              <button
-                onClick={closeAllocationModal}
-                className={`${cancelBtnClass} order-2 sm:order-1`}
-              >
-                Cancel
-              </button>
-              <ActionButton
-                onClick={handleAddAllocation}
-                loading={false}
-                disabled={
-                  !allocationForm.name ||
-                  !allocationForm.amount ||
-                  remainingBudget <= 0
-                }
-                className={`${primaryBtnClass} order-1 sm:order-2`}
-              >
-                Add Allocation
-              </ActionButton>
-            </>
-          }
-        >
-          <BudgetAvailabilityCard
-            total={totalBudget}
-            allocated={totalAllocated}
-            remaining={remainingBudget}
-            currency={currency}
-            overBudget={overBudget}
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="sm:col-span-2">
-              <label className={fieldLabelClass}>Allocation Name *</label>
-              <input
-                type="text"
-                value={allocationForm.name}
-                onChange={(e) =>
-                  handleAllocationFormChange("name", e.target.value)
-                }
-                className={fieldInputClass(!!allocationFormErrors.name)}
-                placeholder="e.g., Development Team"
-              />
-              {allocationFormErrors.name && (
-                <p className={fieldErrorClass}>{allocationFormErrors.name}</p>
-              )}
-            </div>
-
-            <div>
-              <label className={fieldLabelClass}>Category</label>
-              <select
-                value={allocationForm.categoryId}
-                onChange={(e) => {
-                  const cat = budgetAllocationCategories.find(
-                    (c) => String(c._id) === e.target.value
-                  );
-                  setAllocationForm((prev) => ({
-                    ...prev,
-                    categoryId: e.target.value,
-                    category: cat?.name || prev.category,
-                  }));
-                }}
-                className={fieldInputClass()}
-              >
-                <option value="">Select Category</option>
-                {budgetAllocationCategories.map((category) => (
-                  <option key={category._id} value={category._id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className={fieldLabelClass}>Amount *</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  max={Math.max(remainingBudget, 0.01)}
-                  value={allocationForm.amount}
-                  onChange={(e) =>
-                    handleAllocationFormChange("amount", e.target.value)
-                  }
-                  className={fieldInputClass(!!allocationFormErrors.amount)}
-                  placeholder="0.00"
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
-                  {currency}
-                </span>
-              </div>
-              {allocationFormErrors.amount ? (
-                <p className={fieldErrorClass}>{allocationFormErrors.amount}</p>
-              ) : (
-                <p className="text-xs text-slate-500 mt-1">
-                  Max:{" "}
-                  {formatMoneyDisplay(Math.max(remainingBudget, 0), currency)}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div>
-              <label className={fieldLabelClass}>Allocation Type</label>
-              <select
-                value={allocationForm.allocationType}
-                onChange={(e) =>
-                  handleAllocationFormChange("allocationType", e.target.value)
-                }
-                className={fieldInputClass(
-                  !!allocationFormErrors.allocationType
-                )}
-              >
-                <option value="general">General</option>
-                <option value="department">Department</option>
-                <option value="task">Task</option>
-                <option value="activity">Activity</option>
-                <option value="milestone">Milestone</option>
-              </select>
-            </div>
-
-            <div>
-              <label className={fieldLabelClass}>Priority</label>
-              <select
-                value={allocationForm.priority}
-                onChange={(e) =>
-                  handleAllocationFormChange("priority", e.target.value)
-                }
-                className={fieldInputClass()}
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
-              </select>
-            </div>
-          </div>
-
-          {allocationForm.allocationType === "department" && (
-            <div>
-              <label className={fieldLabelClass}>Department *</label>
-              <select
-                value={allocationForm.departmentId}
-                onChange={(e) =>
-                  handleAllocationFormChange("departmentId", e.target.value)
-                }
-                className={fieldInputClass(!!allocationFormErrors.departmentId)}
-              >
-                <option value="">Select Department</option>
-                {departments.map((dept) => (
-                  <option key={dept._id} value={dept._id}>
-                    {dept.name}
-                  </option>
-                ))}
-              </select>
-              {allocationFormErrors.departmentId ? (
-                <p className={fieldErrorClass}>
-                  {allocationFormErrors.departmentId}
-                </p>
-              ) : departments.length === 0 ? (
-                <p className="text-xs text-slate-500 mt-1">
-                  No departments found. Create departments first.
-                </p>
-              ) : null}
-            </div>
-          )}
-
-          {allocationForm.allocationType === "task" && (
-            <div>
-              <label className={fieldLabelClass}>Task *</label>
-              <select
-                value={allocationForm.taskId}
-                onChange={(e) =>
-                  handleAllocationFormChange("taskId", e.target.value)
-                }
-                className={fieldInputClass(!!allocationFormErrors.taskId)}
-              >
-                <option value="">Select Task</option>
-                {tasks.map((task) => (
-                  <option key={task._id} value={task._id}>
-                    {task.title || task.name || "Untitled"}
-                  </option>
-                ))}
-              </select>
-              {allocationFormErrors.taskId ? (
-                <p className={fieldErrorClass}>{allocationFormErrors.taskId}</p>
-              ) : tasks.length === 0 ? (
-                <p className="text-xs text-slate-500 mt-1">
-                  No tasks found. Create tasks first.
-                </p>
-              ) : null}
-            </div>
-          )}
-
-          {allocationForm.allocationType === "activity" && (
-            <div>
-              <label className={fieldLabelClass}>Activity *</label>
-              <select
-                value={allocationForm.activityId}
-                onChange={(e) =>
-                  handleAllocationFormChange("activityId", e.target.value)
-                }
-                className={fieldInputClass(!!allocationFormErrors.activityId)}
-              >
-                <option value="">Select Activity</option>
-                {activities.map((activity) => (
-                  <option key={activity._id} value={activity._id}>
-                    {activity.name}
-                  </option>
-                ))}
-              </select>
-              {allocationFormErrors.activityId ? (
-                <p className={fieldErrorClass}>
-                  {allocationFormErrors.activityId}
-                </p>
-              ) : activities.length === 0 ? (
-                <p className="text-xs text-slate-500 mt-1">
-                  No activities found. Create activities first.
-                </p>
-              ) : null}
-            </div>
-          )}
-
-          {allocationForm.allocationType === "milestone" && (
-            <div>
-              <label className={fieldLabelClass}>Milestone *</label>
-              <select
-                value={allocationForm.milestoneId}
-                onChange={(e) =>
-                  handleAllocationFormChange("milestoneId", e.target.value)
-                }
-                className={fieldInputClass(!!allocationFormErrors.milestoneId)}
-              >
-                <option value="">Select Milestone</option>
-                {milestones.map((milestone) => (
-                  <option key={milestone._id} value={milestone._id}>
-                    {milestone.title || milestone.name || "Untitled"}
-                  </option>
-                ))}
-              </select>
-              {allocationFormErrors.milestoneId ? (
-                <p className={fieldErrorClass}>
-                  {allocationFormErrors.milestoneId}
-                </p>
-              ) : milestones.length === 0 ? (
-                <p className="text-xs text-slate-500 mt-1">
-                  No milestones found. Create milestones first.
-                </p>
-              ) : null}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div>
-              <label className={fieldLabelClass}>Start Date</label>
-              <input
-                type="date"
-                value={allocationForm.startDate}
-                onChange={(e) =>
-                  handleAllocationFormChange("startDate", e.target.value)
-                }
-                className={fieldInputClass(!!allocationFormErrors.startDate)}
-              />
-              {allocationFormErrors.startDate && (
-                <p className={fieldErrorClass}>
-                  {allocationFormErrors.startDate}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className={fieldLabelClass}>End Date</label>
-              <input
-                type="date"
-                value={allocationForm.endDate}
-                min={allocationForm.startDate || undefined}
-                onChange={(e) =>
-                  handleAllocationFormChange("endDate", e.target.value)
-                }
-                className={fieldInputClass(!!allocationFormErrors.endDate)}
-              />
-              {allocationFormErrors.endDate ? (
-                <p className={fieldErrorClass}>
-                  {allocationFormErrors.endDate}
-                </p>
-              ) : (
-                <p className="text-xs text-slate-500 mt-1">
-                  Must be on or after start date
-                </p>
-              )}
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div>
+            <label className={fieldLabelClass}>Approved By</label>
+            <input
+              type="text"
+              value={budgetForm.approvedBy}
+              onChange={(e) =>
+                handleBudgetFormChange("approvedBy", e.target.value)
+              }
+              disabled={isSaving}
+              className={fieldInputClass(!!budgetFormErrors.approvedBy)}
+              placeholder="e.g., Executive Committee"
+            />
           </div>
 
           <div>
-            <label className={fieldLabelClass}>Description</label>
-            <textarea
-              value={allocationForm.description}
+            <label className={fieldLabelClass}>Approval Date</label>
+            <input
+              type="date"
+              value={budgetForm.approvalDate}
+              max={todayInputValue()}
               onChange={(e) =>
-                handleAllocationFormChange("description", e.target.value)
+                handleBudgetFormChange("approvalDate", e.target.value)
               }
-              rows={2}
-              className={fieldInputClass()}
-              placeholder="Allocation description…"
+              disabled={isSaving}
+              className={fieldInputClass(!!budgetFormErrors.approvalDate)}
             />
           </div>
-        </ModalChrome>
-      )}
-    </>
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Budget Description / Scope</label>
+          <textarea
+            value={budgetForm.description}
+            onChange={(e) =>
+              handleBudgetFormChange("description", e.target.value)
+            }
+            rows={3}
+            disabled={isSaving}
+            className={fieldInputClass(!!budgetFormErrors.description)}
+            placeholder="Explain what this budget covers for the project…"
+          />
+        </div>
+      </div>
+    </ModalChrome>
   );
 };
 
@@ -4626,49 +2856,40 @@ const ExpenseModal = ({
   setExpenseForm,
   expenseFormErrors,
   handleExpenseFormChange,
-  budgetData,
-  budgetAllocationCategories,
+  budgetAllocationCategories = [],
   onSubmit,
-  setShowExpenseModal,
-  setEditingExpenseId,
-  resetExpenseForm,
+  onClose,
   isEdit = false,
   actionLoading = null,
 }) => {
   const isSaving = actionLoading === "expense";
-  const addTag = () => {
-    setExpenseForm((prev) => ({
-      ...prev,
-      tags: [...prev.tags, ""],
-    }));
-  };
 
-  const updateTag = (index, value) => {
-    setExpenseForm((prev) => ({
-      ...prev,
-      tags: prev.tags.map((tag, i) => (i === index ? value : tag)),
-    }));
-  };
-
-  const removeTag = (index) => {
-    setExpenseForm((prev) => ({
-      ...prev,
-      tags: prev.tags.filter((_, i) => i !== index),
-    }));
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        showErrorToast("Receipt image must be under 5MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        handleExpenseFormChange("receiptUrl", reader.result);
+        handleExpenseFormChange("receiptImage", reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
     <ModalChrome
-      title={isEdit ? "Edit Expense" : "Add New Expense"}
-      subtitle="Enter amount and date carefully — both are validated"
+      title={isEdit ? "Edit Expense" : "Record New Expense"}
+      subtitle="Enter amount, reason, vendor, date, and upload receipt image"
+      onClose={onClose}
+      closeDisabled={isSaving}
       footer={
         <>
           <button
-            onClick={() => {
-              if (isSaving) return;
-              setShowExpenseModal(false);
-              if (isEdit) setEditingExpenseId(null);
-            }}
+            onClick={onClose}
             disabled={isSaving}
             className={`${cancelBtnClass} order-2 sm:order-1`}
           >
@@ -4695,7 +2916,7 @@ const ExpenseModal = ({
             onChange={(e) => handleExpenseFormChange("title", e.target.value)}
             disabled={isSaving}
             className={fieldInputClass(!!expenseFormErrors.title)}
-            placeholder="e.g., Office Supplies"
+            placeholder="e.g., Drone Survey Fuel & Equipment"
             required
           />
           {expenseFormErrors.title && (
@@ -4704,7 +2925,7 @@ const ExpenseModal = ({
         </div>
 
         <div>
-          <label className={fieldLabelClass}>Amount *</label>
+          <label className={fieldLabelClass}>Amount (ETB) *</label>
           <input
             type="number"
             step="0.01"
@@ -4722,32 +2943,11 @@ const ExpenseModal = ({
         </div>
 
         <div>
-          <label className={fieldLabelClass}>Category</label>
-          <select
-            value={expenseForm.categoryId}
-            onChange={(e) =>
-              handleExpenseFormChange("categoryId", e.target.value)
-            }
-            disabled={isSaving}
-            className={fieldInputClass(!!expenseFormErrors.categoryId)}
-          >
-            <option value="">Select Category</option>
-            {budgetAllocationCategories.map((category) => (
-              <option key={category._id} value={category._id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          {expenseFormErrors.category && (
-            <p className={fieldErrorClass}>{expenseFormErrors.category}</p>
-          )}
-        </div>
-
-        <div>
           <label className={fieldLabelClass}>Expense Date *</label>
           <input
             type="date"
             value={expenseForm.expenseDate}
+            max={todayInputValue()}
             onChange={(e) =>
               handleExpenseFormChange("expenseDate", e.target.value)
             }
@@ -4760,35 +2960,50 @@ const ExpenseModal = ({
         </div>
 
         <div>
-          <label className={fieldLabelClass}>Budget Allocation</label>
-          <select
-            value={expenseForm.allocationId}
-            onChange={(e) =>
-              handleExpenseFormChange("allocationId", e.target.value)
-            }
+          <label className={fieldLabelClass}>Reason for Expense</label>
+          <input
+            type="text"
+            value={expenseForm.reason}
+            onChange={(e) => handleExpenseFormChange("reason", e.target.value)}
             disabled={isSaving}
             className={fieldInputClass()}
-          >
-            <option value="">No specific allocation</option>
-            {budgetData?.allocations?.map((allocation) => (
-              <option key={allocation._id} value={allocation._id}>
-                {allocation.name || allocation.category} (
-                {allocation.budgetedAmount} ETB)
-              </option>
-            ))}
-          </select>
+            placeholder="e.g., Field site travel & lodging"
+          />
         </div>
 
         <div>
-          <label className={fieldLabelClass}>Vendor</label>
+          <label className={fieldLabelClass}>Vendor / Supplier</label>
           <input
             type="text"
             value={expenseForm.vendor}
             onChange={(e) => handleExpenseFormChange("vendor", e.target.value)}
             disabled={isSaving}
             className={fieldInputClass()}
-            placeholder="Vendor name"
+            placeholder="e.g., Total Ethiopia / Tech Supplier"
           />
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Category</label>
+          <select
+            value={expenseForm.categoryId || ""}
+            onChange={(e) => {
+              const cat = budgetAllocationCategories.find(
+                (c) => String(c._id) === e.target.value
+              );
+              handleExpenseFormChange("categoryId", e.target.value);
+              handleExpenseFormChange("category", cat?.name || "general");
+            }}
+            disabled={isSaving}
+            className={fieldInputClass()}
+          >
+            <option value="">Select Category</option>
+            {budgetAllocationCategories.map((cat) => (
+              <option key={cat._id} value={cat._id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -4806,18 +3021,45 @@ const ExpenseModal = ({
           </select>
         </div>
 
-        <div>
-          <label className={fieldLabelClass}>Receipt URL</label>
-          <input
-            type="url"
-            value={expenseForm.receiptUrl}
-            onChange={(e) =>
-              handleExpenseFormChange("receiptUrl", e.target.value)
-            }
-            disabled={isSaving}
-            className={fieldInputClass()}
-            placeholder="https://..."
-          />
+        {/* Receipt Image Upload with Preview */}
+        <div className="sm:col-span-2">
+          <label className={fieldLabelClass}>Receipt Image Upload</label>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium text-slate-700 transition-colors">
+              <PhotoIcon className="w-4 h-4 text-slate-600" />
+              <span>Choose Image (PNG/JPG)</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageFileChange}
+                className="hidden"
+                disabled={isSaving}
+              />
+            </label>
+            {expenseForm.receiptUrl && (
+              <div className="relative inline-flex items-center gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                <img
+                  src={expenseForm.receiptUrl}
+                  alt="Receipt thumbnail"
+                  className="h-10 w-10 object-cover rounded"
+                />
+                <span className="text-xs text-emerald-700 font-medium">
+                  Receipt attached
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleExpenseFormChange("receiptUrl", "");
+                    handleExpenseFormChange("receiptImage", "");
+                  }}
+                  className="p-1 text-rose-600 hover:bg-rose-50 rounded"
+                  title="Remove receipt"
+                >
+                  <XMarkIcon className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="sm:col-span-2">
@@ -4827,73 +3069,42 @@ const ExpenseModal = ({
             onChange={(e) =>
               handleExpenseFormChange("description", e.target.value)
             }
-            rows={3}
+            rows={2}
             disabled={isSaving}
-            className={fieldInputClass(!!expenseFormErrors.description)}
-            placeholder="Expense description..."
+            className={fieldInputClass()}
+            placeholder="Additional notes for this expense…"
           />
-          {expenseFormErrors.description && (
-            <p className={fieldErrorClass}>{expenseFormErrors.description}</p>
-          )}
-        </div>
-
-        <div className="sm:col-span-2">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-2">
-            <label className={fieldLabelClass + " mb-0"}>Tags</label>
-            <button
-              type="button"
-              onClick={addTag}
-              disabled={isSaving}
-              className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 self-start sm:self-auto disabled:opacity-50"
-            >
-              + Add Tag
-            </button>
-          </div>
-          <div className="space-y-2">
-            {expenseForm.tags.map((tag, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  type="text"
-                  value={tag}
-                  onChange={(e) => updateTag(index, e.target.value)}
-                  disabled={isSaving}
-                  className={`flex-1 ${fieldInputClass()}`}
-                  placeholder="Tag name"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeTag(index)}
-                  disabled={isSaving}
-                  className="px-3 py-2 text-rose-600 hover:text-rose-800 disabled:opacity-50"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </ModalChrome>
   );
 };
 
-// Income Modal Component
+// Full Income Modal (Supports Lump Sum, Monthly, Quarterly with Day & Duration)
 const IncomeModal = ({
   incomeForm,
   incomeFormErrors = {},
   handleIncomeFormChange,
-  incomeCategories,
+  projectName,
+  incomeCategories = [],
   onSubmit,
   onClose,
   isEdit,
   actionLoading = null,
 }) => {
   const isSaving = actionLoading === "income";
+  const frequency = incomeForm.frequency || "lump_sum";
+  const totalAmt = Number(incomeForm.totalProjectAmount || incomeForm.expectedAmount) || 0;
+  const paidAmt = Number(incomeForm.totalPaid !== undefined ? incomeForm.totalPaid : incomeForm.amount) || 0;
+  const isPaid = paidAmt >= totalAmt && totalAmt > 0;
 
   return (
     <ModalChrome
-      title={isEdit ? "Edit Income/Payment" : "Add New Income/Payment"}
-      subtitle="Amounts and dates are validated before saving"
+      maxWidth="max-w-2xl"
+      title={isEdit ? "Edit Project Income" : "Add Project Income"}
+      subtitle="Configure payment schedule: Lump Sum, Monthly, or Quarterly with automated recurring days & duration"
+      onClose={onClose}
+      closeDisabled={isSaving}
       footer={
         <>
           <button
@@ -4907,42 +3118,50 @@ const IncomeModal = ({
             onClick={onSubmit}
             loading={isSaving}
             loadingText={isEdit ? "Saving…" : "Adding…"}
-            disabled={
-              isEdit
-                ? !incomeForm.title ||
-                  !incomeForm.amount ||
-                  !incomeForm.expectedAmount ||
-                  !incomeForm.clientName ||
-                  !incomeForm.paymentMethod ||
-                  !incomeForm.status ||
-                  !incomeForm.receivedDate ||
-                  !incomeForm.dueDate ||
-                  !incomeForm.invoiceNumber ||
-                  !incomeForm.paymentReference
-                : !incomeForm.title ||
-                  (!incomeForm.amount && !incomeForm.expectedAmount)
-            }
+            disabled={!incomeForm.title}
             className={`w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 order-1 sm:order-2 ${
               isEdit
                 ? "bg-blue-600 hover:bg-blue-700"
                 : "bg-emerald-600 hover:bg-emerald-700"
             }`}
           >
-            {isEdit ? "Save Changes" : "Add Income"}
+            {isEdit ? "Save Changes" : "Record Income"}
           </ActionButton>
         </>
       }
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div>
+          <label className={fieldLabelClass}>Client Name</label>
+          <input
+            type="text"
+            value={incomeForm.clientName}
+            onChange={(e) => handleIncomeFormChange("clientName", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass(!!incomeFormErrors.clientName)}
+            placeholder="e.g., Ethiopian Forestry Commission"
+          />
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Project Name</label>
+          <input
+            type="text"
+            value={projectName || incomeForm.projectName || ""}
+            disabled
+            className="w-full px-3 py-2.5 border border-slate-200 bg-slate-100 rounded-lg text-sm text-slate-600 cursor-not-allowed"
+          />
+        </div>
+
         <div className="sm:col-span-2">
-          <label className={fieldLabelClass}>Income Title *</label>
+          <label className={fieldLabelClass}>Income Title / Milestone *</label>
           <input
             type="text"
             value={incomeForm.title}
             onChange={(e) => handleIncomeFormChange("title", e.target.value)}
             disabled={isSaving}
             className={fieldInputClass(!!incomeFormErrors.title)}
-            placeholder="e.g., Project Payment - Phase 1"
+            placeholder="e.g., GIS Mapping Phase 1"
             required
           />
           {incomeFormErrors.title && (
@@ -4950,85 +3169,173 @@ const IncomeModal = ({
           )}
         </div>
 
-        <div>
-          <label className={fieldLabelClass}>Amount</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0.01"
-            value={incomeForm.amount}
-            onChange={(e) => handleIncomeFormChange("amount", e.target.value)}
-            disabled={isSaving}
-            className={fieldInputClass(!!incomeFormErrors.amount)}
-            placeholder="0.00"
-            required={isEdit}
-          />
-          {incomeFormErrors.amount && (
-            <p className={fieldErrorClass}>{incomeFormErrors.amount}</p>
+        {/* Schedule Type / Frequency */}
+        <div className="sm:col-span-2 bg-slate-50 border border-slate-200 p-3.5 rounded-xl space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <label className="text-xs sm:text-sm font-semibold text-slate-800">
+                Payment Plan / Schedule Type *
+              </label>
+              <p className="text-xs text-slate-500">
+                Select whether payment will be collected as a lump sum or recurring monthly/quarterly installments
+              </p>
+            </div>
+            <select
+              value={incomeForm.frequency || "lump_sum"}
+              onChange={(e) => handleIncomeFormChange("frequency", e.target.value)}
+              disabled={isSaving}
+              className="px-3 py-2 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500"
+            >
+              {PAYMENT_FREQUENCIES.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* If Monthly or Quarterly: Show Day of Month and Duration in Months */}
+          {frequency !== "lump_sum" && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/80">
+              <div>
+                <label className={fieldLabelClass}>
+                  {frequency === "monthly" ? "Day of the Month (1-31)" : "Day of Quarter"} *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={incomeForm.recurringDay || "15"}
+                  onChange={(e) => handleIncomeFormChange("recurringDay", e.target.value)}
+                  disabled={isSaving}
+                  className={fieldInputClass()}
+                  placeholder="e.g., 15"
+                />
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Payment expected on day {incomeForm.recurringDay || 15}
+                </p>
+              </div>
+
+              <div>
+                <label className={fieldLabelClass}>Duration (Months) *</label>
+                <select
+                  value={incomeForm.durationMonths || "12"}
+                  onChange={(e) => handleIncomeFormChange("durationMonths", e.target.value)}
+                  disabled={isSaving}
+                  className={fieldInputClass()}
+                >
+                  <option value="3">3 Months (1 Quarter)</option>
+                  <option value="6">6 Months (Half Year)</option>
+                  <option value="12">12 Months (1 Year)</option>
+                  <option value="24">24 Months (2 Years)</option>
+                  <option value="36">36 Months (3 Years)</option>
+                </select>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Length of expected payments
+                </p>
+              </div>
+
+              <div>
+                <label className={fieldLabelClass}>Amount per {frequency === "monthly" ? "Month" : "Quarter"}</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={incomeForm.installmentAmount || ""}
+                  onChange={(e) => handleIncomeFormChange("installmentAmount", e.target.value)}
+                  disabled={isSaving}
+                  className={fieldInputClass()}
+                  placeholder="0.00"
+                />
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  ETB per installment cycle
+                </p>
+              </div>
+            </div>
           )}
         </div>
 
         <div>
-          <label className={fieldLabelClass}>Category</label>
-          <select
-            value={incomeForm.categoryId}
-            onChange={(e) =>
-              handleIncomeFormChange("categoryId", e.target.value)
-            }
-            disabled={isSaving}
-            className={fieldInputClass()}
-          >
-            <option value="">Select Category</option>
-            {incomeCategories.map((category) => (
-              <option key={category._id} value={category._id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>Expected Amount</label>
+          <label className={fieldLabelClass}>Total Project / Contract Amount (ETB) *</label>
           <input
             type="number"
             step="0.01"
             min="0.01"
-            value={incomeForm.expectedAmount}
-            onChange={(e) =>
-              handleIncomeFormChange("expectedAmount", e.target.value)
-            }
+            value={incomeForm.totalProjectAmount || incomeForm.expectedAmount}
+            onChange={(e) => {
+              handleIncomeFormChange("totalProjectAmount", e.target.value);
+              handleIncomeFormChange("expectedAmount", e.target.value);
+            }}
             disabled={isSaving}
             className={fieldInputClass(!!incomeFormErrors.expectedAmount)}
             placeholder="0.00"
-            required={isEdit}
+            required
           />
           {incomeFormErrors.expectedAmount && (
-            <p className={fieldErrorClass}>
-              {incomeFormErrors.expectedAmount}
+            <p className={fieldErrorClass}>{incomeFormErrors.expectedAmount}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Total Amount Paid so far (ETB)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={incomeForm.totalPaid !== undefined ? incomeForm.totalPaid : incomeForm.amount}
+            onChange={(e) => {
+              handleIncomeFormChange("totalPaid", e.target.value);
+              handleIncomeFormChange("amount", e.target.value);
+            }}
+            disabled={isSaving}
+            className={fieldInputClass(!!incomeFormErrors.amount)}
+            placeholder="0.00"
+          />
+          {isPaid && (
+            <p className="text-xs text-emerald-600 font-medium mt-1">
+              ✓ Fully paid
             </p>
           )}
         </div>
 
         <div>
-          <label className={fieldLabelClass}>Client Name</label>
+          <label className={fieldLabelClass}>
+            {isPaid ? "Date Paid *" : "Received Date (if partially paid)"}
+          </label>
           <input
-            type="text"
-            value={incomeForm.clientName}
+            type="date"
+            value={incomeForm.receivedDate}
+            max={todayInputValue()}
             onChange={(e) =>
-              handleIncomeFormChange("clientName", e.target.value)
+              handleIncomeFormChange("receivedDate", e.target.value)
             }
             disabled={isSaving}
-            className={fieldInputClass(!!incomeFormErrors.clientName)}
-            placeholder="Client name"
-            required={isEdit}
+            className={fieldInputClass(!!incomeFormErrors.receivedDate)}
           />
-          {incomeFormErrors.clientName && (
-            <p className={fieldErrorClass}>{incomeFormErrors.clientName}</p>
-          )}
         </div>
 
         <div>
-          <label className={fieldLabelClass}>Payment Method</label>
+          <label className={fieldLabelClass}>
+            {frequency !== "lump_sum"
+              ? "Next Expected Installment Date"
+              : "Due / Expected Arrival Date *"}
+          </label>
+          <input
+            type="date"
+            value={incomeForm.nextPaymentDate || incomeForm.dueDate}
+            onChange={(e) => {
+              handleIncomeFormChange("nextPaymentDate", e.target.value);
+              handleIncomeFormChange("dueDate", e.target.value);
+            }}
+            disabled={isSaving}
+            className={fieldInputClass(!!incomeFormErrors.nextPaymentDate)}
+          />
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            Will automatically show as Pending, and turn Overdue when date passes
+          </p>
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Collection Method</label>
           <select
             value={incomeForm.paymentMethod}
             onChange={(e) =>
@@ -5036,71 +3343,17 @@ const IncomeModal = ({
             }
             disabled={isSaving}
             className={fieldInputClass()}
-            required={isEdit}
           >
-            <option value="bank_transfer">Bank Transfer</option>
-            <option value="credit_card">Credit Card</option>
-            <option value="paypal">PayPal</option>
-            <option value="check">Check</option>
-            <option value="cash">Cash</option>
-            <option value="wire_transfer">Wire Transfer</option>
-            <option value="other">Other</option>
+            {PAYMENT_METHODS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
           </select>
         </div>
 
         <div>
-          <label className={fieldLabelClass}>Status</label>
-          <select
-            value={incomeForm.status}
-            onChange={(e) => handleIncomeFormChange("status", e.target.value)}
-            disabled={isSaving}
-            className={fieldInputClass()}
-          >
-            <option value="pending">Pending (auto)</option>
-            <option value="partial">Partial (auto)</option>
-            <option value="collected">Collected (auto)</option>
-            <option value="overdue">Overdue (auto)</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <p className="text-xs text-slate-500 mt-1">
-            Status is usually set by Collect. Use Cancelled only to stop tracking.
-          </p>
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>Received Date</label>
-          <input
-            type="date"
-            value={incomeForm.receivedDate}
-            onChange={(e) =>
-              handleIncomeFormChange("receivedDate", e.target.value)
-            }
-            disabled={isSaving}
-            className={fieldInputClass(!!incomeFormErrors.receivedDate)}
-            required={isEdit}
-          />
-          {incomeFormErrors.receivedDate && (
-            <p className={fieldErrorClass}>{incomeFormErrors.receivedDate}</p>
-          )}
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>Due Date</label>
-          <input
-            type="date"
-            value={incomeForm.dueDate}
-            onChange={(e) => handleIncomeFormChange("dueDate", e.target.value)}
-            disabled={isSaving}
-            className={fieldInputClass(!!incomeFormErrors.dueDate)}
-            required={isEdit}
-          />
-          {incomeFormErrors.dueDate && (
-            <p className={fieldErrorClass}>{incomeFormErrors.dueDate}</p>
-          )}
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>Invoice Number</label>
+          <label className={fieldLabelClass}>Invoice / Contract Number</label>
           <input
             type="text"
             value={incomeForm.invoiceNumber}
@@ -5110,48 +3363,250 @@ const IncomeModal = ({
             disabled={isSaving}
             className={fieldInputClass()}
             placeholder="INV-001"
-            required={isEdit}
-          />
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>Payment Reference</label>
-          <input
-            type="text"
-            value={incomeForm.paymentReference}
-            onChange={(e) =>
-              handleIncomeFormChange("paymentReference", e.target.value)
-            }
-            disabled={isSaving}
-            className={fieldInputClass()}
-            placeholder="Transaction ID or reference"
-            required={isEdit}
           />
         </div>
 
         <div className="sm:col-span-2">
-          <label className={fieldLabelClass}>Description</label>
-          <textarea
-            value={incomeForm.description}
-            onChange={(e) =>
-              handleIncomeFormChange("description", e.target.value)
-            }
-            disabled={isSaving}
-            rows={3}
-            className={fieldInputClass()}
-            placeholder="Income description..."
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className={fieldLabelClass}>Notes</label>
+          <label className={fieldLabelClass}>Notes / Payment Terms</label>
           <textarea
             value={incomeForm.notes}
             onChange={(e) => handleIncomeFormChange("notes", e.target.value)}
             disabled={isSaving}
             rows={2}
             className={fieldInputClass()}
-            placeholder="Additional notes..."
+            placeholder="e.g., Monthly installment of ETB 25,000 paid by the 15th of each month."
+          />
+        </div>
+      </div>
+    </ModalChrome>
+  );
+};
+
+// Expected Income Quick Modal with Lump Sum / Monthly / Quarterly options
+const ExpectedIncomeModal = ({
+  expectedPaymentForm,
+  setExpectedPaymentForm,
+  expectedPaymentFormErrors = {},
+  projectName,
+  incomeCategories = [],
+  onSubmit,
+  onClose,
+  actionLoading = null,
+}) => {
+  const isSaving = actionLoading === "expected";
+  const frequency = expectedPaymentForm.frequency || "lump_sum";
+
+  const handleExpectedChange = (field, value) => {
+    setExpectedPaymentForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "totalProjectAmount" || field === "durationMonths" || field === "frequency") {
+        const total = Number(field === "totalProjectAmount" ? value : next.totalProjectAmount) || 0;
+        const dur = parseInt(field === "durationMonths" ? value : next.durationMonths, 10) || 12;
+        const freq = field === "frequency" ? value : next.frequency;
+        if (freq === "monthly" && dur > 0) {
+          next.installmentAmount = (total / dur).toFixed(2);
+          next.nextPaymentAmount = (total / dur).toFixed(2);
+        } else if (freq === "quarterly" && dur > 0) {
+          const quarters = Math.max(1, Math.round(dur / 3));
+          next.installmentAmount = (total / quarters).toFixed(2);
+          next.nextPaymentAmount = (total / quarters).toFixed(2);
+        } else {
+          next.installmentAmount = total ? total.toFixed(2) : "";
+        }
+      }
+      return next;
+    });
+  };
+
+  return (
+    <ModalChrome
+      maxWidth="max-w-xl"
+      title="Schedule Expected Income"
+      subtitle="Set Lump Sum, Monthly, or Quarterly payment schedule with arrival day and duration"
+      onClose={onClose}
+      closeDisabled={isSaving}
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            disabled={isSaving}
+            className={`${cancelBtnClass} order-2 sm:order-1`}
+          >
+            Cancel
+          </button>
+          <ActionButton
+            onClick={onSubmit}
+            loading={isSaving}
+            loadingText="Scheduling…"
+            disabled={
+              !expectedPaymentForm.title ||
+              !(expectedPaymentForm.totalProjectAmount || expectedPaymentForm.expectedAmount)
+            }
+            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 shadow-sm transition-all duration-200 disabled:opacity-50 order-1 sm:order-2"
+          >
+            Schedule Income
+          </ActionButton>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className={fieldLabelClass}>Client Name</label>
+          <input
+            type="text"
+            value={expectedPaymentForm.clientName}
+            onChange={(e) => handleExpectedChange("clientName", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass()}
+            placeholder="Client or Organization Name"
+          />
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Income Title / Milestone *</label>
+          <input
+            type="text"
+            value={expectedPaymentForm.title}
+            onChange={(e) => handleExpectedChange("title", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass(!!expectedPaymentFormErrors.title)}
+            placeholder="e.g., Monthly Retainer or Milestone Deliverable"
+            required
+          />
+          {expectedPaymentFormErrors.title && (
+            <p className={fieldErrorClass}>
+              {expectedPaymentFormErrors.title}
+            </p>
+          )}
+        </div>
+
+        {/* Schedule / Frequency */}
+        <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <label className="text-xs sm:text-sm font-semibold text-slate-800">
+                Payment Plan *
+              </label>
+              <p className="text-xs text-slate-500">
+                Lump Sum, Monthly, or Quarterly
+              </p>
+            </div>
+            <select
+              value={expectedPaymentForm.frequency || "lump_sum"}
+              onChange={(e) => handleExpectedChange("frequency", e.target.value)}
+              disabled={isSaving}
+              className="px-3 py-2 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500"
+            >
+              {PAYMENT_FREQUENCIES.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {frequency !== "lump_sum" && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/80">
+              <div>
+                <label className={fieldLabelClass}>
+                  {frequency === "monthly" ? "Day of Month" : "Day of Quarter"} *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={expectedPaymentForm.recurringDay || "15"}
+                  onChange={(e) => handleExpectedChange("recurringDay", e.target.value)}
+                  disabled={isSaving}
+                  className={fieldInputClass()}
+                  placeholder="15"
+                />
+              </div>
+
+              <div>
+                <label className={fieldLabelClass}>Duration (Months)</label>
+                <select
+                  value={expectedPaymentForm.durationMonths || "12"}
+                  onChange={(e) => handleExpectedChange("durationMonths", e.target.value)}
+                  disabled={isSaving}
+                  className={fieldInputClass()}
+                >
+                  <option value="3">3 Months</option>
+                  <option value="6">6 Months</option>
+                  <option value="12">12 Months (1 Year)</option>
+                  <option value="24">24 Months (2 Years)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={fieldLabelClass}>Per {frequency === "monthly" ? "Month" : "Quarter"}</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={expectedPaymentForm.installmentAmount || ""}
+                  onChange={(e) => handleExpectedChange("installmentAmount", e.target.value)}
+                  disabled={isSaving}
+                  className={fieldInputClass()}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={fieldLabelClass}>Total Project Amount (ETB) *</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={
+                expectedPaymentForm.totalProjectAmount ||
+                expectedPaymentForm.expectedAmount
+              }
+              onChange={(e) => {
+                handleExpectedChange("totalProjectAmount", e.target.value);
+                handleExpectedChange("expectedAmount", e.target.value);
+              }}
+              disabled={isSaving}
+              className={fieldInputClass(
+                !!expectedPaymentFormErrors.expectedAmount
+              )}
+              placeholder="0.00"
+              required
+            />
+            {expectedPaymentFormErrors.expectedAmount && (
+              <p className={fieldErrorClass}>
+                {expectedPaymentFormErrors.expectedAmount}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className={fieldLabelClass}>First Payment / Due Date *</label>
+            <input
+              type="date"
+              value={expectedPaymentForm.nextPaymentDate || expectedPaymentForm.dueDate}
+              onChange={(e) => {
+                handleExpectedChange("nextPaymentDate", e.target.value);
+                handleExpectedChange("dueDate", e.target.value);
+              }}
+              disabled={isSaving}
+              className={fieldInputClass()}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>Description / Milestone Details</label>
+          <textarea
+            rows={2}
+            value={expectedPaymentForm.description}
+            onChange={(e) => handleExpectedChange("description", e.target.value)}
+            disabled={isSaving}
+            className={fieldInputClass()}
+            placeholder="Details about scheduled payments and milestone criteria…"
           />
         </div>
       </div>

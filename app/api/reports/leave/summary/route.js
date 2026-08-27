@@ -10,8 +10,17 @@ function toDate(v) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+function calculateLeaveDays(startDate, endDate) {
+  if (!startDate || !endDate) return 1;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const timeDiff = end.getTime() - start.getTime();
+  const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+  return Math.max(1, isNaN(daysDiff) ? 1 : daysDiff);
+}
+
 // 6.1 Leave Request Summary Report
-// Total requests by: Type (annual, sick, emergency), Status (approved/rejected/pending), Department/project/site
+// Total requests by: Type (annual, sick, emergency), Status (approved/rejected/pending), Department/project/site/person
 export async function GET(request) {
   try {
     const db = await getDb();
@@ -38,6 +47,7 @@ export async function GET(request) {
     const departmentFilter = searchParams.get("department") || null;
     const projectIdFilter = searchParams.get("projectId") || null;
     const siteIdFilter = searchParams.get("locationId") || null;
+    const employeeIdFilter = searchParams.get("employeeId") || null;
 
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
@@ -70,9 +80,6 @@ export async function GET(request) {
     });
 
     const query = { type: "leave" };
-    // Use leave period (startDate/endDate on the document) for the filter,
-    // not the submittedAt timestamp. This aligns with how other leave
-    // reports and balances work, and with the UI labels.
     if (startDate && endDate) {
       const startStr = startDate.toISOString().slice(0, 10);
       const endStr = endDate.toISOString().slice(0, 10);
@@ -91,6 +98,7 @@ export async function GET(request) {
     const byDepartment = new Map();
     const byProject = new Map();
     const bySite = new Map();
+    const byPerson = new Map();
 
     function ensure(map, key, defaults = {}) {
       if (!map.has(key)) map.set(key, { key, name: key, total: 0, ...defaults });
@@ -98,14 +106,24 @@ export async function GET(request) {
     }
 
     let totalProcessed = 0;
+    let totalDaysAll = 0;
+    let totalApprovedDays = 0;
+
     for (const req of leaveRequests) {
       const empId =
         req.employeeId && req.employeeId.toString
           ? req.employeeId.toString()
           : String(req.employeeId);
       const emp = empById.get(empId);
+      const empName =
+        emp?.personalDetails?.name || emp?.name || req.employeeName || "Unknown Employee";
+      const empCode =
+        emp?.employeeId || emp?.personalDetails?.employeeId || "—";
       const department =
         emp?.department || emp?.personalDetails?.department || "Unassigned";
+      const designation =
+        emp?.designation || emp?.personalDetails?.designation || "Staff";
+
       const siteIds = [];
       if (Array.isArray(emp?.workLocations)) {
         emp.workLocations.forEach((lid) => siteIds.push(lid.toString()));
@@ -123,18 +141,36 @@ export async function GET(request) {
         projectIdFilter &&
         !empProjects.some((p) => p.id === projectIdFilter)
       )
-        continue;
       if (siteIdFilter && !siteIds.includes(siteIdFilter)) continue;
+      if (employeeIdFilter) {
+        const filterVal = employeeIdFilter.trim().toLowerCase();
+        const matchesId = empId.toLowerCase() === filterVal;
+        const matchesCode = String(empCode).toLowerCase().includes(filterVal);
+        const matchesName = String(empName).toLowerCase().includes(filterVal);
+        if (!matchesId && !matchesCode && !matchesName) continue;
+      }
 
       const leaveType = req.leaveType || "other";
       const status = req.status || "pending";
+      const days = calculateLeaveDays(req.startDate, req.endDate);
+
+      totalDaysAll += days;
+      if (status === "approved") {
+        totalApprovedDays += days;
+      }
 
       byType.set(leaveType, (byType.get(leaveType) || 0) + 1);
       byStatus.set(status, (byStatus.get(status) || 0) + 1);
 
+      // 1. Department aggregation
       const deptRow = ensure(byDepartment, department, { department });
       deptRow.total += 1;
+      deptRow.days = (deptRow.days || 0) + days;
+      if (status === "approved") deptRow.approved = (deptRow.approved || 0) + 1;
+      else if (status === "rejected") deptRow.rejected = (deptRow.rejected || 0) + 1;
+      else deptRow.pending = (deptRow.pending || 0) + 1;
 
+      // 2. Site aggregation
       if (siteIds.length === 0) {
         const siteRow = ensure(bySite, "Unassigned", { siteName: "Unassigned" });
         siteRow.total += 1;
@@ -147,25 +183,110 @@ export async function GET(request) {
         });
       }
 
+      // 3. Project aggregation
       if (empProjects.length === 0) {
         const projRow = ensure(byProject, "Unassigned", {
-          projectName: "Unassigned",
+          projectId: "unassigned",
+          projectName: "Unassigned Project",
+          total: 0,
+          approved: 0,
+          pending: 0,
+          rejected: 0,
+          totalDays: 0,
+          approvedDays: 0,
+          employeeIds: new Set(),
         });
         projRow.total += 1;
+        projRow.totalDays += days;
+        if (status === "approved") {
+          projRow.approved += 1;
+          projRow.approvedDays += days;
+        } else if (status === "rejected") {
+          projRow.rejected += 1;
+        } else {
+          projRow.pending += 1;
+        }
+        projRow.employeeIds.add(empId);
       } else {
         empProjects.forEach((p) => {
           const projRow = ensure(byProject, p.id, {
             projectId: p.id,
             projectName: p.name,
+            total: 0,
+            approved: 0,
+            pending: 0,
+            rejected: 0,
+            totalDays: 0,
+            approvedDays: 0,
+            employeeIds: new Set(),
           });
           projRow.total += 1;
+          projRow.totalDays += days;
+          if (status === "approved") {
+            projRow.approved += 1;
+            projRow.approvedDays += days;
+          } else if (status === "rejected") {
+            projRow.rejected += 1;
+          } else {
+            projRow.pending += 1;
+          }
+          projRow.employeeIds.add(empId);
         });
       }
+
+      // 4. Person (Employee) aggregation
+      const personRow = ensure(byPerson, empId, {
+        employeeId: empId,
+        employeeName: empName,
+        employeeCode: empCode,
+        department,
+        designation,
+        projectNames: empProjects.map((p) => p.name).join(", ") || "None",
+        total: 0,
+        approved: 0,
+        pending: 0,
+        rejected: 0,
+        totalDays: 0,
+        approvedDays: 0,
+        byType: {},
+      });
+
+      personRow.total += 1;
+      personRow.totalDays += days;
+      if (status === "approved") {
+        personRow.approved += 1;
+        personRow.approvedDays += days;
+      } else if (status === "rejected") {
+        personRow.rejected += 1;
+      } else {
+        personRow.pending += 1;
+      }
+
+      if (!personRow.byType[leaveType]) {
+        personRow.byType[leaveType] = { count: 0, days: 0 };
+      }
+      personRow.byType[leaveType].count += 1;
+      personRow.byType[leaveType].days += days;
+
       totalProcessed += 1;
     }
 
+    const formattedProjects = [...byProject.values()].map((p) => ({
+      ...p,
+      uniqueEmployeesCount: p.employeeIds ? p.employeeIds.size : 0,
+      employeeIds: undefined,
+    }));
+
+    const formattedPersons = [...byPerson.values()].sort((a, b) =>
+      b.totalDays - a.totalDays || a.employeeName.localeCompare(b.employeeName)
+    );
+
     const summary = {
       totalRequests: totalProcessed,
+      totalDays: totalDaysAll,
+      totalApprovedDays: totalApprovedDays,
+      totalPersons: formattedPersons.length,
+      totalProjects: formattedProjects.length,
       byType: [...byType.entries()].map(([k, v]) => ({ type: k, count: v })),
       byStatus: [...byStatus.entries()].map(([k, v]) => ({
         status: k,
@@ -187,6 +308,7 @@ export async function GET(request) {
           department: departmentFilter,
           projectId: projectIdFilter,
           locationId: siteIdFilter,
+          employeeId: employeeIdFilter,
         },
         totalRequests: totalProcessed,
       },
@@ -202,10 +324,12 @@ export async function GET(request) {
         department: departmentFilter,
         projectId: projectIdFilter,
         locationId: siteIdFilter,
+        employeeId: employeeIdFilter,
       },
       summary,
       byDepartment: [...byDepartment.values()],
-      byProject: [...byProject.values()],
+      byProject: formattedProjects,
+      byPerson: formattedPersons,
       bySite: [...bySite.values()],
       totalRecords: totalProcessed,
     });

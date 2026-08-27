@@ -13,6 +13,7 @@ import EmployeeRequestStatus from "../components/EmployeeRequestStatus";
 import EmployeeProjects from "../components/EmployeeProjects";
 import EmployeeTasks from "../components/EmployeeTasks";
 import EmployeeMilestones from "../components/EmployeeMilestones";
+import EmployeeProfile from "../components/EmployeeProfile";
 import { MapPin, Navigation, CheckCircle, Menu, X, Bell } from "lucide-react";
 
 export default function EmployeePortal() {
@@ -363,99 +364,10 @@ export default function EmployeePortal() {
         );
       case "profile":
         return (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h1 className="text-2xl font-bold text-black mb-6">
-                My Profile
-              </h1>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                    Personal Information
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-sm font-medium text-gray-600">
-                        Name:
-                      </span>
-                      <p className="text-black">{employeeData.name}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-600">
-                        Email:
-                      </span>
-                      <p className="text-black">{employeeData.email}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-600">
-                        Employee ID:
-                      </span>
-                      <p className="text-black">{employeeData.employeeId}</p>
-                    </div>
-                    {employeeData.department && (
-                      <div>
-                        <span className="text-sm font-medium text-gray-600">
-                          Department:
-                        </span>
-                        <p className="text-black">
-                          {employeeData.department}
-                        </p>
-                      </div>
-                    )}
-                    {employeeData.designation && (
-                      <div>
-                        <span className="text-sm font-medium text-gray-600">
-                          Designation:
-                        </span>
-                        <p className="text-black">
-                          {employeeData.designation}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                    Work Locations ({workLocations.length})
-                  </h3>
-                  {workLocations.length > 0 ? (
-                    <div className="space-y-3">
-                      {workLocations.map((location, index) => (
-                        <div
-                          key={location._id}
-                          className="p-3 bg-gray-50 rounded-lg border border-gray-200"
-                        >
-                          <div className="font-medium text-black">
-                            {location.name}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {location.address || "No address specified"}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            Radius: {location.radius || 100}m
-                          </div>
-                          {location.description && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {location.description}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-gray-500 mb-2">
-                        No work locations assigned
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Contact your administrator to assign work locations
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <EmployeeProfile
+            employeeData={employeeData}
+            workLocations={workLocations}
+          />
         );
       case "projects":
         return <EmployeeProjects employeeId={employeeData._id} />;

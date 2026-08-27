@@ -102,123 +102,74 @@ function generateCSV(leaveBalances) {
     "Designation",
     "Employment Date",
     "Years of Service",
-    "Annual Leave - Available",
-    "Annual Leave - Used",
-    "Annual Leave - Pending",
-    "Sick Leave - Available",
-    "Sick Leave - Used",
-    "Sick Leave - Pending",
-    "Personal Leave - Available",
-    "Personal Leave - Used",
-    "Personal Leave - Pending",
-    "Maternity Leave - Available",
-    "Maternity Leave - Used",
-    "Maternity Leave - Pending",
-    "Paternity Leave - Available",
-    "Paternity Leave - Used",
-    "Paternity Leave - Pending",
-    "Bereavement Leave - Available",
-    "Bereavement Leave - Used",
-    "Bereavement Leave - Pending",
-    "Total Available Days",
-    "Total Used Days",
-    "Total Pending Days",
+    "Base Allowance",
+    "Seniority Bonus (+1/2yrs)",
+    "Annual Allowance",
+    "Carried Forward (Rollover)",
+    "Expired (>2yrs Limit)",
+    "Total Earned",
+    "Used Days",
+    "Pending Days",
+    "Available Days",
     "Last Calculated",
   ];
 
   const rows = leaveBalances.map((balance) => {
     const annual = balance.balances?.annual || {
-      available: 0,
+      baseAllowance: 16,
+      seniorityBonus: 0,
+      yearlyAllowance: 16,
+      carriedForward: 0,
+      expiredDays: 0,
+      totalEarned: 16,
+      available: 16,
       used: 0,
       pending: 0,
     };
-    const sick = balance.balances?.sick || {
-      available: 0,
-      used: 0,
-      pending: 0,
-    };
-    const personal = balance.balances?.personal || {
-      available: 0,
-      used: 0,
-      pending: 0,
-    };
-    const maternity = balance.balances?.maternity || {
-      available: 0,
-      used: 0,
-      pending: 0,
-    };
-    const paternity = balance.balances?.paternity || {
-      available: 0,
-      used: 0,
-      pending: 0,
-    };
-    const bereavement = balance.balances?.bereavement || {
-      available: 0,
-      used: 0,
-      pending: 0,
-    };
-
-    const totalAvailable =
-      annual.available +
-      sick.available +
-      personal.available +
-      maternity.available +
-      paternity.available +
-      bereavement.available;
-    const totalUsed =
-      annual.used +
-      sick.used +
-      personal.used +
-      maternity.used +
-      paternity.used +
-      bereavement.used;
-    const totalPending =
-      annual.pending +
-      sick.pending +
-      personal.pending +
-      maternity.pending +
-      paternity.pending +
-      bereavement.pending;
 
     return [
-      balance.employee.name || "",
-      balance.employee.email || "",
-      balance.employee.department || "",
-      balance.employee.designation || "",
-      new Date(balance.employmentDate).toLocaleDateString(),
+      balance.employee?.name || balance.employeeName || "Unknown",
+      balance.employee?.email || "",
+      balance.employee?.department || "",
+      balance.employee?.designation || "",
+      balance.employmentDate
+        ? new Date(balance.employmentDate).toLocaleDateString()
+        : "",
       balance.yearsOfService || 0,
-      annual.available,
-      annual.used,
-      annual.pending,
-      sick.available,
-      sick.used,
-      sick.pending,
-      personal.available,
-      personal.used,
-      personal.pending,
-      maternity.available,
-      maternity.used,
-      maternity.pending,
-      paternity.available,
-      paternity.used,
-      paternity.pending,
-      bereavement.available,
-      bereavement.used,
-      bereavement.pending,
-      totalAvailable,
-      totalUsed,
-      totalPending,
+      annual.baseAllowance ?? 16,
+      annual.seniorityBonus ?? 0,
+      annual.yearlyAllowance ?? 16,
+      annual.carriedForward ?? 0,
+      annual.expiredDays ?? 0,
+      annual.totalEarned ?? 16,
+      annual.used ?? 0,
+      annual.pending ?? 0,
+      annual.available ?? 0,
       balance.lastCalculated
-        ? new Date(balance.lastCalculated).toLocaleString()
+        ? new Date(balance.lastCalculated).toLocaleDateString()
         : "",
     ];
   });
 
-  // Convert to CSV format
-  const csvRows = [headers, ...rows];
-  return csvRows
-    .map((row) =>
-      row.map((field) => `"${String(field).replace(/"/g, '""')}"`).join(",")
-    )
-    .join("\n");
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((row) =>
+      row
+        .map((field) => {
+          if (field === null || field === undefined) return '""';
+          const stringField = String(field);
+          if (
+            stringField.includes(",") ||
+            stringField.includes('"') ||
+            stringField.includes("\n")
+          ) {
+            return `"${stringField.replace(/"/g, '""')}"`;
+          }
+          return stringField;
+        })
+        .join(",")
+    ),
+  ].join("\n");
+
+  return csvContent;
 }

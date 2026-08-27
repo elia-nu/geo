@@ -848,9 +848,8 @@ export default function DailyAttendance({
                   </span>
                   <span className="text-blue-900 ml-1">
                     {typeof location.radius === "number"
-                      ? `${location.radius}m`
-                      : String(location.radius || 100)}
-                    m radius
+                      ? `${location.radius}m radius`
+                      : `${String(location.radius || 100).replace(/m$/i, "")}m radius`}
                   </span>
                 </div>
               ))}
