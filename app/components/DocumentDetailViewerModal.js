@@ -8,6 +8,7 @@ import {
   Calendar,
   Clock,
   User,
+  Building2,
   Tag,
   ExternalLink,
   ZoomIn,
@@ -81,6 +82,11 @@ export default function DocumentDetailViewerModal({
   const previewUrl = docId ? `/api/documents/${docId}/download?inline=true` : "";
   const downloadUrl = docId ? `/api/documents/${docId}/download` : "#";
 
+  const isClientDoc = document.entityType === "client" || (!document.employeeId && !!document.clientName);
+  const ownerLabel = isClientDoc
+    ? (document.clientName || "Client")
+    : (employeeName || "Employee");
+
   const formatFileSize = (bytes) => {
     if (!bytes && bytes !== 0) return "Unknown size";
     if (bytes === 0) return "0 Bytes";
@@ -140,12 +146,21 @@ export default function DocumentDetailViewerModal({
                 </span>
                 <span>•</span>
                 <span>{formatFileSize(document.fileSize)}</span>
-                {employeeName && (
+                {ownerLabel && (
                   <>
                     <span>•</span>
                     <span className="flex items-center gap-1 text-slate-200">
-                      <User className="w-3 h-3" />
-                      {employeeName}
+                      {isClientDoc ? (
+                        <Building2 className="w-3 h-3 text-purple-400" />
+                      ) : (
+                        <User className="w-3 h-3 text-blue-400" />
+                      )}
+                      <span>{ownerLabel}</span>
+                      {isClientDoc && document.clientEmail && (
+                        <span className="text-slate-400 font-mono text-[11px] hidden sm:inline">
+                          ({document.clientEmail})
+                        </span>
+                      )}
                     </span>
                   </>
                 )}
@@ -391,6 +406,32 @@ export default function DocumentDetailViewerModal({
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
                         {document.expiryDate ? formatDate(document.expiryDate) : "No Expiry"}
                       </span>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 md:col-span-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium block">
+                        Assigned To ({isClientDoc ? "Client" : "Employee"})
+                      </span>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        {isClientDoc ? (
+                          <>
+                            <Building2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                            <span className="text-purple-700 dark:text-purple-400 font-bold text-sm">{ownerLabel}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-semibold uppercase">Client</span>
+                            {document.clientEmail && (
+                              <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                                &bull; {document.clientEmail}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <User className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                            <span className="text-blue-700 dark:text-blue-400 font-bold text-sm">{ownerLabel}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-semibold uppercase">Employee</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

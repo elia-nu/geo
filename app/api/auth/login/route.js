@@ -60,7 +60,9 @@ export async function POST(request) {
     }
 
     // Check if employee has a password set
-    const hasPassword = employee.password || employee.personalDetails?.password;
+    const rootPassword = employee.password;
+    const personalPassword = employee.personalDetails?.password;
+    const hasPassword = rootPassword || personalPassword;
 
     if (!hasPassword) {
       await createAuditLog({
@@ -82,8 +84,21 @@ export async function POST(request) {
       );
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, hasPassword);
+    // Verify password (try root password, then personalDetails password)
+    let isValidPassword = false;
+    if (rootPassword) {
+      isValidPassword = await bcrypt.compare(password, rootPassword);
+    }
+    if (!isValidPassword && personalPassword) {
+      isValidPassword = await bcrypt.compare(password, personalPassword);
+      // Auto-sync root password if personalDetails password was valid
+      if (isValidPassword) {
+        await db.collection("employees").updateOne(
+          { _id: employee._id },
+          { $set: { password: personalPassword } }
+        );
+      }
+    }
 
     if (!isValidPassword) {
       await createAuditLog({

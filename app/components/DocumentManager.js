@@ -18,6 +18,7 @@ import {
   FileCheck,
   Calendar,
   User,
+  Building2,
   Shield,
   Layers,
   X,
@@ -35,6 +36,10 @@ const DOCUMENT_CATEGORIES = [
   "National ID / Passport",
   "Resume / CV",
   "Employment Contract",
+  "Client Agreement / SLA",
+  "Certificate",
+  "Invoice / Receipt",
+  "Proposal / Quotation",
   "Educational Certificate",
   "Professional License",
   "Medical Clearance",
@@ -65,7 +70,10 @@ export default function DocumentManager() {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("all"); // "all" | "active" | "expiring" | "expired"
 
   const [newDocument, setNewDocument] = useState({
+    entityType: "employee",
     employeeId: "",
+    clientName: "",
+    clientEmail: "",
     documentType: "",
     title: "",
     description: "",
@@ -119,6 +127,16 @@ export default function DocumentManager() {
     }
   };
 
+  const clientNames = useMemo(() => {
+    const set = new Set();
+    documents.forEach((d) => {
+      if (d.clientName && typeof d.clientName === "string" && d.clientName.trim()) {
+        set.add(d.clientName.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [documents]);
+
   const getEmployeeName = (employeeId) => {
     if (!employeeId) return "Unassigned";
     const employee = employees.find(
@@ -140,11 +158,36 @@ export default function DocumentManager() {
     return employee?.employeeId || employee?.personalDetails?.employeeId || "";
   };
 
+  const getDocumentOwner = (doc) => {
+    const isClient = doc?.entityType === "client" || (!doc?.employeeId && !!doc?.clientName);
+    if (isClient) {
+      return {
+        isClient: true,
+        name: doc?.clientName || "Client",
+        email: doc?.clientEmail || "",
+        code: "Client",
+      };
+    }
+    return {
+      isClient: false,
+      name: getEmployeeName(doc?.employeeId),
+      email: doc?.employeeEmail || "",
+      code: getEmployeeIdCode(doc?.employeeId) || "Employee",
+    };
+  };
+
   const validateDocument = (document, file) => {
     const errors = {};
+    const isClient = document.entityType === "client";
 
-    if (!document.employeeId?.trim()) {
-      errors.employeeId = "Please select an employee";
+    if (isClient) {
+      if (!document.clientName?.trim()) {
+        errors.clientName = "Please enter the client name";
+      }
+    } else {
+      if (!document.employeeId?.trim()) {
+        errors.employeeId = "Please select an employee";
+      }
     }
 
     if (!document.documentType?.trim()) {
@@ -184,7 +227,10 @@ export default function DocumentManager() {
 
       if (editingDocumentId && !selectedFile) {
         const updateData = {
-          employeeId: newDocument.employeeId,
+          entityType: newDocument.entityType || "employee",
+          employeeId: newDocument.entityType === "client" ? "" : newDocument.employeeId,
+          clientName: newDocument.entityType === "client" ? newDocument.clientName : "",
+          clientEmail: newDocument.entityType === "client" ? newDocument.clientEmail : "",
           documentType: newDocument.documentType,
           title: newDocument.title,
           description: newDocument.description,
@@ -234,7 +280,10 @@ export default function DocumentManager() {
       setEditingDocumentId(null);
 
       setNewDocument({
+        entityType: "employee",
         employeeId: "",
+        clientName: "",
+        clientEmail: "",
         documentType: "",
         title: "",
         description: "",
@@ -316,8 +365,12 @@ export default function DocumentManager() {
       setFormErrors({});
       setEditingDocumentId(doc?._id || null);
       setSelectedFile(null);
+      const isClient = doc?.entityType === "client" || (!doc?.employeeId && !!doc?.clientName);
       setNewDocument({
-        employeeId: doc?.employeeId || "",
+        entityType: isClient ? "client" : "employee",
+        employeeId: isClient ? "" : (doc?.employeeId || ""),
+        clientName: isClient ? (doc?.clientName || "") : "",
+        clientEmail: isClient ? (doc?.clientEmail || "") : "",
         documentType: doc?.documentType || doc?.type || "",
         title: doc?.title || doc?.originalName || "",
         description: doc?.description || "",
@@ -363,6 +416,8 @@ export default function DocumentManager() {
       const fileName = (doc.originalName || doc.fileName || "").toLowerCase();
       const empName = getEmployeeName(doc.employeeId).toLowerCase();
       const empCode = getEmployeeIdCode(doc.employeeId).toLowerCase();
+      const clientName = (doc.clientName || "").toLowerCase();
+      const clientEmail = (doc.clientEmail || "").toLowerCase();
       const docType = (doc.documentType || doc.type || "").toLowerCase();
       const search = searchTerm.toLowerCase().trim();
 
@@ -372,11 +427,21 @@ export default function DocumentManager() {
         fileName.includes(search) ||
         empName.includes(search) ||
         empCode.includes(search) ||
+        clientName.includes(search) ||
+        clientEmail.includes(search) ||
         docType.includes(search);
 
-      const matchesEmployee =
-        !selectedEmployeeFilter ||
-        String(doc.employeeId) === String(selectedEmployeeFilter);
+      let matchesEmployee = true;
+      if (selectedEmployeeFilter === "ALL_CLIENTS") {
+        matchesEmployee = doc.entityType === "client" || (!doc.employeeId && !!doc.clientName);
+      } else if (selectedEmployeeFilter === "ALL_EMPLOYEES") {
+        matchesEmployee = doc.entityType === "employee" || (!doc.clientName && !!doc.employeeId);
+      } else if (selectedEmployeeFilter.startsWith("CLIENT:")) {
+        const targetClient = selectedEmployeeFilter.replace("CLIENT:", "");
+        matchesEmployee = doc.clientName === targetClient;
+      } else if (selectedEmployeeFilter) {
+        matchesEmployee = String(doc.employeeId) === String(selectedEmployeeFilter);
+      }
 
       const matchesType =
         !selectedTypeFilter ||
@@ -508,7 +573,9 @@ export default function DocumentManager() {
                 setEditingDocumentId(null);
                 setSelectedFile(null);
                 setNewDocument({
+                  entityType: "employee",
                   employeeId: "",
+                  clientName: "",
                   documentType: "",
                   title: "",
                   description: "",
@@ -615,7 +682,7 @@ export default function DocumentManager() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by title, file, employee..."
+              placeholder="Search by title, file, employee, client..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -625,7 +692,7 @@ export default function DocumentManager() {
             />
           </div>
 
-          {/* Filter by Employee */}
+          {/* Filter by Employee / Client */}
           <div>
             <select
               value={selectedEmployeeFilter}
@@ -635,12 +702,27 @@ export default function DocumentManager() {
               }}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all"
             >
-              <option value="">All Employees ({employees.length})</option>
-              {employees.map((emp) => (
-                <option key={emp._id || emp.id} value={emp._id || emp.id}>
-                  {emp.personalDetails?.name || emp.name} ({emp.employeeId || emp.personalDetails?.employeeId || "ID"})
-                </option>
-              ))}
+              <option value="">All Assignments (Employees & Clients)</option>
+              <option value="ALL_EMPLOYEES">👤 All Employee Documents</option>
+              <option value="ALL_CLIENTS">🏢 All Client Documents</option>
+              {employees.length > 0 && (
+                <optgroup label="Employees">
+                  {employees.map((emp) => (
+                    <option key={emp._id || emp.id} value={emp._id || emp.id}>
+                      {emp.personalDetails?.name || emp.name} ({emp.employeeId || emp.personalDetails?.employeeId || "ID"})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {clientNames.length > 0 && (
+                <optgroup label="Clients">
+                  {clientNames.map((client) => (
+                    <option key={client} value={`CLIENT:${client}`}>
+                      🏢 {client}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 
@@ -701,7 +783,7 @@ export default function DocumentManager() {
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               {searchTerm || selectedEmployeeFilter || selectedTypeFilter || selectedStatusFilter !== "all"
                 ? "Try adjusting or clearing your search filters."
-                : "Upload your first employee document using the button above."}
+                : "Upload your first employee or client document using the button above."}
             </p>
             {(searchTerm || selectedEmployeeFilter || selectedTypeFilter || selectedStatusFilter !== "all") && (
               <button
@@ -720,7 +802,7 @@ export default function DocumentManager() {
               <thead>
                 <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   <th className="px-6 py-3.5">Document</th>
-                  <th className="px-6 py-3.5">Employee</th>
+                  <th className="px-6 py-3.5">Assigned To</th>
                   <th className="px-6 py-3.5">Category</th>
                   <th className="px-6 py-3.5">Upload Date</th>
                   <th className="px-6 py-3.5">Expiry Date</th>
@@ -774,21 +856,47 @@ export default function DocumentManager() {
                       </td>
 
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-700">
-                            {getEmployeeName(doc.employeeId).charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-slate-800">
-                              {getEmployeeName(doc.employeeId)}
-                            </p>
-                            {getEmployeeIdCode(doc.employeeId) && (
-                              <p className="text-[10px] text-slate-400 font-mono">
-                                {getEmployeeIdCode(doc.employeeId)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        {(() => {
+                          const owner = getDocumentOwner(doc);
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                  owner.isClient
+                                    ? "bg-purple-100 border border-purple-200 text-purple-700"
+                                    : "bg-blue-50 border border-blue-200 text-blue-700"
+                                }`}
+                              >
+                                {owner.isClient ? (
+                                  <Building2 className="w-3.5 h-3.5" />
+                                ) : (
+                                  owner.name.charAt(0).toUpperCase()
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-800 truncate max-w-[150px]">
+                                  {owner.name}
+                                </p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span
+                                    className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                      owner.isClient
+                                        ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                        : "text-slate-400 font-mono"
+                                    }`}
+                                  >
+                                    {owner.code}
+                                  </span>
+                                  {owner.email && (
+                                    <span className="text-[10px] text-slate-400 font-mono truncate max-w-[130px]" title={owner.email}>
+                                      &bull; {owner.email}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       <td className="px-6 py-4">
@@ -922,12 +1030,31 @@ export default function DocumentManager() {
                   </div>
 
                   <div className="space-y-1.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400 text-[11px]">Employee:</span>
-                      <span className="font-semibold text-slate-800 truncate max-w-[150px]">
-                        {getEmployeeName(doc.employeeId)}
-                      </span>
-                    </div>
+                    {(() => {
+                      const owner = getDocumentOwner(doc);
+                      return (
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-slate-400 text-[11px] flex items-center gap-1 flex-shrink-0 mt-0.5">
+                            {owner.isClient ? (
+                              <Building2 className="w-3 h-3 text-purple-500" />
+                            ) : (
+                              <User className="w-3 h-3 text-blue-500" />
+                            )}
+                            <span>Assigned To:</span>
+                          </span>
+                          <div className="text-right min-w-0">
+                            <span className="font-semibold text-slate-800 truncate max-w-[150px] block">
+                              {owner.name}
+                            </span>
+                            {owner.email && (
+                              <span className="text-[10px] text-slate-400 font-mono truncate max-w-[150px] block" title={owner.email}>
+                                {owner.email}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400 text-[11px]">Upload Date:</span>
                       <span>

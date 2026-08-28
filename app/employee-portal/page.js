@@ -338,7 +338,7 @@ export default function EmployeePortal() {
       case "overtime":
         return (
           <EmployeeOvertime
-            employeeId={employeeData._id}
+            employeeId={employeeData._id || employeeData.id}
             employeeName={employeeData.name}
             workLocations={workLocations}
           />

@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { X, Upload, User, FileText, Calendar } from "lucide-react";
+import { X, Upload, User, Building2, FileText, Calendar, Briefcase, Mail } from "lucide-react";
 
 export default function UploadDocumentDialog({
   isOpen,
@@ -15,6 +15,8 @@ export default function UploadDocumentDialog({
   formErrors,
 }) {
   if (!isOpen) return null;
+
+  const entityType = newDocument.entityType || "employee";
 
   return (
     <div
@@ -36,7 +38,7 @@ export default function UploadDocumentDialog({
               <div>
                 <h3 className="text-2xl font-bold">Upload Document</h3>
                 <p className="text-blue-100 text-sm">
-                  Add a new document to the system
+                  Add a new document to the system for an Employee or Client
                 </p>
               </div>
             </div>
@@ -52,50 +54,149 @@ export default function UploadDocumentDialog({
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1">
           <div className="space-y-6">
-            {/* Employee Selection Section */}
-            <div className="bg-blue-50 rounded-xl p-4">
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center ring-1 ring-blue-200">
-                  <User className="w-5 h-5 text-blue-700" aria-hidden="true" />
+            {/* Target Assignment Section (Employee vs Client) */}
+            <div className="bg-blue-50/80 border border-blue-100 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center ring-1 ring-blue-200">
+                    {entityType === "client" ? (
+                      <Building2 className="w-5 h-5 text-blue-700" aria-hidden="true" />
+                    ) : (
+                      <User className="w-5 h-5 text-blue-700" aria-hidden="true" />
+                    )}
+                  </div>
+                  <h4 className="text-lg font-semibold text-black">
+                    Assign Document To
+                  </h4>
                 </div>
-                <h4 className="text-lg font-semibold text-black">
-                  Employee Selection
-                </h4>
+
+                {/* Entity Selector Toggle Buttons */}
+                <div className="flex items-center bg-white p-1 rounded-xl border border-blue-200 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNewDocument({
+                        ...newDocument,
+                        entityType: "employee",
+                        clientName: "",
+                        clientEmail: "",
+                      })
+                    }
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      entityType === "employee"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    <span>Employee</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNewDocument({
+                        ...newDocument,
+                        entityType: "client",
+                        employeeId: "",
+                      })
+                    }
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      entityType === "client"
+                        ? "bg-purple-600 text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>Client</span>
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-black mb-2">
-                  Select Employee <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={newDocument.employeeId}
-                  onChange={(e) =>
-                    setNewDocument({
-                      ...newDocument,
-                      employeeId: e.target.value,
-                    })
-                  }
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all bg-white text-black ${
-                    formErrors.employeeId
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
-                  }`}
-                >
-                  <option value="">Select an employee</option>
-                  {(employees || []).map((employee) => (
-                    <option key={employee?._id} value={employee?._id}>
-                      {employee?.personalDetails?.name ||
-                        employee?.name ||
-                        "Unknown"}{" "}
-                      - {employee?.department || ""}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.employeeId && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {formErrors.employeeId}
-                  </p>
-                )}
-              </div>
+
+              {entityType === "employee" ? (
+                <div>
+                  <label className="block text-sm font-medium text-black mb-2">
+                    Select Employee <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={newDocument.employeeId || ""}
+                    onChange={(e) =>
+                      setNewDocument({
+                        ...newDocument,
+                        employeeId: e.target.value,
+                      })
+                    }
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all bg-white text-black ${
+                      formErrors.employeeId
+                        ? "border-red-300 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
+                  >
+                    <option value="">Select an employee</option>
+                    {(employees || []).map((employee) => (
+                      <option key={employee?._id} value={employee?._id}>
+                        {employee?.personalDetails?.name ||
+                          employee?.name ||
+                          "Unknown"}{" "}
+                        - {employee?.department || ""}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.employeeId && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {formErrors.employeeId}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-black mb-2">
+                      Client Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newDocument.clientName || ""}
+                      onChange={(e) =>
+                        setNewDocument({
+                          ...newDocument,
+                          clientName: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. Acme Corp, Ministry of Health"
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all bg-white text-black ${
+                        formErrors.clientName
+                          ? "border-red-300 focus:ring-red-500"
+                          : "border-gray-300 focus:ring-purple-500"
+                      }`}
+                    />
+                    {formErrors.clientName && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {formErrors.clientName}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-black mb-2">
+                      Client Email
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        value={newDocument.clientEmail || ""}
+                        onChange={(e) =>
+                          setNewDocument({
+                            ...newDocument,
+                            clientEmail: e.target.value,
+                          })
+                        }
+                        placeholder="client@organization.com"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-black"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Document Information Section */}
@@ -133,7 +234,10 @@ export default function UploadDocumentDialog({
                     <option value="">Select document type</option>
                     <option value="ID Document">ID Document</option>
                     <option value="Contract">Contract</option>
+                    <option value="Client Agreement / SLA">Client Agreement / SLA</option>
                     <option value="Certificate">Certificate</option>
+                    <option value="Invoice / Receipt">Invoice / Receipt</option>
+                    <option value="Proposal / Quotation">Proposal / Quotation</option>
                     <option value="Resume">Resume</option>
                     <option value="Medical Record">Medical Record</option>
                     <option value="Other">Other</option>
@@ -278,7 +382,7 @@ export default function UploadDocumentDialog({
               disabled={
                 loading ||
                 !selectedFile ||
-                !newDocument.employeeId ||
+                (entityType === "client" ? !newDocument.clientName?.trim() : !newDocument.employeeId) ||
                 !newDocument.documentType ||
                 !newDocument.title
               }

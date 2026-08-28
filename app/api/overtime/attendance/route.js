@@ -138,29 +138,38 @@ export async function GET(request) {
     // Fetch employee details
     const employeeIds = [...new Set(records.map((r) => r.employeeId))];
     const validObjectIds = employeeIds
-      .filter((id) => id && ObjectId.isValid(id))
-      .map((id) => new ObjectId(id));
+      .filter((id) => id && ObjectId.isValid(String(id)))
+      .map((id) => (typeof id === "string" ? new ObjectId(id) : id));
 
     const employees = await db
       .collection("employees")
-      .find({ _id: { $in: validObjectIds } })
+      .find({
+        $or: [
+          ...(validObjectIds.length > 0 ? [{ _id: { $in: validObjectIds } }] : []),
+          { employeeId: { $in: employeeIds.map(String) } },
+          { empId: { $in: employeeIds.map(String) } },
+        ],
+      })
       .toArray();
 
     const employeeMap = {};
     employees.forEach((emp) => {
-      employeeMap[emp._id.toString()] = {
+      const empData = {
         name: emp.personalDetails?.name || emp.name || "Unknown",
         email: emp.personalDetails?.email || emp.email || "",
         department: emp.department || emp.personalDetails?.department || "General",
         designation: emp.designation || emp.personalDetails?.designation || "",
-        employeeId: emp.employeeId || emp._id.toString(),
+        employeeId: emp.employeeId || emp.empId || emp.personalDetails?.employeeId || emp._id.toString(),
       };
+      employeeMap[emp._id.toString()] = empData;
+      if (emp.employeeId) employeeMap[emp.employeeId] = empData;
+      if (emp.empId) employeeMap[emp.empId] = empData;
     });
 
     let enhancedRecords = records.map((record) => ({
       ...record,
       adminApprovalStatus: record.adminApprovalStatus || "pending_review",
-      employee: employeeMap[record.employeeId] || {
+      employee: employeeMap[String(record.employeeId)] || {
         name: record.employeeName || "Unknown Employee",
         department: record.department || "General",
       },
@@ -242,10 +251,22 @@ export async function POST(request) {
 
     // 1. Get employee details
     let employee = null;
-    if (ObjectId.isValid(employeeId)) {
+    const trimmedEmpId = String(employeeId).trim();
+    if (ObjectId.isValid(trimmedEmpId)) {
       employee = await db
         .collection("employees")
-        .findOne({ _id: new ObjectId(employeeId) });
+        .findOne({ _id: new ObjectId(trimmedEmpId) });
+    }
+    if (!employee) {
+      employee = await db
+        .collection("employees")
+        .findOne({
+          $or: [
+            { employeeId: trimmedEmpId },
+            { empId: trimmedEmpId },
+            { "personalDetails.employeeId": trimmedEmpId },
+          ],
+        });
     }
 
     if (!employee) {
@@ -259,10 +280,20 @@ export async function POST(request) {
       employee.personalDetails?.name || employee.name || "Unknown";
     const department =
       employee.department || employee.personalDetails?.department || "General";
+    const empCode =
+      employee.employeeId || employee.empId || employee.personalDetails?.employeeId || employee._id.toString();
+
+    const possibleEmpIds = [
+      trimmedEmpId,
+      employee._id.toString(),
+      employee._id,
+      employee.employeeId,
+      employee.empId,
+    ].filter(Boolean);
 
     // 2. Validate Approved Overtime Request for Today
     let requestQuery = {
-      employeeId: employeeId.toString(),
+      employeeId: { $in: possibleEmpIds },
       date: today,
       status: "approved",
     };
@@ -270,7 +301,7 @@ export async function POST(request) {
     if (requestId && ObjectId.isValid(requestId)) {
       requestQuery = {
         _id: new ObjectId(requestId),
-        employeeId: employeeId.toString(),
+        employeeId: { $in: possibleEmpIds },
         status: "approved",
       };
     }

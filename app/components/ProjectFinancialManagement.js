@@ -357,7 +357,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
   const [paymentPlanForm, setPaymentPlanForm] = useState({
     clientName: "",
-    title: projectName || "",
+    title: "",
     description: "",
     totalAmount: "",
     frequency: "monthly",
@@ -715,7 +715,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const resetPaymentPlanForm = () => {
     setPaymentPlanForm({
       clientName: "",
-      title: projectName || "",
+      title: "",
       description: "",
       totalAmount: "",
       frequency: "monthly",
@@ -787,7 +787,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   const handleAddPaymentPlan = async () => {
     const errors = {};
     if (!paymentPlanForm.clientName?.trim()) errors.clientName = "Client name is required";
-    if (!paymentPlanForm.title?.trim()) errors.title = "Project title is required";
+    if (!paymentPlanForm.title?.trim()) errors.title = "Payment title is required";
 
     const totalAmt = Number(paymentPlanForm.totalAmount);
     if (!totalAmt || totalAmt <= 0) errors.totalAmount = "Total amount must be greater than 0";
@@ -3634,16 +3634,16 @@ const PaymentPlanModal = ({
           </div>
 
           <div>
-            <label className={fieldLabelClass}>Project Title *</label>
+            <label className={fieldLabelClass}>Payment Title *</label>
             <input
               type="text"
-              value={paymentPlanForm.title || projectName || ""}
+              value={paymentPlanForm.title || ""}
               onChange={(e) =>
                 handlePaymentPlanFormChange("title", e.target.value)
               }
               disabled={isSaving}
               className={fieldInputClass(!!paymentPlanFormErrors.title)}
-              placeholder="e.g., GIS Mapping & Land Survey Phase 1"
+              placeholder="e.g., Phase 1 Deliverables & Advance Payment"
               required
             />
             {paymentPlanFormErrors.title && (
