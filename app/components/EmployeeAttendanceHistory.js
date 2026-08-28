@@ -14,6 +14,7 @@ import {
   Camera,
   Eye,
 } from "lucide-react";
+import { formatWorkingHours } from "../utils/timeUtils";
 
 export default function EmployeeAttendanceHistory({
   employeeId,
@@ -167,7 +168,7 @@ export default function EmployeeAttendanceHistory({
       formatDate(record.date),
       formatTime(record.checkInTime),
       formatTime(record.checkOutTime),
-      calculateWorkingHours(record.checkInTime, record.checkOutTime) || "N/A",
+      formatWorkingHours(record),
       getStatusDisplay(record).text,
       record.checkInLocation ? "Yes" : "No",
       record.notes || "",
@@ -378,14 +379,14 @@ export default function EmployeeAttendanceHistory({
                           {formatTime(record.checkOutTime)}
                         </span>
                       </div>
-                      {workingHours && (
+                      {record.checkInTime && record.checkOutTime && (
                         <div className="flex items-center space-x-2">
                           <Clock className="w-4 h-4 text-gray-500" />
                           <span className="text-sm font-medium text-gray-700">
                             Hours:
                           </span>
-                          <span className="text-sm text-black">
-                            {workingHours}h
+                          <span className="text-sm font-bold text-indigo-700">
+                            {formatWorkingHours(record)}
                           </span>
                         </div>
                       )}

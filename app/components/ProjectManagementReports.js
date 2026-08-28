@@ -1,17 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
-import { Briefcase, Milestone, Users, DollarSign } from "lucide-react";
+import { Briefcase, Milestone, Users, DollarSign, Receipt } from "lucide-react";
 import ProjectMasterSummaryReport from "./ProjectMasterSummaryReport";
 import ProjectMilestoneProgressReport from "./ProjectMilestoneProgressReport";
 import ProjectWorkforceUtilizationReport from "./ProjectWorkforceUtilizationReport";
 import ProjectCostBudgetPerformanceReport from "./ProjectCostBudgetPerformanceReport";
+import ProjectBudgetPaymentReport from "./ProjectBudgetPaymentReport";
 
 const TABS = [
   { id: "master-summary", label: "Project Master Summary", icon: Briefcase, component: ProjectMasterSummaryReport },
+  { id: "budget-payment", label: "Budget & Payment Detailed Report", icon: Receipt, component: ProjectBudgetPaymentReport },
+  { id: "cost-budget", label: "Cost & Budget Performance", icon: DollarSign, component: ProjectCostBudgetPerformanceReport },
   { id: "milestone-progress", label: "Milestone Progress", icon: Milestone, component: ProjectMilestoneProgressReport },
   { id: "workforce-utilization", label: "Workforce Utilization", icon: Users, component: ProjectWorkforceUtilizationReport },
-  { id: "cost-budget", label: "Cost & Budget Performance", icon: DollarSign, component: ProjectCostBudgetPerformanceReport },
 ];
 
 export default function ProjectManagementReports() {
@@ -26,7 +28,7 @@ export default function ProjectManagementReports() {
             Project Management Reports
           </h1>
           <p className="text-gray-600 mb-6">
-            8.1 Master Summary • 8.2 Milestone Progress • 8.3 Workforce Utilization • 8.4 Cost & Budget
+            8.1 Master Summary • 8.2 Budget &amp; Payment Detailed • 8.3 Cost &amp; Budget • 8.4 Milestone Progress • 8.5 Workforce Utilization
           </p>
 
           <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-6">

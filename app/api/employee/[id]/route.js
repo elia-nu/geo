@@ -68,13 +68,85 @@ export async function PUT(request, { params }) {
       updatedAt: new Date(),
     };
 
-    // If personalDetails is being updated, merge it with existing data to preserve other fields
-    if (body.personalDetails) {
-      updateData.personalDetails = {
-        ...(currentEmployee.personalDetails || {}),
-        ...body.personalDetails,
-      };
+    const salaryVal =
+      body.salary !== undefined
+        ? Number(body.salary)
+        : body.grossSalary !== undefined
+        ? Number(body.grossSalary)
+        : body.personalDetails?.salary !== undefined
+        ? Number(body.personalDetails.salary)
+        : undefined;
+
+    const bankAccountVal =
+      body.bankAccount !== undefined
+        ? body.bankAccount
+        : body.bankAccountNumber !== undefined
+        ? body.bankAccountNumber
+        : body.personalDetails?.bankAccount !== undefined
+        ? body.personalDetails.bankAccount
+        : undefined;
+
+    const bankNameVal =
+      body.bankName || body.personalDetails?.bankName || undefined;
+
+    if (salaryVal !== undefined && !Number.isNaN(salaryVal)) {
+      updateData.salary = salaryVal;
+      updateData.grossSalary = salaryVal;
+      updateData.baseSalary = salaryVal;
+      updateData.salaryETB = salaryVal;
     }
+
+    if (bankAccountVal !== undefined) {
+      updateData.bankAccount = bankAccountVal;
+      updateData.bankAccountNumber = bankAccountVal;
+      updateData.accountNumber = bankAccountVal;
+    }
+
+    if (bankNameVal !== undefined) {
+      updateData.bankName = bankNameVal;
+    }
+
+    // Merge personalDetails
+    updateData.personalDetails = {
+      ...(currentEmployee.personalDetails || {}),
+      ...(body.personalDetails || {}),
+      ...(salaryVal !== undefined && !Number.isNaN(salaryVal)
+        ? {
+            salary: salaryVal,
+            grossSalary: salaryVal,
+            baseSalary: salaryVal,
+            salaryETB: salaryVal,
+          }
+        : {}),
+      ...(bankAccountVal !== undefined
+        ? {
+            bankAccount: bankAccountVal,
+            bankAccountNumber: bankAccountVal,
+            accountNumber: bankAccountVal,
+          }
+        : {}),
+      ...(bankNameVal !== undefined ? { bankName: bankNameVal } : {}),
+    };
+
+    // Merge payrollDetails
+    updateData.payrollDetails = {
+      ...(currentEmployee.payrollDetails || {}),
+      ...(body.payrollDetails || {}),
+      ...(salaryVal !== undefined && !Number.isNaN(salaryVal)
+        ? {
+            salary: salaryVal,
+            grossSalary: salaryVal,
+            baseSalary: salaryVal,
+          }
+        : {}),
+      ...(bankAccountVal !== undefined
+        ? {
+            bankAccount: bankAccountVal,
+            bankAccountNumber: bankAccountVal,
+          }
+        : {}),
+      ...(bankNameVal !== undefined ? { bankName: bankNameVal } : {}),
+    };
 
     const result = await db
       .collection("employees")

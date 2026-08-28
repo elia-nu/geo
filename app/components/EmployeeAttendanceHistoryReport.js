@@ -15,6 +15,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
+import { formatWorkingHours } from "../utils/timeUtils";
 
 export default function EmployeeAttendanceHistoryReport() {
   const [loading, setLoading] = useState(false);
@@ -382,7 +383,7 @@ export default function EmployeeAttendanceHistoryReport() {
                         {r.checkOutTime ? new Date(r.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-center font-bold text-indigo-700">
-                        {r.workingHours != null ? `${Number(r.workingHours).toFixed(1)} hrs` : "—"}
+                        {formatWorkingHours(r)}
                       </td>
                       <td className="px-5 py-3.5 text-slate-600">
                         <div className="flex items-center gap-1">

@@ -15,6 +15,7 @@ import {
   History,
   Bell,
 } from "lucide-react";
+import { formatWorkingHours } from "../utils/timeUtils";
 
 export default function EmployeeDashboard({ employeeId, employeeName }) {
   const [todayRecord, setTodayRecord] = useState(null);
@@ -393,10 +394,10 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
                 </span>
               </div>
             )}
-            {todayRecord?.workingHours && (
+            {todayRecord?.workingHours != null && (
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">Hours:</span>
-                <span className="font-medium">{todayRecord.workingHours}h</span>
+                <span className="font-semibold text-indigo-700">{formatWorkingHours(todayRecord.workingHours)}</span>
               </div>
             )}
           </div>
@@ -534,8 +535,8 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-medium text-black">
-                    {record.workingHours ? `${record.workingHours}h` : "N/A"}
+                  <div className="text-sm font-semibold text-indigo-700">
+                    {formatWorkingHours(record)}
                   </div>
                   <div className="text-xs text-gray-500">
                     {record.checkInTime && record.checkOutTime

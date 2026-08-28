@@ -16,6 +16,7 @@ import {
   Save,
   X,
 } from "lucide-react";
+import Pagination from "./ui/Pagination";
 
 export default function AdminLeaveBalanceManagement() {
   const [leaveBalances, setLeaveBalances] = useState([]);
@@ -28,7 +29,7 @@ export default function AdminLeaveBalanceManagement() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedLeaveType, setSelectedLeaveType] = useState(null);
   const [adjustmentData, setAdjustmentData] = useState({
-    leaveType: "",
+    leaveType: "annual",
     days: 0,
     reason: "",
   });
@@ -40,8 +41,11 @@ export default function AdminLeaveBalanceManagement() {
   const [realTimeMode, setRealTimeMode] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
+    setCurrentPage(1);
     fetchLeaveBalances();
 
     if (autoRefresh) {
@@ -114,7 +118,6 @@ export default function AdminLeaveBalanceManagement() {
   const handleAdjustment = async () => {
     if (
       !selectedEmployee ||
-      !adjustmentData.leaveType ||
       !adjustmentData.reason
     ) {
       showMessage("Please fill in all required fields", "error");
@@ -130,7 +133,7 @@ export default function AdminLeaveBalanceManagement() {
         body: JSON.stringify({
           employeeId: selectedEmployee.employeeId,
           action: "adjust",
-          leaveType: adjustmentData.leaveType,
+          leaveType: "annual",
           days: adjustmentData.days,
           reason: adjustmentData.reason,
           adminId: "admin",
@@ -140,9 +143,9 @@ export default function AdminLeaveBalanceManagement() {
       const result = await response.json();
 
       if (result.success) {
-        showMessage("Leave balance adjusted successfully", "success");
+        showMessage("Annual leave balance adjusted successfully", "success");
         setShowAdjustmentModal(false);
-        setAdjustmentData({ leaveType: "", days: 0, reason: "" });
+        setAdjustmentData({ leaveType: "annual", days: 0, reason: "" });
         setSelectedEmployee(null);
         fetchLeaveBalances();
       } else {
@@ -221,84 +224,82 @@ export default function AdminLeaveBalanceManagement() {
   };
 
   const getEmployeeOverallUsagePct = (employee) => {
-    const entries = Object.values(employee?.balances || {});
-    const totalAvailable = entries.reduce(
-      (sum, b) => sum + (b.available || 0),
-      0
-    );
-    const totalUsed = entries.reduce((sum, b) => sum + (b.used || 0), 0);
+    const annual = employee?.balances?.annual || {};
+    const totalAvailable = annual.available || 0;
+    const totalUsed = annual.used || 0;
     const totalAll = totalAvailable + totalUsed;
     return totalAll > 0 ? Math.round((totalUsed / totalAll) * 100) : 0;
   };
 
   const lowCount = leaveBalances.filter(
-    (emp) => getEmployeeOverallUsagePct(emp) >= 75
+    (emp) => (emp.balances?.annual?.available ?? 16) <= 4
   ).length;
   const mediumCount = leaveBalances.filter((emp) => {
-    const pct = getEmployeeOverallUsagePct(emp);
-    return pct >= 50 && pct < 75;
+    const avail = emp.balances?.annual?.available ?? 16;
+    return avail > 4 && avail <= 10;
   }).length;
   const totalUsedDays = leaveBalances.reduce(
-    (sum, emp) =>
-      sum +
-      Object.values(emp.balances || {}).reduce(
-        (empSum, balance) => empSum + (balance.used || 0),
-        0
-      ),
+    (sum, emp) => sum + (emp.balances?.annual?.used || 0),
     0
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  const totalItems = leaveBalances.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  const paginatedBalances = leaveBalances.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-6">
+      {/* Header and Controls */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-black flex items-center gap-2">
-              <Users className="w-6 h-6 text-blue-600" />
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Users className="w-7 h-7 text-blue-600" />
               Leave Balance Management
-            </h2>
-            <p className="text-gray-600 text-sm mt-1">
-              Monitor employee leave balances and usage across the organization
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Monitor employee annual leave balances (16 days standard) and usage across the organization
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100">
+
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
               <input
                 type="checkbox"
                 checked={realTimeMode}
                 onChange={(e) => setRealTimeMode(e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              Real-time
+              <span className="font-medium">Real-time</span>
             </label>
-            <label className="inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100">
+
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
               <input
                 type="checkbox"
                 checked={autoRefresh}
                 onChange={(e) => setAutoRefresh(e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              Auto-refresh
+              <span className="font-medium">Auto-refresh</span>
             </label>
+
             <button
               onClick={fetchLeaveBalances}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg border hover:bg-gray-200"
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw
+                className={`w-4 h-4 text-gray-600 ${loading ? "animate-spin" : ""}`}
+              />
               Refresh
             </button>
+
             <button
               onClick={exportLeaveBalances}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition-colors shadow-sm"
             >
               <Download className="w-4 h-4" />
               Export
@@ -306,48 +307,20 @@ export default function AdminLeaveBalanceManagement() {
           </div>
         </div>
 
-        {realTimeMode && (
-          <div className="mt-4 flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-100 text-sm">
-            <div className="flex items-center gap-2 text-emerald-800">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="font-medium">Live sync enabled</span>
-            </div>
-            <span className="text-emerald-700">
-              {leaveBalances.length} employees monitored
-            </span>
+        {/* Live sync banner */}
+        <div className="mt-4 flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-800 text-xs font-medium">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Live sync enabled • 16 Days Standard Annual Leave</span>
           </div>
-        )}
-      </div>
-
-      {/* Message */}
-      {message && (
-        <div
-          className={`p-3 rounded-lg flex items-center gap-2 text-sm border ${
-            messageType === "success"
-              ? "bg-green-50 text-green-800 border-green-200"
-              : messageType === "error"
-              ? "bg-red-50 text-red-800 border-red-200"
-              : "bg-blue-50 text-blue-800 border-blue-200"
-          }`}
-        >
-          {messageType === "success" ? (
-            <CheckCircle className="w-4 h-4 shrink-0" />
-          ) : (
-            <AlertCircle className="w-4 h-4 shrink-0" />
-          )}
-          {message}
+          <div>{totalItems} employees monitored</div>
         </div>
-      )}
 
-      {/* Filters + KPIs */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[180px]">
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+        {/* Filters */}
+        <div className="mt-5 pt-5 border-t border-gray-100 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
                 Department
               </label>
               <select
@@ -355,7 +328,7 @@ export default function AdminLeaveBalanceManagement() {
                 onChange={(e) =>
                   setFilters({ ...filters, department: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-black text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Departments</option>
                 {departments.map((dept) => (
@@ -365,262 +338,281 @@ export default function AdminLeaveBalanceManagement() {
                 ))}
               </select>
             </div>
-            <label
-              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer ${
-                filters.lowBalance
-                  ? "bg-red-50 border-red-200 text-red-800"
-                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={filters.lowBalance}
-                onChange={(e) =>
-                  setFilters({ ...filters, lowBalance: e.target.checked })
-                }
-                className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-              />
-              Low balance
-            </label>
-            <label
-              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer ${
-                filters.highUsage
-                  ? "bg-amber-50 border-amber-200 text-amber-800"
-                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={filters.highUsage}
-                onChange={(e) =>
-                  setFilters({ ...filters, highUsage: e.target.checked })
-                }
-                className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-              />
-              High usage
-            </label>
+
+            <div className="flex items-center gap-4 mt-5">
+              <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters.lowBalance}
+                  onChange={(e) =>
+                    setFilters({ ...filters, lowBalance: e.target.checked })
+                  }
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Low balance (≤ 4 days)
+              </label>
+
+              <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters.highUsage}
+                  onChange={(e) =>
+                    setFilters({ ...filters, highUsage: e.target.checked })
+                  }
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                High usage
+              </label>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <Filter className="w-3.5 h-3.5" />
+
+          <div className="text-xs text-gray-400">
             Filters apply immediately
           </div>
         </div>
       </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+      {/* Messages */}
+      {message && (
+        <div
+          className={`p-4 rounded-xl flex items-center gap-3 text-sm font-medium ${
+            messageType === "success"
+              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              : messageType === "error"
+              ? "bg-red-50 text-red-800 border border-red-200"
+              : "bg-blue-50 text-blue-800 border border-blue-200"
+          }`}
+        >
+          {messageType === "success" ? (
+            <CheckCircle className="w-5 h-5 text-emerald-600" />
+          ) : (
+            <AlertCircle className="w-5 h-5" />
+          )}
+          <span>{message}</span>
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 border-l-4 border-blue-500">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Employees
               </p>
-              <p className="text-2xl font-bold text-black mt-1">
-                {leaveBalances.length}
+              <p className="text-2xl font-black text-gray-900 mt-1">
+                {totalItems}
               </p>
             </div>
-            <div className="p-2 bg-blue-50 rounded-lg">
+            <div className="p-2.5 bg-blue-50 rounded-xl">
               <Users className="w-5 h-5 text-blue-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 border-l-4 border-red-500">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Low Balances
               </p>
-              <p className="text-2xl font-bold text-black mt-1">{lowCount}</p>
+              <p className="text-2xl font-black text-gray-900 mt-1">
+                {lowCount}
+              </p>
             </div>
-            <div className="p-2 bg-red-50 rounded-lg">
+            <div className="p-2.5 bg-red-50 rounded-xl">
               <AlertCircle className="w-5 h-5 text-red-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-amber-500">
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 border-l-4 border-amber-500">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                Medium Usage
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Medium Balances
               </p>
-              <p className="text-2xl font-bold text-black mt-1">{mediumCount}</p>
+              <p className="text-2xl font-black text-gray-900 mt-1">
+                {mediumCount}
+              </p>
             </div>
-            <div className="p-2 bg-amber-50 rounded-lg">
+            <div className="p-2.5 bg-amber-50 rounded-xl">
               <TrendingUp className="w-5 h-5 text-amber-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-slate-500">
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 border-l-4 border-slate-500">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Days Used
               </p>
-              <p className="text-2xl font-bold text-black mt-1">
+              <p className="text-2xl font-black text-gray-900 mt-1">
                 {totalUsedDays}
               </p>
             </div>
-            <div className="p-2 bg-slate-100 rounded-lg">
+            <div className="p-2.5 bg-slate-100 rounded-xl">
               <TrendingDown className="w-5 h-5 text-slate-600" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Employee table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-blue-600" />
-          <h3 className="text-lg font-semibold text-black">
-            Employee Leave Balances
-          </h3>
+      {/* Employee Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-blue-600" />
+            <h3 className="text-lg font-bold text-gray-900">
+              Employee Annual Leave Balances
+            </h3>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-100">
+            Standard 16 Days Entitlement
+          </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50/75">
               <tr>
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                   Employee
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                   Department
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider min-w-[280px]">
-                  Balances
+                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wider min-w-[240px]">
+                  Annual Leave Balance (16 Days)
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-5 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {leaveBalances.length === 0 ? (
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                    <div className="flex items-center justify-center gap-2">
+                      <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+                      <span>Loading leave balances...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedBalances.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-5 py-10 text-center text-gray-500"
+                    className="px-6 py-12 text-center text-gray-500"
                   >
                     No leave balances found for the current filters.
                   </td>
                 </tr>
               ) : (
-                leaveBalances.map((employee) => {
-                  const balanceEntries = Object.values(
-                    employee.balances || {}
-                  );
-                  const totalAvailable = balanceEntries.reduce(
-                    (sum, b) => sum + (b.available || 0),
-                    0
-                  );
-                  const totalUsed = balanceEntries.reduce(
-                    (sum, b) => sum + (b.used || 0),
-                    0
-                  );
-                  const totalAll = totalAvailable + totalUsed;
-                  const overallUsagePct =
-                    totalAll > 0
-                      ? Math.round((totalUsed / totalAll) * 100)
-                      : 0;
-                  const overallStatus =
-                    overallUsagePct >= 75
+                paginatedBalances.map((employee) => {
+                  const annual = employee.balances?.annual || {
+                    available: 16,
+                    used: 0,
+                    pending: 0,
+                  };
+                  const available = annual.available ?? 16;
+                  const used = annual.used ?? 0;
+                  const pending = annual.pending ?? 0;
+                  const usagePct = Math.round((used / 16) * 100);
+
+                  const status =
+                    available <= 4
                       ? "Low"
-                      : overallUsagePct >= 50
+                      : available <= 10
                       ? "Medium"
                       : "Good";
 
                   return (
                     <tr
                       key={employee.employeeId}
-                      className="hover:bg-gray-50 align-top"
+                      className="hover:bg-slate-50/70 transition-colors"
                     >
-                      <td className="px-5 py-4">
-                        <div className="font-medium text-black">
-                          {employee.employee?.name || "Unknown"}
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-gray-900">
+                          {employee.employee?.name || employee.employeeName || "Unknown"}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
                           {employee.employee?.email || ""}
                         </div>
                       </td>
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
                           {employee.employee?.department || "N/A"}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
-                        {employee.balances ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {Object.entries(employee.balances).map(
-                              ([leaveType, balance]) => (
-                                <button
-                                  key={leaveType}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedEmployee(employee);
-                                    setSelectedLeaveType(leaveType);
-                                    setShowViewModal(true);
-                                  }}
-                                  className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                                  title={`View ${leaveType} details`}
-                                >
-                                  <span className="capitalize font-medium text-gray-700">
-                                    {leaveType}
-                                  </span>
-                                  <span className="text-emerald-700 font-semibold">
-                                    {balance.available}
-                                  </span>
-                                  <span className="text-gray-300">/</span>
-                                  <span className="text-amber-700">
-                                    {balance.used}u
-                                  </span>
-                                  {balance.pending > 0 && (
-                                    <span className="text-yellow-700">
-                                      ·{balance.pending}p
-                                    </span>
-                                  )}
-                                </button>
-                              )
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-sm">N/A</span>
-                        )}
+                      <td className="px-6 py-4">
+                        <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-1.5 shadow-sm">
+                          <span className="font-semibold text-emerald-950 text-xs">
+                            Annual:
+                          </span>
+                          <span className="bg-white px-2 py-0.5 rounded-lg font-bold text-emerald-700 border border-emerald-200/60 shadow-xs text-xs">
+                            {available} / 16 Days
+                          </span>
+                          {used > 0 && (
+                            <span className="text-amber-800 text-xs font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/50">
+                              {used} used
+                            </span>
+                          )}
+                          {pending > 0 && (
+                            <span className="text-blue-800 text-xs font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/50">
+                              {pending} pending
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-5 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          {overallStatus === "Low" && (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-100">
-                              Low balance
+                          {status === "Low" && (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-100">
+                              Low ({available}d)
                             </span>
                           )}
-                          {overallStatus === "Medium" && (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
-                              Medium usage
+                          {status === "Medium" && (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                              Medium ({available}d)
                             </span>
                           )}
-                          {overallStatus === "Good" && (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
-                              Good
+                          {status === "Good" && (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                              Good ({available}d)
                             </span>
                           )}
-                          <span className="text-xs text-gray-500">
-                            {overallUsagePct}% used
+                          <span className="text-xs text-gray-500 font-medium">
+                            {usagePct}% used
                           </span>
                         </div>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => {
                               setSelectedEmployee(employee);
-                              setSelectedLeaveType(null);
+                              setSelectedLeaveType("annual");
+                              setShowAdjustmentModal(true);
+                            }}
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Adjust Annual Leave"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedEmployee(employee);
+                              setSelectedLeaveType("annual");
                               setShowViewModal(true);
                             }}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                            title="View Balances"
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="View Annual Leave Balance"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -628,7 +620,7 @@ export default function AdminLeaveBalanceManagement() {
                             onClick={() =>
                               recalculateBalance(employee.employeeId)
                             }
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                             title="Recalculate"
                           >
                             <RefreshCw className="w-4 h-4" />
@@ -642,16 +634,30 @@ export default function AdminLeaveBalanceManagement() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(val) => {
+            setItemsPerPage(val);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 20, 38, 50]}
+        />
       </div>
 
       {/* Adjustment Modal */}
       {showAdjustmentModal && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-black flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg border border-gray-100">
+            <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <Edit className="w-5 h-5 text-blue-600" />
-                Adjust Leave Balance
+                Adjust Annual Leave Balance
               </h3>
               <button
                 onClick={() => setShowAdjustmentModal(false)}

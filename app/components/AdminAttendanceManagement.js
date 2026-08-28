@@ -28,6 +28,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { toast } from "./ui/toast";
+import { formatWorkingHours, calculateEffectiveWorkingHours } from "../utils/timeUtils";
 
 export default function AdminAttendanceManagement() {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -210,15 +211,8 @@ export default function AdminAttendanceManagement() {
     });
   };
 
-  const calculateWorkingHours = (checkIn, checkOut) => {
-    if (!checkIn || !checkOut) return null;
-
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    const diffMs = end - start;
-    const hours = diffMs / (1000 * 60 * 60);
-
-    return Math.round(hours * 100) / 100;
+  const calculateWorkingHours = (checkIn, checkOut, lunchOut, lunchIn) => {
+    return calculateEffectiveWorkingHours(checkIn, checkOut, lunchOut, lunchIn);
   };
 
   const getStatusDisplay = (record) => {
@@ -489,10 +483,7 @@ export default function AdminAttendanceManagement() {
             {filteredRecords.map((record) => {
               const status = getStatusDisplay(record);
               const StatusIcon = status.icon;
-              const workingHours = calculateWorkingHours(
-                record.checkInTime,
-                record.checkOutTime
-              );
+              const workingHours = formatWorkingHours(record);
               const empCode = getRecordEmpId(record);
               const empName = record.employeeName || "Unknown Employee";
               const initial = empName.charAt(0).toUpperCase();
@@ -561,7 +552,7 @@ export default function AdminAttendanceManagement() {
                     <div>
                       <div className="text-[11px] font-semibold text-slate-400 uppercase">Working Hours</div>
                       <div className="font-bold text-indigo-700 text-sm mt-0.5">
-                        {workingHours ? `${workingHours} hrs` : "—"}
+                        {workingHours}
                       </div>
                     </div>
                     <div>
@@ -939,7 +930,7 @@ function AttendanceDetailsModal({ record, onClose }) {
               <div>
                 <span className="text-xs font-semibold text-indigo-400 uppercase">Hours:</span>
                 <p className="text-indigo-700 font-bold mt-0.5">
-                  {calculateWorkingHours(record.checkInTime, record.checkOutTime) || "—"} hrs
+                  {formatWorkingHours(record)}
                 </p>
               </div>
               <div>

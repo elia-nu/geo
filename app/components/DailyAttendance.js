@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Webcam from "react-webcam";
 import AttendancePhotoViewer from "./AttendancePhotoViewer";
+import { formatWorkingHours, calculateEffectiveWorkingHours } from "../utils/timeUtils";
 
 export default function DailyAttendance({
   employeeId,
@@ -40,6 +41,7 @@ export default function DailyAttendance({
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [todayOvertimeRequest, setTodayOvertimeRequest] = useState(null);
 
   const webcamRef = useRef(null);
 
@@ -115,8 +117,22 @@ export default function DailyAttendance({
   // Fetch today's attendance record on component mount
   useEffect(() => {
     fetchTodayAttendance();
+    fetchTodayOvertimeStatus();
     getCurrentLocation();
   }, [employeeId]);
+
+  const fetchTodayOvertimeStatus = async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const res = await fetch(`/api/overtime/requests?employeeId=${employeeId}&date=${today}&status=approved`);
+      const result = await res.json();
+      if (result.success && result.data?.length > 0) {
+        setTodayOvertimeRequest(result.data[0]);
+      }
+    } catch (e) {
+      console.error("Error fetching today overtime status:", e);
+    }
+  };
 
   // Calculate distance between two points
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -497,9 +513,13 @@ export default function DailyAttendance({
     }
   };
 
-  // Calculate working hours display (minus 1-hour lunch break)
+  // Calculate working hours display (deducting actual lunch break if recorded)
   const getWorkingHoursDisplay = () => {
-    if (!todayRecord?.checkInTime) return "00:00";
+    if (!todayRecord?.checkInTime) return "0h 00m";
+
+    if (todayRecord.checkOutTime && typeof todayRecord.workingHours === "number") {
+      return formatWorkingHours(todayRecord.workingHours);
+    }
 
     const checkInTime = new Date(todayRecord.checkInTime);
     const checkOutTime = todayRecord.checkOutTime
@@ -507,14 +527,28 @@ export default function DailyAttendance({
       : currentTime;
 
     let diffMs = checkOutTime - checkInTime;
-    // Subtract fixed 1-hour lunch break from display, clamp to zero
-    diffMs = Math.max(0, diffMs - 60 * 60 * 1000);
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    return `${hours.toString().padStart(2, "0")}:${minutes
-      .toString()
-      .padStart(2, "0")}`;
+    // Deduct actual lunch duration if recorded
+    if (todayRecord.lunchOutTime && todayRecord.lunchInTime) {
+      const lunchOut = new Date(todayRecord.lunchOutTime).getTime();
+      const lunchIn = new Date(todayRecord.lunchInTime).getTime();
+      if (!isNaN(lunchOut) && !isNaN(lunchIn) && lunchIn > lunchOut) {
+        diffMs = Math.max(0, diffMs - (lunchIn - lunchOut));
+      }
+    } else if (todayRecord.lunchOutTime && !todayRecord.lunchInTime) {
+      // Currently on lunch break
+      const lunchOut = new Date(todayRecord.lunchOutTime).getTime();
+      const currentMs = currentTime.getTime();
+      if (!isNaN(lunchOut) && currentMs > lunchOut) {
+        diffMs = Math.max(0, diffMs - (currentMs - lunchOut));
+      }
+    }
+
+    const totalMinutes = Math.floor(Math.max(0, diffMs) / (1000 * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
   };
 
   // Format time for display
@@ -736,6 +770,32 @@ export default function DailyAttendance({
             )}
           </div>
         </div>
+
+        {/* Overtime Notice if approved for today */}
+        {todayOvertimeRequest && (
+          <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-600 text-white rounded-lg">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-amber-900">
+                  Approved Overtime Today ({todayOvertimeRequest.approvedHours || todayOvertimeRequest.requestedHours} hrs)
+                </h4>
+                <p className="text-xs text-amber-700">
+                  {todayOvertimeRequest.project ? `Project: ${todayOvertimeRequest.project} | ` : ""}
+                  Reason: {todayOvertimeRequest.reason}
+                </p>
+              </div>
+            </div>
+            <a
+              href="/employee-portal?section=overtime"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all whitespace-nowrap"
+            >
+              Open Overtime Hub & Clock In →
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Location Status */}

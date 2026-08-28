@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   PlusIcon,
@@ -25,14 +25,17 @@ import {
   CreditCardIcon,
   BanknotesIcon,
   ArrowPathIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  MagnifyingGlassIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  FunnelIcon,
 } from "@heroicons/react/24/outline";
 import FinancialDashboard from "./FinancialDashboard";
 import {
   validateBudgetForm,
   validateExpenseForm,
-  validateIncomeForm,
-  validateExpectedPaymentForm,
-  validateCollectPaymentForm,
   hasFormErrors,
 } from "../utils/formValidation";
 import {
@@ -46,18 +49,26 @@ import {
   formatCurrency as formatCurrencyUtil,
   currencyTitle,
 } from "../utils/currency";
+import {
+  generateInstallmentSchedule,
+  refreshInstallmentStatuses,
+  summarizeInstallments,
+  deriveInstallmentStatus,
+} from "../utils/incomeLifecycle";
 import MetricCard from "./financial/MetricCard";
 import AmountCell from "./financial/AmountCell";
 
 const PAYMENT_FREQUENCIES = [
-  { value: "lump_sum", label: "Lump Sum (One-time / Direct)" },
-  { value: "monthly", label: "Monthly Recurring" },
-  { value: "quarterly", label: "Quarterly Recurring" },
+  { value: "lump_sum", label: "Lump Sum" },
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "custom", label: "Custom Schedule" },
 ];
 
 const formatFrequencyLabel = (freq) => {
   if (freq === "monthly") return "Monthly";
   if (freq === "quarterly") return "Quarterly";
+  if (freq === "custom") return "Custom";
   return "Lump Sum";
 };
 
@@ -308,21 +319,16 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
   // Data states
   const [budgetData, setBudgetData] = useState(null);
   const [expenses, setExpenses] = useState([]);
-  const [income, setIncome] = useState([]);
+  const [paymentPlans, setPaymentPlans] = useState([]);
   const [financialReports, setFinancialReports] = useState(null);
   const [budgetAllocationCategories, setBudgetAllocationCategories] = useState([]);
-  const [incomeCategories, setIncomeCategories] = useState([]);
 
   // Modal states
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showEditBudgetModal, setShowEditBudgetModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
-  const [showIncomeModal, setShowIncomeModal] = useState(false);
-  const [editingIncomeId, setEditingIncomeId] = useState(null);
-  const [showExpectedPaymentModal, setShowExpectedPaymentModal] = useState(false);
-  const [showCollectModal, setShowCollectModal] = useState(false);
-  const [collectTargetIncome, setCollectTargetIncome] = useState(null);
+  const [showPaymentPlanModal, setShowPaymentPlanModal] = useState(false);
   const [previewReceiptImage, setPreviewReceiptImage] = useState(null);
 
   // Form states
@@ -349,70 +355,32 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     tags: [],
   });
 
-  const [incomeForm, setIncomeForm] = useState({
-    title: "",
+  const [paymentPlanForm, setPaymentPlanForm] = useState({
     clientName: "",
-    projectName: projectName || "",
-    totalProjectAmount: "",
-    expectedAmount: "",
-    amount: "",
-    totalPaid: "",
-    frequency: "lump_sum",
-    recurringDay: "15",
-    durationMonths: "12",
-    startDate: todayInputValue(),
-    installmentAmount: "",
-    paymentMethod: "advance_payment",
-    receivedDate: todayInputValue(),
-    dueDate: "",
-    nextPaymentDate: "",
-    nextPaymentAmount: "",
-    categoryId: "",
-    invoiceNumber: "",
-    status: "pending",
-    paymentReference: "",
+    title: projectName || "",
     description: "",
-    notes: "",
-  });
-
-  const [expectedPaymentForm, setExpectedPaymentForm] = useState({
-    title: "",
-    clientName: "",
-    totalProjectAmount: "",
-    expectedAmount: "",
-    amount: "",
-    frequency: "lump_sum",
-    recurringDay: "15",
-    durationMonths: "12",
+    totalAmount: "",
+    frequency: "monthly",
+    numberOfInstallments: "12",
     startDate: todayInputValue(),
-    installmentAmount: "",
-    paymentMethod: "advance_payment",
-    dueDate: "",
-    nextPaymentDate: "",
-    nextPaymentAmount: "",
-    categoryId: "",
-    invoiceNumber: "",
-    description: "",
-    notes: "",
-  });
-
-  const [collectForm, setCollectForm] = useState({
-    collectAmount: "",
-    receivedDate: new Date().toISOString().split("T")[0],
-    paymentMethod: "bank_transfer",
-    invoiceNumber: "",
-    paymentReference: "",
-    nextPaymentDate: "",
-    nextPaymentAmount: "",
-    notes: "",
+    firstPaid: false,
+    // Lump-sum specific
+    lumpSumFirstAmount: "",
+    lumpSumFirstPaid: false,
+    // Custom schedule specific
+    customInstallments: [
+      {
+        amount: "",
+        dueDate: todayInputValue(),
+        isPaid: false,
+      },
+    ],
   });
 
   // Errors
   const [budgetFormErrors, setBudgetFormErrors] = useState({});
   const [expenseFormErrors, setExpenseFormErrors] = useState({});
-  const [incomeFormErrors, setIncomeFormErrors] = useState({});
-  const [expectedPaymentFormErrors, setExpectedPaymentFormErrors] = useState({});
-  const [collectFormErrors, setCollectFormErrors] = useState({});
+  const [paymentPlanFormErrors, setPaymentPlanFormErrors] = useState({});
 
   useEffect(() => {
     if (projectId) {
@@ -426,7 +394,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       await Promise.all([
         fetchBudgetData(),
         fetchExpenses(),
-        fetchIncome(),
+        fetchPaymentPlans(),
         fetchCategories(),
         fetchFinancialReports(),
       ]);
@@ -439,14 +407,9 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 
   const fetchCategories = async () => {
     try {
-      const [bRes, iRes] = await Promise.all([
-        fetch("/api/budget-allocation-categories"),
-        fetch("/api/income-categories"),
-      ]);
+      const bRes = await fetch("/api/budget-allocation-categories");
       const bData = await bRes.json();
-      const iData = await iRes.json();
       if (bData.success) setBudgetAllocationCategories(bData.categories || []);
-      if (iData.success) setIncomeCategories(iData.categories || []);
     } catch (e) {
       console.error("Failed to fetch categories:", e);
     }
@@ -476,15 +439,23 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
-  const fetchIncome = async () => {
+  const fetchPaymentPlans = async () => {
     try {
       const res = await fetch(`/api/projects/${projectId}/income`);
       const data = await res.json();
       if (data.success) {
-        setIncome(data.income || []);
+        // Refresh installment statuses on the client side
+        const plans = (data.income || []).map((plan) => {
+          if (Array.isArray(plan.installments) && plan.installments.length > 0) {
+            const { installments } = refreshInstallmentStatuses(plan.installments);
+            return { ...plan, installments };
+          }
+          return plan;
+        });
+        setPaymentPlans(plans);
       }
     } catch (e) {
-      console.error("Failed to fetch income:", e);
+      console.error("Failed to fetch payment plans:", e);
     }
   };
 
@@ -740,60 +711,72 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
-  // Handlers for Income
-  const resetIncomeForm = () => {
-    setIncomeForm({
-      title: "",
+  // Handlers for Payment Plans
+  const resetPaymentPlanForm = () => {
+    setPaymentPlanForm({
       clientName: "",
-      projectName: projectName || "",
-      totalProjectAmount: "",
-      expectedAmount: "",
-      amount: "",
-      totalPaid: "",
-      frequency: "lump_sum",
-      recurringDay: "15",
-      durationMonths: "12",
-      startDate: todayInputValue(),
-      installmentAmount: "",
-      paymentMethod: "advance_payment",
-      receivedDate: todayInputValue(),
-      dueDate: "",
-      nextPaymentDate: "",
-      nextPaymentAmount: "",
-      categoryId: "",
-      invoiceNumber: "",
-      status: "pending",
-      paymentReference: "",
+      title: projectName || "",
       description: "",
-      notes: "",
+      totalAmount: "",
+      frequency: "monthly",
+      numberOfInstallments: "12",
+      startDate: todayInputValue(),
+      firstPaid: false,
+      lumpSumFirstAmount: "",
+      lumpSumFirstPaid: false,
+      customInstallments: [
+        {
+          amount: "",
+          dueDate: todayInputValue(),
+          isPaid: false,
+        },
+      ],
     });
-    setIncomeFormErrors({});
+    setPaymentPlanFormErrors({});
   };
 
-  const handleIncomeFormChange = (field, value) => {
-    setIncomeForm((prev) => {
+  const handlePaymentPlanFormChange = (field, value) => {
+    setPaymentPlanForm((prev) => {
       const next = { ...prev, [field]: value };
-      // If total amount or duration or frequency changes, recalculate installment amount
-      if (field === "totalProjectAmount" || field === "durationMonths" || field === "frequency") {
-        const total = Number(field === "totalProjectAmount" ? value : next.totalProjectAmount) || 0;
-        const dur = parseInt(field === "durationMonths" ? value : next.durationMonths, 10) || 12;
-        const freq = field === "frequency" ? value : next.frequency;
-        if (freq === "monthly" && dur > 0) {
-          next.installmentAmount = (total / dur).toFixed(2);
-          next.nextPaymentAmount = (total / dur).toFixed(2);
-        } else if (freq === "quarterly" && dur > 0) {
-          const quarters = Math.max(1, Math.round(dur / 3));
-          next.installmentAmount = (total / quarters).toFixed(2);
-          next.nextPaymentAmount = (total / quarters).toFixed(2);
-        } else {
-          next.installmentAmount = total ? total.toFixed(2) : "";
+      // When changing totalAmount, default lumpSumFirstAmount to totalAmount
+      if (field === "totalAmount") {
+        if (next.frequency === "lump_sum" || !next.lumpSumFirstAmount) {
+          next.lumpSumFirstAmount = value;
+        }
+        if (
+          next.frequency === "custom" &&
+          Array.isArray(next.customInstallments) &&
+          next.customInstallments.length === 1 &&
+          !next.customInstallments[0].amount
+        ) {
+          next.customInstallments = [
+            {
+              ...next.customInstallments[0],
+              amount: value,
+            },
+          ];
+        }
+      }
+      // When switching to lump_sum, first payment is the total amount
+      if (field === "frequency" && value === "lump_sum") {
+        next.lumpSumFirstAmount = next.totalAmount || "";
+      }
+      // When switching to custom, ensure at least 1 custom installment
+      if (field === "frequency" && value === "custom") {
+        if (!Array.isArray(next.customInstallments) || next.customInstallments.length === 0) {
+          next.customInstallments = [
+            {
+              amount: next.totalAmount || "",
+              dueDate: next.startDate || todayInputValue(),
+              isPaid: false,
+            },
+          ];
         }
       }
       return next;
     });
-
-    if (incomeFormErrors[field]) {
-      setIncomeFormErrors((prev) => {
+    if (paymentPlanFormErrors[field]) {
+      setPaymentPlanFormErrors((prev) => {
         const next = { ...prev };
         delete next[field];
         return next;
@@ -801,185 +784,111 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     }
   };
 
-  const handleAddIncome = async () => {
-    const errors = validateIncomeForm(incomeForm, { isEdit: false });
-    if (hasFormErrors(errors)) {
-      setIncomeFormErrors(errors);
-      showValidationErrors(errors);
-      return;
-    }
-    setIncomeFormErrors({});
-    setActionLoading("income");
+  const handleAddPaymentPlan = async () => {
+    const errors = {};
+    if (!paymentPlanForm.clientName?.trim()) errors.clientName = "Client name is required";
+    if (!paymentPlanForm.title?.trim()) errors.title = "Project title is required";
 
-    try {
-      const payload = {
-        ...incomeForm,
-        expectedAmount: incomeForm.totalProjectAmount || incomeForm.expectedAmount,
-        totalProjectAmount: incomeForm.totalProjectAmount || incomeForm.expectedAmount,
-        amount: incomeForm.totalPaid || incomeForm.amount || 0,
-        totalPaid: incomeForm.totalPaid || incomeForm.amount || 0,
-      };
+    const totalAmt = Number(paymentPlanForm.totalAmount);
+    if (!totalAmt || totalAmt <= 0) errors.totalAmount = "Total amount must be greater than 0";
 
-      const res = await fetch(`/api/projects/${projectId}/income`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showSuccessToast("Income record saved successfully");
-        setShowIncomeModal(false);
-        resetIncomeForm();
-        fetchIncome();
-        fetchFinancialReports();
+    if (paymentPlanForm.frequency === "custom") {
+      const customInsts = paymentPlanForm.customInstallments || [];
+      if (!customInsts || customInsts.length === 0) {
+        errors.customInstallments = "At least one custom milestone installment is required";
       } else {
-        showErrorToast(data.error || "Failed to save income");
-      }
-    } catch (err) {
-      showErrorToast(err.message || "Failed to save income");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleOpenEditIncome = (inc) => {
-    setEditingIncomeId(inc._id);
-    const totalProjectAmt = inc.totalProjectAmount || inc.expectedAmount || inc.amount || "";
-    const paidAmt = inc.totalPaid !== undefined ? inc.totalPaid : inc.amount || "";
-
-    setIncomeForm({
-      title: inc.title || "",
-      clientName: inc.clientName || "",
-      projectName: inc.projectName || projectName || "",
-      totalProjectAmount: totalProjectAmt,
-      expectedAmount: totalProjectAmt,
-      amount: paidAmt,
-      totalPaid: paidAmt,
-      frequency: inc.frequency || "lump_sum",
-      recurringDay: inc.recurringDay ? String(inc.recurringDay) : "15",
-      durationMonths: inc.durationMonths ? String(inc.durationMonths) : "12",
-      startDate: toDateInputValue(inc.startDate) || todayInputValue(),
-      installmentAmount: inc.installmentAmount || "",
-      paymentMethod: inc.paymentMethod || "advance_payment",
-      receivedDate: toDateInputValue(inc.receivedDate) || todayInputValue(),
-      dueDate: toDateInputValue(inc.dueDate) || "",
-      nextPaymentDate: toDateInputValue(inc.nextPaymentDate) || "",
-      nextPaymentAmount: inc.nextPaymentAmount || "",
-      categoryId: inc.categoryId || "",
-      invoiceNumber: inc.invoiceNumber || "",
-      status: inc.status || "pending",
-      paymentReference: inc.paymentReference || "",
-      description: inc.description || "",
-      notes: inc.notes || "",
-    });
-    setIncomeFormErrors({});
-    setShowIncomeModal(true);
-  };
-
-  const handleEditIncome = async () => {
-    if (!editingIncomeId) return;
-    const errors = validateIncomeForm(incomeForm, { isEdit: true });
-    if (hasFormErrors(errors)) {
-      setIncomeFormErrors(errors);
-      showValidationErrors(errors);
-      return;
-    }
-    setIncomeFormErrors({});
-    setActionLoading("income");
-
-    try {
-      const payload = {
-        ...incomeForm,
-        expectedAmount: incomeForm.totalProjectAmount || incomeForm.expectedAmount,
-        totalProjectAmount: incomeForm.totalProjectAmount || incomeForm.expectedAmount,
-        amount: incomeForm.totalPaid || incomeForm.amount || 0,
-        totalPaid: incomeForm.totalPaid || incomeForm.amount || 0,
-      };
-
-      const res = await fetch(
-        `/api/projects/${projectId}/income/${editingIncomeId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+        let customSum = 0;
+        for (let idx = 0; idx < customInsts.length; idx++) {
+          const inst = customInsts[idx];
+          const amt = Number(inst.amount);
+          if (!amt || amt <= 0) {
+            errors[`custom_amount_${idx}`] = `Installment #${idx + 1} amount must be greater than 0`;
+          }
+          if (!inst.dueDate) {
+            errors[`custom_date_${idx}`] = `Installment #${idx + 1} due date is required`;
+          }
+          customSum += amt || 0;
         }
-      );
-      const data = await res.json();
-      if (data.success) {
-        showSuccessToast("Income record updated successfully");
-        setShowIncomeModal(false);
-        setEditingIncomeId(null);
-        resetIncomeForm();
-        fetchIncome();
-        fetchFinancialReports();
-      } else {
-        showErrorToast(data.error || "Failed to update income");
+        if (totalAmt > 0 && customSum > totalAmt + 0.001) {
+          errors.customInstallments = `Total scheduled custom milestones (${formatCurrency(customSum)}) cannot exceed the total project amount (${formatCurrency(totalAmt)})`;
+        }
       }
-    } catch (err) {
-      showErrorToast(err.message || "Failed to update income");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleDeleteIncome = async (incomeId) => {
-    const confirmed = await showDeleteConfirmDialog({
-      title: "Delete Income Record",
-      text: "Are you sure you want to delete this income record?",
-    });
-    if (!confirmed) return;
-
-    try {
-      const res = await fetch(
-        `/api/projects/${projectId}/income/${incomeId}`,
-        { method: "DELETE" }
-      );
-      const data = await res.json();
-      if (data.success) {
-        showSuccessToast("Income deleted successfully");
-        fetchIncome();
-        fetchFinancialReports();
-      } else {
-        showErrorToast(data.error || "Failed to delete income");
+    } else if (paymentPlanForm.frequency === "lump_sum") {
+      const firstAmt = Number(paymentPlanForm.lumpSumFirstAmount || paymentPlanForm.totalAmount);
+      if (!firstAmt || firstAmt <= 0) {
+        errors.lumpSumFirstAmount = "First payment amount is required";
+      } else if (totalAmt > 0 && firstAmt > totalAmt + 0.001) {
+        errors.lumpSumFirstAmount = `First payment amount cannot exceed total project amount (${formatCurrency(totalAmt)})`;
       }
-    } catch (err) {
-      showErrorToast(err.message || "Failed to delete income");
+    } else {
+      const numInst = parseInt(paymentPlanForm.numberOfInstallments, 10);
+      if (!numInst || numInst < 1) errors.numberOfInstallments = "Must have at least 1 installment";
+      if (!paymentPlanForm.startDate) errors.startDate = "Start date is required";
     }
-  };
 
-  // Expected Income Modal & Handlers
-  const handleAddExpectedIncome = async () => {
-    const errors = validateExpectedPaymentForm(expectedPaymentForm);
     if (hasFormErrors(errors)) {
-      setExpectedPaymentFormErrors(errors);
+      setPaymentPlanFormErrors(errors);
       showValidationErrors(errors);
       return;
     }
-    setExpectedPaymentFormErrors({});
-    setActionLoading("expected");
+    setPaymentPlanFormErrors({});
+    setActionLoading("payment");
 
     try {
+      let installments = [];
+
+      if (paymentPlanForm.frequency === "lump_sum") {
+        // Lump sum: first payment is the total amount (or specified amount)
+        const firstAmt = Number(paymentPlanForm.lumpSumFirstAmount || paymentPlanForm.totalAmount) || 0;
+        const inst = {
+          installmentNumber: 1,
+          amount: firstAmt,
+          dueDate: paymentPlanForm.startDate || todayInputValue(),
+          status: paymentPlanForm.lumpSumFirstPaid ? "paid" : "upcoming",
+          paidDate: paymentPlanForm.lumpSumFirstPaid ? todayInputValue() : null,
+        };
+        if (!paymentPlanForm.lumpSumFirstPaid) {
+          inst.status = deriveInstallmentStatus(inst);
+        }
+        installments.push(inst);
+      } else if (paymentPlanForm.frequency === "custom") {
+        // Custom: user defined custom installments array
+        (paymentPlanForm.customInstallments || []).forEach((item, idx) => {
+          const inst = {
+            installmentNumber: idx + 1,
+            amount: Number(item.amount) || 0,
+            dueDate: item.dueDate || todayInputValue(),
+            status: item.isPaid ? "paid" : "upcoming",
+            paidDate: item.isPaid ? todayInputValue() : null,
+          };
+          if (!item.isPaid) {
+            inst.status = deriveInstallmentStatus(inst);
+          }
+          installments.push(inst);
+        });
+      } else {
+        // Monthly / Quarterly: auto-generate schedule
+        installments = generateInstallmentSchedule({
+          totalAmount: totalAmt,
+          numberOfInstallments: parseInt(paymentPlanForm.numberOfInstallments, 10),
+          startDate: paymentPlanForm.startDate,
+          frequency: paymentPlanForm.frequency,
+          firstPaid: paymentPlanForm.firstPaid,
+        });
+      }
+
       const payload = {
-        title: expectedPaymentForm.title,
-        clientName: expectedPaymentForm.clientName,
+        title: paymentPlanForm.title,
+        clientName: paymentPlanForm.clientName,
+        description: paymentPlanForm.description || "",
         projectName: projectName,
-        totalProjectAmount: expectedPaymentForm.totalProjectAmount || expectedPaymentForm.expectedAmount,
-        expectedAmount: expectedPaymentForm.totalProjectAmount || expectedPaymentForm.expectedAmount,
-        amount: expectedPaymentForm.amount || 0,
-        totalPaid: expectedPaymentForm.amount || 0,
-        frequency: expectedPaymentForm.frequency || "lump_sum",
-        recurringDay: expectedPaymentForm.recurringDay || 15,
-        durationMonths: expectedPaymentForm.durationMonths || 12,
-        startDate: expectedPaymentForm.startDate || todayInputValue(),
-        installmentAmount: expectedPaymentForm.installmentAmount || 0,
-        paymentMethod: expectedPaymentForm.paymentMethod || "advance_payment",
-        dueDate: expectedPaymentForm.dueDate || null,
-        nextPaymentDate: expectedPaymentForm.nextPaymentDate || null,
-        nextPaymentAmount: expectedPaymentForm.nextPaymentAmount || 0,
-        categoryId: expectedPaymentForm.categoryId || "",
-        invoiceNumber: expectedPaymentForm.invoiceNumber || "",
-        description: expectedPaymentForm.description || "",
-        notes: expectedPaymentForm.notes || "",
+        totalProjectAmount: totalAmt,
+        expectedAmount: totalAmt,
+        frequency: paymentPlanForm.frequency,
+        startDate: paymentPlanForm.startDate,
+        installments,
+        amount: installments.filter((i) => i.status === "paid").reduce((s, i) => s + (Number(i.amount) || 0), 0),
+        totalPaid: installments.filter((i) => i.status === "paid").reduce((s, i) => s + (Number(i.amount) || 0), 0),
         status: "pending",
       };
 
@@ -990,119 +899,124 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       });
       const data = await res.json();
       if (data.success) {
-        showSuccessToast("Expected income scheduled successfully");
-        setShowExpectedPaymentModal(false);
-        setExpectedPaymentForm({
-          title: "",
-          clientName: "",
-          totalProjectAmount: "",
-          expectedAmount: "",
-          amount: "",
-          frequency: "lump_sum",
-          recurringDay: "15",
-          durationMonths: "12",
-          startDate: todayInputValue(),
-          installmentAmount: "",
-          paymentMethod: "advance_payment",
-          dueDate: "",
-          nextPaymentDate: "",
-          nextPaymentAmount: "",
-          categoryId: "",
-          invoiceNumber: "",
-          description: "",
-          notes: "",
-        });
-        fetchIncome();
+        showSuccessToast("Payment plan created successfully");
+        setShowPaymentPlanModal(false);
+        resetPaymentPlanForm();
+        fetchPaymentPlans();
         fetchFinancialReports();
       } else {
-        showErrorToast(data.error || "Failed to schedule expected income");
+        showErrorToast(data.error || "Failed to create payment plan");
       }
     } catch (err) {
-      showErrorToast(err.message || "Failed to schedule expected income");
+      showErrorToast(err.message || "Failed to create payment plan");
     } finally {
       setActionLoading(null);
     }
   };
 
-  // Collect Payment
-  const openCollectModal = (inc) => {
-    setCollectTargetIncome(inc);
-    const totalAmt = Number(inc.totalProjectAmount || inc.expectedAmount || inc.amount || 0);
-    const paidAmt = Number(inc.totalPaid || inc.amount || 0);
-    const remaining = Math.max(0, totalAmt - paidAmt);
-    const installment = Number(inc.installmentAmount) || remaining;
-    const defaultCollect = inc.frequency !== "lump_sum" && installment > 0 ? Math.min(remaining, installment) : remaining;
-
-    // Calculate next payment date for recurring
-    let nextDate = "";
-    if (inc.frequency === "monthly" || inc.frequency === "quarterly") {
-      const baseDate = inc.nextPaymentDate ? new Date(inc.nextPaymentDate) : new Date();
-      const step = inc.frequency === "quarterly" ? 3 : 1;
-      const target = new Date(baseDate);
-      target.setMonth(target.getMonth() + step);
-      const day = parseInt(inc.recurringDay, 10) || target.getDate();
-      const maxDays = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
-      target.setDate(Math.min(day, maxDays));
-      nextDate = target.toISOString().split("T")[0];
-    }
-
-    setCollectForm({
-      collectAmount: defaultCollect > 0 ? defaultCollect.toFixed(2) : "",
-      receivedDate: todayInputValue(),
-      paymentMethod: inc.paymentMethod || "bank_transfer",
-      invoiceNumber: inc.invoiceNumber || "",
-      paymentReference: "",
-      nextPaymentDate: nextDate,
-      nextPaymentAmount: inc.installmentAmount || "",
-      notes: "",
-    });
-    setCollectFormErrors({});
-    setShowCollectModal(true);
-  };
-
-  const handleCollectPayment = async () => {
-    if (!collectTargetIncome) return;
-    const totalAmt = Number(collectTargetIncome.totalProjectAmount || collectTargetIncome.expectedAmount || 0);
-    const paidAmt = Number(collectTargetIncome.totalPaid || collectTargetIncome.amount || 0);
-    const remaining = Math.max(0, totalAmt - paidAmt);
-
-    const errors = validateCollectPaymentForm(collectForm, {
-      remainingAmount: remaining > 0 ? remaining : Infinity,
-    });
-    if (hasFormErrors(errors)) {
-      setCollectFormErrors(errors);
-      showValidationErrors(errors);
-      return;
-    }
-    setCollectFormErrors({});
-    setActionLoading("collect");
+  const handleMarkInstallmentPaid = async (planId, installmentNumber) => {
+    // Instant optimistic update on UI
+    setPaymentPlans((prev) =>
+      prev.map((plan) => {
+        if (plan._id !== planId) return plan;
+        const installments = Array.isArray(plan.installments)
+          ? plan.installments.map((inst, idx) => {
+              const num = inst.installmentNumber || idx + 1;
+              if (num === installmentNumber) {
+                return {
+                  ...inst,
+                  status: "paid",
+                  paidDate: todayInputValue(),
+                };
+              }
+              return inst;
+            })
+          : [];
+        return { ...plan, installments };
+      })
+    );
 
     try {
+      setActionLoading(`mark_${planId}_${installmentNumber}`);
       const res = await fetch(
-        `/api/projects/${projectId}/income/${collectTargetIncome._id}`,
+        `/api/projects/${projectId}/income/${planId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "collect",
-            ...collectForm,
+            action: "mark_paid",
+            installmentNumber,
+            paidDate: todayInputValue(),
           }),
         }
       );
       const data = await res.json();
       if (data.success) {
-        showSuccessToast("Payment collected and recorded successfully");
-        setShowCollectModal(false);
-        setCollectTargetIncome(null);
-        fetchIncome();
-        fetchFinancialReports();
+        showSuccessToast(`Payment #${installmentNumber} marked as paid`);
       } else {
-        showErrorToast(data.error || "Failed to record collection");
+        showErrorToast(data.error || "Failed to mark payment as paid");
       }
     } catch (err) {
-      showErrorToast(err.message || "Failed to record collection");
+      showErrorToast(err.message || "Failed to mark payment as paid");
     } finally {
+      await fetchPaymentPlans();
+      await fetchFinancialReports();
       setActionLoading(null);
+    }
+  };
+
+  const handleAddLumpSumInstallment = async (planId, amount, dueDate) => {
+    try {
+      setActionLoading(`add_inst_${planId}`);
+      const res = await fetch(
+        `/api/projects/${projectId}/income/${planId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "add_installment",
+            amount: Number(amount),
+            dueDate,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Expected payment milestone added");
+      } else {
+        showErrorToast(data.error || "Failed to add expected payment");
+      }
+    } catch (err) {
+      showErrorToast(err.message || "Failed to add expected payment");
+    } finally {
+      await fetchPaymentPlans();
+      await fetchFinancialReports();
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeletePaymentPlan = async (planId) => {
+    const confirmed = await showDeleteConfirmDialog({
+      title: "Delete Payment Plan",
+      text: "Are you sure you want to delete this payment plan and all its installments?",
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/income/${planId}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast("Payment plan deleted");
+        fetchPaymentPlans();
+        fetchFinancialReports();
+      } else {
+        showErrorToast(data.error || "Failed to delete payment plan");
+      }
+    } catch (err) {
+      showErrorToast(err.message || "Failed to delete payment plan");
     }
   };
 
@@ -1135,25 +1049,65 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
     { id: "overview", name: "Overview", icon: ChartBarIcon },
     { id: "dashboard", name: "Dashboard", icon: BanknotesIcon },
     { id: "budget", name: "Budget", icon: CurrencyDollarIcon },
-    { id: "expenses", name: "Expenses", icon: DocumentTextIcon },
-    { id: "income", name: "Income", icon: ArrowTrendingUpIcon },
+    { id: "expenses", name: "Expenses", icon: DocumentTextIcon, count: expenses.length },
+    { id: "payments", name: "Payments", icon: CreditCardIcon, count: paymentPlans.length },
     { id: "reports", name: "Reports", icon: EyeIcon },
   ];
 
+  const topTotalBudget = Number(budgetData?.totalAmount || 0);
+  const topTotalExpenses = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const topTotalIncome = paymentPlans.reduce((sum, plan) => {
+    if (Array.isArray(plan.installments) && plan.installments.length > 0) {
+      return (
+        sum +
+        plan.installments
+          .filter((i) => i.status === "paid")
+          .reduce((s, i) => s + (Number(i.amount) || 0), 0)
+      );
+    }
+    return sum + (Number(plan.totalPaid || plan.amount) || 0);
+  }, 0);
+  const topNetCash = topTotalIncome - topTotalExpenses;
+
   return (
     <div className="w-full min-w-0 space-y-5 sm:space-y-6">
-      {/* Top Banner */}
-      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-blue-50/40 p-4 sm:p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Project finances
-            </p>
-            <p className="mt-1 text-lg sm:text-xl font-semibold text-slate-900 truncate">
+      {/* Top Banner with Quick Financial Status Strip */}
+      <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-5 sm:p-6 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                Project Financial Hub
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate">
               {projectName}
-            </p>
+            </h1>
+            {/* 4 Financial Quick Chips */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+              <div className="px-2.5 py-1 rounded-lg bg-white/10 text-slate-200 border border-white/10">
+                Budget: <strong className="text-white">{formatCurrency(topTotalBudget)}</strong>
+              </div>
+              <div className="px-2.5 py-1 rounded-lg bg-white/10 text-slate-200 border border-white/10">
+                Spent: <strong className="text-rose-300">{formatCurrency(topTotalExpenses)}</strong>
+              </div>
+              <div className="px-2.5 py-1 rounded-lg bg-white/10 text-slate-200 border border-white/10">
+                Collected: <strong className="text-emerald-300">{formatCurrency(topTotalIncome)}</strong>
+              </div>
+              <div
+                className={`px-2.5 py-1 rounded-lg border font-semibold ${
+                  topNetCash >= 0
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                }`}
+              >
+                Net Margin: {topNetCash >= 0 ? "+" : ""}
+                {formatCurrency(topNetCash)}
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
             {!budgetData ? (
               <button
                 onClick={() => {
@@ -1168,7 +1122,7 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                   setShowBudgetModal(true);
                 }}
                 disabled={!!actionLoading}
-                className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 hover:shadow disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
               >
                 <PlusIcon className="w-4 h-4" />
                 Create Budget
@@ -1177,9 +1131,9 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
               <button
                 onClick={handleOpenEditBudget}
                 disabled={!!actionLoading}
-                className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 hover:shadow disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 bg-slate-700/80 hover:bg-slate-700 text-white border border-white/10 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
               >
-                <PencilIcon className="w-4 h-4" />
+                <PencilIcon className="w-4 h-4 text-slate-300" />
                 Edit Budget
               </button>
             )}
@@ -1190,52 +1144,70 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
                 setShowExpenseModal(true);
               }}
               disabled={!!actionLoading}
-              className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 hover:shadow disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
             >
               <PlusIcon className="w-4 h-4" />
               Add Expense
             </button>
             <button
               onClick={() => {
-                setExpectedPaymentFormErrors({});
-                setShowExpectedPaymentModal(true);
+                resetPaymentPlanForm();
+                setShowPaymentPlanModal(true);
               }}
               disabled={!!actionLoading}
-              className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 hover:shadow disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
             >
               <PlusIcon className="w-4 h-4" />
-              Expected Income
+              Add Payment Plan
             </button>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="p-3 sm:p-4 bg-red-50 border border-red-200 rounded-xl animate-[fadeIn_0.25s_ease-out]">
+        <div className="p-3 sm:p-4 bg-red-50 border border-red-200 rounded-2xl animate-[fadeIn_0.25s_ease-out]">
           <div className="flex items-center gap-2">
             <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
-            <span className="text-red-700 text-sm sm:text-base">{error}</span>
+            <span className="text-red-700 text-sm sm:text-base font-medium">{error}</span>
           </div>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="rounded-xl border border-slate-200 bg-white p-1">
+      {/* Modern Tabs Bar */}
+      <div className="rounded-2xl border border-slate-200 bg-slate-100/80 p-1">
         <nav className="flex overflow-x-auto gap-1 scrollbar-hide">
-          {financeTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-2.5 px-3 rounded-lg font-medium text-xs sm:text-sm inline-flex items-center gap-1.5 transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
-                activeTab === tab.id
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              <span>{tab.name}</span>
-            </button>
-          ))}
+          {financeTabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-2 px-3.5 rounded-xl font-semibold text-xs sm:text-sm inline-flex items-center gap-2 transition-all duration-150 whitespace-nowrap flex-shrink-0 ${
+                  isActive
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+              >
+                <tab.icon
+                  className={`w-4 h-4 ${
+                    isActive ? "text-blue-600" : "text-slate-400"
+                  }`}
+                />
+                <span>{tab.name}</span>
+                {tab.count !== undefined && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[11px] font-bold ${
+                      isActive
+                        ? "bg-blue-50 text-blue-700"
+                        : "bg-slate-200/80 text-slate-600"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
@@ -1243,9 +1215,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
       <div className="space-y-6">
         {activeTab === "overview" && (
           <OverviewTab
+            projectId={projectId}
             budgetData={budgetData}
             expenses={expenses}
-            income={income}
+            paymentPlans={paymentPlans}
             financialReports={financialReports}
             formatCurrency={formatCurrency}
             currencyTitle={currencyTitle}
@@ -1295,22 +1268,24 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
           />
         )}
 
-        {activeTab === "income" && (
-          <IncomeTab
+        {activeTab === "payments" && (
+          <PaymentsTab
             projectId={projectId}
-            income={income}
+            paymentPlans={paymentPlans}
             projectName={projectName}
             formatCurrency={formatCurrency}
             currencyTitle={currencyTitle}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
-            onCollectIncome={openCollectModal}
-            onEditIncome={handleOpenEditIncome}
-            onDeleteIncome={handleDeleteIncome}
-            onAddExpected={() => {
-              setExpectedPaymentFormErrors({});
-              setShowExpectedPaymentModal(true);
+            actionLoading={actionLoading}
+            onMarkPaid={handleMarkInstallmentPaid}
+            onAddLumpSumInstallment={handleAddLumpSumInstallment}
+            onDeletePlan={handleDeletePaymentPlan}
+            onAddPlan={() => {
+              resetPaymentPlanForm();
+              setShowPaymentPlanModal(true);
             }}
+            onRefresh={fetchPaymentPlans}
           />
         )}
 
@@ -1365,273 +1340,21 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
         />
       )}
 
-      {/* Income Modal (Full Create or Edit with Lump Sum / Monthly / Quarterly options) */}
-      {showIncomeModal && (
-        <IncomeModal
-          incomeForm={incomeForm}
-          incomeFormErrors={incomeFormErrors}
-          handleIncomeFormChange={handleIncomeFormChange}
+      {/* Payment Plan Modal */}
+      {showPaymentPlanModal && (
+        <PaymentPlanModal
+          paymentPlanForm={paymentPlanForm}
+          paymentPlanFormErrors={paymentPlanFormErrors}
+          handlePaymentPlanFormChange={handlePaymentPlanFormChange}
           projectName={projectName}
-          incomeCategories={incomeCategories}
-          onSubmit={editingIncomeId ? handleEditIncome : handleAddIncome}
+          onSubmit={handleAddPaymentPlan}
           onClose={() => {
-            if (actionLoading === "income") return;
-            setShowIncomeModal(false);
-            setEditingIncomeId(null);
-            setIncomeFormErrors({});
-          }}
-          isEdit={!!editingIncomeId}
-          actionLoading={actionLoading}
-        />
-      )}
-
-      {/* Expected Payment Modal with Lump Sum / Monthly / Quarterly */}
-      {showExpectedPaymentModal && (
-        <ExpectedIncomeModal
-          expectedPaymentForm={expectedPaymentForm}
-          setExpectedPaymentForm={setExpectedPaymentForm}
-          expectedPaymentFormErrors={expectedPaymentFormErrors}
-          projectName={projectName}
-          incomeCategories={incomeCategories}
-          onSubmit={handleAddExpectedIncome}
-          onClose={() => {
-            if (actionLoading === "expected") return;
-            setShowExpectedPaymentModal(false);
-            setExpectedPaymentFormErrors({});
+            if (actionLoading === "payment") return;
+            setShowPaymentPlanModal(false);
+            resetPaymentPlanForm();
           }}
           actionLoading={actionLoading}
         />
-      )}
-
-      {/* Collect Payment Modal */}
-      {showCollectModal && collectTargetIncome && (
-        <ModalChrome
-          maxWidth="max-w-lg"
-          title="Collect Payment"
-          subtitle={`Record incoming collection for: ${collectTargetIncome.title || "Income"}`}
-          onClose={() => {
-            if (actionLoading === "collect") return;
-            setShowCollectModal(false);
-            setCollectTargetIncome(null);
-          }}
-          closeDisabled={actionLoading === "collect"}
-          footer={
-            <>
-              <button
-                onClick={() => {
-                  if (actionLoading === "collect") return;
-                  setShowCollectModal(false);
-                  setCollectTargetIncome(null);
-                }}
-                disabled={actionLoading === "collect"}
-                className={`${cancelBtnClass} order-2 sm:order-1`}
-              >
-                Cancel
-              </button>
-              <ActionButton
-                onClick={handleCollectPayment}
-                loading={actionLoading === "collect"}
-                loadingText="Recording…"
-                disabled={!collectForm.collectAmount}
-                className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm transition-all duration-200 disabled:opacity-50 order-1 sm:order-2"
-              >
-                Confirm Collection
-              </ActionButton>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs sm:text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Client:</span>
-                <span className="font-semibold text-slate-800">
-                  {collectTargetIncome.clientName || "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Frequency:</span>
-                <span className="font-semibold text-blue-700 capitalize">
-                  {formatFrequencyLabel(collectTargetIncome.frequency)}
-                  {collectTargetIncome.recurringDay ? ` (Day ${collectTargetIncome.recurringDay})` : ""}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Total Project Amount:</span>
-                <span className="font-semibold text-slate-800">
-                  {formatCurrency(
-                    collectTargetIncome.totalProjectAmount ||
-                      collectTargetIncome.expectedAmount ||
-                      0
-                  )}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Already Collected:</span>
-                <span className="font-semibold text-emerald-600">
-                  {formatCurrency(
-                    collectTargetIncome.totalPaid ||
-                      collectTargetIncome.amount ||
-                      0
-                  )}
-                </span>
-              </div>
-              <div className="flex justify-between pt-1 border-t border-slate-200">
-                <span className="text-slate-600 font-medium">Unpaid Remaining:</span>
-                <span className="font-bold text-amber-700">
-                  {formatCurrency(
-                    Math.max(
-                      0,
-                      (Number(
-                        collectTargetIncome.totalProjectAmount ||
-                          collectTargetIncome.expectedAmount ||
-                          0
-                      ) || 0) -
-                        (Number(
-                          collectTargetIncome.totalPaid ||
-                            collectTargetIncome.amount ||
-                            0
-                        ) || 0)
-                    )
-                  )}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <label className={fieldLabelClass}>Amount Collected *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={collectForm.collectAmount}
-                onChange={(e) =>
-                  setCollectForm((p) => ({ ...p, collectAmount: e.target.value }))
-                }
-                disabled={actionLoading === "collect"}
-                className={fieldInputClass(!!collectFormErrors.collectAmount)}
-                placeholder="0.00"
-                required
-              />
-              {collectFormErrors.collectAmount && (
-                <p className={fieldErrorClass}>
-                  {collectFormErrors.collectAmount}
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className={fieldLabelClass}>Received Date *</label>
-                <input
-                  type="date"
-                  value={collectForm.receivedDate}
-                  max={todayInputValue()}
-                  onChange={(e) =>
-                    setCollectForm((p) => ({ ...p, receivedDate: e.target.value }))
-                  }
-                  disabled={actionLoading === "collect"}
-                  className={fieldInputClass(!!collectFormErrors.receivedDate)}
-                />
-              </div>
-              <div>
-                <label className={fieldLabelClass}>Payment Method</label>
-                <select
-                  value={collectForm.paymentMethod}
-                  onChange={(e) =>
-                    setCollectForm((p) => ({ ...p, paymentMethod: e.target.value }))
-                  }
-                  disabled={actionLoading === "collect"}
-                  className={fieldInputClass()}
-                >
-                  {PAYMENT_METHODS.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className={fieldLabelClass}>Next Payment Date</label>
-                <input
-                  type="date"
-                  value={collectForm.nextPaymentDate}
-                  onChange={(e) =>
-                    setCollectForm((p) => ({ ...p, nextPaymentDate: e.target.value }))
-                  }
-                  disabled={actionLoading === "collect"}
-                  className={fieldInputClass()}
-                />
-              </div>
-              <div>
-                <label className={fieldLabelClass}>Next Payment Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={collectForm.nextPaymentAmount}
-                  onChange={(e) =>
-                    setCollectForm((p) => ({ ...p, nextPaymentAmount: e.target.value }))
-                  }
-                  disabled={actionLoading === "collect"}
-                  className={fieldInputClass()}
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className={fieldLabelClass}>Payment Reference</label>
-                <input
-                  type="text"
-                  value={collectForm.paymentReference}
-                  onChange={(e) =>
-                    setCollectForm((p) => ({
-                      ...p,
-                      paymentReference: e.target.value,
-                    }))
-                  }
-                  disabled={actionLoading === "collect"}
-                  className={fieldInputClass()}
-                  placeholder="Ref / Transaction ID"
-                />
-              </div>
-              <div>
-                <label className={fieldLabelClass}>Invoice Number</label>
-                <input
-                  type="text"
-                  value={collectForm.invoiceNumber}
-                  onChange={(e) =>
-                    setCollectForm((p) => ({
-                      ...p,
-                      invoiceNumber: e.target.value,
-                    }))
-                  }
-                  disabled={actionLoading === "collect"}
-                  className={fieldInputClass()}
-                  placeholder="e.g. INV-2026-001"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className={fieldLabelClass}>Notes</label>
-              <textarea
-                rows={2}
-                value={collectForm.notes}
-                onChange={(e) =>
-                  setCollectForm((p) => ({ ...p, notes: e.target.value }))
-                }
-                disabled={actionLoading === "collect"}
-                className={fieldInputClass()}
-                placeholder="Optional notes regarding this payment receipt"
-              />
-            </div>
-          </div>
-        </ModalChrome>
       )}
 
       {/* Receipt Image Lightbox Preview Modal */}
@@ -1673,9 +1396,10 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
 // ----------------- TAB COMPONENTS -----------------
 
 const OverviewTab = ({
+  projectId,
   budgetData,
-  expenses,
-  income,
+  expenses = [],
+  paymentPlans = [],
   financialReports,
   formatCurrency,
   currencyTitle,
@@ -1685,23 +1409,33 @@ const OverviewTab = ({
   const summary = financialReports?.financialSummary || {};
   const totalBudget = Number(summary.totalBudget ?? budgetData?.totalAmount ?? 0) || 0;
   const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const totalIncome = income.reduce(
-    (sum, inc) => sum + (Number(inc.amount || inc.totalPaid) || 0),
-    0
-  );
-  const totalExpectedIncome = income.reduce(
-    (sum, inc) => sum + (Number(inc.expectedAmount || inc.totalProjectAmount || inc.amount) || 0),
-    0
-  );
+  
+  // Calculate total income (paid) and total contract amount (expected) from payment plans
+  const totalIncome = paymentPlans.reduce((sum, plan) => {
+    if (Array.isArray(plan.installments) && plan.installments.length > 0) {
+      const paidSum = plan.installments
+        .filter((i) => i.status === "paid")
+        .reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      return sum + paidSum;
+    }
+    return sum + (Number(plan.totalPaid || plan.amount) || 0);
+  }, 0);
+
+  const totalExpectedIncome = paymentPlans.reduce((sum, plan) => {
+    return sum + (Number(plan.totalProjectAmount || plan.expectedAmount || plan.amount) || 0);
+  }, 0);
+
   const remainingBudget = Math.max(0, totalBudget - totalExpenses);
-  const budgetUtilization =
-    totalBudget > 0 ? (totalExpenses / totalBudget) * 100 : 0;
+  const budgetUtilization = totalBudget > 0 ? (totalExpenses / totalBudget) * 100 : 0;
+  const netCashFlow = totalIncome - totalExpenses;
+  const collectionRate = totalExpectedIncome > 0 ? (totalIncome / totalExpectedIncome) * 100 : 0;
 
   return (
-    <div className="space-y-4 sm:space-y-5 min-w-0">
+    <div className="space-y-5 sm:space-y-6 min-w-0">
+      {/* 4 Core Financial Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard
-          label="Total Budget"
+          label="Total Approved Budget"
           value={totalBudget}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
@@ -1709,9 +1443,10 @@ const OverviewTab = ({
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
           valueClassName="text-blue-900"
+          subtitle={totalBudget > 0 ? "Project budget baseline" : "No budget configured"}
         />
         <MetricCard
-          label="Total Expenses"
+          label="Total Expenses Spent"
           value={totalExpenses}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
@@ -1719,10 +1454,10 @@ const OverviewTab = ({
           iconBg="bg-rose-50"
           iconColor="text-rose-600"
           valueClassName="text-rose-600"
-          subtitle={`${expenses.length} expense records`}
+          subtitle={`${expenses.length} recorded expense transactions`}
         />
         <MetricCard
-          label="Total Income (Paid)"
+          label="Total Income Collected"
           value={totalIncome}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
@@ -1732,32 +1467,31 @@ const OverviewTab = ({
           valueClassName="text-emerald-600"
           subtitle={
             totalExpectedIncome > 0
-              ? `${((totalIncome / totalExpectedIncome) * 100).toFixed(0)}% of expected collected`
-              : "No income scheduled"
+              ? `${collectionRate.toFixed(0)}% of ETB ${formatCurrency(totalExpectedIncome)} collected`
+              : "No payment plans set"
           }
         />
         <MetricCard
-          label="Remaining Budget"
-          value={remainingBudget}
+          label="Net Cash Position / Profit"
+          value={netCashFlow}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
           icon={CheckCircleIcon}
-          iconBg="bg-slate-50"
-          iconColor="text-slate-600"
-          subtitle={
-            totalBudget > 0
-              ? `${budgetUtilization.toFixed(1)}% utilized`
-              : "No budget set"
-          }
+          iconBg={netCashFlow >= 0 ? "bg-emerald-50" : "bg-rose-50"}
+          iconColor={netCashFlow >= 0 ? "text-emerald-600" : "text-rose-600"}
+          valueClassName={netCashFlow >= 0 ? "text-emerald-700 font-bold" : "text-rose-600 font-bold"}
+          subtitle={netCashFlow >= 0 ? "Positive cash position" : "Expenses exceed revenue"}
         />
       </div>
 
-      {totalBudget > 0 && (
-        <SectionPanel
-          title="Budget Utilization"
-          action={
+      {/* Dual Progress Bars Panel (Budget Utilization vs Revenue Collection) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Budget Utilization Card */}
+        <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-3">
+          <div className="flex justify-between items-center text-xs sm:text-sm">
+            <span className="font-bold text-slate-800">Budget Utilization</span>
             <span
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${getStatusColor(
+              className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(
                 budgetUtilization > 100
                   ? "overrun"
                   : budgetUtilization > 90
@@ -1767,73 +1501,80 @@ const OverviewTab = ({
             >
               {budgetUtilization.toFixed(1)}%
             </span>
-          }
-        >
-          <div className="w-full bg-slate-100 rounded-full h-3 mb-3 overflow-hidden">
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
             <div
               className={`h-3 rounded-full transition-all duration-500 ${
                 budgetUtilization > 100
                   ? "bg-rose-500"
                   : budgetUtilization > 90
                   ? "bg-amber-500"
-                  : "bg-blue-500"
+                  : "bg-blue-600"
               }`}
               style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-600">
-            <p className="min-w-0 truncate" title={currencyTitle(totalExpenses)}>
-              Total Spent:{" "}
-              <span className="font-semibold text-slate-900 tabular-nums">
-                {formatCurrency(totalExpenses)}
-              </span>
-            </p>
-            <p
-              className="min-w-0 truncate sm:text-right"
-              title={currencyTitle(remainingBudget)}
-            >
-              Remaining Available:{" "}
-              <span className="font-semibold text-slate-900 tabular-nums">
-                {formatCurrency(remainingBudget)}
-              </span>
-            </p>
+          <div className="flex justify-between text-xs text-slate-500 pt-1">
+            <span>Spent: <strong className="text-slate-900">{formatCurrency(totalExpenses)}</strong></span>
+            <span>Available: <strong className="text-emerald-700">{formatCurrency(remainingBudget)}</strong></span>
           </div>
-        </SectionPanel>
-      )}
+        </div>
 
-      {/* Recent Activity */}
+        {/* Revenue Collection Progress Card */}
+        <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-3">
+          <div className="flex justify-between items-center text-xs sm:text-sm">
+            <span className="font-bold text-slate-800">Contract Collection Rate</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              {collectionRate.toFixed(1)}%
+            </span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+            <div
+              className="h-3 rounded-full bg-emerald-500 transition-all duration-500"
+              style={{ width: `${Math.min(collectionRate, 100)}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-slate-500 pt-1">
+            <span>Collected: <strong className="text-emerald-700">{formatCurrency(totalIncome)}</strong></span>
+            <span>Expected: <strong className="text-slate-900">{formatCurrency(totalExpectedIncome)}</strong></span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2-Column Activity Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Recent Expenses List */}
         <SectionPanel
           title="Recent Expenses"
           action={
-            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
+            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
               {expenses.length} total
             </span>
           }
           bodyClassName="p-3 sm:p-4"
         >
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {expenses.slice(0, 5).map((expense) => (
               <div
                 key={expense._id}
-                className="flex items-start justify-between gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl min-w-0"
+                className="flex items-start justify-between gap-3 p-3 bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/80 rounded-xl transition-all min-w-0"
               >
                 <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-medium text-slate-900 truncate">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
                     {expense.title}
                   </h4>
-                  <p className="text-xs text-slate-500 truncate">
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
                     {expense.reason ? `${expense.reason} · ` : ""}
                     {expense.vendor ? `${expense.vendor} · ` : ""}
                     {formatDate(expense.expenseDate)}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold text-rose-600 tabular-nums">
+                  <p className="text-xs sm:text-sm font-bold text-rose-600 tabular-nums">
                     {formatCurrency(expense.amount)}
                   </p>
                   <span
-                    className={`inline-block mt-0.5 px-2 py-0.5 rounded-md text-[11px] font-medium border ${getStatusColor(
+                    className={`inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getStatusColor(
                       expense.status
                     )}`}
                   >
@@ -1846,57 +1587,96 @@ const OverviewTab = ({
               <EmptyState
                 icon={DocumentTextIcon}
                 title="No expenses recorded"
-                description="Add an expense above to start tracking costs."
+                description="Add an expense above to start tracking project costs."
               />
             )}
           </div>
         </SectionPanel>
 
+        {/* Recent Payment Plans */}
         <SectionPanel
-          title="Recent Income & Expected Payments"
+          title="Project Payment Plans"
           action={
-            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
-              {income.length} total
+            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+              {paymentPlans.length} total
             </span>
           }
           bodyClassName="p-3 sm:p-4"
         >
-          <div className="space-y-2">
-            {income.slice(0, 5).map((inc) => (
-              <div
-                key={inc._id}
-                className="flex items-start justify-between gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl min-w-0"
-              >
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-medium text-slate-900 truncate">
-                    {inc.title}
-                  </h4>
-                  <p className="text-xs text-slate-500 truncate">
-                    {inc.clientName ? `${inc.clientName} · ` : ""}
-                    <span className="font-semibold text-blue-700">
-                      {formatFrequencyLabel(inc.frequency)}
-                    </span>
-                  </p>
+          <div className="space-y-2.5">
+            {paymentPlans.slice(0, 5).map((plan) => {
+              const summary = Array.isArray(plan.installments) && plan.installments.length > 0
+                ? summarizeInstallments(plan.installments)
+                : {
+                    totalAmount: Number(plan.totalProjectAmount || plan.expectedAmount || plan.amount) || 0,
+                    paidAmount: Number(plan.totalPaid || plan.amount) || 0,
+                    outstanding: Math.max(0, (Number(plan.totalProjectAmount || plan.expectedAmount || plan.amount) || 0) - (Number(plan.totalPaid || plan.amount) || 0)),
+                    percentPaid: 0,
+                    overallStatus: plan.status || "in_progress",
+                  };
+
+              return (
+                <div
+                  key={plan._id}
+                  className="flex items-start justify-between gap-3 p-3 bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/80 rounded-xl transition-all min-w-0"
+                >
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                      {plan.title || "Payment Plan"}
+                    </h4>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                      {plan.clientName ? `${plan.clientName} · ` : ""}
+                      <span className="font-semibold text-blue-700 capitalize">
+                        {formatFrequencyLabel(plan.frequency)}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0 space-y-0.5">
+                    <p className="text-xs sm:text-sm font-bold text-emerald-600 tabular-nums">
+                      {formatCurrency(summary.paidAmount)}
+                      <span className="text-xs font-normal text-slate-400">
+                        {" "}/ {formatCurrency(summary.totalAmount)}
+                      </span>
+                    </p>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold border capitalize ${
+                          summary.overallStatus === "fully_paid"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : summary.overallStatus === "overdue"
+                            ? "bg-rose-50 text-rose-700 border-rose-200"
+                            : summary.overallStatus === "due_today"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-blue-50 text-blue-700 border-blue-200"
+                        }`}
+                      >
+                        {summary.overallStatus === "fully_paid"
+                          ? "Fully Paid"
+                          : summary.overallStatus === "overdue"
+                          ? "Overdue"
+                          : summary.overallStatus === "due_today"
+                          ? "Due Today"
+                          : "In Progress"}
+                      </span>
+                      {projectId && (
+                        <Link
+                          href={`/project-budget/${projectId}/income/${plan._id}`}
+                          className="text-[11px] font-semibold text-blue-600 hover:text-blue-800"
+                          title="Open Detail Hub"
+                        >
+                          →
+                        </Link>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold text-emerald-600 tabular-nums">
-                    {formatCurrency(inc.totalPaid || inc.amount || 0)}
-                  </p>
-                  <span
-                    className={`inline-block mt-0.5 px-2 py-0.5 rounded-md text-[11px] font-medium border capitalize ${getStatusColor(
-                      inc.status
-                    )}`}
-                  >
-                    {inc.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {income.length === 0 && (
+              );
+            })}
+            {paymentPlans.length === 0 && (
               <EmptyState
-                icon={ArrowTrendingUpIcon}
-                title="No income scheduled"
-                description="Add expected income to track receipts and client payment dates."
+                icon={CreditCardIcon}
+                title="No payment plans set"
+                description="Add a payment plan to auto-generate installments and track client collections."
               />
             )}
           </div>
@@ -1922,11 +1702,11 @@ const BudgetTab = ({
         <EmptyState
           icon={CurrencyDollarIcon}
           title="No project budget set"
-          description="Create a project budget to track expenses and utilization directly."
+          description="Create a project budget to set spending limits and monitor cost utilization."
           action={
             <button
               onClick={onCreateBudget}
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
             >
               <PlusIcon className="w-4 h-4" />
               Create Budget
@@ -1943,21 +1723,21 @@ const BudgetTab = ({
   const utilization = totalBudget > 0 ? (spent / totalBudget) * 100 : 0;
 
   return (
-    <div className="space-y-5 min-w-0">
+    <div className="space-y-5 sm:space-y-6 min-w-0">
       <SectionPanel
-        title="Project Budget"
-        subtitle="Total allocated budget, total direct expenses, and available funds"
+        title="Project Budget Overview"
+        subtitle="Total allocated baseline budget, direct project expenses, and remaining funds"
         action={
           <button
             onClick={onEditBudget}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-xs"
           >
             <PencilIcon className="w-4 h-4" />
             Edit Budget
           </button>
         }
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <MetricCard
             label="Total Project Budget"
             value={totalBudget}
@@ -1965,6 +1745,7 @@ const BudgetTab = ({
             currencyTitle={currencyTitle}
             icon={CurrencyDollarIcon}
             valueClassName="text-blue-900"
+            subtitle="Approved ceiling"
           />
           <MetricCard
             label="Total Spent (Expenses)"
@@ -1975,6 +1756,7 @@ const BudgetTab = ({
             iconBg="bg-rose-50"
             iconColor="text-rose-600"
             valueClassName="text-rose-600"
+            subtitle={`${expenses.length} expense items`}
           />
           <MetricCard
             label="Available Remaining"
@@ -1985,28 +1767,29 @@ const BudgetTab = ({
             iconBg="bg-emerald-50"
             iconColor="text-emerald-600"
             valueClassName="text-emerald-700"
+            subtitle={`${(100 - Math.min(utilization, 100)).toFixed(0)}% available`}
           />
-          <div className="bg-slate-50 p-4 sm:p-5 rounded-xl border border-slate-200 min-w-0">
-            <p className="text-xs sm:text-sm font-medium text-slate-500">
-              Approval Info
+          <div className="bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-slate-200 min-w-0 space-y-1">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Approval Authority
             </p>
-            <p className="mt-1 text-sm font-semibold text-slate-900 truncate">
-              {budgetData.approvedBy || "Admin / Approved"}
+            <p className="text-sm sm:text-base font-bold text-slate-900 truncate">
+              {budgetData.approvedBy || "Direct Project Budget"}
             </p>
-            <p className="mt-1 text-xs text-slate-500">
-              {budgetData.approvalDate ? formatDate(budgetData.approvalDate) : "Direct Project Budget"}
+            <p className="text-xs text-slate-500">
+              {budgetData.approvalDate ? formatDate(budgetData.approvalDate) : "Approved"}
             </p>
           </div>
         </div>
 
         {/* Utilization Bar */}
-        <div className="mt-5 pt-4 border-t border-slate-100">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Budget Utilization
+        <div className="mt-5 pt-4 border-t border-slate-100 space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              Budget Utilization Meter
             </span>
             <span
-              className={`px-2 py-0.5 text-xs font-semibold rounded-md border ${getStatusColor(
+              className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getStatusColor(
                 utilization > 100
                   ? "overrun"
                   : utilization > 90
@@ -2014,7 +1797,7 @@ const BudgetTab = ({
                   : "normal"
               )}`}
             >
-              {utilization.toFixed(1)}%
+              {utilization.toFixed(1)}% ({utilization > 100 ? "Overrun" : utilization > 90 ? "Near Limit" : "Normal"})
             </span>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
@@ -2033,8 +1816,10 @@ const BudgetTab = ({
 
         {budgetData.description && (
           <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-xs text-slate-500 mb-1">Budget Description / Scope</p>
-            <p className="text-sm text-slate-800 break-words">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Budget Scope & Description
+            </p>
+            <p className="text-xs sm:text-sm text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200">
               {budgetData.description}
             </p>
           </div>
@@ -2045,7 +1830,7 @@ const BudgetTab = ({
 };
 
 const ExpensesTab = ({
-  expenses,
+  expenses = [],
   budgetData,
   formatCurrency,
   currencyTitle,
@@ -2055,6 +1840,9 @@ const ExpensesTab = ({
   onDeleteExpense,
   onPreviewReceipt,
 }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
   const total = expenses.reduce(
     (sum, exp) => sum + (Number(exp.amount) || 0),
     0
@@ -2066,9 +1854,21 @@ const ExpensesTab = ({
     .filter((exp) => exp.status === "pending")
     .reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
 
+  const filteredExpenses = expenses.filter((exp) => {
+    const matchesSearch =
+      !searchTerm ||
+      (exp.title && exp.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (exp.vendor && exp.vendor.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (exp.reason && exp.reason.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus =
+      statusFilter === "all" || (exp.status || "").toLowerCase() === statusFilter.toLowerCase();
+    return matchesSearch && matchesStatus;
+  });
+
   return (
-    <div className="space-y-4 sm:space-y-5 min-w-0">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="space-y-5 sm:space-y-6 min-w-0">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard
           label="Total Expenses"
           value={total}
@@ -2078,6 +1878,7 @@ const ExpensesTab = ({
           iconBg="bg-rose-50"
           iconColor="text-rose-600"
           valueClassName="text-rose-600"
+          subtitle="All recorded costs"
         />
         <MetricCard
           label="Approved / Paid"
@@ -2088,6 +1889,7 @@ const ExpensesTab = ({
           iconBg="bg-emerald-50"
           iconColor="text-emerald-600"
           valueClassName="text-emerald-600"
+          subtitle="Confirmed expenses"
         />
         <MetricCard
           label="Pending Approval"
@@ -2098,68 +1900,91 @@ const ExpensesTab = ({
           iconBg="bg-amber-50"
           iconColor="text-amber-600"
           valueClassName="text-amber-700"
+          subtitle="Awaiting sign-off"
         />
         <MetricCard
-          label="Total Count"
+          label="Total Transactions"
           value={String(expenses.length)}
           icon={DocumentTextIcon}
           iconBg="bg-slate-50"
           iconColor="text-slate-600"
+          subtitle="Expense entries"
         />
       </div>
 
       <SectionPanel
         title="Project Expenses"
-        subtitle="Manage and view expense records with title, reason, vendor, receipt images, and dates"
+        subtitle="Manage expense records with title, reason, vendor, receipt images, and dates"
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search expenses…"
+              className="px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden bg-white font-medium"
+            >
+              <option value="all">All Statuses</option>
+              <option value="approved">Approved</option>
+              <option value="pending">Pending</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+        }
         bodyClassName="p-0"
       >
-        {expenses.length === 0 ? (
+        {filteredExpenses.length === 0 ? (
           <EmptyState
             icon={DocumentTextIcon}
-            title="No expenses recorded"
-            description="Click 'Add Expense' above to record an expense."
+            title={searchTerm ? "No matching expenses" : "No expenses recorded"}
+            description={searchTerm ? "Try searching for a different title or vendor." : "Click 'Add Expense' above to record an expense."}
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+              <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                 <tr>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs uppercase tracking-wider">
                     Title & Reason
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs uppercase tracking-wider">
                     Amount
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs uppercase tracking-wider">
                     Vendor
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs uppercase tracking-wider">
                     Date
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs uppercase tracking-wider">
                     Receipt
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100 text-xs sm:text-sm">
-                {expenses.map((expense) => (
+                {filteredExpenses.map((expense) => (
                   <tr
                     key={expense._id}
                     className="hover:bg-slate-50/80 transition-colors"
                   >
-                    <td className="px-3 sm:px-4 py-3 sm:py-4">
-                      <div className="font-semibold text-slate-900">
+                    <td className="px-4 py-3.5">
+                      <div className="font-bold text-slate-900">
                         {expense.title}
                       </div>
                       {expense.reason && (
-                        <div className="text-xs text-blue-700 font-medium mt-0.5">
-                          Reason: {expense.reason}
+                        <div className="text-xs text-blue-700 font-semibold mt-0.5">
+                          {expense.reason}
                         </div>
                       )}
                       {expense.description && (
@@ -2168,26 +1993,21 @@ const ExpensesTab = ({
                         </div>
                       )}
                     </td>
-                    <td className="px-3 sm:px-4 py-3 sm:py-4 text-right">
-                      <AmountCell
-                        amount={expense.amount}
-                        formatCurrency={formatCurrency}
-                        currencyTitle={currencyTitle}
-                        className="text-rose-600 font-bold"
-                      />
+                    <td className="px-4 py-3.5 text-right font-bold text-rose-600 tabular-nums">
+                      {formatCurrency(expense.amount)}
                     </td>
-                    <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-slate-700">
+                    <td className="px-4 py-3.5 whitespace-nowrap text-slate-700 font-medium">
                       {expense.vendor || "—"}
                     </td>
-                    <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-slate-700">
+                    <td className="px-4 py-3.5 whitespace-nowrap text-slate-600">
                       {formatDate(expense.expenseDate)}
                     </td>
-                    <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
+                    <td className="px-4 py-3.5 text-center whitespace-nowrap">
                       {expense.receiptUrl ? (
                         <button
                           type="button"
                           onClick={() => onPreviewReceipt(expense.receiptUrl)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
                           title="View Receipt"
                         >
                           <PhotoIcon className="w-3.5 h-3.5" />
@@ -2197,27 +2017,27 @@ const ExpensesTab = ({
                         <span className="text-xs text-slate-400">No receipt</span>
                       )}
                     </td>
-                    <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap">
+                    <td className="px-4 py-3.5 whitespace-nowrap">
                       <span
-                        className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded-md border capitalize ${getStatusColor(
+                        className={`px-2.5 py-1 inline-flex text-xs font-semibold rounded-full border capitalize ${getStatusColor(
                           expense.status
                         )}`}
                       >
-                        {expense.status}
+                        {expense.status || "approved"}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-right">
+                    <td className="px-4 py-3.5 whitespace-nowrap text-right">
                       <div className="inline-flex items-center gap-1">
                         <button
                           onClick={() => onEditExpense(expense)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit Expense"
                         >
                           <PencilIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => onDeleteExpense(expense._id)}
-                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                           title="Delete Expense"
                         >
                           <TrashIcon className="w-4 h-4" />
@@ -2235,86 +2055,711 @@ const ExpensesTab = ({
   );
 };
 
-// Income Tab Component (Lump Sum, Monthly, Quarterly, Paid vs Pending Schedule, Overdue)
-const IncomeTab = ({
+// ----------------- PAYMENTS TAB (Project-based Installment Tracking) -----------------
+
+const PaymentPlanCard = ({
   projectId,
-  income,
+  plan,
+  formatCurrency,
+  currencyTitle,
+  formatDate,
+  actionLoading,
+  onMarkPaid,
+  onAddLumpSumInstallment,
+  onDeletePlan,
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showAddInstallmentForm, setShowAddInstallmentForm] = useState(false);
+  const [nextAmount, setNextAmount] = useState("");
+  const [nextDueDate, setNextDueDate] = useState(todayInputValue());
+
+  // Calculate summary metrics from installments or plan fields
+  const installments = Array.isArray(plan.installments) && plan.installments.length > 0
+    ? plan.installments
+    : [];
+
+  const summary = installments.length > 0
+    ? summarizeInstallments(installments)
+    : {
+        totalAmount: Number(plan.totalProjectAmount || plan.expectedAmount || plan.amount) || 0,
+        paidAmount: Number(plan.totalPaid || plan.amount) || 0,
+        outstanding: Math.max(0, (Number(plan.totalProjectAmount || plan.expectedAmount || plan.amount) || 0) - (Number(plan.totalPaid || plan.amount) || 0)),
+        paidCount: 0,
+        totalCount: 0,
+        percentPaid: 0,
+        overallStatus: plan.status || "in_progress",
+        nextDue: null,
+      };
+
+  const isLumpSum = plan.frequency === "lump_sum";
+  const remainingToCover = Math.max(0, summary.totalAmount - summary.paidAmount);
+  const isFullyPaid = summary.overallStatus === "fully_paid";
+
+  // Check if last installment in lump sum is paid so user can chain next
+  const lastInstallment = installments[installments.length - 1];
+  const canChainNext = isLumpSum && !isFullyPaid && (!lastInstallment || lastInstallment.status === "paid");
+
+  const handleCreateNextInstallment = (e) => {
+    e.preventDefault();
+    const amt = Number(nextAmount) || remainingToCover;
+    if (!amt || amt <= 0) {
+      showErrorToast("Invalid Amount", "Please enter a valid installment amount");
+      return;
+    }
+    if (remainingToCover > 0 && amt > remainingToCover + 0.001) {
+      showErrorToast(
+        "Amount Exceeds Balance",
+        `Installment amount (${formatCurrency(amt)}) cannot exceed the remaining contract balance (${formatCurrency(remainingToCover)})`
+      );
+      return;
+    }
+    onAddLumpSumInstallment(plan._id, amt, nextDueDate);
+    setShowAddInstallmentForm(false);
+    setNextAmount("");
+  };
+
+  const getOverallBadgeStyle = (status) => {
+    switch (status) {
+      case "fully_paid":
+        return {
+          bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
+          dot: "bg-emerald-500",
+          label: "Fully Paid",
+        };
+      case "overdue":
+        return {
+          bg: "bg-rose-50 text-rose-700 border-rose-200",
+          dot: "bg-rose-500 animate-pulse",
+          label: "Overdue",
+        };
+      case "due_today":
+        return {
+          bg: "bg-amber-50 text-amber-700 border-amber-200",
+          dot: "bg-amber-500 animate-pulse",
+          label: "Due Today",
+        };
+      default:
+        return {
+          bg: "bg-blue-50 text-blue-700 border-blue-200",
+          dot: "bg-blue-500",
+          label: "In Progress",
+        };
+    }
+  };
+
+  const badge = getOverallBadgeStyle(summary.overallStatus);
+
+  return (
+    <div className="bg-white border border-slate-200/90 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+      {/* Card Header */}
+      <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50/50 via-white to-slate-50/30">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                {formatFrequencyLabel(plan.frequency)}
+              </span>
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badge.bg}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                {badge.label}
+              </span>
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+              {plan.title || "Payment Plan"}
+            </h3>
+            {plan.clientName && (
+              <p className="text-xs sm:text-sm text-slate-500 flex items-center gap-1 mt-0.5">
+                <UserIcon className="w-3.5 h-3.5 text-slate-400" />
+                Client: <span className="font-medium text-slate-700">{plan.clientName}</span>
+              </p>
+            )}
+            {plan.description && (
+              <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                {plan.description}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            {projectId && (
+              <Link
+                href={`/project-budget/${projectId}/income/${plan._id}`}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-colors"
+                title="Open Dedicated Detail Page"
+              >
+                <span>Full Details</span>
+                <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+              </Link>
+            )}
+            <button
+              onClick={() => onDeletePlan(plan._id)}
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+              title="Delete Payment Plan"
+            >
+              <TrashIcon className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Card Body - Stats & Progress Bar */}
+      <div className="p-4 sm:p-5 space-y-4">
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 p-3 bg-slate-50/70 border border-slate-100 rounded-xl text-center">
+          <div className="p-1">
+            <p className="text-[11px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide">
+              Total Amount
+            </p>
+            <p className="text-sm sm:text-base font-bold text-slate-900 mt-0.5 tabular-nums" title={currencyTitle(summary.totalAmount)}>
+              {formatCurrency(summary.totalAmount)}
+            </p>
+          </div>
+          <div className="p-1 border-x border-slate-200/80">
+            <p className="text-[11px] sm:text-xs font-medium text-emerald-600 uppercase tracking-wide">
+              Paid
+            </p>
+            <p className="text-sm sm:text-base font-bold text-emerald-600 mt-0.5 tabular-nums" title={currencyTitle(summary.paidAmount)}>
+              {formatCurrency(summary.paidAmount)}
+            </p>
+          </div>
+          <div className="p-1">
+            <p className="text-[11px] sm:text-xs font-medium text-amber-600 uppercase tracking-wide">
+              Outstanding
+            </p>
+            <p className="text-sm sm:text-base font-bold text-amber-700 mt-0.5 tabular-nums" title={currencyTitle(summary.outstanding)}>
+              {formatCurrency(summary.outstanding)}
+            </p>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div>
+          <div className="flex justify-between items-center text-xs mb-1.5">
+            <span className="font-medium text-slate-600">Payment Progress</span>
+            <span className="font-bold text-slate-900 tabular-nums">
+              {summary.percentPaid}% ({summary.paidCount} of {summary.totalCount || installments.length} installments paid)
+            </span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+            <div
+              className={`h-2.5 rounded-full transition-all duration-500 ${
+                isFullyPaid
+                  ? "bg-emerald-500"
+                  : summary.overallStatus === "overdue"
+                  ? "bg-rose-500"
+                  : "bg-blue-600"
+              }`}
+              style={{ width: `${Math.min(100, Math.max(0, summary.percentPaid))}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Next Payment Line */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs sm:text-sm">
+          <div className="flex items-center gap-1.5 text-slate-600">
+            <CalendarIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            {isFullyPaid ? (
+              <span className="font-semibold text-emerald-700">
+                ✓ All installments fully paid!
+              </span>
+            ) : summary.nextDue ? (
+              <span>
+                Next payment:{" "}
+                <strong className="text-slate-900">
+                  {formatCurrency(summary.nextDue.amount)}
+                </strong>{" "}
+                due{" "}
+                <strong className={
+                  summary.nextDue.status === "overdue"
+                    ? "text-rose-600"
+                    : summary.nextDue.status === "due_today"
+                    ? "text-amber-600"
+                    : "text-slate-900"
+                }>
+                  {formatDate(summary.nextDue.dueDate)}
+                </strong>{" "}
+                ({summary.nextDue.status === "overdue"
+                  ? "Overdue"
+                  : summary.nextDue.status === "due_today"
+                  ? "Due Today"
+                  : "Upcoming"})
+              </span>
+            ) : (
+              <span className="text-slate-400">No scheduled upcoming installments</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {projectId && (
+              <Link
+                href={`/project-budget/${projectId}/income/${plan._id}`}
+                className="text-xs font-semibold text-slate-600 hover:text-blue-600 py-1 px-2 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Detail Hub →
+              </Link>
+            )}
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 py-1 px-2 rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              {isExpanded ? (
+                <>
+                  <span>Hide Schedule</span>
+                  <ChevronUpIcon className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  <span>View Schedule ({installments.length})</span>
+                  <ChevronDownIcon className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Expanded Installments Schedule */}
+        {isExpanded && (
+          <div className="pt-3 border-t border-slate-200/80 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Installment Schedule
+              </h4>
+              {projectId && (
+                <Link
+                  href={`/project-budget/${projectId}/income/${plan._id}`}
+                  className="text-[11px] font-semibold text-blue-600 hover:underline inline-flex items-center gap-0.5"
+                >
+                  <span>Open Full Detail Page</span>
+                  <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                </Link>
+              )}
+            </div>
+
+            {installments.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-2">
+                No installment schedule records found.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3">#</th>
+                      <th className="py-2.5 px-3">Due Date</th>
+                      <th className="py-2.5 px-3">Amount</th>
+                      <th className="py-2.5 px-3">Status</th>
+                      <th className="py-2.5 px-3">Paid Date</th>
+                      <th className="py-2.5 px-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {installments.map((inst, index) => {
+                      const isPaid = inst.status === "paid";
+                      const isOverdue = inst.status === "overdue";
+                      const isDueToday = inst.status === "due_today";
+                      const isMarking = actionLoading === `mark_${plan._id}_${inst.installmentNumber || index + 1}`;
+
+                      return (
+                        <tr
+                          key={index}
+                          className={`hover:bg-slate-50/70 transition-colors ${
+                            isPaid
+                              ? "bg-emerald-50/20"
+                              : isOverdue
+                              ? "bg-rose-50/20"
+                              : isDueToday
+                              ? "bg-amber-50/20"
+                              : ""
+                          }`}
+                        >
+                          <td className="py-2.5 px-3 font-semibold text-slate-800">
+                            {inst.installmentNumber || index + 1}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+                            {formatDate(inst.dueDate)}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900 tabular-nums whitespace-nowrap">
+                            {formatCurrency(inst.amount)}
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                                isPaid
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : isOverdue
+                                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                                  : isDueToday
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-slate-100 text-slate-600 border-slate-200"
+                              }`}
+                            >
+                              {isPaid ? (
+                                <>
+                                  <CheckCircleIcon className="w-3 h-3 text-emerald-600" />
+                                  <span>Paid</span>
+                                </>
+                              ) : isOverdue ? (
+                                <>
+                                  <ExclamationTriangleIcon className="w-3 h-3 text-rose-600" />
+                                  <span>Overdue</span>
+                                </>
+                              ) : isDueToday ? (
+                                <>
+                                  <ClockIcon className="w-3 h-3 text-amber-600" />
+                                  <span>Due Today</span>
+                                </>
+                              ) : (
+                                <span>Upcoming</span>
+                              )}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
+                            {inst.paidDate ? formatDate(inst.paidDate) : "—"}
+                          </td>
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                            {isPaid ? (
+                              <span className="text-emerald-600 font-medium inline-flex items-center gap-1 text-[11px]">
+                                <CheckCircleIcon className="w-3.5 h-3.5" />
+                                Received
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  onMarkPaid(
+                                    plan._id,
+                                    inst.installmentNumber || index + 1
+                                  )
+                                }
+                                disabled={!!actionLoading}
+                                className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-xs hover:shadow transition-all duration-150 disabled:opacity-50 text-xs"
+                              >
+                                {isMarking ? (
+                                  <ArrowPathIcon className="w-3 h-3 text-white animate-spin" />
+                                ) : (
+                                  <CheckCircleIcon className="w-3.5 h-3.5" />
+                                )}
+                                <span>Mark Paid</span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Lump sum chaining: "+ Add expected next payment" */}
+            {canChainNext && !showAddInstallmentForm && (
+              <div className="pt-2">
+                <button
+                  onClick={() => {
+                    setNextAmount(remainingToCover > 0 ? remainingToCover.toString() : "");
+                    setShowAddInstallmentForm(true);
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-xl transition-all"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  + Add expected next payment
+                </button>
+              </div>
+            )}
+
+            {/* Inline Add Next Installment Form */}
+            {showAddInstallmentForm && (
+              <form
+                onSubmit={handleCreateNextInstallment}
+                className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3 animate-[fadeIn_0.2s_ease-out]"
+              >
+                <div className="flex items-center justify-between">
+                  <h5 className="text-xs font-bold text-slate-800">
+                    Add Next Expected Installment
+                  </h5>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddInstallmentForm(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <XMarkIcon className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={fieldLabelClass}>Amount (ETB) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max={remainingToCover > 0 ? remainingToCover : undefined}
+                      value={nextAmount}
+                      onChange={(e) => setNextAmount(e.target.value)}
+                      placeholder={remainingToCover.toFixed(2)}
+                      className={fieldInputClass()}
+                      required
+                    />
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Remaining contract balance: {formatCurrency(remainingToCover)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className={fieldLabelClass}>Expected Due Date *</label>
+                    <input
+                      type="date"
+                      value={nextDueDate}
+                      onChange={(e) => setNextDueDate(e.target.value)}
+                      className={fieldInputClass()}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddInstallmentForm(false)}
+                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading === `add_inst_${plan._id}`}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
+                  >
+                    {actionLoading === `add_inst_${plan._id}` ? "Adding…" : "Save Installment"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const getPlanStatusKey = (plan) => {
+  if (Array.isArray(plan.installments) && plan.installments.length > 0) {
+    const total = plan.installments.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+    const paidSum = plan.installments
+      .filter((i) => i.status === "paid")
+      .reduce((s, i) => s + (Number(i.amount) || 0), 0);
+    const hasOverdue = plan.installments.some(
+      (i) => i.status === "overdue" || i.status === "due_today"
+    );
+    if (paidSum >= total && total > 0) return "paid";
+    if (hasOverdue || plan.isOverdue) return "overdue";
+    return "partial";
+  }
+
+  const total = Number(plan.totalProjectAmount || plan.expectedAmount || plan.amount || 0);
+  const paid = Number(plan.totalPaid || (plan.status === "collected" ? total : 0));
+  if (total > 0 && paid >= total) return "paid";
+  if (plan.isOverdue || plan.status === "overdue") return "overdue";
+  return "partial";
+};
+
+const getPlanFrequencyKey = (plan) => {
+  const f = (plan.frequency || "").toLowerCase();
+  if (f === "monthly" || plan.paymentMethod === "monthly_payment") return "monthly";
+  if (f === "quarterly") return "quarterly";
+  if (f === "custom") return "custom";
+  return "lump_sum";
+};
+
+const PaymentsTab = ({
+  projectId,
+  paymentPlans = [],
   projectName,
   formatCurrency,
   currencyTitle,
   getStatusColor,
   formatDate,
-  onCollectIncome,
-  onEditIncome,
-  onDeleteIncome,
-  onAddExpected,
+  actionLoading,
+  onMarkPaid,
+  onAddLumpSumInstallment,
+  onDeletePlan,
+  onAddPlan,
+  onRefresh,
 }) => {
-  const totalProjectIncomeAmount = income.reduce(
-    (sum, inc) =>
-      sum +
-      (Number(inc.totalProjectAmount || inc.expectedAmount || inc.amount) || 0),
-    0
-  );
-  const totalReceived = income.reduce(
-    (sum, inc) => sum + (Number(inc.totalPaid || inc.amount) || 0),
-    0
-  );
-  const totalOutstanding = Math.max(0, totalProjectIncomeAmount - totalReceived);
-  const overdueUncollected = income
-    .filter((inc) => inc.status === "overdue" || inc.isOverdue)
-    .reduce(
-      (sum, inc) =>
-        sum +
-        Math.max(
-          0,
-          (Number(inc.totalProjectAmount || inc.expectedAmount || inc.amount) || 0) -
-            (Number(inc.totalPaid || inc.amount) || 0)
-        ),
-      0
-    );
+  const [searchTitle, setSearchTitle] = useState("");
+  const [statusTab, setStatusTab] = useState("all"); // 'all' | 'paid' | 'partial' | 'overdue'
+  const [frequencyTab, setFrequencyTab] = useState("all"); // 'all' | 'lump_sum' | 'monthly' | 'quarterly' | 'custom'
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
-  const canCollect = (inc) =>
-    inc.status !== "collected" &&
-    inc.status !== "cancelled" &&
-    (Number(inc.totalProjectAmount || inc.expectedAmount || 0) >
-      (Number(inc.totalPaid || inc.amount) || 0) ||
-      (Number(inc.totalPaid || inc.amount) || 0) === 0);
+  // Compute global summary metrics across all plans
+  const totalContractAmount = paymentPlans.reduce((sum, plan) => {
+    return sum + (Number(plan.totalProjectAmount || plan.expectedAmount || plan.amount) || 0);
+  }, 0);
+
+  const totalCollected = paymentPlans.reduce((sum, plan) => {
+    if (Array.isArray(plan.installments) && plan.installments.length > 0) {
+      const paidSum = plan.installments
+        .filter((i) => i.status === "paid")
+        .reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      return sum + paidSum;
+    }
+    return sum + (Number(plan.totalPaid || plan.amount) || 0);
+  }, 0);
+
+  const totalOutstanding = Math.max(0, totalContractAmount - totalCollected);
+
+  const overdueAmount = paymentPlans.reduce((sum, plan) => {
+    if (Array.isArray(plan.installments)) {
+      const overdueSum = plan.installments
+        .filter((i) => i.status === "overdue")
+        .reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      return sum + overdueSum;
+    }
+    return sum;
+  }, 0);
+
+  // Status Tab Counts
+  const statusCounts = useMemo(() => {
+    let all = 0;
+    let paid = 0;
+    let partial = 0;
+    let overdue = 0;
+
+    paymentPlans.forEach((plan) => {
+      const freqMatch = frequencyTab === "all" || getPlanFrequencyKey(plan) === frequencyTab;
+      if (freqMatch) {
+        all++;
+        const st = getPlanStatusKey(plan);
+        if (st === "paid") paid++;
+        else if (st === "overdue") overdue++;
+        else partial++;
+      }
+    });
+
+    return { all, paid, partial, overdue };
+  }, [paymentPlans, frequencyTab]);
+
+  // Frequency Tab Counts
+  const frequencyCounts = useMemo(() => {
+    let all = 0;
+    let lump_sum = 0;
+    let monthly = 0;
+    let quarterly = 0;
+    let custom = 0;
+
+    paymentPlans.forEach((plan) => {
+      const statusMatch = statusTab === "all" || getPlanStatusKey(plan) === statusTab;
+      if (statusMatch) {
+        all++;
+        const fr = getPlanFrequencyKey(plan);
+        if (fr === "monthly") monthly++;
+        else if (fr === "quarterly") quarterly++;
+        else if (fr === "custom") custom++;
+        else lump_sum++;
+      }
+    });
+
+    return { all, lump_sum, monthly, quarterly, custom };
+  }, [paymentPlans, statusTab]);
+
+  // Filtered payment plans
+  const filteredPlans = useMemo(() => {
+    return paymentPlans.filter((plan) => {
+      // 1. Search by payment title, client or description
+      if (searchTitle.trim()) {
+        const query = searchTitle.trim().toLowerCase();
+        const matchesTitle = (plan.title || "").toLowerCase().includes(query);
+        const matchesClient = (plan.clientName || "").toLowerCase().includes(query);
+        const matchesDesc = (plan.description || "").toLowerCase().includes(query);
+        const matchesInv = (plan.invoiceNumber || "").toLowerCase().includes(query);
+        if (!matchesTitle && !matchesClient && !matchesDesc && !matchesInv) {
+          return false;
+        }
+      }
+
+      // 2. Status Tab Filter
+      if (statusTab !== "all") {
+        const planStatus = getPlanStatusKey(plan);
+        if (planStatus !== statusTab) return false;
+      }
+
+      // 3. Frequency Tab Filter
+      if (frequencyTab !== "all") {
+        const planFreq = getPlanFrequencyKey(plan);
+        if (planFreq !== frequencyTab) return false;
+      }
+
+      return true;
+    });
+  }, [paymentPlans, searchTitle, statusTab, frequencyTab]);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTitle, statusTab, frequencyTab]);
+
+  // Pagination calculation (5 items per page)
+  const totalPages = Math.max(1, Math.ceil(filteredPlans.length / itemsPerPage));
+  const paginatedPlans = useMemo(() => {
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    return filteredPlans.slice(startIdx, startIdx + itemsPerPage);
+  }, [filteredPlans, currentPage]);
 
   return (
-    <div className="space-y-4 sm:space-y-5 min-w-0">
-      <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-xs sm:text-sm text-emerald-900">
-        <strong>Income & Payment Flow:</strong> Flexible schedule options for <strong>Lump Sum</strong>, <strong>Monthly</strong>, and <strong>Quarterly</strong> payments. Shows date paid when collected, upcoming due date when pending, and alerts automatically if overdue.
+    <div className="space-y-5 sm:space-y-6 min-w-0">
+      {/* Informative top helper alert */}
+      <div className="rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3 text-xs sm:text-sm text-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <strong>Automated Payment Schedule:</strong> Track installments with automatic status flips (<strong>Upcoming → Due Today → Overdue</strong>) based on dates. Tap <strong>Mark Paid</strong> when money is received.
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-xs transition-all whitespace-nowrap"
+              title="Refresh payments data"
+            >
+              <ArrowPathIcon className="w-4 h-4 text-slate-500" />
+              <span>Refresh</span>
+            </button>
+          )}
+          <button
+            onClick={onAddPlan}
+            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-sm hover:shadow transition-all whitespace-nowrap"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Add Payment Plan
+          </button>
+        </div>
       </div>
 
+      {/* High-level Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
-          label="Total Project Income"
-          value={totalProjectIncomeAmount}
+          label="Total Contract Value"
+          value={totalContractAmount}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
           icon={CurrencyDollarIcon}
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
           valueClassName="text-blue-900"
-          subtitle="Total contract value"
+          subtitle="All payment plans"
         />
         <MetricCard
-          label="Total Paid / Collected"
-          value={totalReceived}
+          label="Total Collected"
+          value={totalCollected}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
           icon={CheckCircleIcon}
           iconBg="bg-emerald-50"
           iconColor="text-emerald-600"
           valueClassName="text-emerald-600"
-          subtitle={`${
-            totalProjectIncomeAmount > 0
-              ? ((totalReceived / totalProjectIncomeAmount) * 100).toFixed(0)
-              : 0
-          }% collected`}
+          subtitle={
+            totalContractAmount > 0
+              ? `${((totalCollected / totalContractAmount) * 100).toFixed(0)}% collection rate`
+              : "0% collected"
+          }
         />
         <MetricCard
-          label="Outstanding / Unpaid"
+          label="Total Outstanding"
           value={totalOutstanding}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
@@ -2322,247 +2767,242 @@ const IncomeTab = ({
           iconBg="bg-amber-50"
           iconColor="text-amber-600"
           valueClassName="text-amber-700"
-          subtitle="Remaining to collect"
+          subtitle="Remaining balance"
         />
         <MetricCard
-          label="Overdue Balance"
-          value={overdueUncollected}
+          label="Overdue Uncollected"
+          value={overdueAmount}
           formatCurrency={formatCurrency}
           currencyTitle={currencyTitle}
           icon={ExclamationTriangleIcon}
           iconBg="bg-rose-50"
           iconColor="text-rose-600"
-          valueClassName="text-rose-600"
-          subtitle="Requires attention"
+          valueClassName={overdueAmount > 0 ? "text-rose-600 font-bold" : "text-slate-600"}
+          subtitle={overdueAmount > 0 ? "Needs immediate follow-up" : "All payments on track"}
         />
       </div>
 
-      <SectionPanel
-        title="Income & Payment Management"
-        subtitle="Track payment schedules (Lump sum, Monthly, Quarterly), date paid, expected due dates, and overdue cycles"
-        action={
-          onAddExpected ? (
+      {/* Search and Filters Toolbar */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3.5">
+        {/* Top row: Search input + Clear Filters */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by payment title, client, or invoice..."
+              value={searchTitle}
+              onChange={(e) => setSearchTitle(e.target.value)}
+              className="w-full pl-10 pr-9 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white text-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:text-slate-400 font-medium"
+            />
+            {searchTitle && (
+              <button
+                onClick={() => setSearchTitle("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                title="Clear search"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {(searchTitle || statusTab !== "all" || frequencyTab !== "all") && (
             <button
-              onClick={onAddExpected}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 shadow-sm"
+              onClick={() => {
+                setSearchTitle("");
+                setStatusTab("all");
+                setFrequencyTab("all");
+              }}
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 self-start sm:self-center"
             >
-              <PlusIcon className="w-4 h-4" />
-              Schedule Income
+              <XMarkIcon className="w-3.5 h-3.5" />
+              <span>Reset all filters</span>
             </button>
-          ) : null
-        }
-        bodyClassName="p-0"
-      >
-        {income.length === 0 ? (
-          <EmptyState
-            icon={ArrowTrendingUpIcon}
-            title="No project income records yet"
-            description="Add project income to track client collections, unpaid balances, and next payment dates."
-            action={
-              onAddExpected ? (
+          )}
+        </div>
+
+        {/* Status Filter Tabs (Paid, Partial, Overdue) */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-slate-100">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider min-w-[70px]">
+            Status:
+          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[
+              { id: "all", label: "All Statuses", count: statusCounts.all, activeColor: "bg-slate-900 text-white" },
+              { id: "paid", label: "Paid", count: statusCounts.paid, activeColor: "bg-emerald-600 text-white" },
+              { id: "partial", label: "Partial / In Progress", count: statusCounts.partial, activeColor: "bg-blue-600 text-white" },
+              { id: "overdue", label: "Overdue / Due Today", count: statusCounts.overdue, activeColor: "bg-rose-600 text-white" },
+            ].map((tab) => {
+              const isActive = statusTab === tab.id;
+              return (
                 <button
-                  onClick={onAddExpected}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 text-sm font-medium shadow-sm"
+                  key={tab.id}
+                  onClick={() => setStatusTab(tab.id)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    isActive
+                      ? `${tab.activeColor} shadow-sm`
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                      isActive
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Frequency Filter Tabs (Lump Sum, Monthly, Quarterly, Custom) */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-slate-100">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider min-w-[70px]">
+            Schedule:
+          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[
+              { id: "all", label: "All Types", count: frequencyCounts.all },
+              { id: "lump_sum", label: "Lump Sum", count: frequencyCounts.lump_sum },
+              { id: "monthly", label: "Monthly", count: frequencyCounts.monthly },
+              { id: "quarterly", label: "Quarterly", count: frequencyCounts.quarterly },
+              { id: "custom", label: "Custom Schedule", count: frequencyCounts.custom },
+            ].map((tab) => {
+              const isActive = frequencyTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setFrequencyTab(tab.id)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    isActive
+                      ? "bg-amber-600 text-white shadow-sm font-bold"
+                      : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      isActive
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Project Cards List (Paginated to 5 per page) */}
+      <div className="space-y-4">
+        {paginatedPlans.map((plan) => (
+          <PaymentPlanCard
+            key={plan._id}
+            projectId={projectId}
+            plan={plan}
+            formatCurrency={formatCurrency}
+            currencyTitle={currencyTitle}
+            formatDate={formatDate}
+            actionLoading={actionLoading}
+            onMarkPaid={onMarkPaid}
+            onAddLumpSumInstallment={onAddLumpSumInstallment}
+            onDeletePlan={onDeletePlan}
+          />
+        ))}
+
+        {filteredPlans.length === 0 && (
+          <EmptyState
+            icon={CreditCardIcon}
+            title={paymentPlans.length === 0 ? "No payment plans configured" : "No matching payment plans"}
+            description={
+              paymentPlans.length === 0
+                ? "Create a project payment plan with Monthly, Quarterly, or Lump Sum installments."
+                : "No payment plans found matching your search and filter criteria."
+            }
+            action={
+              paymentPlans.length === 0 ? (
+                <button
+                  onClick={onAddPlan}
+                  className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-all"
                 >
                   <PlusIcon className="w-4 h-4" />
-                  Schedule Income
+                  Add Payment Plan
                 </button>
-              ) : null
+              ) : (
+                <button
+                  onClick={() => {
+                    setSearchTitle("");
+                    setStatusTab("all");
+                    setFrequencyTab("all");
+                  }}
+                  className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all"
+                >
+                  <ArrowPathIcon className="w-3.5 h-3.5" />
+                  Reset Filters
+                </button>
+              )
             }
           />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Client & Title
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Payment Plan
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Total Amount
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Paid / Collected
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Outstanding
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Paid / Expected Date
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-100 text-xs sm:text-sm">
-                {income.map((inc) => {
-                  const totalAmt = Number(
-                    inc.totalProjectAmount || inc.expectedAmount || inc.amount || 0
-                  );
-                  const paidAmt = Number(inc.totalPaid !== undefined ? inc.totalPaid : inc.amount || 0);
-                  const unpaidAmt = Math.max(0, totalAmt - paidAmt);
-                  const rate = totalAmt > 0 ? (paidAmt / totalAmt) * 100 : 0;
-                  const isFullyPaid = paidAmt >= totalAmt && totalAmt > 0;
-                  const isOverdue = inc.status === "overdue" || inc.isOverdue;
-
-                  return (
-                    <tr
-                      key={inc._id}
-                      className="hover:bg-slate-50/80 transition-colors"
-                    >
-                      <td className="px-3 sm:px-4 py-3 sm:py-4">
-                        <Link
-                          href={`/project-budget/${projectId}/income/${inc._id}`}
-                          className="font-semibold text-slate-900 hover:text-emerald-700 hover:underline block"
-                        >
-                          {inc.clientName ? inc.clientName : inc.title}
-                        </Link>
-                        <div className="text-xs text-slate-500 truncate max-w-[12rem] mt-0.5">
-                          {inc.title} {inc.invoiceNumber ? `· ${inc.invoiceNumber}` : ""}
-                        </div>
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 w-fit">
-                            {formatFrequencyLabel(inc.frequency)}
-                          </span>
-                          {inc.frequency !== "lump_sum" && (
-                            <span className="text-[11px] text-slate-500">
-                              {inc.recurringDay ? `Day ${inc.recurringDay} of cycle` : ""}
-                              {inc.durationMonths ? ` · ${inc.durationMonths} mos` : ""}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-right">
-                        <AmountCell
-                          amount={totalAmt}
-                          formatCurrency={formatCurrency}
-                          currencyTitle={currencyTitle}
-                          className="text-slate-900 font-semibold"
-                        />
-                        {inc.installmentAmount > 0 && inc.frequency !== "lump_sum" && (
-                          <div className="text-[11px] text-slate-400 font-normal">
-                            {formatCurrency(inc.installmentAmount)}/{inc.frequency === "monthly" ? "mo" : "qtr"}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-right">
-                        <AmountCell
-                          amount={paidAmt}
-                          formatCurrency={formatCurrency}
-                          currencyTitle={currencyTitle}
-                          className="text-emerald-600 font-bold"
-                        />
-                        <div className="text-[11px] text-slate-400 font-normal">
-                          {rate.toFixed(0)}% paid
-                        </div>
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-right">
-                        <AmountCell
-                          amount={unpaidAmt}
-                          formatCurrency={formatCurrency}
-                          currencyTitle={currencyTitle}
-                          className={
-                            unpaidAmt > 0
-                              ? "text-amber-700 font-bold"
-                              : "text-slate-400"
-                          }
-                        />
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap">
-                        {isFullyPaid && inc.receivedDate ? (
-                          <div>
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
-                              <CheckCircleIcon className="w-3.5 h-3.5" />
-                              Paid: {formatDate(inc.receivedDate)}
-                            </span>
-                          </div>
-                        ) : inc.nextPaymentDate ? (
-                          <div>
-                            <div className={`font-medium flex items-center gap-1 text-xs ${isOverdue ? "text-rose-600 font-bold" : "text-slate-800"}`}>
-                              <CalendarIcon className={`w-3.5 h-3.5 ${isOverdue ? "text-rose-500" : "text-blue-500"}`} />
-                              Due: {formatDate(inc.nextPaymentDate)}
-                            </div>
-                            {Number(inc.nextPaymentAmount) > 0 && (
-                              <div className="text-xs text-blue-600 font-semibold mt-0.5">
-                                {formatCurrency(inc.nextPaymentAmount)}
-                              </div>
-                            )}
-                            {isOverdue && inc.daysPastDue > 0 && (
-                              <span className="text-[11px] text-rose-600 font-semibold block">
-                                {inc.daysPastDue}d overdue
-                              </span>
-                            )}
-                          </div>
-                        ) : inc.dueDate ? (
-                          <div className="text-xs text-slate-700">
-                            Due: {formatDate(inc.dueDate)}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400">Not set</span>
-                        )}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded-md border capitalize ${getStatusColor(
-                            inc.status
-                          )}`}
-                        >
-                          {inc.status}
-                        </span>
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-right">
-                        <div className="inline-flex items-center gap-1">
-                          {canCollect(inc) && (
-                            <button
-                              onClick={() => onCollectIncome(inc)}
-                              className="px-2.5 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors shadow-sm"
-                              title="Collect payment"
-                            >
-                              Collect
-                            </button>
-                          )}
-                          <Link
-                            href={`/project-budget/${projectId}/income/${inc._id}`}
-                            className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg"
-                            title="View details"
-                          >
-                            <EyeIcon className="w-4 h-4" />
-                          </Link>
-                          <button
-                            onClick={() => onEditIncome && onEditIncome(inc)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
-                            title="Edit details"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              onDeleteIncome && onDeleteIncome(inc._id)
-                            }
-                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"
-                            title="Delete"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         )}
-      </SectionPanel>
+      </div>
+
+      {/* Pagination Footer (5 items per page) */}
+      {filteredPlans.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 px-4 py-3 sm:px-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs text-slate-500">
+            Showing <strong className="text-slate-800">{(currentPage - 1) * itemsPerPage + 1}</strong> to{" "}
+            <strong className="text-slate-800">{Math.min(currentPage * itemsPerPage, filteredPlans.length)}</strong> of{" "}
+            <strong className="text-slate-800">{filteredPlans.length}</strong> payment plans (5 per page)
+          </div>
+
+          <div className="flex items-center gap-1 self-center sm:self-auto">
+            {/* Previous Button */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeftIcon className="w-3.5 h-3.5" />
+              <span>Previous</span>
+            </button>
+
+            {/* Page Number Buttons */}
+            <div className="flex items-center gap-1 px-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                    currentPage === pageNum
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+            </div>
+
+            {/* Next Button */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              <span>Next</span>
+              <ChevronRightIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -3080,349 +3520,70 @@ const ExpenseModal = ({
   );
 };
 
-// Full Income Modal (Supports Lump Sum, Monthly, Quarterly with Day & Duration)
-const IncomeModal = ({
-  incomeForm,
-  incomeFormErrors = {},
-  handleIncomeFormChange,
+// ----------------- PAYMENT PLAN MODAL -----------------
+
+const PaymentPlanModal = ({
+  paymentPlanForm,
+  paymentPlanFormErrors = {},
+  handlePaymentPlanFormChange,
   projectName,
-  incomeCategories = [],
   onSubmit,
   onClose,
-  isEdit,
   actionLoading = null,
 }) => {
-  const isSaving = actionLoading === "income";
-  const frequency = incomeForm.frequency || "lump_sum";
-  const totalAmt = Number(incomeForm.totalProjectAmount || incomeForm.expectedAmount) || 0;
-  const paidAmt = Number(incomeForm.totalPaid !== undefined ? incomeForm.totalPaid : incomeForm.amount) || 0;
-  const isPaid = paidAmt >= totalAmt && totalAmt > 0;
+  const isSaving = actionLoading === "payment";
+  const frequency = paymentPlanForm.frequency || "monthly";
+  const totalAmount = Number(paymentPlanForm.totalAmount) || 0;
+  const numInstallments = parseInt(paymentPlanForm.numberOfInstallments, 10) || (frequency === "quarterly" ? 4 : 12);
 
-  return (
-    <ModalChrome
-      maxWidth="max-w-2xl"
-      title={isEdit ? "Edit Project Income" : "Add Project Income"}
-      subtitle="Configure payment schedule: Lump Sum, Monthly, or Quarterly with automated recurring days & duration"
-      onClose={onClose}
-      closeDisabled={isSaving}
-      footer={
-        <>
-          <button
-            onClick={onClose}
-            disabled={isSaving}
-            className={`${cancelBtnClass} order-2 sm:order-1`}
-          >
-            Cancel
-          </button>
-          <ActionButton
-            onClick={onSubmit}
-            loading={isSaving}
-            loadingText={isEdit ? "Saving…" : "Adding…"}
-            disabled={!incomeForm.title}
-            className={`w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 order-1 sm:order-2 ${
-              isEdit
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-emerald-600 hover:bg-emerald-700"
-            }`}
-          >
-            {isEdit ? "Save Changes" : "Record Income"}
-          </ActionButton>
-        </>
-      }
-    >
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        <div>
-          <label className={fieldLabelClass}>Client Name</label>
-          <input
-            type="text"
-            value={incomeForm.clientName}
-            onChange={(e) => handleIncomeFormChange("clientName", e.target.value)}
-            disabled={isSaving}
-            className={fieldInputClass(!!incomeFormErrors.clientName)}
-            placeholder="e.g., Ethiopian Forestry Commission"
-          />
-        </div>
+  // Live schedule preview calculation for monthly/quarterly
+  const perInstallmentAmount =
+    totalAmount > 0 && numInstallments > 0
+      ? (totalAmount / numInstallments).toFixed(2)
+      : "0.00";
 
-        <div>
-          <label className={fieldLabelClass}>Project Name</label>
-          <input
-            type="text"
-            value={projectName || incomeForm.projectName || ""}
-            disabled
-            className="w-full px-3 py-2.5 border border-slate-200 bg-slate-100 rounded-lg text-sm text-slate-600 cursor-not-allowed"
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className={fieldLabelClass}>Income Title / Milestone *</label>
-          <input
-            type="text"
-            value={incomeForm.title}
-            onChange={(e) => handleIncomeFormChange("title", e.target.value)}
-            disabled={isSaving}
-            className={fieldInputClass(!!incomeFormErrors.title)}
-            placeholder="e.g., GIS Mapping Phase 1"
-            required
-          />
-          {incomeFormErrors.title && (
-            <p className={fieldErrorClass}>{incomeFormErrors.title}</p>
-          )}
-        </div>
-
-        {/* Schedule Type / Frequency */}
-        <div className="sm:col-span-2 bg-slate-50 border border-slate-200 p-3.5 rounded-xl space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <label className="text-xs sm:text-sm font-semibold text-slate-800">
-                Payment Plan / Schedule Type *
-              </label>
-              <p className="text-xs text-slate-500">
-                Select whether payment will be collected as a lump sum or recurring monthly/quarterly installments
-              </p>
-            </div>
-            <select
-              value={incomeForm.frequency || "lump_sum"}
-              onChange={(e) => handleIncomeFormChange("frequency", e.target.value)}
-              disabled={isSaving}
-              className="px-3 py-2 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500"
-            >
-              {PAYMENT_FREQUENCIES.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* If Monthly or Quarterly: Show Day of Month and Duration in Months */}
-          {frequency !== "lump_sum" && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/80">
-              <div>
-                <label className={fieldLabelClass}>
-                  {frequency === "monthly" ? "Day of the Month (1-31)" : "Day of Quarter"} *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={incomeForm.recurringDay || "15"}
-                  onChange={(e) => handleIncomeFormChange("recurringDay", e.target.value)}
-                  disabled={isSaving}
-                  className={fieldInputClass()}
-                  placeholder="e.g., 15"
-                />
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Payment expected on day {incomeForm.recurringDay || 15}
-                </p>
-              </div>
-
-              <div>
-                <label className={fieldLabelClass}>Duration (Months) *</label>
-                <select
-                  value={incomeForm.durationMonths || "12"}
-                  onChange={(e) => handleIncomeFormChange("durationMonths", e.target.value)}
-                  disabled={isSaving}
-                  className={fieldInputClass()}
-                >
-                  <option value="3">3 Months (1 Quarter)</option>
-                  <option value="6">6 Months (Half Year)</option>
-                  <option value="12">12 Months (1 Year)</option>
-                  <option value="24">24 Months (2 Years)</option>
-                  <option value="36">36 Months (3 Years)</option>
-                </select>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Length of expected payments
-                </p>
-              </div>
-
-              <div>
-                <label className={fieldLabelClass}>Amount per {frequency === "monthly" ? "Month" : "Quarter"}</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={incomeForm.installmentAmount || ""}
-                  onChange={(e) => handleIncomeFormChange("installmentAmount", e.target.value)}
-                  disabled={isSaving}
-                  className={fieldInputClass()}
-                  placeholder="0.00"
-                />
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  ETB per installment cycle
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>Total Project / Contract Amount (ETB) *</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0.01"
-            value={incomeForm.totalProjectAmount || incomeForm.expectedAmount}
-            onChange={(e) => {
-              handleIncomeFormChange("totalProjectAmount", e.target.value);
-              handleIncomeFormChange("expectedAmount", e.target.value);
-            }}
-            disabled={isSaving}
-            className={fieldInputClass(!!incomeFormErrors.expectedAmount)}
-            placeholder="0.00"
-            required
-          />
-          {incomeFormErrors.expectedAmount && (
-            <p className={fieldErrorClass}>{incomeFormErrors.expectedAmount}</p>
-          )}
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>Total Amount Paid so far (ETB)</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={incomeForm.totalPaid !== undefined ? incomeForm.totalPaid : incomeForm.amount}
-            onChange={(e) => {
-              handleIncomeFormChange("totalPaid", e.target.value);
-              handleIncomeFormChange("amount", e.target.value);
-            }}
-            disabled={isSaving}
-            className={fieldInputClass(!!incomeFormErrors.amount)}
-            placeholder="0.00"
-          />
-          {isPaid && (
-            <p className="text-xs text-emerald-600 font-medium mt-1">
-              ✓ Fully paid
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>
-            {isPaid ? "Date Paid *" : "Received Date (if partially paid)"}
-          </label>
-          <input
-            type="date"
-            value={incomeForm.receivedDate}
-            max={todayInputValue()}
-            onChange={(e) =>
-              handleIncomeFormChange("receivedDate", e.target.value)
-            }
-            disabled={isSaving}
-            className={fieldInputClass(!!incomeFormErrors.receivedDate)}
-          />
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>
-            {frequency !== "lump_sum"
-              ? "Next Expected Installment Date"
-              : "Due / Expected Arrival Date *"}
-          </label>
-          <input
-            type="date"
-            value={incomeForm.nextPaymentDate || incomeForm.dueDate}
-            onChange={(e) => {
-              handleIncomeFormChange("nextPaymentDate", e.target.value);
-              handleIncomeFormChange("dueDate", e.target.value);
-            }}
-            disabled={isSaving}
-            className={fieldInputClass(!!incomeFormErrors.nextPaymentDate)}
-          />
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Will automatically show as Pending, and turn Overdue when date passes
-          </p>
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>Collection Method</label>
-          <select
-            value={incomeForm.paymentMethod}
-            onChange={(e) =>
-              handleIncomeFormChange("paymentMethod", e.target.value)
-            }
-            disabled={isSaving}
-            className={fieldInputClass()}
-          >
-            {PAYMENT_METHODS.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>Invoice / Contract Number</label>
-          <input
-            type="text"
-            value={incomeForm.invoiceNumber}
-            onChange={(e) =>
-              handleIncomeFormChange("invoiceNumber", e.target.value)
-            }
-            disabled={isSaving}
-            className={fieldInputClass()}
-            placeholder="INV-001"
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className={fieldLabelClass}>Notes / Payment Terms</label>
-          <textarea
-            value={incomeForm.notes}
-            onChange={(e) => handleIncomeFormChange("notes", e.target.value)}
-            disabled={isSaving}
-            rows={2}
-            className={fieldInputClass()}
-            placeholder="e.g., Monthly installment of ETB 25,000 paid by the 15th of each month."
-          />
-        </div>
-      </div>
-    </ModalChrome>
+  // Custom installments calculation
+  const customInstallments = paymentPlanForm.customInstallments || [];
+  const customAllocatedSum = customInstallments.reduce(
+    (sum, inst) => sum + (Number(inst.amount) || 0),
+    0
   );
-};
+  const customRemaining = Math.max(0, totalAmount - customAllocatedSum);
+  const isOverAllocated = totalAmount > 0 && customAllocatedSum > totalAmount + 0.001;
 
-// Expected Income Quick Modal with Lump Sum / Monthly / Quarterly options
-const ExpectedIncomeModal = ({
-  expectedPaymentForm,
-  setExpectedPaymentForm,
-  expectedPaymentFormErrors = {},
-  projectName,
-  incomeCategories = [],
-  onSubmit,
-  onClose,
-  actionLoading = null,
-}) => {
-  const isSaving = actionLoading === "expected";
-  const frequency = expectedPaymentForm.frequency || "lump_sum";
-
-  const handleExpectedChange = (field, value) => {
-    setExpectedPaymentForm((prev) => {
-      const next = { ...prev, [field]: value };
-      if (field === "totalProjectAmount" || field === "durationMonths" || field === "frequency") {
-        const total = Number(field === "totalProjectAmount" ? value : next.totalProjectAmount) || 0;
-        const dur = parseInt(field === "durationMonths" ? value : next.durationMonths, 10) || 12;
-        const freq = field === "frequency" ? value : next.frequency;
-        if (freq === "monthly" && dur > 0) {
-          next.installmentAmount = (total / dur).toFixed(2);
-          next.nextPaymentAmount = (total / dur).toFixed(2);
-        } else if (freq === "quarterly" && dur > 0) {
-          const quarters = Math.max(1, Math.round(dur / 3));
-          next.installmentAmount = (total / quarters).toFixed(2);
-          next.nextPaymentAmount = (total / quarters).toFixed(2);
-        } else {
-          next.installmentAmount = total ? total.toFixed(2) : "";
-        }
+  const handleCustomRowChange = (index, field, value) => {
+    const updated = customInstallments.map((row, i) => {
+      if (i === index) {
+        return { ...row, [field]: value };
       }
-      return next;
+      return row;
     });
+    handlePaymentPlanFormChange("customInstallments", updated);
+  };
+
+  const handleAddCustomRow = () => {
+    const nextDate = new Date();
+    nextDate.setMonth(nextDate.getMonth() + customInstallments.length);
+    const dateStr = nextDate.toISOString().split("T")[0];
+    const newRow = {
+      amount: customRemaining > 0 ? customRemaining.toFixed(2) : "",
+      dueDate: dateStr,
+      isPaid: false,
+    };
+    handlePaymentPlanFormChange("customInstallments", [...customInstallments, newRow]);
+  };
+
+  const handleRemoveCustomRow = (index) => {
+    if (customInstallments.length <= 1) return;
+    const updated = customInstallments.filter((_, i) => i !== index);
+    handlePaymentPlanFormChange("customInstallments", updated);
   };
 
   return (
     <ModalChrome
-      maxWidth="max-w-xl"
-      title="Schedule Expected Income"
-      subtitle="Set Lump Sum, Monthly, or Quarterly payment schedule with arrival day and duration"
+      maxWidth="max-w-3xl"
+      title="Create Project Payment Plan"
+      subtitle="Configure installment schedules (Monthly, Quarterly, Custom) or Lump Sum milestones"
       onClose={onClose}
       closeDisabled={isSaving}
       footer={
@@ -3437,177 +3598,491 @@ const ExpectedIncomeModal = ({
           <ActionButton
             onClick={onSubmit}
             loading={isSaving}
-            loadingText="Scheduling…"
+            loadingText="Creating Plan…"
             disabled={
-              !expectedPaymentForm.title ||
-              !(expectedPaymentForm.totalProjectAmount || expectedPaymentForm.expectedAmount)
+              !paymentPlanForm.clientName ||
+              !paymentPlanForm.totalAmount ||
+              isOverAllocated
             }
-            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 shadow-sm transition-all duration-200 disabled:opacity-50 order-1 sm:order-2"
+            className="w-full sm:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition-all duration-200 disabled:opacity-50 order-1 sm:order-2"
           >
-            Schedule Income
+            Create Payment Schedule
           </ActionButton>
         </>
       }
     >
-      <div className="space-y-4">
-        <div>
-          <label className={fieldLabelClass}>Client Name</label>
-          <input
-            type="text"
-            value={expectedPaymentForm.clientName}
-            onChange={(e) => handleExpectedChange("clientName", e.target.value)}
-            disabled={isSaving}
-            className={fieldInputClass()}
-            placeholder="Client or Organization Name"
-          />
-        </div>
-
-        <div>
-          <label className={fieldLabelClass}>Income Title / Milestone *</label>
-          <input
-            type="text"
-            value={expectedPaymentForm.title}
-            onChange={(e) => handleExpectedChange("title", e.target.value)}
-            disabled={isSaving}
-            className={fieldInputClass(!!expectedPaymentFormErrors.title)}
-            placeholder="e.g., Monthly Retainer or Milestone Deliverable"
-            required
-          />
-          {expectedPaymentFormErrors.title && (
-            <p className={fieldErrorClass}>
-              {expectedPaymentFormErrors.title}
-            </p>
-          )}
-        </div>
-
-        {/* Schedule / Frequency */}
-        <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <label className="text-xs sm:text-sm font-semibold text-slate-800">
-                Payment Plan *
-              </label>
-              <p className="text-xs text-slate-500">
-                Lump Sum, Monthly, or Quarterly
-              </p>
-            </div>
-            <select
-              value={expectedPaymentForm.frequency || "lump_sum"}
-              onChange={(e) => handleExpectedChange("frequency", e.target.value)}
-              disabled={isSaving}
-              className="px-3 py-2 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500"
-            >
-              {PAYMENT_FREQUENCIES.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {frequency !== "lump_sum" && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/80">
-              <div>
-                <label className={fieldLabelClass}>
-                  {frequency === "monthly" ? "Day of Month" : "Day of Quarter"} *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={expectedPaymentForm.recurringDay || "15"}
-                  onChange={(e) => handleExpectedChange("recurringDay", e.target.value)}
-                  disabled={isSaving}
-                  className={fieldInputClass()}
-                  placeholder="15"
-                />
-              </div>
-
-              <div>
-                <label className={fieldLabelClass}>Duration (Months)</label>
-                <select
-                  value={expectedPaymentForm.durationMonths || "12"}
-                  onChange={(e) => handleExpectedChange("durationMonths", e.target.value)}
-                  disabled={isSaving}
-                  className={fieldInputClass()}
-                >
-                  <option value="3">3 Months</option>
-                  <option value="6">6 Months</option>
-                  <option value="12">12 Months (1 Year)</option>
-                  <option value="24">24 Months (2 Years)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className={fieldLabelClass}>Per {frequency === "monthly" ? "Month" : "Quarter"}</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={expectedPaymentForm.installmentAmount || ""}
-                  onChange={(e) => handleExpectedChange("installmentAmount", e.target.value)}
-                  disabled={isSaving}
-                  className={fieldInputClass()}
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="space-y-4 sm:space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <label className={fieldLabelClass}>Total Project Amount (ETB) *</label>
+            <label className={fieldLabelClass}>Client Name *</label>
             <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={
-                expectedPaymentForm.totalProjectAmount ||
-                expectedPaymentForm.expectedAmount
+              type="text"
+              value={paymentPlanForm.clientName}
+              onChange={(e) =>
+                handlePaymentPlanFormChange("clientName", e.target.value)
               }
-              onChange={(e) => {
-                handleExpectedChange("totalProjectAmount", e.target.value);
-                handleExpectedChange("expectedAmount", e.target.value);
-              }}
               disabled={isSaving}
-              className={fieldInputClass(
-                !!expectedPaymentFormErrors.expectedAmount
-              )}
-              placeholder="0.00"
+              className={fieldInputClass(!!paymentPlanFormErrors.clientName)}
+              placeholder="e.g., Ethiopian Forestry Commission"
               required
             />
-            {expectedPaymentFormErrors.expectedAmount && (
+            {paymentPlanFormErrors.clientName && (
               <p className={fieldErrorClass}>
-                {expectedPaymentFormErrors.expectedAmount}
+                {paymentPlanFormErrors.clientName}
               </p>
             )}
           </div>
 
           <div>
-            <label className={fieldLabelClass}>First Payment / Due Date *</label>
+            <label className={fieldLabelClass}>Project Title *</label>
             <input
-              type="date"
-              value={expectedPaymentForm.nextPaymentDate || expectedPaymentForm.dueDate}
-              onChange={(e) => {
-                handleExpectedChange("nextPaymentDate", e.target.value);
-                handleExpectedChange("dueDate", e.target.value);
-              }}
+              type="text"
+              value={paymentPlanForm.title || projectName || ""}
+              onChange={(e) =>
+                handlePaymentPlanFormChange("title", e.target.value)
+              }
               disabled={isSaving}
-              className={fieldInputClass()}
+              className={fieldInputClass(!!paymentPlanFormErrors.title)}
+              placeholder="e.g., GIS Mapping & Land Survey Phase 1"
+              required
             />
+            {paymentPlanFormErrors.title && (
+              <p className={fieldErrorClass}>{paymentPlanFormErrors.title}</p>
+            )}
           </div>
         </div>
 
         <div>
-          <label className={fieldLabelClass}>Description / Milestone Details</label>
+          <label className={fieldLabelClass}>
+            Total Project / Contract Amount (ETB) *
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={paymentPlanForm.totalAmount}
+            onChange={(e) =>
+              handlePaymentPlanFormChange("totalAmount", e.target.value)
+            }
+            disabled={isSaving}
+            className={fieldInputClass(!!paymentPlanFormErrors.totalAmount)}
+            placeholder="0.00"
+            required
+          />
+          {paymentPlanFormErrors.totalAmount && (
+            <p className={fieldErrorClass}>
+              {paymentPlanFormErrors.totalAmount}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className={fieldLabelClass}>
+            Description / Scope Notes (Optional)
+          </label>
           <textarea
             rows={2}
-            value={expectedPaymentForm.description}
-            onChange={(e) => handleExpectedChange("description", e.target.value)}
+            value={paymentPlanForm.description || ""}
+            onChange={(e) =>
+              handlePaymentPlanFormChange("description", e.target.value)
+            }
             disabled={isSaving}
             className={fieldInputClass()}
-            placeholder="Details about scheduled payments and milestone criteria…"
+            placeholder="e.g., Phase 1 deliverables, payment milestones, retainer terms…"
           />
+        </div>
+
+        {/* Payment Method Selector */}
+        <div className="bg-slate-50 border border-slate-200 p-4 sm:p-5 rounded-2xl space-y-4">
+          <label className="text-xs sm:text-sm font-bold text-slate-900 block">
+            Payment Method *
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {[
+              { value: "monthly", label: "Monthly", desc: "Even monthly splits" },
+              { value: "quarterly", label: "Quarterly", desc: "Every 3 months" },
+              { value: "lump_sum", label: "Lump Sum", desc: "First payment is total" },
+              { value: "custom", label: "Custom", desc: "Custom dates & amounts" },
+            ].map((method) => {
+              const isSelected = frequency === method.value;
+              return (
+                <button
+                  key={method.value}
+                  type="button"
+                  onClick={() =>
+                    handlePaymentPlanFormChange("frequency", method.value)
+                  }
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    isSelected
+                      ? "bg-blue-50/90 border-blue-500 ring-2 ring-blue-500/20 text-blue-900 shadow-xs"
+                      : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"
+                  }`}
+                >
+                  <p className="font-bold text-xs sm:text-sm">{method.label}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{method.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Monthly or Quarterly Config */}
+          {(frequency === "monthly" || frequency === "quarterly") && (
+            <div className="pt-3 border-t border-slate-200/80 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={fieldLabelClass}>
+                    Number of Installments *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={paymentPlanForm.numberOfInstallments}
+                    onChange={(e) =>
+                      handlePaymentPlanFormChange(
+                        "numberOfInstallments",
+                        e.target.value
+                      )
+                    }
+                    disabled={isSaving}
+                    className={fieldInputClass(
+                      !!paymentPlanFormErrors.numberOfInstallments
+                    )}
+                    placeholder={frequency === "monthly" ? "12" : "4"}
+                    required
+                  />
+                  {paymentPlanFormErrors.numberOfInstallments && (
+                    <p className={fieldErrorClass}>
+                      {paymentPlanFormErrors.numberOfInstallments}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className={fieldLabelClass}>Start Date *</label>
+                  <input
+                    type="date"
+                    value={paymentPlanForm.startDate}
+                    onChange={(e) =>
+                      handlePaymentPlanFormChange("startDate", e.target.value)
+                    }
+                    disabled={isSaving}
+                    className={fieldInputClass(
+                      !!paymentPlanFormErrors.startDate
+                    )}
+                    required
+                  />
+                  {paymentPlanFormErrors.startDate && (
+                    <p className={fieldErrorClass}>
+                      {paymentPlanFormErrors.startDate}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Checkbox: Payment 1 already paid */}
+              <label className="flex items-center gap-2.5 p-3 bg-white border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={paymentPlanForm.firstPaid}
+                  onChange={(e) =>
+                    handlePaymentPlanFormChange("firstPaid", e.target.checked)
+                  }
+                  disabled={isSaving}
+                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-slate-300"
+                />
+                <div className="text-xs sm:text-sm">
+                  <span className="font-semibold text-slate-800">
+                    Payment 1 was already received
+                  </span>
+                  <p className="text-[11px] text-slate-500">
+                    Will mark installment #1 as Paid today and future installments as Upcoming.
+                  </p>
+                </div>
+              </label>
+
+              {/* Schedule Summary Preview */}
+              {totalAmount > 0 && (
+                <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-900 space-y-1">
+                  <p className="font-bold text-emerald-950">
+                    Schedule Preview:
+                  </p>
+                  <p>
+                    • {numInstallments} installments of approximately <strong>ETB {perInstallmentAmount}</strong> every {frequency === "monthly" ? "month" : "quarter"}.
+                  </p>
+                  <p className="text-[11px] text-emerald-700">
+                    • Full schedule will be auto-generated. The final installment absorbs any rounding. Future installments automatically flip to Due Today / Overdue when their due dates arrive.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Lump Sum Config */}
+          {frequency === "lump_sum" && (
+            <div className="pt-3 border-t border-slate-200/80 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={fieldLabelClass}>
+                    First Payment Amount (ETB) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={totalAmount > 0 ? totalAmount : undefined}
+                    value={paymentPlanForm.lumpSumFirstAmount || (totalAmount > 0 ? totalAmount : "")}
+                    onChange={(e) =>
+                      handlePaymentPlanFormChange(
+                        "lumpSumFirstAmount",
+                        e.target.value
+                      )
+                    }
+                    disabled={isSaving}
+                    className={fieldInputClass(
+                      !!paymentPlanFormErrors.lumpSumFirstAmount
+                    )}
+                    placeholder={totalAmount > 0 ? totalAmount.toFixed(2) : "0.00"}
+                    required
+                  />
+                  {paymentPlanFormErrors.lumpSumFirstAmount && (
+                    <p className={fieldErrorClass}>
+                      {paymentPlanFormErrors.lumpSumFirstAmount}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    First payment is the full total contract amount by default.
+                  </p>
+                </div>
+
+                <div>
+                  <label className={fieldLabelClass}>
+                    First Payment Due Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={paymentPlanForm.startDate}
+                    onChange={(e) =>
+                      handlePaymentPlanFormChange("startDate", e.target.value)
+                    }
+                    disabled={isSaving}
+                    className={fieldInputClass()}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Checkbox: First payment already paid */}
+              <label className="flex items-center gap-2.5 p-3 bg-white border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={paymentPlanForm.lumpSumFirstPaid}
+                  onChange={(e) =>
+                    handlePaymentPlanFormChange(
+                      "lumpSumFirstPaid",
+                      e.target.checked
+                    )
+                  }
+                  disabled={isSaving}
+                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-slate-300"
+                />
+                <div className="text-xs sm:text-sm">
+                  <span className="font-semibold text-slate-800">
+                    First payment was already received
+                  </span>
+                  <p className="text-[11px] text-slate-500">
+                    Mark payment 1 as paid now.
+                  </p>
+                </div>
+              </label>
+
+              <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">
+                <p className="font-semibold">
+                  Lump Sum Milestones:
+                </p>
+                <p className="text-[11px] text-blue-700">
+                  The initial milestone represents the contract payment. If partial, you can adjust the amount, and click <strong>"+ Add expected next payment"</strong> on the project card to chain future milestones until the total of ETB {totalAmount > 0 ? totalAmount.toLocaleString() : "0"} is covered.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Custom Schedule Builder */}
+          {frequency === "custom" && (
+            <div className="pt-3 border-t border-slate-200/80 space-y-3.5">
+              {/* Allocation Summary Bar */}
+              <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                  <div>
+                    <span className="text-slate-500 font-medium">Total Contract: </span>
+                    <strong className="text-slate-900">
+                      ETB {totalAmount.toFixed(2)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Scheduled Sum: </span>
+                    <strong className={isOverAllocated ? "text-rose-600" : "text-emerald-700"}>
+                      ETB {customAllocatedSum.toFixed(2)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Remaining: </span>
+                    <strong className={customRemaining > 0 ? "text-amber-600" : "text-emerald-600"}>
+                      ETB {customRemaining.toFixed(2)}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      isOverAllocated
+                        ? "bg-rose-500"
+                        : customRemaining === 0 && totalAmount > 0
+                        ? "bg-emerald-500"
+                        : "bg-blue-600"
+                    }`}
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        totalAmount > 0 ? (customAllocatedSum / totalAmount) * 100 : 0
+                      )}%`,
+                    }}
+                  />
+                </div>
+
+                {isOverAllocated && (
+                  <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 font-semibold flex items-center gap-1.5">
+                    <ExclamationTriangleIcon className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                    <span>
+                      Milestones total (ETB {customAllocatedSum.toFixed(2)}) exceeds contract amount (ETB {totalAmount.toFixed(2)}) by ETB {(customAllocatedSum - totalAmount).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {paymentPlanFormErrors.customInstallments && (
+                  <p className={fieldErrorClass}>
+                    {paymentPlanFormErrors.customInstallments}
+                  </p>
+                )}
+              </div>
+
+              {/* Installment Milestone Rows */}
+              <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                {customInstallments.map((inst, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 bg-white border border-slate-200 rounded-xl space-y-2 animate-[fadeIn_0.15s_ease-out]"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        Milestone #{idx + 1}
+                      </span>
+                      {customInstallments.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCustomRow(idx)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Remove Milestone"
+                        >
+                          <TrashIcon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block mb-0.5">
+                          Amount (ETB) *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={inst.amount}
+                          onChange={(e) =>
+                            handleCustomRowChange(idx, "amount", e.target.value)
+                          }
+                          disabled={isSaving}
+                          className={fieldInputClass(
+                            !!paymentPlanFormErrors[`custom_amount_${idx}`]
+                          )}
+                          placeholder="0.00"
+                          required
+                        />
+                        {paymentPlanFormErrors[`custom_amount_${idx}`] && (
+                          <p className={fieldErrorClass}>
+                            {paymentPlanFormErrors[`custom_amount_${idx}`]}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block mb-0.5">
+                          Due Date *
+                        </label>
+                        <input
+                          type="date"
+                          value={inst.dueDate}
+                          onChange={(e) =>
+                            handleCustomRowChange(idx, "dueDate", e.target.value)
+                          }
+                          disabled={isSaving}
+                          className={fieldInputClass(
+                            !!paymentPlanFormErrors[`custom_date_${idx}`]
+                          )}
+                          required
+                        />
+                        {paymentPlanFormErrors[`custom_date_${idx}`] && (
+                          <p className={fieldErrorClass}>
+                            {paymentPlanFormErrors[`custom_date_${idx}`]}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={inst.isPaid}
+                        onChange={(e) =>
+                          handleCustomRowChange(idx, "isPaid", e.target.checked)
+                        }
+                        disabled={isSaving}
+                        className="w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500 border-slate-300"
+                      />
+                      <span className="text-xs text-slate-700 font-medium">
+                        Already received / paid
+                      </span>
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add Milestone & Auto-fill Buttons */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleAddCustomRow}
+                  disabled={isSaving || customRemaining <= 0 && customInstallments.length > 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+                >
+                  <PlusIcon className="w-3.5 h-3.5" />
+                  <span>+ Add Milestone</span>
+                </button>
+
+                {customRemaining > 0 && customInstallments.length > 0 && (
+                  <span className="text-xs text-slate-500">
+                    Remaining unallocated:{" "}
+                    <strong className="text-amber-700">
+                      ETB {customRemaining.toFixed(2)}
+                    </strong>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </ModalChrome>

@@ -182,6 +182,17 @@ export async function POST(request, { params }) {
       );
     }
 
+    const contractTotal = Number(totalProjectAmount ?? expectedAmount ?? amount) || 0;
+    if (Array.isArray(data.installments) && data.installments.length > 0) {
+      const totalInstSum = data.installments.reduce((sum, inst) => sum + (Number(inst.amount) || 0), 0);
+      if (contractTotal > 0 && totalInstSum > contractTotal + 0.01) {
+        return NextResponse.json(
+          { error: `Total installments (${totalInstSum.toFixed(2)}) cannot exceed the total project amount (${contractTotal.toFixed(2)})` },
+          { status: 400 }
+        );
+      }
+    }
+
     const existingProject = await db.collection("projects").findOne({
       _id: new ObjectId(id),
     });
@@ -236,6 +247,7 @@ export async function POST(request, { params }) {
       status: status === "cancelled" ? "cancelled" : undefined,
       paymentReference,
       notes,
+      installments: Array.isArray(data.installments) ? data.installments : [],
     });
 
     const receivedAmt = income.amount || 0;

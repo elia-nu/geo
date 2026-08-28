@@ -19,6 +19,7 @@ import {
   Camera,
   Navigation,
 } from "lucide-react";
+import { formatWorkingHours } from "../utils/timeUtils";
 
 export default function AttendanceManagement() {
   // State management
@@ -174,27 +175,10 @@ export default function AttendanceManagement() {
 
   // Calculate working hours
   const calculateWorkingHours = (record) => {
+    if (!record) return "—";
     // If employee is on leave, show 0 hours
-    if (record.leaveInfo) return "0:00";
-
-    // Use workingHours from payroll integration if available
-    if (record.workingHours !== undefined) {
-      const hours = Math.floor(record.workingHours);
-      const minutes = Math.floor((record.workingHours - hours) * 60);
-      return `${hours}:${minutes.toString().padStart(2, "0")}`;
-    }
-
-    if (!record.checkInTime) return "0:00";
-
-    const checkIn = new Date(record.checkInTime);
-    const checkOut = record.checkOutTime
-      ? new Date(record.checkOutTime)
-      : new Date();
-    const diffMs = checkOut - checkIn;
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-    return `${hours}:${minutes.toString().padStart(2, "0")}`;
+    if (record.leaveInfo) return "0h 00m";
+    return formatWorkingHours(record);
   };
 
   // Export to CSV

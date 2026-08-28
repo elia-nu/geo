@@ -96,7 +96,81 @@ export async function PUT(request, { params }) {
     const previousAmount = Number(existing.amount) || 0;
     let updated;
 
-    if (data.action === "collect") {
+    if (data.action === "mark_paid") {
+      const installments = Array.isArray(existing.installments)
+        ? [...existing.installments]
+        : [];
+      const instNum = Number(data.installmentNumber);
+      const targetIndex = installments.findIndex(
+        (inst, idx) => (inst.installmentNumber ? inst.installmentNumber === instNum : idx + 1 === instNum)
+      );
+
+      if (targetIndex !== -1) {
+        installments[targetIndex] = {
+          ...installments[targetIndex],
+          status: "paid",
+          paidDate: data.paidDate || new Date(),
+        };
+      }
+
+      const newTotalPaid = installments
+        .filter((i) => i.status === "paid")
+        .reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+
+      updated = enrichIncomeRecord({
+        ...existing,
+        installments,
+        amount: newTotalPaid,
+        totalPaid: newTotalPaid,
+        receivedDate: data.paidDate || new Date(),
+      });
+    } else if (data.action === "add_installment") {
+      const installments = Array.isArray(existing.installments)
+        ? [...existing.installments]
+        : [];
+      const newAmount = Number(data.amount) || 0;
+      if (newAmount <= 0) {
+        return NextResponse.json(
+          { error: "Installment amount must be greater than 0" },
+          { status: 400 }
+        );
+      }
+
+      const currentScheduled = installments.reduce(
+        (sum, inst) => sum + (Number(inst.amount) || 0),
+        0
+      );
+      const totalContract =
+        Number(
+          existing.totalProjectAmount ||
+            existing.expectedAmount ||
+            existing.amount
+        ) || 0;
+
+      if (totalContract > 0 && currentScheduled + newAmount > totalContract + 0.01) {
+        const remaining = Math.max(0, totalContract - currentScheduled);
+        return NextResponse.json(
+          {
+            error: `Installment amount (${newAmount.toFixed(2)}) exceeds remaining contract balance of ${remaining.toFixed(2)}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const newInstNum = installments.length + 1;
+      installments.push({
+        installmentNumber: newInstNum,
+        amount: newAmount,
+        dueDate: data.dueDate || new Date(),
+        status: "upcoming",
+        paidDate: null,
+      });
+
+      updated = enrichIncomeRecord({
+        ...existing,
+        installments,
+      });
+    } else if (data.action === "collect") {
       try {
         updated = applyCollection(existing, {
           collectAmount: data.collectAmount,

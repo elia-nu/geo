@@ -14,6 +14,7 @@ import EmployeeProjects from "../components/EmployeeProjects";
 import EmployeeTasks from "../components/EmployeeTasks";
 import EmployeeMilestones from "../components/EmployeeMilestones";
 import EmployeeProfile from "../components/EmployeeProfile";
+import EmployeeOvertime from "../components/EmployeeOvertime";
 import { MapPin, Navigation, CheckCircle, Menu, X, Bell } from "lucide-react";
 
 export default function EmployeePortal() {
@@ -334,6 +335,14 @@ export default function EmployeePortal() {
             employeeName={employeeData.name}
           />
         );
+      case "overtime":
+        return (
+          <EmployeeOvertime
+            employeeId={employeeData._id}
+            employeeName={employeeData.name}
+            workLocations={workLocations}
+          />
+        );
       case "leave-requests":
         return (
           <EmployeeLeaveRequest
@@ -573,6 +582,7 @@ export default function EmployeePortal() {
                 { id: "dashboard", label: "Dashboard" },
                 { id: "attendance", label: "Daily Attendance" },
                 { id: "attendance-history", label: "Attendance History" },
+                { id: "overtime", label: "Overtime Hub" },
                 { id: "leave-requests", label: "Leave Requests" },
                 { id: "leave-balance", label: "Leave Balance" },
                 { id: "projects", label: "Projects" },

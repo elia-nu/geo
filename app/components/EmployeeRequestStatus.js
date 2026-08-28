@@ -29,14 +29,46 @@ export default function EmployeeRequestStatus({ employeeId, employeeName }) {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `/api/attendance/documents?employeeId=${employeeId}`
-      );
-      const result = await response.json();
+      const [docsRes, otRes] = await Promise.all([
+        fetch(`/api/attendance/documents?employeeId=${employeeId}`),
+        fetch(`/api/overtime/requests?employeeId=${employeeId}`),
+      ]);
 
-      if (result.success) {
-        setRequests(result.data);
+      const [docsResult, otResult] = await Promise.all([
+        docsRes.json(),
+        otRes.json(),
+      ]);
+
+      const combined = [];
+
+      if (docsResult.success && Array.isArray(docsResult.data)) {
+        combined.push(...docsResult.data);
       }
+
+      if (otResult.success && Array.isArray(otResult.data)) {
+        const formattedOt = otResult.data.map((ot) => ({
+          _id: ot._id,
+          type: "overtime",
+          requestDate: ot.date,
+          startDate: ot.date,
+          endDate: ot.date,
+          reason: ot.reason || "Overtime Work",
+          description: ot.project ? `Project: ${ot.project} | ${ot.requestedHours} hrs` : `${ot.requestedHours} hrs`,
+          status: ot.status,
+          approvedHours: ot.approvedHours,
+          requestedHours: ot.requestedHours,
+          supervisorNotes: ot.supervisorNotes,
+          submittedAt: ot.createdAt,
+          createdAt: ot.createdAt,
+          updatedAt: ot.updatedAt,
+        }));
+        combined.push(...formattedOt);
+      }
+
+      // Sort by creation date descending
+      combined.sort((a, b) => new Date(b.createdAt || b.submittedAt || 0) - new Date(a.createdAt || a.submittedAt || 0));
+
+      setRequests(combined);
     } catch (error) {
       console.error("Error fetching requests:", error);
     } finally {
@@ -93,6 +125,13 @@ export default function EmployeeRequestStatus({ employeeId, employeeName }) {
 
   const getTypeDisplay = (type) => {
     switch (type) {
+      case "overtime":
+        return {
+          text: "Overtime Request",
+          icon: Clock,
+          color: "text-amber-600",
+          bgColor: "bg-amber-100",
+        };
       case "leave":
         return {
           text: "Leave Request",
@@ -200,6 +239,7 @@ export default function EmployeeRequestStatus({ employeeId, employeeName }) {
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Types</option>
+                <option value="overtime">Overtime Requests</option>
                 <option value="leave">Leave Requests</option>
                 <option value="document">Document Uploads</option>
                 <option value="absence">Absence Requests</option>

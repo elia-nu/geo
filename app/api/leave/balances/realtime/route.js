@@ -20,67 +20,58 @@ export async function GET(request) {
       typeof employeeId
     );
 
+    let empFilter = {};
+    if (employeeId && employeeId !== "all") {
+      empFilter._id = new ObjectId(employeeId);
+    }
+
+    // Get all matching employees
+    const allEmployees = await db
+      .collection("employees")
+      .find(empFilter)
+      .toArray();
+
+    // Map all employees
+    const employeeMap = {};
+    allEmployees.forEach((emp) => {
+      employeeMap[emp._id.toString()] = {
+        _id: emp._id.toString(),
+        employeeId: emp.employeeId || emp.personalDetails?.employeeId || emp._id.toString(),
+        name: emp.personalDetails?.name || emp.name,
+        email: emp.personalDetails?.email || emp.email,
+        department: emp.personalDetails?.department || emp.department,
+        designation: emp.personalDetails?.designation || emp.designation,
+        joiningDate: emp.personalDetails?.joiningDate || emp.joiningDate || emp.employmentDate,
+        employmentHistory: emp.employmentHistory,
+        createdAt: emp.createdAt,
+        sex: emp.personalDetails?.sex || emp.sex || "M",
+      };
+    });
+
     let query = {};
     if (employeeId && employeeId !== "all") {
       query.employeeId = new ObjectId(employeeId);
-      console.log("Created ObjectId query:", query);
     }
 
-    // Get leave balances with real-time calculations
-    const leaveBalances = await db
+    let leaveBalances = await db
       .collection("leave_balances")
       .find(query)
       .toArray();
 
-    console.log("Leave balances query:", query);
-    console.log("Found leave balances:", leaveBalances.length);
-    if (leaveBalances.length > 0) {
-      console.log("Sample leave balance:", leaveBalances[0]);
-    } else {
-      console.log("No leave balances found for query:", query);
-    }
+    const existingBalanceEmpIds = new Set(
+      leaveBalances.map((b) => b.employeeId?.toString())
+    );
 
-    // Get employee details for each balance
-    const employeeIds = leaveBalances.map((balance) => balance.employeeId);
-    const employees = await db
-      .collection("employees")
-      .find({ _id: { $in: employeeIds } })
-      .toArray();
-
-    const employeeMap = {};
-    employees.forEach((emp) => {
-      employeeMap[emp._id.toString()] = {
-        name: emp.personalDetails?.name || emp.name,
-        email: emp.personalDetails?.email || emp.email,
-        department: emp.department,
-        designation: emp.designation,
-        joiningDate: emp.joiningDate,
-        employmentHistory: emp.employmentHistory,
-        createdAt: emp.createdAt,
-      };
-    });
-
-    // If no leave balances found, try to create them
-    if (leaveBalances.length === 0 && employeeId && employeeId !== "all") {
-      console.log(
-        "No leave balances found, attempting to create initial balance for employee:",
-        employeeId
-      );
-
-      // Get employee details
-      const employee = await db
-        .collection("employees")
-        .findOne({ _id: new ObjectId(employeeId) });
-
-      if (employee) {
-        console.log("Found employee, creating initial leave balance");
-        console.log("Employee joining date:", employee.joiningDate);
-        console.log("Employee employment history:", employee.employmentHistory);
-        const initialBalance = await createInitialLeaveBalance(db, employee);
-        leaveBalances.push(initialBalance);
-        console.log("Created initial leave balance:", initialBalance);
-      } else {
-        console.log("Employee not found:", employeeId);
+    // Auto-create initial leave balances for any missing employees
+    for (const emp of allEmployees) {
+      if (!existingBalanceEmpIds.has(emp._id.toString())) {
+        try {
+          const initialBal = await createInitialLeaveBalance(db, emp);
+          leaveBalances.push(initialBal);
+          existingBalanceEmpIds.add(emp._id.toString());
+        } catch (e) {
+          console.warn("Failed to create initial leave balance for", emp.name, e);
+        }
       }
     }
 
@@ -317,7 +308,7 @@ export async function POST(request) {
   }
 }
 
-// Helper function to calculate real-time accruals with base 16 + seniority and 2-year rollover
+// Helper function to calculate real-time accruals for standard 16 days annual leave
 async function calculateRealTimeAccruals(db, leaveBalance) {
   const currentDate = new Date();
   const employmentDate = new Date(leaveBalance.employmentDate);
@@ -325,11 +316,6 @@ async function calculateRealTimeAccruals(db, leaveBalance) {
     0,
     (currentDate - employmentDate) / (1000 * 60 * 60 * 24 * 365.25)
   );
-  const fullYears = Math.floor(yearsOfService);
-
-  // Annual leave allowance: 16 + floor(years / 2)
-  const currentYearAllowance = 16 + Math.floor(fullYears / 2);
-  const seniorityBonus = Math.floor(fullYears / 2);
 
   // Get all approved and pending leave requests
   const leaveRequests = await db
@@ -354,40 +340,22 @@ async function calculateRealTimeAccruals(db, leaveBalance) {
     }
   });
 
-  // Calculate Rollover & 2-Year Expiration Limit:
-  let totalCumulativeEarned = 0;
-  let expiredDays = 0;
-
-  if (fullYears === 0) {
-    totalCumulativeEarned = currentYearAllowance;
-  } else {
-    for (let yr = 0; yr <= fullYears; yr++) {
-      const yrAllowance = 16 + Math.floor(yr / 2);
-      if (yr < fullYears - 2) {
-        expiredDays += Math.max(0, yrAllowance - Math.max(0, usedDays / Math.max(1, fullYears)));
-      } else {
-        totalCumulativeEarned += yrAllowance;
-      }
-    }
-  }
-
-  const carriedForward = fullYears > 0 ? Math.max(0, totalCumulativeEarned - currentYearAllowance) : 0;
-  const available = Math.max(0, totalCumulativeEarned - usedDays - pendingDays);
+  const available = Math.max(0, 16 - usedDays - pendingDays);
 
   const updatedBalances = {
     annual: {
-      yearlyAllowance: currentYearAllowance,
+      yearlyAllowance: 16,
       baseAllowance: 16,
-      seniorityBonus,
-      totalEarned: totalCumulativeEarned,
-      carriedForward,
-      expiredDays: Math.floor(expiredDays),
+      seniorityBonus: 0,
+      totalEarned: 16,
+      carriedForward: 0,
+      expiredDays: 0,
       used: usedDays,
       pending: pendingDays,
       available,
       description: "Annual Leave",
-      formula: "16 + floor(Years of Service / 2)",
-      rolloverPolicy: "No reset; rolled over with 2-year postponement expiration limit",
+      formula: "16 Days Standard Annual Leave",
+      rolloverPolicy: "Rollover with 2-year postponement expiry limit",
       lastCalculated: currentDate,
     },
   };
@@ -545,22 +513,27 @@ async function resetLeaveBalance(db, leaveBalance, adminId) {
   };
 }
 
-// Helper function to get leave balance notifications
 async function getLeaveBalanceNotifications(db, balances) {
   const notifications = [];
 
   balances.forEach((balance) => {
+    if (!balance || !balance.balances) return;
+    const empName =
+      balance.employee?.name || balance.employeeName || "Employee";
+
     Object.entries(balance.balances).forEach(([leaveType, leaveBalance]) => {
+      if (!leaveBalance) return;
       const usagePercentage =
-        (leaveBalance.used / (leaveBalance.used + leaveBalance.available)) *
+        ((leaveBalance.used || 0) /
+          ((leaveBalance.used || 0) + (leaveBalance.available || 1))) *
         100;
 
       // Low balance warning
-      if (leaveBalance.available <= 2) {
+      if ((leaveBalance.available || 0) <= 2) {
         notifications.push({
           type: "warning",
           title: "Low Leave Balance",
-          message: `${balance.employee.name} has only ${leaveBalance.available} days of ${leaveType} leave remaining`,
+          message: `${empName} has only ${leaveBalance.available} days of ${leaveType} leave remaining`,
           employeeId: balance.employeeId,
           leaveType,
           priority: "high",
@@ -573,7 +546,7 @@ async function getLeaveBalanceNotifications(db, balances) {
         notifications.push({
           type: "info",
           title: "High Leave Usage",
-          message: `${balance.employee.name} has used ${usagePercentage.toFixed(
+          message: `${empName} has used ${usagePercentage.toFixed(
             1
           )}% of their ${leaveType} leave`,
           employeeId: balance.employeeId,
@@ -584,11 +557,11 @@ async function getLeaveBalanceNotifications(db, balances) {
       }
 
       // Pending leave requests
-      if (leaveBalance.pending > 0) {
+      if ((leaveBalance.pending || 0) > 0) {
         notifications.push({
           type: "pending",
           title: "Pending Leave Request",
-          message: `${balance.employee.name} has ${leaveBalance.pending} days of ${leaveType} leave pending approval`,
+          message: `${empName} has ${leaveBalance.pending} days of ${leaveType} leave pending approval`,
           employeeId: balance.employeeId,
           leaveType,
           priority: "medium",
@@ -668,21 +641,26 @@ async function createInitialLeaveBalance(db, employee) {
     (currentDate - employmentDate) / (1000 * 60 * 60 * 24 * 365.25)
   );
   const fullYears = Math.floor(yearsOfService);
-  const yearlyAllowance = 16 + Math.floor(fullYears / 2);
+  const yearlyAllowance =
+    employee.annualLeaveDays ||
+    employee.leaveBalance?.annual ||
+    16 + Math.floor(fullYears / 2);
+
+  const sex = employee.personalDetails?.sex || employee.sex || "M";
 
   const balances = {
     annual: {
-      yearlyAllowance,
+      yearlyAllowance: 16,
       baseAllowance: 16,
-      seniorityBonus: Math.floor(fullYears / 2),
-      totalEarned: yearlyAllowance,
+      seniorityBonus: 0,
+      totalEarned: 16,
       carriedForward: 0,
       expiredDays: 0,
-      available: yearlyAllowance,
+      available: 16,
       used: 0,
       pending: 0,
       description: "Annual Leave",
-      formula: "16 + floor(Years of Service / 2)",
+      formula: "16 Days Standard Annual Leave",
       rolloverPolicy: "Rollover with 2-year postponement expiry limit",
     },
   };

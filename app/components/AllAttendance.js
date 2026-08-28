@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
 import { toast } from "./ui/toast";
+import { formatWorkingHours, calculateEffectiveWorkingHours } from "../utils/timeUtils";
 
 export default function AllAttendance() {
   const [records, setRecords] = useState([]);
@@ -135,11 +136,27 @@ export default function AllAttendance() {
   const stats = useMemo(() => {
     const total = records.length;
     const verified = records.filter((r) => r.faceVerified).length;
-    const withHours = records.filter((r) => typeof r.workingHours === "number" && r.workingHours > 0);
-    const avgHours =
-      withHours.length > 0
-        ? (withHours.reduce((acc, curr) => acc + curr.workingHours, 0) / withHours.length).toFixed(1)
-        : "0.0";
+    const hoursList = records
+      .map((r) => {
+        if (r.checkInTime && r.checkOutTime) {
+          return (
+            calculateEffectiveWorkingHours(
+              r.checkInTime,
+              r.checkOutTime,
+              r.lunchOutTime,
+              r.lunchInTime
+            ) || 0
+          );
+        }
+        return typeof r.workingHours === "number" ? r.workingHours : 0;
+      })
+      .filter((h) => h > 0);
+
+    const avgDec =
+      hoursList.length > 0
+        ? hoursList.reduce((acc, curr) => acc + curr, 0) / hoursList.length
+        : 0;
+    const avgHours = formatWorkingHours(avgDec);
 
     return { total, verified, avgHours };
   }, [records]);
@@ -214,7 +231,7 @@ export default function AllAttendance() {
         r.employee?.designation || "",
         r.checkInTime ? new Date(r.checkInTime).toLocaleString() : "",
         r.checkOutTime ? new Date(r.checkOutTime).toLocaleString() : "",
-        typeof r.workingHours === "number" ? r.workingHours : "",
+        formatWorkingHours(r),
         r.workLocationName || r.geofenceValidation?.workLocationName || "",
         r.faceVerified ? "Yes" : "No",
       ].map(escape);
@@ -303,7 +320,7 @@ export default function AllAttendance() {
                 <div className="text-blue-300 text-xs font-medium flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-blue-400" /> Avg Hours
                 </div>
-                <div className="text-xl sm:text-2xl font-bold text-blue-200 mt-1">{stats.avgHours}h</div>
+                <div className="text-xl sm:text-2xl font-bold text-blue-200 mt-1">{stats.avgHours}</div>
               </div>
             </div>
           </div>
@@ -564,9 +581,7 @@ export default function AllAttendance() {
                       {/* Hours */}
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-xs">
-                          {typeof r.workingHours === "number"
-                            ? `${r.workingHours.toFixed(1)} hrs`
-                            : "—"}
+                          {formatWorkingHours(r)}
                         </span>
                       </td>
 

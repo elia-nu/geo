@@ -38,16 +38,74 @@ export async function PUT(request, { params }) {
       currentEmployee.name || currentEmployee.personalDetails?.name
     );
 
+    const rawSalary = data.personalDetails?.salary ?? data.personalDetails?.grossSalary;
+    const salaryVal = rawSalary !== undefined && rawSalary !== "" ? Number(rawSalary) : undefined;
+    const bankAccountVal = data.personalDetails?.bankAccount ?? data.personalDetails?.bankAccountNumber ?? undefined;
+    const bankNameVal = data.personalDetails?.bankName ?? undefined;
+
     // 1. Update main employee record with personal details
     const employeeUpdateData = {
       ...data.personalDetails,
+      personalDetails: {
+        ...(currentEmployee.personalDetails || {}),
+        ...data.personalDetails,
+        ...(salaryVal !== undefined && !Number.isNaN(salaryVal)
+          ? {
+              salary: salaryVal,
+              grossSalary: salaryVal,
+              baseSalary: salaryVal,
+              salaryETB: salaryVal,
+            }
+          : {}),
+        ...(bankAccountVal !== undefined
+          ? {
+              bankAccount: bankAccountVal,
+              bankAccountNumber: bankAccountVal,
+              accountNumber: bankAccountVal,
+            }
+          : {}),
+        ...(bankNameVal !== undefined ? { bankName: bankNameVal } : {}),
+      },
+      payrollDetails: {
+        ...(currentEmployee.payrollDetails || {}),
+        ...(salaryVal !== undefined && !Number.isNaN(salaryVal)
+          ? {
+              salary: salaryVal,
+              grossSalary: salaryVal,
+              baseSalary: salaryVal,
+            }
+          : {}),
+        ...(bankAccountVal !== undefined
+          ? {
+              bankAccount: bankAccountVal,
+              bankAccountNumber: bankAccountVal,
+            }
+          : {}),
+        ...(bankNameVal !== undefined ? { bankName: bankNameVal } : {}),
+      },
       department: data.personalDetails.department,
       designation: data.personalDetails.designation,
       workLocation: data.personalDetails.workLocation,
+      ...(salaryVal !== undefined && !Number.isNaN(salaryVal)
+        ? {
+            salary: salaryVal,
+            grossSalary: salaryVal,
+            baseSalary: salaryVal,
+            salaryETB: salaryVal,
+          }
+        : {}),
+      ...(bankAccountVal !== undefined
+        ? {
+            bankAccount: bankAccountVal,
+            bankAccountNumber: bankAccountVal,
+            accountNumber: bankAccountVal,
+          }
+        : {}),
+      ...(bankNameVal !== undefined ? { bankName: bankNameVal } : {}),
       updatedAt: new Date(),
     };
 
-    console.log("Updating main employee record");
+    console.log("Updating main employee record with salary and bank details");
     await db
       .collection("employees")
       .updateOne({ _id: new ObjectId(id) }, { $set: employeeUpdateData });

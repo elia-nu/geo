@@ -3,6 +3,7 @@ import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../utils/audit.js";
 import { GPSValidation } from "../../../utils/gpsValidation.js";
+import { calculateEffectiveWorkingHours } from "../../../utils/timeUtils.js";
 
 // Calculate distance between two coordinates using Haversine formula
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -505,10 +506,14 @@ export async function POST(request) {
         );
       }
 
-      // Calculate working hours (exclude fixed 1-hour lunch break)
-      const checkInTime = new Date(attendanceRecord.checkInTime);
-      const totalHours = (currentTime - checkInTime) / (1000 * 60 * 60); // Convert to hours
-      const adjustedHours = Math.max(0, totalHours - 1); // subtract 1 hour lunch, clamp to >= 0
+      // Calculate working hours (deduct actual lunch duration if recorded)
+      const calculatedHours = calculateEffectiveWorkingHours(
+        attendanceRecord.checkInTime,
+        currentTime,
+        attendanceRecord.lunchOutTime,
+        attendanceRecord.lunchInTime
+      );
+      const workingHours = calculatedHours !== null ? calculatedHours : 0;
 
       const checkOutData = {
         checkOutTime: currentTime,
@@ -522,7 +527,7 @@ export async function POST(request) {
         status: "checked-out",
         lunchOutTime: attendanceRecord.lunchOutTime || null,
         lunchInTime: attendanceRecord.lunchInTime || null,
-        workingHours: Math.round(adjustedHours * 100) / 100, // Round to 2 decimal places
+        workingHours: workingHours, // Decimal hours (e.g. 1.23)
         updatedAt: currentTime,
       };
 
@@ -544,7 +549,7 @@ export async function POST(request) {
           employeeName,
           date: today,
           checkOutTime: currentTime,
-          workingHours: Math.round(adjustedHours * 100) / 100,
+          workingHours: workingHours,
           location: latitude && longitude ? "with location" : "no location",
           geofenceValidation: geofenceValidation.isValid ? "valid" : "invalid",
         },

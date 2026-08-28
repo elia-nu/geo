@@ -51,9 +51,42 @@ export async function POST(request) {
       employeeIdString = `EMP-${String(nextNum).padStart(3, "0")}`;
     }
 
+    const rawSalary = data.personalDetails?.salary ?? data.personalDetails?.grossSalary;
+    const salaryVal = rawSalary !== undefined && rawSalary !== "" ? Number(rawSalary) : 0;
+    const bankAccountVal = data.personalDetails?.bankAccount ?? data.personalDetails?.bankAccountNumber ?? "";
+    const bankNameVal = data.personalDetails?.bankName ?? "Commercial Bank of Ethiopia";
+
     // 1. Insert Personal Details (main employee record)
     const employeeData = {
       ...data.personalDetails,
+      personalDetails: {
+        ...data.personalDetails,
+        salary: salaryVal,
+        grossSalary: salaryVal,
+        baseSalary: salaryVal,
+        salaryETB: salaryVal,
+        bankAccount: bankAccountVal,
+        bankAccountNumber: bankAccountVal,
+        accountNumber: bankAccountVal,
+        bankName: bankNameVal,
+        employeeId: employeeIdString,
+      },
+      payrollDetails: {
+        grossSalary: salaryVal,
+        baseSalary: salaryVal,
+        salary: salaryVal,
+        bankAccount: bankAccountVal,
+        bankAccountNumber: bankAccountVal,
+        bankName: bankNameVal,
+      },
+      salary: salaryVal,
+      grossSalary: salaryVal,
+      baseSalary: salaryVal,
+      salaryETB: salaryVal,
+      bankAccount: bankAccountVal,
+      bankAccountNumber: bankAccountVal,
+      accountNumber: bankAccountVal,
+      bankName: bankNameVal,
       employeeId: employeeIdString,
       password: hashedPassword,
       createdAt: new Date(),
@@ -61,7 +94,7 @@ export async function POST(request) {
       status: "active",
     };
 
-    console.log("Inserting employee data:", employeeData);
+    console.log("Inserting employee data with salary & bank account:", employeeData);
     const employeeResult = await db
       .collection("employees")
       .insertOne(employeeData);

@@ -50,6 +50,12 @@ export default function EmployeeSidebar({
       description: "View your past attendance records",
     },
     {
+      id: "overtime",
+      label: "Overtime Hub",
+      icon: Clock,
+      description: "Request OT & separate overtime attendance",
+    },
+    {
       id: "leave-requests",
       label: "Leave Requests",
       icon: Calendar,

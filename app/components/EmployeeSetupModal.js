@@ -62,6 +62,8 @@ export default function EmployeeSetupModal({
   // Salary setup form
   const [salaryForm, setSalaryForm] = useState({
     grossSalary: "",
+    bankAccount: "",
+    bankName: "Commercial Bank of Ethiopia",
     transportAllowance: "",
     telephoneAllowance: "",
     posAllowance: "",
@@ -85,7 +87,23 @@ export default function EmployeeSetupModal({
   useEffect(() => {
     try {
       const existingGross =
-        employee?.grossSalary ?? employee?.salary?.grossSalary ?? "";
+        employee?.grossSalary ??
+        employee?.salary?.grossSalary ??
+        employee?.salary ??
+        employee?.personalDetails?.salary ??
+        "";
+      const existingBank =
+        employee?.bankAccount ??
+        employee?.bankAccountNumber ??
+        employee?.accountNumber ??
+        employee?.personalDetails?.bankAccount ??
+        employee?.payrollDetails?.bankAccount ??
+        "";
+      const existingBankName =
+        employee?.bankName ??
+        employee?.personalDetails?.bankName ??
+        employee?.payrollDetails?.bankName ??
+        "Commercial Bank of Ethiopia";
       const existingTransport =
         employee?.transportAllowance ??
         employee?.salary?.transportAllowance ??
@@ -101,6 +119,8 @@ export default function EmployeeSetupModal({
           existingGross === null || existingGross === undefined
             ? ""
             : String(existingGross),
+        bankAccount: existingBank || "",
+        bankName: existingBankName || "Commercial Bank of Ethiopia",
         transportAllowance:
           existingTransport === null || existingTransport === undefined
             ? ""
@@ -310,6 +330,10 @@ export default function EmployeeSetupModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           grossSalary: gross,
+          salary: gross,
+          bankAccount: salaryForm.bankAccount || "",
+          bankAccountNumber: salaryForm.bankAccount || "",
+          bankName: salaryForm.bankName || "Commercial Bank of Ethiopia",
           transportAllowance: transport,
           telephoneAllowance: telephone,
           posAllowance: pos,
@@ -321,7 +345,7 @@ export default function EmployeeSetupModal({
         onError(data.error || "Failed to save salary settings");
         return;
       }
-      onSuccess("Salary settings saved successfully!");
+      onSuccess("Salary settings and bank details saved successfully!");
     } catch (error) {
       console.error("Error saving salary settings:", error);
       onError("Failed to save salary settings. Please try again.");
@@ -716,6 +740,42 @@ export default function EmployeeSetupModal({
                     }
                     placeholder="0.00"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-semibold text-slate-900 bg-white shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Bank Account Number
+                  </label>
+                  <input
+                    type="text"
+                    value={salaryForm.bankAccount}
+                    onChange={(e) =>
+                      setSalaryForm({
+                        ...salaryForm,
+                        bankAccount: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. 1000013288813"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-semibold text-slate-900 bg-white shadow-sm font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Bank Name
+                  </label>
+                  <input
+                    type="text"
+                    value={salaryForm.bankName}
+                    onChange={(e) =>
+                      setSalaryForm({
+                        ...salaryForm,
+                        bankName: e.target.value,
+                      })
+                    }
+                    placeholder="Commercial Bank of Ethiopia"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                   />
                 </div>
 

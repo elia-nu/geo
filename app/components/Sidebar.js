@@ -140,7 +140,9 @@ const Sidebar = ({
     if (
       activeSection === "admin-attendance" ||
       activeSection === "attendance-all" ||
-      activeSection === "attendance-reports"
+      activeSection === "attendance-reports" ||
+      activeSection === "overtime-management" ||
+      activeSection === "admin-overtime"
     ) {
       setExpandedMenus((prev) => ({ ...prev, attendance: true }));
     }
@@ -236,6 +238,11 @@ const Sidebar = ({
           id: "admin-attendance",
           label: "Admin Management",
           path: "/hrm?section=admin-attendance",
+        },
+        {
+          id: "overtime-management",
+          label: "Overtime Management",
+          path: "/hrm?section=overtime-management",
         },
         {
           id: "attendance-all",

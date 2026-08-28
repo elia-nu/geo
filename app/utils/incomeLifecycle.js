@@ -31,7 +31,155 @@ export const PAYMENT_FREQUENCIES = [
   { value: "lump_sum", label: "Lump Sum" },
   { value: "monthly", label: "Monthly" },
   { value: "quarterly", label: "Quarterly" },
+  { value: "custom", label: "Custom Schedule" },
 ];
+
+export const INSTALLMENT_STATUSES = [
+  "upcoming",
+  "due_today",
+  "overdue",
+  "paid",
+];
+
+/**
+ * Derive the status of an individual installment from its due date and paid state.
+ * - "paid" if explicitly marked paid
+ * - "overdue" if due date is in the past
+ * - "due_today" if due date is today
+ * - "upcoming" otherwise
+ */
+export function deriveInstallmentStatus(installment = {}) {
+  if (installment.status === "paid" || installment.paidDate) return "paid";
+
+  const due = parseDate(installment.dueDate);
+  if (!due) return "upcoming";
+
+  const today = startOfToday();
+  const dueDay = new Date(due);
+  dueDay.setHours(0, 0, 0, 0);
+
+  if (dueDay.getTime() === today.getTime()) return "due_today";
+  if (dueDay < today) return "overdue";
+  return "upcoming";
+}
+
+/**
+ * Generate a full installment schedule for monthly or quarterly payment plans.
+ *
+ * @param {number}  totalAmount      – total contract/project amount
+ * @param {number}  numberOfInstallments – how many installments
+ * @param {string}  startDate        – ISO date string for the first installment
+ * @param {string}  frequency        – "monthly" or "quarterly"
+ * @param {boolean} firstPaid        – whether installment #1 is already paid
+ * @returns {Array} installments array
+ */
+export function generateInstallmentSchedule({
+  totalAmount,
+  numberOfInstallments,
+  startDate,
+  frequency = "monthly",
+  firstPaid = false,
+}) {
+  const total = Number(totalAmount) || 0;
+  const count = Math.max(1, parseInt(numberOfInstallments, 10) || 1);
+  const baseAmount = Math.floor((total / count) * 100) / 100; // 2 decimal places
+  const start = parseDate(startDate) || new Date();
+  const stepMonths = frequency === "quarterly" ? 3 : 1;
+
+  const installments = [];
+
+  for (let i = 0; i < count; i++) {
+    const dueDate = new Date(start);
+    dueDate.setMonth(dueDate.getMonth() + i * stepMonths);
+    // Clamp to valid day in month
+    const maxDays = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0).getDate();
+    if (dueDate.getDate() > maxDays) dueDate.setDate(maxDays);
+
+    // Last installment absorbs rounding difference
+    const isLast = i === count - 1;
+    const amount = isLast
+      ? Math.round((total - baseAmount * (count - 1)) * 100) / 100
+      : baseAmount;
+
+    const isPaid = i === 0 && firstPaid;
+
+    const inst = {
+      installmentNumber: i + 1,
+      amount: Math.max(0, amount),
+      dueDate: dueDate.toISOString().split("T")[0],
+      status: isPaid ? "paid" : "upcoming",
+      paidDate: isPaid ? new Date().toISOString().split("T")[0] : null,
+    };
+
+    // Derive status from date if not already paid
+    if (!isPaid) {
+      inst.status = deriveInstallmentStatus(inst);
+    }
+
+    installments.push(inst);
+  }
+
+  return installments;
+}
+
+/**
+ * Refresh the status of every installment in an array based on current date.
+ * Returns { installments, changed }.
+ */
+export function refreshInstallmentStatuses(installments = []) {
+  let changed = false;
+  const refreshed = installments.map((inst) => {
+    const newStatus = deriveInstallmentStatus(inst);
+    if (newStatus !== inst.status) {
+      changed = true;
+      return { ...inst, status: newStatus };
+    }
+    return inst;
+  });
+  return { installments: refreshed, changed };
+}
+
+/**
+ * Summarize installment-level data for a payment plan.
+ */
+export function summarizeInstallments(installments = []) {
+  const totalAmount = installments.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const paidInstallments = installments.filter((i) => i.status === "paid");
+  const paidAmount = paidInstallments.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const outstanding = Math.max(0, totalAmount - paidAmount);
+  const overdueInstallments = installments.filter((i) => i.status === "overdue");
+  const dueTodayInstallments = installments.filter((i) => i.status === "due_today");
+  const upcomingInstallments = installments.filter((i) => i.status === "upcoming");
+
+  // Find next unpaid installment
+  const nextDue = installments
+    .filter((i) => i.status !== "paid")
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0] || null;
+
+  // Overall badge
+  let overallStatus = "in_progress";
+  if (paidAmount >= totalAmount && totalAmount > 0) {
+    overallStatus = "fully_paid";
+  } else if (overdueInstallments.length > 0) {
+    overallStatus = "overdue";
+  } else if (dueTodayInstallments.length > 0) {
+    overallStatus = "due_today";
+  }
+
+  return {
+    totalAmount,
+    paidAmount,
+    outstanding,
+    paidCount: paidInstallments.length,
+    overdueCount: overdueInstallments.length,
+    dueTodayCount: dueTodayInstallments.length,
+    upcomingCount: upcomingInstallments.length,
+    totalCount: installments.length,
+    percentPaid: totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0,
+    overallStatus,
+    nextDue,
+  };
+}
 
 /**
  * Calculate the next recurring payment date for monthly or quarterly plans.
@@ -195,8 +343,15 @@ export function enrichIncomeRecord(income = {}) {
       ? "medium"
       : "low";
 
+  let installments = income.installments;
+  if (Array.isArray(installments) && installments.length > 0) {
+    const { installments: refreshed } = refreshInstallmentStatuses(installments);
+    installments = refreshed;
+  }
+
   return {
     ...income,
+    installments: Array.isArray(installments) ? installments : [],
     frequency,
     recurringDay,
     durationMonths,
@@ -326,6 +481,7 @@ export function buildIncomeRecord(data = {}) {
     paymentReference: data.paymentReference || "",
     notes: data.notes || "",
     status: data.status || "pending",
+    installments: Array.isArray(data.installments) ? data.installments : [],
     paymentHistory: Array.isArray(data.paymentHistory) ? data.paymentHistory : [],
     createdAt: data.createdAt || new Date(),
   };

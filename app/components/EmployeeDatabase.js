@@ -40,6 +40,9 @@ import {
   Download,
   Image as ImageIcon,
   FileCheck,
+  CreditCard,
+  Wallet,
+  DollarSign,
 } from "lucide-react";
 import EditStepperEmployeeForm from "./EditStepperEmployeeForm";
 import StepperEmployeeForm from "./StepperEmployeeForm";
@@ -1967,6 +1970,97 @@ export default function EmployeeDatabase() {
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {selectedEmployee.status || "Active"}
                           </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bank & Financial Details Card */}
+                    <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4 md:col-span-2">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                            <CreditCard className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-slate-900 text-sm">Bank & Compensation Details</h4>
+                            <p className="text-xs text-slate-400">Payroll disbursement and bank account information</p>
+                          </div>
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100/70 text-emerald-800 border border-emerald-200">
+                          Direct Deposit
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100">
+                          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-1">
+                            Bank Account Number
+                          </span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono font-bold text-slate-900 text-sm tracking-wide">
+                              {selectedEmployee.bankAccount ||
+                                selectedEmployee.bankAccountNumber ||
+                                selectedEmployee.personalDetails?.bankAccount ||
+                                selectedEmployee.payrollDetails?.bankAccount ||
+                                "Not configured"}
+                            </span>
+                            {(selectedEmployee.bankAccount ||
+                              selectedEmployee.bankAccountNumber ||
+                              selectedEmployee.personalDetails?.bankAccount ||
+                              selectedEmployee.payrollDetails?.bankAccount) && (
+                              <button
+                                onClick={() => {
+                                  const acc =
+                                    selectedEmployee.bankAccount ||
+                                    selectedEmployee.bankAccountNumber ||
+                                    selectedEmployee.personalDetails?.bankAccount ||
+                                    selectedEmployee.payrollDetails?.bankAccount;
+                                  navigator.clipboard.writeText(acc);
+                                  setCopiedField("bank");
+                                  toast.success("Bank Account copied to clipboard");
+                                  setTimeout(() => setCopiedField(null), 2000);
+                                }}
+                                className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                                title="Copy account number"
+                              >
+                                {copiedField === "bank" ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100">
+                          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-1">
+                            Bank Name
+                          </span>
+                          <p className="font-semibold text-slate-900 text-sm">
+                            {selectedEmployee.bankName ||
+                              selectedEmployee.personalDetails?.bankName ||
+                              selectedEmployee.payrollDetails?.bankName ||
+                              "Commercial Bank of Ethiopia (CBE)"}
+                          </p>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100">
+                          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-1">
+                            Monthly Basic Salary (ETB)
+                          </span>
+                          <p className="font-bold text-emerald-600 text-sm">
+                            {(
+                              selectedEmployee.salary ||
+                              selectedEmployee.grossSalary ||
+                              selectedEmployee.salaryETB ||
+                              selectedEmployee.personalDetails?.salary ||
+                              selectedEmployee.personalDetails?.grossSalary ||
+                              selectedEmployee.payrollDetails?.grossSalary ||
+                              0
+                            ).toLocaleString()}{" "}
+                            ETB
+                          </p>
                         </div>
                       </div>
                     </div>

@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
+import { formatWorkingHours } from "../utils/timeUtils";
 
 export default function AttendanceReporting() {
   const [currentReport, setCurrentReport] = useState(null);
@@ -491,9 +492,7 @@ export default function AttendanceReporting() {
                           {formatTime(r.checkOutTime)}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap text-center font-bold text-indigo-700">
-                          {typeof r.workingHours === "number"
-                            ? `${r.workingHours.toFixed(1)} hrs`
-                            : "—"}
+                          {formatWorkingHours(r)}
                         </td>
                         <td className="px-5 py-3.5 text-slate-600">
                           {r.workLocationName || "—"}

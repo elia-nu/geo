@@ -23,48 +23,121 @@ function calculateLeaveDays(startDate, endDate) {
   return Math.max(1, days);
 }
 
-// Get leave balances for an employee
+// Get leave balances for an employee or all employees
 export async function GET(request) {
   try {
     const db = await getDb();
     const url = new URL(request.url);
     const employeeId = url.searchParams.get("employeeId");
+    const department = url.searchParams.get("department");
 
-    if (!employeeId) {
-      return NextResponse.json(
-        { error: "Employee ID is required" },
-        { status: 400 }
+    if (employeeId && employeeId !== "all") {
+      const employee = await db
+        .collection("employees")
+        .findOne({ _id: new ObjectId(employeeId) });
+
+      if (!employee) {
+        return NextResponse.json(
+          { error: "Employee not found" },
+          { status: 404 }
+        );
+      }
+
+      let leaveBalance = await db
+        .collection("leave_balances")
+        .findOne({ employeeId: new ObjectId(employeeId) });
+
+      if (!leaveBalance) {
+        leaveBalance = await createInitialLeaveBalance(db, employee);
+      }
+
+      const updatedBalance = await calculateLeaveBalances(
+        db,
+        employee,
+        leaveBalance
       );
+
+      return NextResponse.json({
+        success: true,
+        data: updatedBalance,
+      });
     }
 
-    const employee = await db
+    // Fetch for all employees
+    let empQuery = {};
+    if (department) {
+      empQuery.$or = [
+        { department },
+        { "personalDetails.department": department },
+      ];
+    }
+
+    const allEmployees = await db
       .collection("employees")
-      .findOne({ _id: new ObjectId(employeeId) });
+      .find(empQuery)
+      .toArray();
 
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Employee not found" },
-        { status: 404 }
-      );
-    }
+    const employeeMap = {};
+    allEmployees.forEach((emp) => {
+      employeeMap[emp._id.toString()] = {
+        _id: emp._id.toString(),
+        employeeId: emp.employeeId || emp.personalDetails?.employeeId || emp._id.toString(),
+        name: emp.personalDetails?.name || emp.name,
+        email: emp.personalDetails?.email || emp.email,
+        department: emp.personalDetails?.department || emp.department,
+        designation: emp.personalDetails?.designation || emp.designation,
+        joiningDate: emp.personalDetails?.joiningDate || emp.joiningDate || emp.employmentDate,
+        employmentHistory: emp.employmentHistory,
+        createdAt: emp.createdAt,
+        sex: emp.personalDetails?.sex || emp.sex || "M",
+      };
+    });
 
-    let leaveBalance = await db
+    const leaveBalances = await db
       .collection("leave_balances")
-      .findOne({ employeeId: new ObjectId(employeeId) });
+      .find({})
+      .toArray();
 
-    if (!leaveBalance) {
-      leaveBalance = await createInitialLeaveBalance(db, employee);
+    const existingBalanceEmpIds = new Set(
+      leaveBalances.map((b) => b.employeeId?.toString())
+    );
+
+    for (const emp of allEmployees) {
+      if (!existingBalanceEmpIds.has(emp._id.toString())) {
+        try {
+          const initialBal = await createInitialLeaveBalance(db, emp);
+          leaveBalances.push(initialBal);
+          existingBalanceEmpIds.add(emp._id.toString());
+        } catch (e) {
+          console.warn("Failed to create initial leave balance for", emp.name, e);
+        }
+      }
     }
 
-    const updatedBalance = await calculateLeaveBalances(
-      db,
-      employee,
-      leaveBalance
+    const calculatedBalances = await Promise.all(
+      leaveBalances.map(async (bal) => {
+        const emp = employeeMap[bal.employeeId?.toString()];
+        if (!emp) return null;
+        if (department && emp.department !== department) return null;
+
+        const updated = await calculateLeaveBalances(db, emp, bal);
+        return {
+          ...updated,
+          _id: bal._id?.toString(),
+          employeeId: bal.employeeId?.toString(),
+          employee: emp,
+        };
+      })
     );
+
+    const validBalances = calculatedBalances.filter(Boolean);
 
     return NextResponse.json({
       success: true,
-      data: updatedBalance,
+      data: {
+        balances: validBalances,
+        total: validBalances.length,
+      },
     });
   } catch (error) {
     console.error("Error fetching leave balances:", error);
@@ -161,21 +234,19 @@ async function createInitialLeaveBalance(db, employee) {
     (currentDate - employmentDate) / (1000 * 60 * 60 * 24 * 365.25)
   );
 
-  const yearlyAllowance = getAnnualLeaveAllowance(yearsOfService);
-
   const balances = {
     annual: {
-      yearlyAllowance,
+      yearlyAllowance: 16,
       baseAllowance: 16,
-      seniorityBonus: Math.floor(Math.floor(yearsOfService) / 2),
-      totalEarned: yearlyAllowance,
+      seniorityBonus: 0,
+      totalEarned: 16,
       carriedForward: 0,
       expiredDays: 0,
-      available: yearlyAllowance,
+      available: 16,
       used: 0,
       pending: 0,
       description: "Annual Leave",
-      formula: "16 + floor(Years of Service / 2)",
+      formula: "16 Days Standard Annual Leave",
       rolloverPolicy: "Rollover with 2-year postponement expiry limit",
     },
   };
@@ -262,22 +333,22 @@ async function calculateLeaveBalances(db, employee, leaveBalance) {
 
   // Carried forward from previous 2 consecutive years
   const carriedForward = fullYears > 0 ? Math.max(0, totalCumulativeEarned - currentYearAllowance) : 0;
-  const availableDays = Math.max(0, totalCumulativeEarned - usedDays - pendingDays);
+  const availableDays = Math.max(0, 16 - usedDays - pendingDays);
 
   const updatedBalances = {
     annual: {
-      yearlyAllowance: currentYearAllowance,
+      yearlyAllowance: 16,
       baseAllowance: 16,
-      seniorityBonus,
-      totalEarned: totalCumulativeEarned,
-      carriedForward,
-      expiredDays: Math.floor(expiredDays),
+      seniorityBonus: 0,
+      totalEarned: 16,
+      carriedForward: 0,
+      expiredDays: 0,
       used: usedDays,
       pending: pendingDays,
       available: availableDays,
       description: "Annual Leave",
-      formula: "16 + floor(Years of Service / 2)",
-      rolloverPolicy: "No reset; rolled over with 2-year postponement expiration limit",
+      formula: "16 Days Standard Annual Leave",
+      rolloverPolicy: "Rollover with 2-year postponement expiry limit",
       lastCalculated: currentDate,
     },
   };

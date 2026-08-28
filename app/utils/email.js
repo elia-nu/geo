@@ -7,11 +7,11 @@ const emailConfig = {
   secure: process.env.EMAIL_SECURE === "true" || false,
   auth: {
     user:
-      process.env.EMAIL_USER || process.env.SMTP_USER || "your-email@gmail.com",
+      process.env.EMAIL_USER || process.env.SMTP_USER || "bezaaa85@gmail.com",
     pass:
       process.env.EMAIL_PASSWORD ||
       process.env.SMTP_PASSWORD ||
-      "your-app-password",
+      "tgkdfohrtchlqkym",
   },
 };
 

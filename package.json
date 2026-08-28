@@ -8,7 +8,11 @@
     "dev:turbopack": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:admin": "node seed-admin.js",
+    "seed:departments": "node seed-departments-designations.js",
+    "seed:locations": "node seed-work-locations.js",
+    "seed:employees": "node seed-employees.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

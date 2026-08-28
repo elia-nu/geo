@@ -137,6 +137,9 @@ export default function EditStepperEmployeeForm({
     designation: "",
     workLocation: "",
     joiningDate: "",
+    salary: "",
+    bankAccount: "",
+    bankName: "Commercial Bank of Ethiopia",
     emergencyContactName: "",
     emergencyContactNumber: "",
     address: "",
@@ -275,24 +278,42 @@ export default function EditStepperEmployeeForm({
     if (enhancedEmployee && isOpen) {
       const emp = enhancedEmployee.employee;
 
+      const rawDept = emp?.department || getEmployeeData(emp, "department") || "";
+      const rawDesig = emp?.designation || getEmployeeData(emp, "designation") || "";
+      const rawLoc = emp?.workLocation || getEmployeeData(emp, "workLocation") || "";
+
+      let resolvedDept = rawDept;
+      if (departments && departments.length > 0 && rawDept) {
+        const matched = departments.find(
+          (d) =>
+            d.name?.toLowerCase() === rawDept.toLowerCase() ||
+            d.shortName?.toLowerCase() === rawDept.toLowerCase() ||
+            d.aliases?.some((a) => a.toLowerCase() === rawDept.toLowerCase())
+        );
+        if (matched) resolvedDept = matched.name;
+      }
+
       setPersonalDetails({
         name: getEmployeeName(emp),
         email: getEmployeeEmail(emp),
         employeeId: getEmployeeData(emp, "employeeId"),
         dateOfBirth: getEmployeeData(emp, "dateOfBirth"),
         contactNumber: getEmployeeData(emp, "contactNumber"),
-        department: emp.department || "",
-        designation: emp.designation || "",
-        workLocation: emp.workLocation || "",
+        department: resolvedDept,
+        designation: rawDesig,
+        workLocation: rawLoc,
         joiningDate: getEmployeeData(emp, "joiningDate"),
+        salary: emp?.salary ?? getEmployeeData(emp, "salary") ?? getEmployeeData(emp, "salaryETB") ?? getEmployeeData(emp, "grossSalary") ?? getEmployeeData(emp, "baseSalary") ?? "",
+        bankAccount: emp?.bankAccount ?? getEmployeeData(emp, "bankAccount") ?? getEmployeeData(emp, "bankAccountNumber") ?? getEmployeeData(emp, "accountNumber") ?? "",
+        bankName: emp?.bankName ?? getEmployeeData(emp, "bankName") ?? "Commercial Bank of Ethiopia",
         emergencyContactName: getEmployeeData(emp, "emergencyContactName"),
         emergencyContactNumber: getEmployeeData(emp, "emergencyContactNumber"),
         address: getEmployeeData(emp, "address"),
-        employeeType: emp.employeeType || getEmployeeData(emp, "employeeType") || "",
-        contractExpiryDate: emp.contractExpiryDate || getEmployeeData(emp, "contractExpiryDate") || "",
-        transportAllowance: emp.transportAllowance ?? getEmployeeData(emp, "transportAllowance") ?? "",
-        telephoneAllowance: emp.telephoneAllowance ?? getEmployeeData(emp, "telephoneAllowance") ?? "",
-        posAllowance: emp.posAllowance ?? getEmployeeData(emp, "posAllowance") ?? "",
+        employeeType: emp?.employeeType || getEmployeeData(emp, "employeeType") || "",
+        contractExpiryDate: emp?.contractExpiryDate || getEmployeeData(emp, "contractExpiryDate") || "",
+        transportAllowance: emp?.transportAllowance ?? getEmployeeData(emp, "transportAllowance") ?? "",
+        telephoneAllowance: emp?.telephoneAllowance ?? getEmployeeData(emp, "telephoneAllowance") ?? "",
+        posAllowance: emp?.posAllowance ?? getEmployeeData(emp, "posAllowance") ?? "",
       });
 
       setEmploymentHistory(enhancedEmployee.employmentHistory || []);
@@ -333,13 +354,18 @@ export default function EditStepperEmployeeForm({
         insurancePolicyNumber: healthData.insurancePolicyNumber || "",
       });
     }
-  }, [enhancedEmployee, isOpen]);
+  }, [enhancedEmployee, isOpen, departments]);
 
   // Filter designations based on selected department
   useEffect(() => {
     if (personalDetails.department && departments.length > 0) {
       const selectedDept = departments.find(
-        (d) => d.name === personalDetails.department
+        (d) =>
+          d.name?.toLowerCase() === personalDetails.department?.toLowerCase() ||
+          d.shortName?.toLowerCase() === personalDetails.department?.toLowerCase() ||
+          d.aliases?.some(
+            (a) => a.toLowerCase() === personalDetails.department?.toLowerCase()
+          )
       );
 
       if (selectedDept && selectedDept._id) {
@@ -353,7 +379,9 @@ export default function EditStepperEmployeeForm({
               const deptDesignations = Array.isArray(data?.designations)
                 ? data.designations
                 : [];
-              setFilteredDesignations(deptDesignations);
+              setFilteredDesignations(
+                deptDesignations.length > 0 ? deptDesignations : designations
+              );
             } else {
               setFilteredDesignations(designations);
             }
@@ -829,12 +857,29 @@ export default function EditStepperEmployeeForm({
                       : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   }`}
                 >
-                  <option value="">Select Department</option>
-                  {departments.map((dept) => (
-                    <option key={dept._id || dept.name} value={dept.name}>
-                      {dept.name}
-                    </option>
-                  ))}
+                  <option value="" className="text-slate-900 bg-white">Select Department</option>
+                  {personalDetails.department &&
+                    !departments.some(
+                      (d) =>
+                        d.name === personalDetails.department ||
+                        d.shortName === personalDetails.department
+                    ) && (
+                      <option
+                        value={personalDetails.department}
+                        className="text-slate-900 bg-white"
+                      >
+                        {personalDetails.department}
+                      </option>
+                    )}
+                  {departments.map((dept) => {
+                    const name = dept.name || "";
+                    const key = dept._id || dept.departmentId || dept.name;
+                    return (
+                      <option key={key} value={name} className="text-slate-900 bg-white">
+                        {name}
+                      </option>
+                    );
+                  })}
                 </select>
                 {formErrors.department && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.department}</p>
@@ -859,12 +904,37 @@ export default function EditStepperEmployeeForm({
                       : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   }`}
                 >
-                  <option value="">Select Designation</option>
-                  {filteredDesignations.map((des) => (
-                    <option key={des._id || des.name} value={des.name}>
-                      {des.name}
-                    </option>
-                  ))}
+                  <option value="" className="text-slate-900 bg-white">Select Designation</option>
+                  {personalDetails.designation &&
+                    !filteredDesignations.some(
+                      (d) =>
+                        (typeof d === "string" ? d : d?.name) ===
+                        personalDetails.designation
+                    ) && (
+                      <option
+                        value={personalDetails.designation}
+                        className="text-slate-900 bg-white"
+                      >
+                        {personalDetails.designation}
+                      </option>
+                    )}
+                  {filteredDesignations.map((des) => {
+                    const name = typeof des === "string" ? des : des?.name || "";
+                    const key =
+                      typeof des === "string"
+                        ? `des-${des}`
+                        : des?._id || des?.name || `des-${Math.random()}`;
+                    if (!name) return null;
+                    return (
+                      <option
+                        key={key}
+                        value={name}
+                        className="text-slate-900 bg-white"
+                      >
+                        {name}
+                      </option>
+                    );
+                  })}
                 </select>
                 {formErrors.designation && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.designation}</p>
@@ -885,10 +955,10 @@ export default function EditStepperEmployeeForm({
                   }
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                 >
-                  <option value="Full Time">Full Time</option>
-                  <option value="Part Time">Part Time</option>
-                  <option value="Contractual">Contractual</option>
-                  <option value="Intern">Intern</option>
+                  <option value="Full Time" className="text-slate-900 bg-white">Full Time</option>
+                  <option value="Part Time" className="text-slate-900 bg-white">Part Time</option>
+                  <option value="Contractual" className="text-slate-900 bg-white">Contractual</option>
+                  <option value="Intern" className="text-slate-900 bg-white">Intern</option>
                 </select>
               </div>
 
@@ -947,12 +1017,32 @@ export default function EditStepperEmployeeForm({
                   }
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                 >
-                  <option value="">Select Work Location</option>
-                  {workLocations.map((loc) => (
-                    <option key={loc._id || loc.id} value={loc.name}>
-                      {loc.name}
-                    </option>
-                  ))}
+                  <option value="" className="text-slate-900 bg-white">Select Work Location</option>
+                  {personalDetails.workLocation &&
+                    !workLocations.some(
+                      (l) =>
+                        (l.siteName || l.name) === personalDetails.workLocation
+                    ) && (
+                      <option
+                        value={personalDetails.workLocation}
+                        className="text-slate-900 bg-white"
+                      >
+                        {personalDetails.workLocation}
+                      </option>
+                    )}
+                  {workLocations.map((loc) => {
+                    const name = loc.siteName || loc.name || "";
+                    const key = loc._id || loc.code || name;
+                    return (
+                      <option
+                        key={key}
+                        value={name}
+                        className="text-slate-900 bg-white"
+                      >
+                        {name}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -965,6 +1055,60 @@ export default function EditStepperEmployeeForm({
                   value={personalDetails.address}
                   onChange={(e) =>
                     setPersonalDetails({ ...personalDetails, address: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Monthly Basic Salary (ETB)
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 25000"
+                  value={personalDetails.salary}
+                  onChange={(e) =>
+                    setPersonalDetails({
+                      ...personalDetails,
+                      salary: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Bank Account Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 1000076019651"
+                  value={personalDetails.bankAccount}
+                  onChange={(e) =>
+                    setPersonalDetails({
+                      ...personalDetails,
+                      bankAccount: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Bank Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="Commercial Bank of Ethiopia"
+                  value={personalDetails.bankName}
+                  onChange={(e) =>
+                    setPersonalDetails({
+                      ...personalDetails,
+                      bankName: e.target.value,
+                    })
                   }
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                 />

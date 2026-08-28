@@ -18,6 +18,7 @@ import {
   Search,
   Eye,
 } from "lucide-react";
+import { formatWorkingHours } from "../utils/timeUtils";
 // Calendar UI removed to start fresh
 
 export default function IntegratedPayrollSystem() {
@@ -531,7 +532,7 @@ export default function IntegratedPayrollSystem() {
       record?.department || "",
       formatTime(record?.checkInTime),
       formatTime(record?.checkOutTime),
-      record?.workingHours || "0:00",
+      formatWorkingHours(record),
       record?.payrollStatus || "",
       record?.leaveInfo?.leaveType || "",
       record?.absenceReason || "",
@@ -989,8 +990,8 @@ export default function IntegratedPayrollSystem() {
                           <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700 text-center">
                             {formatTime(record.checkOutTime)}
                           </td>
-                          <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700 text-center">
-                            {record.workingHours || "0:00"}
+                          <td className="border border-gray-200 px-4 py-3 text-sm font-semibold text-indigo-700 text-center">
+                            {formatWorkingHours(record)}
                           </td>
                           <td className="border border-gray-200 px-4 py-3 text-center">
                             <span

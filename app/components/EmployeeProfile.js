@@ -18,6 +18,7 @@ import {
   Shield,
   KeyRound,
   Loader2,
+  CreditCard,
 } from "lucide-react";
 
 export default function EmployeeProfile({ employeeData, workLocations = [] }) {
@@ -251,6 +252,72 @@ export default function EmployeeProfile({ employeeData, workLocations = [] }) {
                   </p>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Banking & Compensation Information */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center justify-between pb-4 mb-5 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Banking & Payroll Details
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Registered bank account for direct deposit salary disbursement
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 text-xs font-bold bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
+                Direct Deposit
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div className="p-3.5 bg-gray-50/80 rounded-xl border border-gray-100">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-1">
+                  Bank Account Number
+                </span>
+                <p className="font-mono font-bold text-gray-900 tracking-wide">
+                  {employeeData.bankAccount ||
+                    employeeData.bankAccountNumber ||
+                    employeeData.personalDetails?.bankAccount ||
+                    employeeData.payrollDetails?.bankAccount ||
+                    "Not configured"}
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-gray-50/80 rounded-xl border border-gray-100">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-1">
+                  Bank Name
+                </span>
+                <p className="font-semibold text-gray-900">
+                  {employeeData.bankName ||
+                    employeeData.personalDetails?.bankName ||
+                    employeeData.payrollDetails?.bankName ||
+                    "Commercial Bank of Ethiopia (CBE)"}
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-gray-50/80 rounded-xl border border-gray-100">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-1">
+                  Basic Monthly Salary
+                </span>
+                <p className="font-bold text-emerald-600">
+                  {(
+                    employeeData.salary ||
+                    employeeData.grossSalary ||
+                    employeeData.salaryETB ||
+                    employeeData.personalDetails?.salary ||
+                    employeeData.payrollDetails?.grossSalary ||
+                    0
+                  ).toLocaleString()}{" "}
+                  ETB
+                </p>
+              </div>
             </div>
           </div>
 

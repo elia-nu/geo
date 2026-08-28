@@ -82,6 +82,10 @@ const AdminAttendanceManagement = dynamic(() => import("../components/AdminAtten
   loading: () => <SectionSkeleton title="Loading Admin Attendance..." />,
   ssr: false,
 });
+const AdminOvertimeManagement = dynamic(() => import("../components/AdminOvertimeManagement"), {
+  loading: () => <SectionSkeleton title="Loading Overtime Management..." />,
+  ssr: false,
+});
 const AllAttendance = dynamic(() => import("../components/AllAttendance"), {
   loading: () => <SectionSkeleton title="Loading All Attendance..." />,
   ssr: false,
@@ -391,6 +395,9 @@ export default function HRMDashboard() {
         );
       case "admin-attendance":
         return <AdminAttendanceManagement />;
+      case "overtime-management":
+      case "admin-overtime":
+        return <AdminOvertimeManagement />;
       case "employee-setup":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
