@@ -24,7 +24,22 @@ export async function GET(request, { params }) {
     }
 
     // Return comments with author details
-    const comments = task.comments || [];
+    const rawComments = task.comments || [];
+
+    // Deduplicate comments from database by ID and by author+content+timestamp
+    const seenCommentKeys = new Set();
+    const comments = [];
+    for (const c of rawComments) {
+      const idKey = c._id ? String(c._id) : null;
+      const timeBucket = c.createdAt ? Math.floor(new Date(c.createdAt).getTime() / 10000) : "0";
+      const signatureKey = `${c.userId || c.authorId || c.userName || ""}_${c.content || ""}_${timeBucket}`;
+      if (idKey && seenCommentKeys.has(idKey)) continue;
+      if (seenCommentKeys.has(signatureKey)) continue;
+      if (idKey) seenCommentKeys.add(idKey);
+      seenCommentKeys.add(signatureKey);
+      comments.push(c);
+    }
+
     const commentsWithAuthors = await Promise.all(
       comments.map(async (comment) => {
         // Determine the employee ID to look up
@@ -179,13 +194,49 @@ export async function POST(request, { params }) {
         author.personalDetails?.email || author.email || authorEmail;
     }
 
+    const targetUserId = resolvedAuthorId ? resolvedAuthorId.toString() : employeeId;
+
+    // Check for recent duplicate comment (within last 15 seconds with same author and same content)
+    const fifteenSecondsAgo = new Date(Date.now() - 15000);
+    const existingDuplicate = (task.comments || []).find((c) => {
+      const isSameContent = (c.content || "").trim() === content.trim();
+      const isSameAuthor =
+        String(c.userId || "") === String(targetUserId) ||
+        String(c.authorId || "") === String(resolvedAuthorId || "") ||
+        (c.userName && c.userName === authorName);
+      const isRecent = c.createdAt && new Date(c.createdAt) >= fifteenSecondsAgo;
+      return isSameContent && isSameAuthor && isRecent;
+    });
+
+    if (existingDuplicate) {
+      const existingWithAuthor = {
+        ...existingDuplicate,
+        userId: targetUserId,
+        userName: authorName,
+        userEmail: authorEmail,
+        author: author
+          ? {
+              _id: author._id,
+              name: authorName,
+              email: authorEmail,
+            }
+          : null,
+      };
+
+      return NextResponse.json({
+        success: true,
+        message: "Comment already posted",
+        comment: existingWithAuthor,
+      });
+    }
+
     // Create new comment with user information included
     const newComment = {
       _id: new ObjectId(),
       content: content.trim(),
       type,
       authorId: resolvedAuthorId,
-      userId: resolvedAuthorId ? resolvedAuthorId.toString() : employeeId,
+      userId: targetUserId,
       userName: authorName,
       userEmail: authorEmail,
       isEdited: false,

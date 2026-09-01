@@ -106,9 +106,24 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
+    const taskResult = tasks[0];
+    if (Array.isArray(taskResult.comments)) {
+      const seenCommentKeys = new Set();
+      taskResult.comments = taskResult.comments.filter((c) => {
+        const idKey = c._id ? String(c._id) : null;
+        const timeBucket = c.createdAt ? Math.floor(new Date(c.createdAt).getTime() / 10000) : "0";
+        const signatureKey = `${c.userId || c.authorId || c.userName || ""}_${c.content || ""}_${timeBucket}`;
+        if (idKey && seenCommentKeys.has(idKey)) return false;
+        if (seenCommentKeys.has(signatureKey)) return false;
+        if (idKey) seenCommentKeys.add(idKey);
+        seenCommentKeys.add(signatureKey);
+        return true;
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      task: tasks[0],
+      task: taskResult,
     });
   } catch (error) {
     console.error("Error fetching task:", error);

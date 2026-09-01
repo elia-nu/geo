@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Clock,
   Calendar,
@@ -27,9 +27,11 @@ import {
   AlertTriangle,
   Lock,
   Sparkles,
+  Search,
 } from "lucide-react";
 import Webcam from "react-webcam";
 import AttendancePhotoViewer from "./AttendancePhotoViewer";
+import Pagination from "./ui/Pagination";
 
 export default function EmployeeOvertime({ employeeId, employeeName, workLocations = [] }) {
   const [activeTab, setActiveTab] = useState("station"); // 'station' | 'request' | 'requests' | 'history'
@@ -41,10 +43,17 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
   // Overtime requests state
   const [myRequests, setMyRequests] = useState([]);
   const [todayApprovedRequest, setTodayApprovedRequest] = useState(null);
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [requestsItemsPerPage, setRequestsItemsPerPage] = useState(5);
+  const [requestsStatusFilter, setRequestsStatusFilter] = useState("all");
+  const [requestsSearch, setRequestsSearch] = useState("");
 
   // Overtime attendance state
   const [todayOvertimeRecord, setTodayOvertimeRecord] = useState(null);
   const [overtimeHistory, setOvertimeHistory] = useState([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyItemsPerPage, setHistoryItemsPerPage] = useState(10);
+  const [historySearch, setHistorySearch] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Form State for new Request
@@ -1020,219 +1029,343 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
       )}
 
       {/* TAB 3: MY REQUESTS LIST */}
-      {activeTab === "requests" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">My Overtime Requests</h2>
-              <p className="text-xs text-gray-500">Track approvals and supervisor feedback</p>
-            </div>
-            <button
-              onClick={fetchMyRequests}
-              className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium bg-gray-100 px-3 py-1.5 rounded-lg"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Refresh
-            </button>
-          </div>
+      {activeTab === "requests" && (() => {
+        const filteredRequests = myRequests.filter((req) => {
+          if (requestsStatusFilter !== "all" && req.status !== requestsStatusFilter) return false;
+          if (requestsSearch.trim()) {
+            const q = requestsSearch.toLowerCase();
+            const dateMatch = req.date?.includes(q);
+            const reasonMatch = req.reason?.toLowerCase().includes(q);
+            const projectMatch = req.project?.toLowerCase().includes(q);
+            if (!dateMatch && !reasonMatch && !projectMatch) return false;
+          }
+          return true;
+        });
 
-          {myRequests.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <FileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-              <p className="font-semibold text-sm">No overtime requests submitted yet.</p>
-              <button
-                onClick={() => setActiveTab("request")}
-                className="mt-3 text-xs font-bold text-amber-600 hover:underline"
-              >
-                + Submit your first overtime request
-              </button>
+        const totalReqPages = Math.ceil(filteredRequests.length / requestsItemsPerPage) || 1;
+        const startIdx = (requestsPage - 1) * requestsItemsPerPage;
+        const paginatedReqs = filteredRequests.slice(startIdx, startIdx + requestsItemsPerPage);
+
+        return (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden space-y-4">
+            <div className="p-4 sm:p-6 border-b border-gray-100 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">My Overtime Requests</h2>
+                  <p className="text-xs text-gray-500">Track approvals and supervisor feedback</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                    {["all", "pending", "approved", "rejected"].map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => {
+                          setRequestsStatusFilter(st);
+                          setRequestsPage(1);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold capitalize transition-all ${
+                          requestsStatusFilter === st
+                            ? "bg-white text-slate-900 shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={fetchMyRequests}
+                    className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium bg-gray-100 px-3 py-1.5 rounded-lg"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                  </button>
+                </div>
+              </div>
+
+              {/* Search input */}
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search requests by project, date, or reason..."
+                  value={requestsSearch}
+                  onChange={(e) => {
+                    setRequestsSearch(e.target.value);
+                    setRequestsPage(1);
+                  }}
+                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold border-b border-gray-200">
-                  <tr>
-                    <th className="p-3.5">Date</th>
-                    <th className="p-3.5">Time Window</th>
-                    <th className="p-3.5">Requested / Approved</th>
-                    <th className="p-3.5">Project / Reason</th>
-                    <th className="p-3.5">Status</th>
-                    <th className="p-3.5">Supervisor Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {myRequests.map((req) => (
-                    <tr key={req._id} className="hover:bg-gray-50/80 transition-colors">
-                      <td className="p-3.5 font-bold text-gray-900 whitespace-nowrap">
-                        {req.date}
-                      </td>
-                      <td className="p-3.5 text-gray-600 whitespace-nowrap">
-                        {req.startTime && req.endTime ? `${req.startTime} - ${req.endTime}` : "Flexible"}
-                      </td>
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span className="font-semibold text-gray-800">{req.requestedHours} hrs</span>
-                        {req.status === "approved" && (
-                          <span className="ml-1.5 text-xs text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded">
-                            Approved: {req.approvedHours || req.requestedHours} hrs
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3.5 max-w-xs">
-                        {req.project && (
-                          <span className="block font-semibold text-gray-900 text-xs">{req.project}</span>
-                        )}
-                        <span className="text-gray-600 text-xs line-clamp-2">{req.reason}</span>
-                      </td>
-                      <td className="p-3.5 whitespace-nowrap">
-                        {req.status === "approved" ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-full">
-                            <CheckCircle className="w-3.5 h-3.5" /> Approved
-                          </span>
-                        ) : req.status === "rejected" ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 px-2.5 py-1 rounded-full">
-                            <XCircle className="w-3.5 h-3.5" /> Rejected
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">
-                            <Clock className="w-3.5 h-3.5" /> Pending Review
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3.5 text-xs text-gray-600 max-w-xs">
-                        {req.supervisorNotes || "--"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+
+            {filteredRequests.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                <p className="font-semibold text-sm">No overtime requests found.</p>
+                <button
+                  onClick={() => setActiveTab("request")}
+                  className="mt-3 text-xs font-bold text-amber-600 hover:underline"
+                >
+                  + Submit an overtime request
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold border-b border-gray-200">
+                      <tr>
+                        <th className="p-3.5">Date</th>
+                        <th className="p-3.5">Time Window</th>
+                        <th className="p-3.5">Requested / Approved</th>
+                        <th className="p-3.5">Project / Reason</th>
+                        <th className="p-3.5">Status</th>
+                        <th className="p-3.5">Supervisor Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {paginatedReqs.map((req) => (
+                        <tr key={req._id} className="hover:bg-gray-50/80 transition-colors">
+                          <td className="p-3.5 font-bold text-gray-900 whitespace-nowrap">
+                            {req.date}
+                          </td>
+                          <td className="p-3.5 text-gray-600 whitespace-nowrap">
+                            {req.startTime && req.endTime ? `${req.startTime} - ${req.endTime}` : "Flexible"}
+                          </td>
+                          <td className="p-3.5 whitespace-nowrap">
+                            <span className="font-semibold text-gray-800">{req.requestedHours} hrs</span>
+                            {req.status === "approved" && (
+                              <span className="ml-1.5 text-xs text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded">
+                                Approved: {req.approvedHours || req.requestedHours} hrs
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3.5 max-w-xs">
+                            {req.project && (
+                              <span className="block font-semibold text-gray-900 text-xs">{req.project}</span>
+                            )}
+                            <span className="text-gray-600 text-xs line-clamp-2">{req.reason}</span>
+                          </td>
+                          <td className="p-3.5 whitespace-nowrap">
+                            {req.status === "approved" ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-full">
+                                <CheckCircle className="w-3.5 h-3.5" /> Approved
+                              </span>
+                            ) : req.status === "rejected" ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 px-2.5 py-1 rounded-full">
+                                <XCircle className="w-3.5 h-3.5" /> Rejected
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">
+                                <Clock className="w-3.5 h-3.5" /> Pending Review
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-xs text-gray-600 max-w-xs">
+                            {req.supervisorNotes || "--"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                <div className="border-t border-gray-100 p-2 sm:p-3">
+                  <Pagination
+                    currentPage={requestsPage}
+                    totalPages={totalReqPages}
+                    totalItems={filteredRequests.length}
+                    itemsPerPage={requestsItemsPerPage}
+                    onPageChange={(page) => setRequestsPage(page)}
+                    onItemsPerPageChange={(size) => {
+                      setRequestsItemsPerPage(size);
+                      setRequestsPage(1);
+                    }}
+                    pageSizeOptions={[5, 10, 20]}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* TAB 4: OVERTIME ATTENDANCE HISTORY & PROOF */}
-      {activeTab === "history" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Overtime Attendance Sessions & Proof</h2>
-              <p className="text-xs text-gray-500">Separately recorded overtime check-ins and hours worked</p>
-            </div>
-            <button
-              onClick={fetchOvertimeHistory}
-              className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium bg-gray-100 px-3 py-1.5 rounded-lg"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Refresh
-            </button>
-          </div>
+      {activeTab === "history" && (() => {
+        const filteredHistory = overtimeHistory.filter((rec) => {
+          if (historySearch.trim()) {
+            const q = historySearch.toLowerCase();
+            const dateMatch = rec.date?.includes(q);
+            const notesMatch = (rec.checkInNotes || rec.checkOutNotes || rec.reason)?.toLowerCase().includes(q);
+            if (!dateMatch && !notesMatch) return false;
+          }
+          return true;
+        });
 
-          {overtimeHistory.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <History className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-              <p className="font-semibold text-sm">No overtime attendance records yet.</p>
-              <p className="text-xs text-gray-400 mt-1">Once you clock in and out for an approved overtime, records appear here.</p>
+        const totalHistPages = Math.ceil(filteredHistory.length / historyItemsPerPage) || 1;
+        const startHistIdx = (historyPage - 1) * historyItemsPerPage;
+        const paginatedHist = filteredHistory.slice(startHistIdx, startHistIdx + historyItemsPerPage);
+
+        return (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden space-y-4">
+            <div className="p-4 sm:p-6 border-b border-gray-100 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Overtime Attendance Sessions & Proof</h2>
+                  <p className="text-xs text-gray-500">Separately recorded overtime check-ins and hours worked</p>
+                </div>
+                <button
+                  onClick={fetchOvertimeHistory}
+                  className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium bg-gray-100 px-3 py-1.5 rounded-lg"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                </button>
+              </div>
+
+              {/* Search input */}
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search sessions by date or notes..."
+                  value={historySearch}
+                  onChange={(e) => {
+                    setHistorySearch(e.target.value);
+                    setHistoryPage(1);
+                  }}
+                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold border-b border-gray-200">
-                  <tr>
-                    <th className="p-3.5">Date</th>
-                    <th className="p-3.5">Check-in</th>
-                    <th className="p-3.5">Check-out</th>
-                    <th className="p-3.5">Duration Worked</th>
-                    <th className="p-3.5">Admin Review Status</th>
-                    <th className="p-3.5">Verification & Photo</th>
-                    <th className="p-3.5">Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {overtimeHistory.map((rec) => (
-                    <tr key={rec._id} className="hover:bg-gray-50/80 transition-colors">
-                      <td className="p-3.5 font-bold text-gray-900 whitespace-nowrap">
-                        {rec.date}
-                      </td>
-                      <td className="p-3.5 text-gray-800 whitespace-nowrap font-mono text-xs">
-                        {rec.checkInTime ? new Date(rec.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
-                      </td>
-                      <td className="p-3.5 text-gray-800 whitespace-nowrap font-mono text-xs">
-                        {rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
-                      </td>
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span className="font-extrabold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg text-xs border border-amber-200">
-                          {rec.durationFormatted || `${rec.durationHours || 0} hrs`}
-                        </span>
-                      </td>
-                      <td className="p-3.5 whitespace-nowrap">
-                        {rec.adminApprovalStatus === "approved" ? (
-                          <div>
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-full">
-                              <CheckCircle className="w-3.5 h-3.5" /> Approved
+
+            {filteredHistory.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <History className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                <p className="font-semibold text-sm">No overtime attendance records found.</p>
+                <p className="text-xs text-gray-400 mt-1">Once you clock in and out for an approved overtime, records appear here.</p>
+              </div>
+            ) : (
+              <div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold border-b border-gray-200">
+                      <tr>
+                        <th className="p-3.5">Date</th>
+                        <th className="p-3.5">Check-in</th>
+                        <th className="p-3.5">Check-out</th>
+                        <th className="p-3.5">Duration Worked</th>
+                        <th className="p-3.5">Admin Review Status</th>
+                        <th className="p-3.5">Verification & Photo</th>
+                        <th className="p-3.5">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {paginatedHist.map((rec) => (
+                        <tr key={rec._id} className="hover:bg-gray-50/80 transition-colors">
+                          <td className="p-3.5 font-bold text-gray-900 whitespace-nowrap">
+                            {rec.date}
+                          </td>
+                          <td className="p-3.5 text-gray-800 whitespace-nowrap font-mono text-xs">
+                            {rec.checkInTime ? new Date(rec.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+                          </td>
+                          <td className="p-3.5 text-gray-800 whitespace-nowrap font-mono text-xs">
+                            {rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+                          </td>
+                          <td className="p-3.5 whitespace-nowrap">
+                            <span className="font-extrabold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg text-xs border border-amber-200">
+                              {rec.durationFormatted || `${rec.durationHours || 0} hrs`}
                             </span>
-                            {rec.approvedAttendanceHours !== undefined && (
-                              <span className="block text-[11px] text-gray-500 font-semibold mt-0.5">
-                                {rec.approvedAttendanceHours} hrs credited
+                          </td>
+                          <td className="p-3.5 whitespace-nowrap">
+                            {rec.adminApprovalStatus === "approved" ? (
+                              <div>
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-full">
+                                  <CheckCircle className="w-3.5 h-3.5" /> Approved
+                                </span>
+                                {rec.approvedAttendanceHours !== undefined && (
+                                  <span className="block text-[11px] text-gray-500 font-semibold mt-0.5">
+                                    {rec.approvedAttendanceHours} hrs credited
+                                  </span>
+                                )}
+                              </div>
+                            ) : rec.adminApprovalStatus === "rejected" ? (
+                              <div>
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 px-2.5 py-1 rounded-full">
+                                  <XCircle className="w-3.5 h-3.5" /> Rejected
+                                </span>
+                                {rec.adminNotes && (
+                                  <span className="block text-[11px] text-red-500 truncate max-w-xs mt-0.5" title={rec.adminNotes}>
+                                    {rec.adminNotes}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">
+                                <Clock className="w-3.5 h-3.5" /> Pending Review
                               </span>
                             )}
-                          </div>
-                        ) : rec.adminApprovalStatus === "rejected" ? (
-                          <div>
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 px-2.5 py-1 rounded-full">
-                              <XCircle className="w-3.5 h-3.5" /> Rejected
-                            </span>
-                            {rec.adminNotes && (
-                              <span className="block text-[11px] text-red-500 truncate max-w-xs mt-0.5" title={rec.adminNotes}>
-                                {rec.adminNotes}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">
-                            <Clock className="w-3.5 h-3.5" /> Pending Review
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3.5 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {rec.checkInPhoto && (
-                            <button
-                              onClick={() => {
-                                setSelectedPhoto(rec.checkInPhoto);
-                                setShowPhotoViewer(true);
-                              }}
-                              className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 inline-flex items-center gap-1 font-medium"
-                            >
-                              <Camera className="w-3 h-3 text-amber-600" /> In Photo
-                            </button>
-                          )}
-                          {rec.checkOutPhoto && (
-                            <button
-                              onClick={() => {
-                                setSelectedPhoto(rec.checkOutPhoto);
-                                setShowPhotoViewer(true);
-                              }}
-                              className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 inline-flex items-center gap-1 font-medium"
-                            >
-                              <Camera className="w-3 h-3 text-amber-600" /> Out Photo
-                            </button>
-                          )}
-                          {rec.geofenceValidation?.isValid && (
-                            <span className="text-[11px] text-green-700 font-semibold flex items-center gap-0.5">
-                              <MapPin className="w-3 h-3" /> Geofenced
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3.5 text-xs text-gray-500 max-w-xs truncate">
-                        {rec.checkInNotes || rec.checkOutNotes || rec.reason || "--"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                          </td>
+                          <td className="p-3.5 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {rec.checkInPhoto && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedPhoto(rec.checkInPhoto);
+                                    setShowPhotoViewer(true);
+                                  }}
+                                  className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 inline-flex items-center gap-1 font-medium"
+                                >
+                                  <Camera className="w-3 h-3 text-amber-600" /> In Photo
+                                </button>
+                              )}
+                              {rec.checkOutPhoto && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedPhoto(rec.checkOutPhoto);
+                                    setShowPhotoViewer(true);
+                                  }}
+                                  className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 inline-flex items-center gap-1 font-medium"
+                                >
+                                  <Camera className="w-3 h-3 text-amber-600" /> Out Photo
+                                </button>
+                              )}
+                              {rec.geofenceValidation?.isValid && (
+                                <span className="text-[11px] text-green-700 font-semibold flex items-center gap-0.5">
+                                  <MapPin className="w-3 h-3" /> Geofenced
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3.5 text-xs text-gray-500 max-w-xs truncate">
+                            {rec.checkInNotes || rec.checkOutNotes || rec.reason || "--"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                <div className="border-t border-gray-100 p-2 sm:p-3">
+                  <Pagination
+                    currentPage={historyPage}
+                    totalPages={totalHistPages}
+                    totalItems={filteredHistory.length}
+                    itemsPerPage={historyItemsPerPage}
+                    onPageChange={(page) => setHistoryPage(page)}
+                    onItemsPerPageChange={(size) => {
+                      setHistoryItemsPerPage(size);
+                      setHistoryPage(1);
+                    }}
+                    pageSizeOptions={[5, 10, 20]}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Photo Viewer Modal */}
       {showPhotoViewer && selectedPhoto && (

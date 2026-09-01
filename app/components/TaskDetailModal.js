@@ -40,6 +40,7 @@ export default function TaskDetailModal({
   }, [isOpen, onClose]);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -48,16 +49,39 @@ export default function TaskDetailModal({
   const [progress, setProgress] = useState(0);
   const [progressUpdateTimeout, setProgressUpdateTimeout] = useState(null);
 
+  const deduplicateCommentsList = (list = []) => {
+    const seen = new Set();
+    const result = [];
+    for (const c of list) {
+      if (!c) continue;
+      const idKey = c._id ? String(c._id) : null;
+      const timeBucket = c.createdAt
+        ? Math.floor(new Date(c.createdAt).getTime() / 10000)
+        : "0";
+      const signatureKey = `${c.userId || c.authorId || c.userName || ""}_${
+        c.content || ""
+      }_${timeBucket}`;
+      if (idKey && seen.has(idKey)) continue;
+      if (seen.has(signatureKey)) continue;
+      if (idKey) seen.add(idKey);
+      seen.add(signatureKey);
+      result.push(c);
+    }
+    return result;
+  };
+
   useEffect(() => {
-    if (isOpen && task) {
-      fetchTaskDetails();
+    if (isOpen && task?._id) {
+      fetchTaskDetails({ isInitial: true });
       setProgress(task.progress || 0);
     }
-  }, [isOpen, task]);
+  }, [isOpen, task?._id]);
 
-  const fetchTaskDetails = async () => {
+  const fetchTaskDetails = async ({ isInitial = false } = {}) => {
     try {
-      setLoading(true);
+      if (isInitial) {
+        setLoading(true);
+      }
       setError("");
 
       const token = localStorage.getItem("employeeToken");
@@ -79,7 +103,7 @@ export default function TaskDetailModal({
 
       const data = await response.json();
       if (data.success) {
-        setComments(data.task.comments || []);
+        setComments(deduplicateCommentsList(data.task.comments || []));
         setAttachments(data.task.attachments || []);
         setProgress(data.task.progress || 0);
       } else {
@@ -89,14 +113,17 @@ export default function TaskDetailModal({
       console.error("Error fetching task details:", err);
       setError("Failed to load task details");
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setLoading(false);
+      }
     }
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim() || submittingComment) return;
 
     try {
+      setSubmittingComment(true);
       const token = localStorage.getItem("employeeToken");
       if (!token) {
         setError("Authentication required");
@@ -124,8 +151,9 @@ export default function TaskDetailModal({
 
       const data = await response.json();
       if (data.success) {
-        setComments([...comments, data.comment]);
         setNewComment("");
+        // Silently refresh the task details in the modal
+        await fetchTaskDetails({ isInitial: false });
         if (onUpdate) onUpdate();
       } else {
         setError(data.error || "Failed to add comment");
@@ -133,11 +161,13 @@ export default function TaskDetailModal({
     } catch (err) {
       console.error("Error adding comment:", err);
       setError("Failed to add comment");
+    } finally {
+      setSubmittingComment(false);
     }
   };
 
   const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
+    const file = event.target?.files?.[0];
     if (!file) return;
 
     // Validate file size (max 10MB)
@@ -175,7 +205,10 @@ export default function TaskDetailModal({
 
       const data = await response.json();
       if (data.success) {
-        setAttachments([...attachments, data.attachment]);
+        // Reset file input value
+        if (event.target) event.target.value = "";
+        // Silently refresh the task details in the modal
+        await fetchTaskDetails({ isInitial: false });
         if (onUpdate) onUpdate();
       } else {
         setError(data.error || "Failed to upload file");
@@ -499,18 +532,26 @@ export default function TaskDetailModal({
                     Comments
                   </h4>
                   <div className="space-y-3 mb-4">
-                    {comments.length === 0 ? (
+                    {deduplicateCommentsList(comments).length === 0 ? (
                       <p className="text-sm text-gray-500">No comments yet</p>
                     ) : (
-                      comments
+                      deduplicateCommentsList(comments)
                         .slice()
                         .sort(
                           (a, b) =>
                             new Date(b.createdAt) - new Date(a.createdAt)
                         )
-                        .slice(0, showAllComments ? comments.length : 3)
-                        .map((comment) => (
-                          <div key={comment._id} className="flex space-x-3">
+                        .slice(
+                          0,
+                          showAllComments
+                            ? deduplicateCommentsList(comments).length
+                            : 3
+                        )
+                        .map((comment, index) => (
+                          <div
+                            key={comment._id || `comment-${index}`}
+                            className="flex space-x-3"
+                          >
                             <div className="flex-shrink-0">
                               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                                 <User className="w-4 h-4 text-blue-600" />
@@ -533,7 +574,7 @@ export default function TaskDetailModal({
                         ))
                     )}
                   </div>
-                  {comments.length > 3 && (
+                  {deduplicateCommentsList(comments).length > 3 && (
                     <div className="flex justify-center mb-6">
                       <button
                         onClick={() => setShowAllComments(!showAllComments)}
@@ -541,7 +582,9 @@ export default function TaskDetailModal({
                       >
                         {showAllComments
                           ? "See less"
-                          : `See more (${comments.length - 3} more)`}
+                          : `See more (${
+                              deduplicateCommentsList(comments).length - 3
+                            } more)`}
                       </button>
                     </div>
                   )}
@@ -555,18 +598,34 @@ export default function TaskDetailModal({
                       <textarea
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Add a comment..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                            e.preventDefault();
+                            handleAddComment();
+                          }
+                        }}
+                        disabled={submittingComment}
+                        placeholder="Add a comment... (Ctrl+Enter to post)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none disabled:bg-gray-100 disabled:text-gray-500"
                         rows={3}
                       />
                       <div className="flex justify-end mt-2">
                         <button
                           onClick={handleAddComment}
-                          disabled={!newComment.trim()}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={!newComment.trim() || submittingComment}
+                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
-                          <Send className="w-3 h-3 mr-1" />
-                          Comment
+                          {submittingComment ? (
+                            <>
+                              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin mr-1.5" />
+                              Posting...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-3 h-3 mr-1" />
+                              Comment
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>

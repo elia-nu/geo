@@ -81,7 +81,22 @@ const TaskDetailView = ({ task, isOpen, onClose, onUpdate }) => {
         ]);
 
       if (taskData.success) setTaskData(taskData.task);
-      if (commentsData.success) setComments(commentsData.comments);
+      if (commentsData.success) {
+        const raw = commentsData.comments || [];
+        const seen = new Set();
+        const deduped = raw.filter((c) => {
+          if (!c) return false;
+          const idKey = c._id ? String(c._id) : null;
+          const timeBucket = c.createdAt ? Math.floor(new Date(c.createdAt).getTime() / 10000) : "0";
+          const signature = `${c.userId || c.authorId || c.userName || ""}_${c.content || ""}_${timeBucket}`;
+          if (idKey && seen.has(idKey)) return false;
+          if (seen.has(signature)) return false;
+          if (idKey) seen.add(idKey);
+          seen.add(signature);
+          return true;
+        });
+        setComments(deduped);
+      }
       if (attachmentsData.success) setAttachments(attachmentsData.attachments);
       if (timeData.success) setTimeEntries(timeData.timeTracking.timeEntries);
     } catch (err) {

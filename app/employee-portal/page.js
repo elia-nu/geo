@@ -302,21 +302,6 @@ export default function EmployeePortal() {
               employeeId={employeeData._id}
               employeeName={employeeData.name}
             />
-            {/* Extra quick stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl shadow p-4">
-                <p className="text-sm text-gray-500">This Week - Present</p>
-                <p className="text-3xl font-bold text-black">0 days</p>
-              </div>
-              <div className="bg-white rounded-xl shadow p-4">
-                <p className="text-sm text-gray-500">This Week - Absent</p>
-                <p className="text-3xl font-bold text-black">7 days</p>
-              </div>
-              <div className="bg-white rounded-xl shadow p-4">
-                <p className="text-sm text-gray-500">Avg Hours</p>
-                <p className="text-3xl font-bold text-black">0h</p>
-              </div>
-            </div>
           </div>
         );
       case "attendance":
@@ -416,7 +401,6 @@ export default function EmployeePortal() {
       </div>
     );
   }
-
   if (!employeeData) {
     return null;
   }
@@ -434,177 +418,212 @@ export default function EmployeePortal() {
 
       {/* Main Content - offset for fixed sidebar on md+ screens */}
       <div
-        className={`flex-1 overflow-auto ${
-          isCollapsed ? "md:ml-16 lg:ml-16" : "md:ml-64 lg:ml-64"
+        className={`flex-1 overflow-auto transition-all duration-300 ${
+          isCollapsed ? "md:ml-20" : "md:ml-72"
         }`}
       >
-        {/* Top bar with its own section for logout */}
-        <div className="sticky top-0 z-40 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
-          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"
-              aria-label="Open menu"
-            >
-              <Menu className="w-5 h-5" />
-              <span className="text-sm font-medium">Menu</span>
-            </button>
+        {/* Top bar with glassmorphic styling */}
+        <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800">
+          <div className="px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
+            {/* Mobile menu button and Section Breadcrumb */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="md:hidden inline-flex items-center gap-2 p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                aria-label="Open menu"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
 
-            {/* Notification Bell */}
-            {employeeData?._id && (
-              <div className="relative ml-auto">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
-                  title="Notifications"
-                >
-                  <Bell className="w-6 h-6 text-gray-700" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                </button>
+              <div>
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 font-medium">
+                  <span>Portal</span>
+                  <span>/</span>
+                  <span className="text-blue-600 dark:text-blue-400 font-semibold capitalize">
+                    {activeSection.replace("-", " ")}
+                  </span>
+                </div>
+                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white capitalize tracking-tight">
+                  {activeSection.replace("-", " ")}
+                </h1>
+              </div>
+            </div>
 
-                {/* Notifications Dropdown */}
-                {showNotifications && (
-                  <div className="notification-dropdown absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col">
-                    <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-                      <h3 className="font-semibold text-black">
-                        Notifications
-                      </h3>
-                      {unreadCount > 0 && (
-                        <button
-                          onClick={markAllAsRead}
-                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          Mark all as read
-                        </button>
-                      )}
-                    </div>
-                    <div className="overflow-y-auto max-h-80">
-                      {notifications.length > 0 ? (
-                        notifications.map((notification) => (
-                          <div
-                            key={notification._id}
-                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                              !notification.isRead ? "bg-blue-50" : ""
-                            }`}
-                            onClick={() => {
-                              if (!notification.isRead) {
-                                markAsRead(notification._id);
-                              }
-                              if (notification.actionUrl) {
-                                window.location.href = notification.actionUrl;
-                              }
-                              setShowNotifications(false);
-                            }}
+            {/* Right side actions & User Status */}
+            <div className="flex items-center gap-3">
+              {/* Geofence verification indicator */}
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 live-dot-green"></span>
+                <span>Geofence Active</span>
+              </div>
+
+              {/* Department pill */}
+              {employeeData?.department && (
+                <div className="hidden lg:block px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300">
+                  {employeeData.department}
+                </div>
+              )}
+
+              {/* Notification Bell */}
+              {employeeData?._id && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    className="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+                    title="Notifications"
+                  >
+                    <Bell className="w-5 h-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute 1 top-1 right-1 bg-rose-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Notifications Dropdown */}
+                  {showNotifications && (
+                    <div className="notification-dropdown absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 z-50 max-h-96 overflow-hidden flex flex-col">
+                      <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                          Notifications
+                        </h3>
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={markAllAsRead}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
                           >
-                            <div className="flex items-start gap-3">
-                              <div
-                                className={`w-2 h-2 rounded-full mt-2 ${
-                                  !notification.isRead
-                                    ? "bg-blue-600"
-                                    : "bg-transparent"
-                                }`}
-                              />
-                              <div className="flex-1">
-                                <p className="font-medium text-black text-sm">
-                                  {notification.title}
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">
-                                  {notification.message}
-                                </p>
-                                {notification.task && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    Task: {notification.task.title}
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+                      <div className="overflow-y-auto max-h-80 divide-y divide-slate-100 dark:divide-slate-800">
+                        {notifications.length > 0 ? (
+                          notifications.map((notification) => (
+                            <div
+                              key={notification._id}
+                              className={`p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors ${
+                                !notification.isRead ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                              }`}
+                              onClick={() => {
+                                if (!notification.isRead) {
+                                  markAsRead(notification._id);
+                                }
+                                if (notification.actionUrl) {
+                                  window.location.href = notification.actionUrl;
+                                }
+                                setShowNotifications(false);
+                              }}
+                            >
+                              <div className="flex items-start gap-2.5">
+                                <div
+                                  className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                                    !notification.isRead
+                                      ? "bg-blue-600"
+                                      : "bg-transparent"
+                                  }`}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-xs text-slate-900 dark:text-white truncate">
+                                    {notification.title}
                                   </p>
-                                )}
-                                {notification.project && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    Project: {notification.project.name}
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                                    {notification.message}
                                   </p>
-                                )}
-                                <p className="text-xs text-gray-400 mt-2">
-                                  {new Date(
-                                    notification.createdAt
-                                  ).toLocaleString()}
-                                </p>
+                                </div>
                               </div>
                             </div>
+                          ))
+                        ) : (
+                          <div className="p-8 text-center text-slate-400 text-xs">
+                            No notifications
                           </div>
-                        ))
-                      ) : (
-                        <div className="p-8 text-center text-gray-500">
-                          <Bell className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                          <p>No notifications</p>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
 
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow hover:from-blue-700 hover:to-purple-700 transition-all text-sm font-medium"
-            >
-              Logout
-            </button>
+              {/* Logout button */}
+              <button
+                onClick={handleLogout}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 transition-colors text-xs font-semibold"
+              >
+                Sign out
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="p-4 sm:p-6 lg:p-8">{renderActiveSection()}</div>
+        </header>
+
+        {/* Content Body */}
+        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">{renderActiveSection()}</main>
       </div>
 
       {/* Mobile slide-over menu */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50">
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 w-64 bg-white shadow-xl">
-            <div className="flex items-center justify-between p-3 border-b">
-              <div className="text-sm font-semibold">Employee Portal</div>
+          <div className="absolute inset-y-0 left-0 w-72 bg-white dark:bg-slate-900 shadow-2xl flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                    EP
+                  </div>
+                  <span className="font-bold text-slate-900 dark:text-white text-base">
+                    Employee Portal
+                  </span>
+                </div>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  aria-label="Close menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)] scrollbar-thin">
+                {[
+                  { id: "dashboard", label: "Dashboard" },
+                  { id: "attendance", label: "Daily Attendance" },
+                  { id: "attendance-history", label: "Attendance Logs" },
+                  { id: "overtime", label: "Overtime Hub" },
+                  { id: "leave-requests", label: "Leave Requests" },
+                  { id: "leave-balance", label: "Leave Balance" },
+                  { id: "projects", label: "My Projects" },
+                  { id: "tasks", label: "My Tasks" },
+                  { id: "milestones", label: "Milestones" },
+                  { id: "documents", label: "Documents" },
+                  { id: "requests-status", label: "Request Status" },
+                  { id: "profile", label: "My Profile" },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSectionChangeWithClose(item.id)}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                      activeSection === item.id
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
               <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 rounded-lg hover:bg-gray-100"
-                aria-label="Close menu"
+                onClick={handleLogout}
+                className="w-full py-2 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-100 transition-colors"
               >
-                <X className="w-5 h-5" />
+                Sign out
               </button>
             </div>
-            {/* Reuse the sidebar menu via simple list for mobile */}
-            <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-56px)]">
-              {[
-                { id: "dashboard", label: "Dashboard" },
-                { id: "attendance", label: "Daily Attendance" },
-                { id: "attendance-history", label: "Attendance History" },
-                { id: "overtime", label: "Overtime Hub" },
-                { id: "leave-requests", label: "Leave Requests" },
-                { id: "leave-balance", label: "Leave Balance" },
-                { id: "projects", label: "Projects" },
-                { id: "tasks", label: "Tasks" },
-                { id: "milestones", label: "Milestones" },
-                { id: "documents", label: "Documents" },
-                { id: "requests-status", label: "Request Status" },
-                { id: "profile", label: "My Profile" },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => handleSectionChangeWithClose(item.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
-                    activeSection === item.id
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </nav>
           </div>
         </div>
       )}
@@ -729,82 +748,95 @@ function EnhancedDailyAttendance({
   return (
     <div className="space-y-6">
       {/* Enhanced Header with Real-time Features */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-6 h-6" />
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 p-6 sm:p-8 text-white border border-slate-800 shadow-xl">
+        <div className="absolute -right-8 -top-8 w-56 h-56 rounded-full bg-blue-600/10 blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 shrink-0">
+              <CheckCircle className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Daily Attendance Portal</h1>
-              <p className="text-blue-100">Welcome, {employeeName}</p>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Daily Attendance Portal</h1>
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                  GPS Active
+                </span>
+              </div>
+              <p className="text-slate-300 text-sm mt-0.5">Welcome, <strong className="text-white">{employeeName}</strong> • Log and monitor your on-site hours</p>
             </div>
           </div>
 
-          {/* Real-time Clock and Date */}
-          <div className="text-left sm:text-right space-y-2">
-            <div className="text-3xl font-bold">
-              {currentTime.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+          {/* Real-time Clock and Actions */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-xl border border-white/15 text-left sm:text-right">
+              <div className="text-2xl font-extrabold font-mono tracking-tight text-white">
+                {currentTime.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </div>
+              <div className="text-xs text-blue-200">
+                {currentTime.toLocaleDateString([], {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </div>
             </div>
-            <div className="text-blue-100 text-sm">
-              {currentTime.toLocaleDateString([], {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setShowMap((v) => !v)}
                 disabled={workLocations.length === 0}
-                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold backdrop-blur border transition-all ${
                   workLocations.length === 0
-                    ? "bg-white/10 text-white/50 cursor-not-allowed"
-                    : "bg-white/20 hover:bg-white/30 text-white"
+                    ? "bg-white/5 border-white/10 text-white/40 cursor-not-allowed"
+                    : "bg-white/15 hover:bg-white/25 border-white/20 text-white shadow-sm hover:scale-[1.02]"
                 }`}
               >
                 <Navigation className="w-4 h-4" />
-                {showMap ? "Hide Map" : "Show Interactive Map"}
+                {showMap ? "Hide Map" : "Interactive Map"}
               </button>
               <button
                 onClick={() => setShowLocationsModal(true)}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-medium"
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-blue-600/80 hover:bg-blue-600 border border-blue-400/40 text-white text-xs font-semibold shadow-md shadow-blue-600/20 transition-all hover:scale-[1.02]"
               >
-                <MapPin className="w-4 h-4" /> Work Locations
+                <MapPin className="w-4 h-4" /> Locations ({workLocations.length})
               </button>
             </div>
           </div>
         </div>
 
-        {/* Status and Location Info */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center space-x-4">
+        {/* Status and Location Info Bar */}
+        <div className="relative z-10 mt-6 pt-5 border-t border-white/10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Work Status Badge */}
             <span
-              className={`px-3 py-1 rounded-full text-sm font-medium ${status.bgColor} ${status.color}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold uppercase tracking-wider text-[11px] shadow-sm ${status.bgColor} ${status.color}`}
             >
+              <span className={`w-2 h-2 rounded-full ${status.text === "Working" ? "bg-blue-500 live-dot-blue" : "bg-current"}`}></span>
               {status.text}
             </span>
 
             {/* Location Available Badge */}
-            {workLocations.length > 0 && (
-              <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm flex items-center space-x-1 text-black">
-                <Navigation className="w-4 h-4" />
-                <span>Location Available</span>
+            {workLocations.length > 0 ? (
+              <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-medium flex items-center gap-1.5">
+                <Navigation className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Geofence in Range</span>
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 font-medium flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>No Location Assigned</span>
               </span>
             )}
           </div>
 
-          {/* Employee Info */}
-          <div className="text-right text-sm">
-            <div className="text-blue-100">ID: {employeeData.employeeId}</div>
-            <div className="text-blue-100">
-              {employeeData.department || "No Department"}
-            </div>
+          <div className="flex items-center gap-4 text-slate-300 text-xs">
+            <span>ID: <strong className="text-white font-mono">{employeeData.employeeId}</strong></span>
+            <span>•</span>
+            <span>Dept: <strong className="text-white">{employeeData.department || "General"}</strong></span>
           </div>
         </div>
       </div>

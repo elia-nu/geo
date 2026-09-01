@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Calendar,
   Clock,
@@ -13,8 +13,10 @@ import {
   Pause,
   CheckSquare,
   Eye,
+  Search,
 } from "lucide-react";
 import TaskDetailModal from "./TaskDetailModal";
+import Pagination from "./ui/Pagination";
 
 export default function EmployeeTasks({ employeeId }) {
   const [tasks, setTasks] = useState([]);
@@ -22,8 +24,13 @@ export default function EmployeeTasks({ employeeId }) {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all"); // all, pending, in_progress, completed, overdue
   const [sortBy, setSortBy] = useState("dueDate"); // dueDate, priority, status, created
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   useEffect(() => {
     if (employeeId) {
@@ -31,9 +38,11 @@ export default function EmployeeTasks({ employeeId }) {
     }
   }, [employeeId, filter, sortBy]);
 
-  const fetchTasks = async () => {
+  const fetchTasks = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError("");
 
       const token = localStorage.getItem("employeeToken");
@@ -67,7 +76,9 @@ export default function EmployeeTasks({ employeeId }) {
       console.error("Error fetching tasks:", err);
       setError("Failed to load tasks");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -158,8 +169,8 @@ export default function EmployeeTasks({ employeeId }) {
   };
 
   const handleTaskUpdate = () => {
-    // Refresh tasks when a task is updated
-    fetchTasks();
+    // Refresh tasks in background without unmounting modal or flashing full-page skeleton
+    fetchTasks({ silent: true });
   };
 
   const handleStatusUpdate = async (taskId, newStatus) => {
@@ -234,33 +245,48 @@ export default function EmployeeTasks({ employeeId }) {
     }
   };
 
-  const filteredAndSortedTasks = tasks
-    .filter((task) => {
-      if (filter === "overdue") {
-        return isOverdue(task.dueDate, task.status);
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "dueDate":
-          if (!a.dueDate && !b.dueDate) return 0;
-          if (!a.dueDate) return 1;
-          if (!b.dueDate) return -1;
-          return new Date(a.dueDate) - new Date(b.dueDate);
-        case "priority":
-          const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-          return (
-            (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0)
-          );
-        case "status":
-          return a.status.localeCompare(b.status);
-        case "created":
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        default:
-          return 0;
-      }
-    });
+  const filteredAndSortedTasks = useMemo(() => {
+    return tasks
+      .filter((task) => {
+        if (filter === "overdue") {
+          return isOverdue(task.dueDate, task.status);
+        }
+        if (searchTerm.trim()) {
+          const q = searchTerm.toLowerCase();
+          const titleMatch = task.title?.toLowerCase().includes(q);
+          const descMatch = task.description?.toLowerCase().includes(q);
+          const projectMatch = task.project?.name?.toLowerCase().includes(q);
+          if (!titleMatch && !descMatch && !projectMatch) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "dueDate":
+            if (!a.dueDate && !b.dueDate) return 0;
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            return new Date(a.dueDate) - new Date(b.dueDate);
+          case "priority":
+            const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+            return (
+              (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0)
+            );
+          case "status":
+            return a.status.localeCompare(b.status);
+          case "created":
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          default:
+            return 0;
+        }
+      });
+  }, [tasks, filter, sortBy, searchTerm]);
+
+  const totalPages = Math.ceil(filteredAndSortedTasks.length / itemsPerPage) || 1;
+  const paginatedTasks = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedTasks.slice(start, start + itemsPerPage);
+  }, [filteredAndSortedTasks, currentPage, itemsPerPage]);
 
   if (loading) {
     return (
@@ -324,64 +350,83 @@ export default function EmployeeTasks({ employeeId }) {
         </div>
       </div>
 
-      {/* Filters and Sort */}
-      <div className="flex flex-wrap gap-4 items-center">
-        <div className="flex flex-wrap gap-2">
-          {[
-            { key: "all", label: "All Tasks" },
-            { key: "pending", label: "Pending" },
-            { key: "in_progress", label: "In Progress" },
-            { key: "completed", label: "Completed" },
-            { key: "overdue", label: "Overdue" },
-          ].map((filterOption) => (
-            <button
-              key={filterOption.key}
-              onClick={() => setFilter(filterOption.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === filterOption.key
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {filterOption.label}
-            </button>
-          ))}
+      {/* Search, Filters and Sort */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search tasks by title, description, or project..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          />
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600">Sort by:</label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="dueDate">Due Date</option>
-            <option value="priority">Priority</option>
-            <option value="status">Status</option>
-            <option value="created">Created Date</option>
-          </select>
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: "all", label: "All Tasks" },
+              { key: "pending", label: "Pending" },
+              { key: "in_progress", label: "In Progress" },
+              { key: "completed", label: "Completed" },
+              { key: "overdue", label: "Overdue" },
+            ].map((filterOption) => (
+              <button
+                key={filterOption.key}
+                onClick={() => {
+                  setFilter(filterOption.key);
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                  filter === filterOption.key
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                {filterOption.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-gray-600">Sort by:</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="dueDate">Due Date</option>
+              <option value="priority">Priority</option>
+              <option value="status">Status</option>
+              <option value="created">Created Date</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Tasks List */}
       {filteredAndSortedTasks.length === 0 ? (
-        <div className="text-center py-12">
+        <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-8">
           <CheckSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-black mb-2">
             No tasks found
           </h3>
-          <p className="text-gray-500">
-            {filter === "all"
+          <p className="text-gray-500 text-xs">
+            {filter === "all" && !searchTerm
               ? "You haven't been assigned any tasks yet."
-              : `No ${filter} tasks found.`}
+              : `No tasks found matching your criteria.`}
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredAndSortedTasks.map((task) => (
+          {paginatedTasks.map((task) => (
             <div
               key={task._id}
-              className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -546,6 +591,22 @@ export default function EmployeeTasks({ employeeId }) {
               )}
             </div>
           ))}
+
+          {/* Pagination */}
+          <div className="border-t border-slate-100 bg-white rounded-2xl p-2 sm:p-3 shadow-sm border">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredAndSortedTasks.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={(page) => setCurrentPage(page)}
+              onItemsPerPageChange={(size) => {
+                setItemsPerPage(size);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[5, 10, 20]}
+            />
+          </div>
         </div>
       )}
 

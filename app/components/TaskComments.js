@@ -95,7 +95,26 @@ const TaskComments = ({
         if (!mountedRef.current) return;
 
         if (data.success) {
-          const next = [...(data.comments || [])].sort(
+          const rawComments = data.comments || [];
+          const seen = new Set();
+          const deduped = [];
+          for (const c of rawComments) {
+            if (!c) continue;
+            const idKey = c._id ? String(c._id) : null;
+            const timeBucket = c.createdAt
+              ? Math.floor(new Date(c.createdAt).getTime() / 10000)
+              : "0";
+            const signatureKey = `${c.userId || c.authorId || c.userName || ""}_${
+              c.content || ""
+            }_${timeBucket}`;
+            if (idKey && seen.has(idKey)) continue;
+            if (seen.has(signatureKey)) continue;
+            if (idKey) seen.add(idKey);
+            seen.add(signatureKey);
+            deduped.push(c);
+          }
+
+          const next = deduped.sort(
             (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
           );
           const prev = commentsRef.current;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FileText,
   Upload,
@@ -17,7 +17,9 @@ import {
   Paperclip,
   User,
   MessageSquare,
+  Search,
 } from "lucide-react";
+import Pagination from "./ui/Pagination";
 
 export default function AttendanceDocuments({ employeeId, employeeName }) {
   // State management
@@ -26,6 +28,12 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [statusTab, setStatusTab] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -241,6 +249,29 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
     return docType ? docType.label : type;
   };
 
+  // Filtered documents
+  const filteredDocuments = useMemo(() => {
+    return documents.filter((doc) => {
+      if (statusTab !== "all" && doc.status !== statusTab) return false;
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const reasonMatch = doc.reason?.toLowerCase().includes(q);
+        const typeMatch = doc.type?.toLowerCase().includes(q);
+        const descMatch = doc.description?.toLowerCase().includes(q);
+        const dateMatch = doc.requestDate?.includes(q);
+        if (!reasonMatch && !typeMatch && !descMatch && !dateMatch) return false;
+      }
+      return true;
+    });
+  }, [documents, statusTab, searchTerm]);
+
+  // Paginated documents
+  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage) || 1;
+  const paginatedDocuments = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredDocuments.slice(start, start + itemsPerPage);
+  }, [filteredDocuments, currentPage, itemsPerPage]);
+
   return (
     <div className="max-w-6xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header Banner */}
@@ -293,20 +324,57 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
 
       {/* Documents List */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
-        <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h2 className="text-base sm:text-xl font-bold text-slate-900">
-              Your Requests & Documents
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Track the status of your submitted documents
-            </p>
+        {/* Header & Controls */}
+        <div className="p-4 sm:p-6 border-b border-slate-100 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base sm:text-xl font-bold text-slate-900">
+                Your Requests & Documents
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                Track the status of your submitted documents
+              </p>
+            </div>
+            {/* Status Filter Tabs */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
+              {[
+                { id: "all", label: "All" },
+                { id: "pending", label: "Pending" },
+                { id: "approved", label: "Approved" },
+                { id: "rejected", label: "Rejected" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setStatusTab(tab.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                    statusTab === tab.id
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
-          {documents.length > 0 && (
-            <span className="text-xs font-semibold bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full border border-purple-100">
-              {documents.length} {documents.length === 1 ? "request" : "requests"}
-            </span>
-          )}
+
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by reason, type, or date..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+            />
+          </div>
         </div>
 
         <div className="overflow-hidden">
@@ -317,14 +385,16 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                 <span className="text-sm font-semibold">Loading documents...</span>
               </div>
             </div>
-          ) : documents.length === 0 ? (
+          ) : filteredDocuments.length === 0 ? (
             <div className="p-10 sm:p-14 text-center text-slate-500">
               <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-1">
-                No documents submitted
+                No documents found
               </h3>
               <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto mb-4">
-                You haven't submitted any attendance requests or supporting documents yet.
+                {searchTerm || statusTab !== "all"
+                  ? "Try adjusting your search query or status filter."
+                  : "You haven't submitted any attendance requests or supporting documents yet."}
               </p>
               <button
                 onClick={() => setIsSubmitModalOpen(true)}
@@ -338,7 +408,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
             <>
               {/* Mobile View: Cards */}
               <div className="block sm:hidden divide-y divide-slate-100">
-                {documents.map((doc) => {
+                {paginatedDocuments.map((doc) => {
                   const status = getStatusInfo(doc.status);
                   const StatusIcon = status.icon;
 
@@ -438,7 +508,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-100 text-xs">
-                    {documents.map((doc) => {
+                    {paginatedDocuments.map((doc) => {
                       const status = getStatusInfo(doc.status);
                       const StatusIcon = status.icon;
 
@@ -512,6 +582,24 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
             </>
           )}
         </div>
+
+        {/* Pagination */}
+        {filteredDocuments.length > 0 && (
+          <div className="border-t border-slate-100 bg-slate-50/50 p-2 sm:p-3">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredDocuments.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={(page) => setCurrentPage(page)}
+              onItemsPerPageChange={(size) => {
+                setItemsPerPage(size);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[5, 10, 20]}
+            />
+          </div>
+        )}
       </div>
 
       {/* Submit Document Modal */}
