@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Layout from "../components/Layout";
 import {
   MapPin,
@@ -13,6 +13,7 @@ import {
   Loader2,
   Search,
   Filter,
+  X,
 } from "lucide-react";
 
 export default function WorkLocationsPage() {
@@ -48,6 +49,10 @@ export default function WorkLocationsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignSearchTerm, setAssignSearchTerm] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [locationToDelete, setLocationToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -197,17 +202,29 @@ export default function WorkLocationsPage() {
     }
   };
 
-  const handleDeleteLocation = async (locationId) => {
-    if (!confirm("Are you sure you want to delete this work location?")) {
-      return;
-    }
+  const openDeleteModal = (location) => {
+    setLocationToDelete(location);
+    setShowDeleteModal(true);
+  };
 
-    setLoading(true);
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setLocationToDelete(null);
+    setDeleteLoading(false);
+  };
+
+  const confirmDeleteLocation = async () => {
+    if (!locationToDelete?._id) return;
+
+    setDeleteLoading(true);
 
     try {
-      const response = await fetch(`/api/work-locations/${locationId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `/api/work-locations/${locationToDelete._id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       const result = await response.json();
 
@@ -217,20 +234,21 @@ export default function WorkLocationsPage() {
       }
 
       showMessage("Work location deleted successfully!", "success");
+      closeDeleteModal();
       fetchLocations();
     } catch (error) {
       console.error("Error deleting location:", error);
       showMessage("Failed to delete location", "error");
     } finally {
-      setLoading(false);
+      setDeleteLoading(false);
     }
   };
 
   const handleAssignEmployees = async (e) => {
     e.preventDefault();
 
-    if (!selectedLocation || assignForm.employeeIds.length === 0) {
-      showMessage("Please select employees to assign", "error");
+    if (!selectedLocation) {
+      showMessage("Please select a location", "error");
       return;
     }
 
@@ -240,7 +258,7 @@ export default function WorkLocationsPage() {
       const response = await fetch(
         `/api/work-locations/${selectedLocation._id}/assign-employees`,
         {
-          method: "POST",
+          method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
@@ -255,7 +273,10 @@ export default function WorkLocationsPage() {
         return;
       }
 
-      showMessage(result.message, "success");
+      showMessage(
+        result.message || "Work location assignments updated successfully!",
+        "success"
+      );
       setShowAssignModal(false);
       setSelectedLocation(null);
       setAssignForm({ employeeIds: [] });
@@ -285,8 +306,34 @@ export default function WorkLocationsPage() {
   const openAssignModal = (location) => {
     setSelectedLocation(location);
     setAssignForm({ employeeIds: [] });
+    setAssignSearchTerm("");
     setShowAssignModal(true);
   };
+
+  const filteredAssignEmployees = useMemo(() => {
+    if (!assignSearchTerm.trim()) return employees;
+    const term = assignSearchTerm.toLowerCase().trim();
+    return employees.filter((emp) => {
+      const name = String(
+        emp.personalDetails?.name || emp.name || emp.personalDetails?.fullName || ""
+      ).toLowerCase();
+      const empId = String(
+        emp.personalDetails?.employeeId || emp.employeeId || ""
+      ).toLowerCase();
+      const email = String(
+        emp.personalDetails?.email || emp.email || ""
+      ).toLowerCase();
+      const dept = String(
+        emp.department || emp.personalDetails?.department || ""
+      ).toLowerCase();
+      return (
+        name.includes(term) ||
+        empId.includes(term) ||
+        email.includes(term) ||
+        dept.includes(term)
+      );
+    });
+  }, [employees, assignSearchTerm]);
 
   const filteredLocations = locations.filter((location) => {
     if (!location) return false;
@@ -422,7 +469,7 @@ export default function WorkLocationsPage() {
                       <Edit className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDeleteLocation(location._id)}
+                      onClick={() => openDeleteModal(location)}
                       className="p-1 text-red-600 hover:bg-red-50 rounded"
                       title="Delete Location"
                     >
@@ -783,85 +830,365 @@ export default function WorkLocationsPage() {
         {/* Assign Employees Modal */}
         {showAssignModal && selectedLocation && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             style={{ zIndex: 9999 }}
           >
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h2 className="text-xl font-semibold mb-4">
-                Assign Employees to {selectedLocation.name}
-              </h2>
-              <form onSubmit={handleAssignEmployees} className="space-y-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col">
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center ring-1 ring-white/30">
+                      <Users className="w-6 h-6 text-white" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold">Assign Employees</h3>
+                      <p className="text-blue-100 text-sm">
+                        Select employees to assign to {selectedLocation.name || selectedLocation.siteName}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowAssignModal(false)}
+                    className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-all ring-1 ring-white/30"
+                  >
+                    <X className="w-5 h-5 text-white" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+              <form
+                onSubmit={handleAssignEmployees}
+                className="p-6 overflow-y-auto flex-1 space-y-4"
+              >
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Employees
-                  </label>
-                  <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                    {employees.map((employee) => (
-                      <label
-                        key={employee._id}
-                        className="flex items-center space-x-2 py-1"
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                    <label className="block text-sm font-semibold text-slate-800">
+                      Select Employees
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {assignForm.employeeIds.length} Selected
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const filteredIds = filteredAssignEmployees.map((e) =>
+                            String(e._id)
+                          );
+                          setAssignForm((prev) => ({
+                            ...prev,
+                            employeeIds: Array.from(
+                              new Set([...prev.employeeIds, ...filteredIds])
+                            ),
+                          }));
+                        }}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold hover:underline"
                       >
-                        <input
-                          type="checkbox"
-                          value={employee._id}
-                          checked={assignForm.employeeIds.includes(
-                            employee._id
-                          )}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setAssignForm((prev) => ({
-                                ...prev,
-                                employeeIds: [
-                                  ...prev.employeeIds,
-                                  employee._id,
-                                ],
-                              }));
-                            } else {
-                              setAssignForm((prev) => ({
-                                ...prev,
-                                employeeIds: prev.employeeIds.filter(
-                                  (id) => id !== employee._id
-                                ),
-                              }));
-                            }
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-sm">
-                          {employee.personalDetails?.name ||
-                            employee.name ||
-                            "Unknown"}{" "}
-                          -{" "}
-                          {employee.personalDetails?.employeeId ||
-                            employee.employeeId ||
-                            "No ID"}
-                        </span>
-                      </label>
-                    ))}
+                        Select All
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const filteredIdsSet = new Set(
+                            filteredAssignEmployees.map((e) => String(e._id))
+                          );
+                          setAssignForm((prev) => ({
+                            ...prev,
+                            employeeIds: prev.employeeIds.filter(
+                              (id) => !filteredIdsSet.has(String(id))
+                            ),
+                          }));
+                        }}
+                        className="text-xs text-slate-500 hover:text-slate-700 font-semibold hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={assignSearchTerm}
+                      onChange={(e) => setAssignSearchTerm(e.target.value)}
+                      placeholder="Search employees by name, ID, department, or email..."
+                      className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    />
+                    {assignSearchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => setAssignSearchTerm("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Employee List */}
+                  <div className="max-h-72 overflow-y-auto border border-slate-200 rounded-2xl p-2 space-y-1.5 bg-slate-50/50">
+                    {filteredAssignEmployees.length === 0 ? (
+                      <div className="py-8 text-center text-slate-500">
+                        <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs font-semibold text-slate-700">
+                          No employees found
+                        </p>
+                        {assignSearchTerm && (
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            No results matching "{assignSearchTerm}"
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      filteredAssignEmployees.map((employee) => {
+                        const empIdStr = String(employee._id);
+                        const isChecked = assignForm.employeeIds.includes(empIdStr);
+                        const empName =
+                          employee.personalDetails?.name ||
+                          employee.name ||
+                          employee.personalDetails?.fullName ||
+                          "Unknown";
+                        const empCode =
+                          employee.personalDetails?.employeeId ||
+                          employee.employeeId;
+                        const empDept =
+                          employee.department ||
+                          employee.personalDetails?.department;
+                        const empEmail =
+                          employee.personalDetails?.email || employee.email;
+
+                        return (
+                          <label
+                            key={employee._id}
+                            className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                              isChecked
+                                ? "bg-indigo-50/80 border-indigo-200 shadow-sm"
+                                : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              value={empIdStr}
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setAssignForm((prev) => ({
+                                    ...prev,
+                                    employeeIds: [
+                                      ...prev.employeeIds,
+                                      empIdStr,
+                                    ],
+                                  }));
+                                } else {
+                                  setAssignForm((prev) => ({
+                                    ...prev,
+                                    employeeIds: prev.employeeIds.filter(
+                                      (id) => String(id) !== empIdStr
+                                    ),
+                                  }));
+                                }
+                              }}
+                              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                            />
+
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center shrink-0">
+                              {empName.charAt(0).toUpperCase()}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-slate-900">
+                                  {empName}
+                                </span>
+                                {empCode && (
+                                  <span className="text-[10px] font-mono font-semibold px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded">
+                                    {empCode}
+                                  </span>
+                                )}
+                                {empDept && (
+                                  <span className="text-[10px] font-medium px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded">
+                                    {empDept}
+                                  </span>
+                                )}
+                              </div>
+                              {empEmail && (
+                                <p className="text-[11px] text-slate-500 truncate">
+                                  {empEmail}
+                                </p>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
-                <div className="flex space-x-3">
-                  <button
-                    type="submit"
-                    disabled={loading || assignForm.employeeIds.length === 0}
-                    className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                    ) : (
-                      "Assign"
-                    )}
-                  </button>
+                <div className="flex space-x-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowAssignModal(false)}
-                    className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
+                    className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-xl hover:bg-gray-100 transition-all font-medium text-xs sm:text-sm"
                   >
                     Cancel
                   </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all font-semibold shadow-lg text-xs sm:text-sm flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      `Save Assignments (${assignForm.employeeIds.length})`
+                    )}
+                  </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+        {/* Delete Work Station / Location Modal */}
+        {showDeleteModal && locationToDelete && (
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
+            style={{ zIndex: 9999 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !deleteLoading) closeDeleteModal();
+            }}
+          >
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-slate-100 animate-scaleUp">
+              {/* Red Accent Header */}
+              <div className="bg-rose-50 border-b border-rose-100 p-6 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600 shadow-sm border border-rose-200">
+                    <Trash2 className="w-6 h-6" />
+                  </div>
+                  <button
+                    onClick={closeDeleteModal}
+                    disabled={deleteLoading}
+                    className="w-8 h-8 rounded-xl bg-white/80 hover:bg-white text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all border border-slate-200 disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="mt-3">
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Delete Work Station / Location
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Are you sure you want to permanently delete this work location?
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Location Card Snapshot */}
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-slate-900 truncate max-w-[200px]">
+                      {locationToDelete.name || locationToDelete.siteName || "Unnamed Location"}
+                    </span>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center gap-1">
+                      <Radio className="w-3 h-3" />
+                      {locationToDelete.radius || 100}m radius
+                    </span>
+                  </div>
+                  {locationToDelete.address && (
+                    <p className="text-xs text-slate-600 flex items-start gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                      <span className="line-clamp-2">{locationToDelete.address}</span>
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 border-t border-slate-200/60">
+                    <span>GPS Coordinates:</span>
+                    <span className="font-mono text-slate-700 font-medium">
+                      {typeof locationToDelete.latitude === "number"
+                        ? locationToDelete.latitude.toFixed(4)
+                        : locationToDelete.latitude || "N/A"}
+                      ,{" "}
+                      {typeof locationToDelete.longitude === "number"
+                        ? locationToDelete.longitude.toFixed(4)
+                        : locationToDelete.longitude || "N/A"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Assigned Employees Check */}
+                {(locationToDelete.employeeCount > 0 ||
+                  (locationToDelete.assignedEmployees && locationToDelete.assignedEmployees.length > 0)) ? (
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 space-y-2">
+                    <div className="flex items-center gap-2 font-semibold text-amber-900">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Assigned Personnel Detected</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed opacity-90">
+                      This location currently has{" "}
+                      <strong>
+                        {locationToDelete.employeeCount ||
+                          locationToDelete.assignedEmployees.length}
+                      </strong>{" "}
+                      assigned employee(s). The system requires reassigning or removing employees before this location can be deleted.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const loc = locationToDelete;
+                        closeDeleteModal();
+                        openAssignModal(loc);
+                      }}
+                      className="mt-1 text-xs font-bold text-amber-900 underline hover:text-amber-950 inline-flex items-center gap-1"
+                    >
+                      <Users className="w-3.5 h-3.5" /> Manage & Reassign Employees
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>No active employees assigned. Ready for deletion.</span>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeDeleteModal}
+                    disabled={deleteLoading}
+                    className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDeleteLocation}
+                    disabled={
+                      deleteLoading ||
+                      locationToDelete.employeeCount > 0 ||
+                      (locationToDelete.assignedEmployees &&
+                        locationToDelete.assignedEmployees.length > 0)
+                    }
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-md shadow-rose-500/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {deleteLoading ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Deleting…
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete Location
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

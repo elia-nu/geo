@@ -15,7 +15,7 @@ import EmployeeTasks from "../components/EmployeeTasks";
 import EmployeeMilestones from "../components/EmployeeMilestones";
 import EmployeeProfile from "../components/EmployeeProfile";
 import EmployeeOvertime from "../components/EmployeeOvertime";
-import { MapPin, Navigation, CheckCircle, Menu, X, Bell } from "lucide-react";
+import { MapPin, Navigation, CheckCircle, Menu, X, Bell, AlertCircle } from "lucide-react";
 
 export default function EmployeePortal() {
   const isCollapsed = useSidebarStore((s) => s.isCollapsed);
