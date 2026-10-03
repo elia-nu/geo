@@ -26,6 +26,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import Pagination from "./ui/Pagination";
 
 export default function BudgetManagement() {
   const router = useRouter();
@@ -38,6 +39,8 @@ export default function BudgetManagement() {
   const [sortBy, setSortBy] = useState("utilization");
   const [sortOrder, setSortOrder] = useState("desc");
   const [viewMode, setViewMode] = useState("grid"); // "grid" | "table"
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(9);
   const [financialSummary, setFinancialSummary] = useState(null);
 
   useEffect(() => {
@@ -45,10 +48,17 @@ export default function BudgetManagement() {
     fetchFinancialSummary();
   }, []);
 
+  const getAuthHeaders = () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/projects");
+      const response = await fetch("/api/projects", {
+        headers: { ...getAuthHeaders() },
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -67,7 +77,9 @@ export default function BudgetManagement() {
   const fetchBudgetData = async (projectList) => {
     const budgetPromises = projectList.map(async (project) => {
       try {
-        const response = await fetch(`/api/projects/${project._id}/budget`);
+        const response = await fetch(`/api/projects/${project._id}/budget`, {
+          headers: { ...getAuthHeaders() },
+        });
         const data = await response.json();
         return { projectId: project._id, budget: data.budget };
       } catch (err) {
@@ -212,6 +224,16 @@ export default function BudgetManagement() {
       }
     });
   }, [projects, budgetData, searchTerm, filterStatus, sortBy, sortOrder]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus, sortBy, sortOrder]);
+
+  const totalPages = Math.ceil(filteredAndSortedProjects.length / itemsPerPage) || 1;
+  const paginatedProjects = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedProjects.slice(start, start + itemsPerPage);
+  }, [filteredAndSortedProjects, currentPage, itemsPerPage]);
 
   const handleNavigate = (path) => {
     if (router?.push) {
@@ -577,7 +599,7 @@ export default function BudgetManagement() {
       ) : viewMode === "grid" ? (
         /* GRID VIEW */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredAndSortedProjects.map((project) => {
+          {paginatedProjects.map((project) => {
             const budget = budgetData[project._id];
             const hasBudget = !!budget;
             const utilization = budget?.summary?.budgetUtilization || 0;
@@ -730,7 +752,7 @@ export default function BudgetManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                {filteredAndSortedProjects.map((project) => {
+                {paginatedProjects.map((project) => {
                   const budget = budgetData[project._id];
                   const hasBudget = !!budget;
                   const util = budget?.summary?.budgetUtilization || 0;
@@ -802,6 +824,24 @@ export default function BudgetManagement() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {filteredAndSortedProjects.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredAndSortedProjects.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(size) => {
+              setItemsPerPage(size);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[6, 9, 18, 36]}
+          />
         </div>
       )}
     </div>

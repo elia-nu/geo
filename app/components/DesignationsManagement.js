@@ -19,6 +19,7 @@ import {
   Filter,
 } from "lucide-react";
 import { toast } from "./ui/toast";
+import Pagination from "./ui/Pagination";
 import { usePermissions } from "../hooks/usePermissions";
 
 export default function DesignationsManagement() {
@@ -33,6 +34,8 @@ export default function DesignationsManagement() {
   const [actionLoading, setActionLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [viewFilter, setViewFilter] = useState("department"); // 'department' | 'all'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
   const [copiedName, setCopiedName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -243,6 +246,16 @@ export default function DesignationsManagement() {
       String(item).toLowerCase().includes(query.toLowerCase())
     );
   }, [viewFilter, deptDesignations, designations, query]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, selectedDeptId, viewFilter]);
+
+  const totalPages = Math.ceil(displayedDesignations.length / itemsPerPage) || 1;
+  const paginatedDesignations = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return displayedDesignations.slice(start, start + itemsPerPage);
+  }, [displayedDesignations, currentPage, itemsPerPage]);
 
   return (
     <div className="space-y-6">
@@ -547,7 +560,7 @@ export default function DesignationsManagement() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1">
-                {displayedDesignations.map((des) => (
+                {paginatedDesignations.map((des) => (
                   <div
                     key={`des-${des}`}
                     className="flex items-center justify-between gap-2.5 p-3 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all group"
@@ -586,6 +599,23 @@ export default function DesignationsManagement() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {displayedDesignations.length > 0 && (
+              <div className="pt-3 border-t border-slate-100">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={displayedDesignations.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onItemsPerPageChange={(size) => {
+                    setItemsPerPage(size);
+                    setCurrentPage(1);
+                  }}
+                  pageSizeOptions={[6, 12, 24, 48]}
+                />
               </div>
             )}
           </div>

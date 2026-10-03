@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Pagination from "./ui/Pagination";
 
 export default function GeofenceManager() {
   const [geofences, setGeofences] = useState([]);
@@ -20,6 +21,16 @@ export default function GeofenceManager() {
     lng: "",
     radius: "",
   });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const totalPages = Math.ceil(geofences.length / itemsPerPage) || 1;
+  const paginatedGeofences = geofences.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   useEffect(() => {
     fetchGeofences();
@@ -334,7 +345,9 @@ export default function GeofenceManager() {
                 </tr>
               </thead>
               <tbody>
-                {geofences.map((g, idx) => (
+                {paginatedGeofences.map((g, pageIdx) => {
+                  const idx = (currentPage - 1) * itemsPerPage + pageIdx;
+                  return (
                   <tr
                     key={g.name}
                     className={`transition hover:bg-blue-50 ${
@@ -495,9 +508,26 @@ export default function GeofenceManager() {
                       </>
                     )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
+            {geofences.length > 0 && (
+              <div className="border-t border-blue-100 bg-white">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={geofences.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onItemsPerPageChange={(newSize) => {
+                    setItemsPerPage(newSize);
+                    setCurrentPage(1);
+                  }}
+                  pageSizeOptions={[5, 10, 20, 50]}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

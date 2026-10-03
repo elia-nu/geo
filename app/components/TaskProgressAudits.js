@@ -11,6 +11,7 @@ import {
   Search as SearchIcon,
   Download as DownloadIcon,
 } from "@mui/icons-material";
+import Pagination from "./ui/Pagination";
 
 const TaskProgressAudits = ({ projectId = null }) => {
   const [audits, setAudits] = useState([]);
@@ -332,43 +333,28 @@ const TaskProgressAudits = ({ projectId = null }) => {
         </div>
 
         {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Showing page {pagination.currentPage} of {pagination.totalPages} (
-              {pagination.totalCount} total audits)
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() =>
-                  setPagination((prev) => ({
-                    ...prev,
-                    currentPage: Math.max(1, prev.currentPage - 1),
-                  }))
-                }
-                disabled={!pagination.hasPrev}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() =>
-                  setPagination((prev) => ({
-                    ...prev,
-                    currentPage: Math.min(
-                      prev.totalPages,
-                      prev.currentPage + 1
-                    ),
-                  }))
-                }
-                disabled={!pagination.hasNext}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="border-t border-gray-200">
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalCount}
+            itemsPerPage={pagination.limit || 10}
+            onPageChange={(page) =>
+              setPagination((prev) => ({
+                ...prev,
+                currentPage: page,
+              }))
+            }
+            onItemsPerPageChange={(sz) =>
+              setPagination((prev) => ({
+                ...prev,
+                limit: sz,
+                currentPage: 1,
+              }))
+            }
+            pageSizeOptions={[10, 25, 50]}
+          />
+        </div>
       </div>
     </div>
   );

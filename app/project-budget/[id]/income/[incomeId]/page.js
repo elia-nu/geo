@@ -30,6 +30,7 @@ import {
   summarizeInstallments,
 } from "../../../../utils/incomeLifecycle";
 import { usePermissions } from "../../../../hooks/usePermissions";
+import Pagination from "../../../../components/ui/Pagination";
 
 const formatDate = (date) => {
   if (!date) return "—";
@@ -162,6 +163,20 @@ const IncomeDetailPage = ({ params }) => {
     }
     return installments;
   }, [installments, filterTab]);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterTab]);
+
+  const totalPages = Math.ceil(filteredInstallments.length / itemsPerPage) || 1;
+  const paginatedInstallments = filteredInstallments.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const handleMarkPaid = async (installmentNumber) => {
     try {
@@ -671,7 +686,7 @@ const IncomeDetailPage = ({ params }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {filteredInstallments.map((inst, index) => {
+                  {paginatedInstallments.map((inst, index) => {
                     const isPaid = inst.status === "paid";
                     const isOverdue = inst.status === "overdue";
                     const isDueToday = inst.status === "due_today";
@@ -766,6 +781,23 @@ const IncomeDetailPage = ({ params }) => {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {filteredInstallments.length > 0 && (
+            <div className="border-t border-slate-200 bg-white">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredInstallments.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(newSize) => {
+                  setItemsPerPage(newSize);
+                  setCurrentPage(1);
+                }}
+                pageSizeOptions={[5, 10, 20, 50]}
+              />
             </div>
           )}
         </div>

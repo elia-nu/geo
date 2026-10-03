@@ -19,6 +19,7 @@ import {
   showSuccessToast,
 } from "../../../utils/sweetAlert";
 import { usePermissions } from "../../../hooks/usePermissions";
+import Pagination from "../../../components/ui/Pagination";
 
 export default function ProjectDocumentsPage({ params }) {
   const { id: projectId } = use(params);
@@ -41,6 +42,16 @@ export default function ProjectDocumentsPage({ params }) {
   });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const totalPages = Math.ceil(documents.length / itemsPerPage) || 1;
+  const paginatedDocuments = documents.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   useEffect(() => {
     fetchAll();
@@ -305,7 +316,7 @@ export default function ProjectDocumentsPage({ params }) {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {documents.map((d) => (
+                {paginatedDocuments.map((d) => (
                   <tr key={d._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-black">{d.title}</div>
@@ -374,6 +385,23 @@ export default function ProjectDocumentsPage({ params }) {
                 ))}
               </tbody>
             </table>
+
+            {documents.length > 0 && (
+              <div className="border-t border-gray-200">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={documents.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onItemsPerPageChange={(newSize) => {
+                    setItemsPerPage(newSize);
+                    setCurrentPage(1);
+                  }}
+                  pageSizeOptions={[5, 10, 20, 50]}
+                />
+              </div>
+            )}
           </div>
         )}
 

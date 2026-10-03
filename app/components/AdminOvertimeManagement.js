@@ -37,6 +37,7 @@ import {
 import AttendancePhotoViewer from "./AttendancePhotoViewer";
 import { formatWorkingHours } from "../utils/timeUtils";
 import usePermissions from "../hooks/usePermissions";
+import Pagination from "./ui/Pagination";
 
 export default function AdminOvertimeManagement() {
   const { hasPermission } = usePermissions();
@@ -75,6 +76,8 @@ export default function AdminOvertimeManagement() {
     endDate: "",
     search: "",
   });
+  const [attendancePage, setAttendancePage] = useState(1);
+  const [attendancePerPage, setAttendancePerPage] = useState(10);
 
   // Reports state & filters
   const [reportData, setReportData] = useState(null);
@@ -87,6 +90,10 @@ export default function AdminOvertimeManagement() {
     search: "",
   });
   const [reportViewMode, setReportViewMode] = useState("sessions"); // 'sessions' | 'summary'
+  const [sessionsPage, setSessionsPage] = useState(1);
+  const [sessionsPerPage, setSessionsPerPage] = useState(10);
+  const [summaryPage, setSummaryPage] = useState(1);
+  const [summaryPerPage, setSummaryPerPage] = useState(10);
 
   // Request Approval / Rejection Modal State
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -111,6 +118,27 @@ export default function AdminOvertimeManagement() {
 
   // Departments list for dropdown
   const [departments, setDepartments] = useState([]);
+
+  // Pagination calculations for Tab 2 and Tab 3
+  const totalAttendancePages = Math.ceil(attendanceLogs.length / attendancePerPage) || 1;
+  const paginatedAttendanceLogs = attendanceLogs.slice(
+    (attendancePage - 1) * attendancePerPage,
+    attendancePage * attendancePerPage
+  );
+
+  const detailedSessionsList = reportData?.detailedSessions || [];
+  const totalSessionsPages = Math.ceil(detailedSessionsList.length / sessionsPerPage) || 1;
+  const paginatedDetailedSessions = detailedSessionsList.slice(
+    (sessionsPage - 1) * sessionsPerPage,
+    sessionsPage * sessionsPerPage
+  );
+
+  const employeeSummaryList = reportData?.employeeSummary || [];
+  const totalSummaryPages = Math.ceil(employeeSummaryList.length / summaryPerPage) || 1;
+  const paginatedEmployeeSummary = employeeSummaryList.slice(
+    (summaryPage - 1) * summaryPerPage,
+    summaryPage * summaryPerPage
+  );
 
   useEffect(() => {
     fetchDepartments();
@@ -671,27 +699,25 @@ export default function AdminOvertimeManagement() {
           )}
 
           {/* Pagination */}
-          {requestPagination.totalPages > 1 && (
-            <div className="p-4 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-xs text-gray-500">
-                Showing page {requestPagination.currentPage} of {requestPagination.totalPages} ({requestPagination.totalRecords} total requests)
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  disabled={requestPagination.currentPage <= 1}
-                  onClick={() => setRequestPagination({ ...requestPagination, currentPage: requestPagination.currentPage - 1 })}
-                  className="p-1.5 border rounded-lg disabled:opacity-40"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  disabled={requestPagination.currentPage >= requestPagination.totalPages}
-                  onClick={() => setRequestPagination({ ...requestPagination, currentPage: requestPagination.currentPage + 1 })}
-                  className="p-1.5 border rounded-lg disabled:opacity-40"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+          {!loading && (
+            <div className="border-t border-gray-100">
+              <Pagination
+                currentPage={requestPagination.currentPage}
+                totalPages={requestPagination.totalPages}
+                totalItems={requestPagination.totalRecords}
+                itemsPerPage={requestPagination.recordsPerPage}
+                onPageChange={(page) =>
+                  setRequestPagination((prev) => ({ ...prev, currentPage: page }))
+                }
+                onItemsPerPageChange={(sz) =>
+                  setRequestPagination((prev) => ({
+                    ...prev,
+                    recordsPerPage: sz,
+                    currentPage: 1,
+                  }))
+                }
+                pageSizeOptions={[5, 10, 15, 30, 50]}
+              />
             </div>
           )}
         </div>
@@ -793,7 +819,7 @@ export default function AdminOvertimeManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {attendanceLogs.map((att) => (
+                  {paginatedAttendanceLogs.map((att) => (
                     <tr key={att._id} className="hover:bg-gray-50/80 transition-colors">
                       <td className="p-3.5 font-bold text-gray-900 whitespace-nowrap">
                         {att.employee?.name || att.employeeName}
@@ -901,6 +927,23 @@ export default function AdminOvertimeManagement() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {!attendanceLoading && (
+            <div className="border-t border-gray-100">
+              <Pagination
+                currentPage={attendancePage}
+                totalPages={totalAttendancePages}
+                totalItems={attendanceLogs.length}
+                itemsPerPage={attendancePerPage}
+                onPageChange={setAttendancePage}
+                onItemsPerPageChange={(sz) => {
+                  setAttendancePerPage(sz);
+                  setAttendancePage(1);
+                }}
+                pageSizeOptions={[5, 10, 20, 50]}
+              />
             </div>
           )}
         </div>
@@ -1181,7 +1224,8 @@ export default function AdminOvertimeManagement() {
               </div>
             ) : reportViewMode === "sessions" ? (
               /* DETAILED OVERTIME SESSIONS TABLE */
-              <div className="overflow-x-auto">
+              <>
+                <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold border-b border-gray-200">
                     <tr>
@@ -1197,8 +1241,8 @@ export default function AdminOvertimeManagement() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {(reportData?.detailedSessions || []).length > 0 ? (
-                      reportData.detailedSessions.map((session, index) => {
+                    {paginatedDetailedSessions.length > 0 ? (
+                      paginatedDetailedSessions.map((session, index) => {
                         const isApproved = session.adminApprovalStatus === "approved";
                         const isRejected = session.adminApprovalStatus === "rejected";
                         const isPending = !isApproved && !isRejected;
@@ -1358,56 +1402,87 @@ export default function AdminOvertimeManagement() {
                   </tbody>
                 </table>
               </div>
+              <div className="border-t border-gray-100">
+                <Pagination
+                  currentPage={sessionsPage}
+                  totalPages={totalSessionsPages}
+                  totalItems={detailedSessionsList.length}
+                  itemsPerPage={sessionsPerPage}
+                  onPageChange={setSessionsPage}
+                  onItemsPerPageChange={(sz) => {
+                    setSessionsPerPage(sz);
+                    setSessionsPage(1);
+                  }}
+                  pageSizeOptions={[5, 10, 20, 50]}
+                />
+              </div>
+            </>
             ) : (
               /* EMPLOYEE SUMMARY BREAKDOWN TABLE */
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold border-b border-gray-200">
-                    <tr>
-                      <th className="p-3.5">Employee</th>
-                      <th className="p-3.5">Department</th>
-                      <th className="p-3.5 text-center">Completed Sessions</th>
-                      <th className="p-3.5 text-center">Total Overtime Hours</th>
-                      <th className="p-3.5 text-center">Formatted Duration</th>
-                      <th className="p-3.5 text-center">Total Approved Quota</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {(reportData?.employeeSummary || []).length > 0 ? (
-                      reportData.employeeSummary.map((emp, index) => (
-                        <tr key={index} className="hover:bg-gray-50/80 transition-colors">
-                          <td className="p-3.5 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-gray-900 text-xs">{emp.employeeName}</span>
-                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-mono text-[11px] font-bold border border-gray-200">
-                                <IdCard className="w-2.5 h-2.5 text-gray-400" />
-                                {emp.empId || emp.employeeId}
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold border-b border-gray-200">
+                      <tr>
+                        <th className="p-3.5">Employee</th>
+                        <th className="p-3.5">Department</th>
+                        <th className="p-3.5 text-center">Completed Sessions</th>
+                        <th className="p-3.5 text-center">Total Overtime Hours</th>
+                        <th className="p-3.5 text-center">Formatted Duration</th>
+                        <th className="p-3.5 text-center">Total Approved Quota</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {paginatedEmployeeSummary.length > 0 ? (
+                        paginatedEmployeeSummary.map((emp, index) => (
+                          <tr key={index} className="hover:bg-gray-50/80 transition-colors">
+                            <td className="p-3.5 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-gray-900 text-xs">{emp.employeeName}</span>
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-mono text-[11px] font-bold border border-gray-200">
+                                  <IdCard className="w-2.5 h-2.5 text-gray-400" />
+                                  {emp.empId || emp.employeeId}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-3.5 text-gray-600 text-xs whitespace-nowrap">{emp.department}</td>
+                            <td className="p-3.5 font-semibold text-gray-800 text-center">{emp.sessionsCount}</td>
+                            <td className="p-3.5 font-extrabold text-amber-700 text-center">{emp.totalDurationHours} hrs</td>
+                            <td className="p-3.5 text-center">
+                              <span className="px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-xs">
+                                {emp.durationFormatted}
                               </span>
-                            </div>
-                          </td>
-                          <td className="p-3.5 text-gray-600 text-xs whitespace-nowrap">{emp.department}</td>
-                          <td className="p-3.5 font-semibold text-gray-800 text-center">{emp.sessionsCount}</td>
-                          <td className="p-3.5 font-extrabold text-amber-700 text-center">{emp.totalDurationHours} hrs</td>
-                          <td className="p-3.5 text-center">
-                            <span className="px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-xs">
-                              {emp.durationFormatted}
-                            </span>
-                          </td>
-                          <td className="p-3.5 text-center font-bold text-emerald-700 text-xs">
-                            {emp.approvedHoursTotal > 0 ? `${emp.approvedHoursTotal} hrs` : "—"}
+                            </td>
+                            <td className="p-3.5 text-center font-bold text-emerald-700 text-xs">
+                              {emp.approvedHoursTotal > 0 ? `${emp.approvedHoursTotal} hrs` : "—"}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-gray-400 text-xs">
+                            No employee overtime summary data found matching filters.
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="p-8 text-center text-gray-400 text-xs">
-                          No employee overtime summary data found matching filters.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="border-t border-gray-100">
+                  <Pagination
+                    currentPage={summaryPage}
+                    totalPages={totalSummaryPages}
+                    totalItems={employeeSummaryList.length}
+                    itemsPerPage={summaryPerPage}
+                    onPageChange={setSummaryPage}
+                    onItemsPerPageChange={(sz) => {
+                      setSummaryPerPage(sz);
+                      setSummaryPage(1);
+                    }}
+                    pageSizeOptions={[5, 10, 20, 50]}
+                  />
+                </div>
+              </>
             )}
           </div>
         </div>

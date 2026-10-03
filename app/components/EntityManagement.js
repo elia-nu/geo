@@ -7,6 +7,7 @@ import {
   TrashIcon,
   CogIcon,
 } from "@heroicons/react/24/outline";
+import Pagination from "./ui/Pagination";
 
 const EntityManagement = ({ projectId, projectName }) => {
   const [loading, setLoading] = useState(false);
@@ -14,6 +15,8 @@ const EntityManagement = ({ projectId, projectName }) => {
 
   // Data states
   const [activities, setActivities] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -94,6 +97,12 @@ const EntityManagement = ({ projectId, projectName }) => {
     setEditingItem(null);
   };
 
+  const totalPages = Math.ceil((activities?.length || 0) / itemsPerPage) || 1;
+  const paginatedActivities = (activities || []).slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const getCurrentData = () => {
     return activities;
   };
@@ -162,7 +171,8 @@ const EntityManagement = ({ projectId, projectName }) => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
@@ -185,7 +195,7 @@ const EntityManagement = ({ projectId, projectName }) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
-                {getCurrentData().map((item) => (
+                {paginatedActivities.map((item) => (
                   <tr
                     key={item._id}
                     className="hover:bg-slate-50/80 transition-colors"
@@ -277,6 +287,21 @@ const EntityManagement = ({ projectId, projectName }) => {
               </tbody>
             </table>
           </div>
+          <div className="border-t border-slate-100">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={activities?.length || 0}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(sz) => {
+                setItemsPerPage(sz);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[5, 10, 25, 50]}
+            />
+          </div>
+        </>
         )}
       </div>
 

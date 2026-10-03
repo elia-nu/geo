@@ -195,7 +195,7 @@ export async function POST(request) {
       userAgent: request.headers.get("user-agent") || null,
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: "Login successful",
       data: {
@@ -215,6 +215,15 @@ export async function POST(request) {
         },
       },
     });
+
+    response.cookies.set("authToken", token, {
+      httpOnly: false,
+      path: "/",
+      maxAge: 60 * 60 * 24, // 24 hours
+      sameSite: "lax",
+    });
+
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

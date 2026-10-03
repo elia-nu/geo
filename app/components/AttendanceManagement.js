@@ -20,6 +20,7 @@ import {
   Navigation,
 } from "lucide-react";
 import { formatWorkingHours } from "../utils/timeUtils";
+import Pagination from "./ui/Pagination";
 
 export default function AttendanceManagement() {
   // State management
@@ -36,6 +37,15 @@ export default function AttendanceManagement() {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Reset pagination on filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedEmployee, dateRange, statusFilter]);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -120,6 +130,13 @@ export default function AttendanceManagement() {
 
     return matchesSearch && matchesStatus;
   });
+
+  // Pagination calculation
+  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage) || 1;
+  const paginatedRecords = filteredRecords.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   // Format time for display
   const formatTime = (dateString) => {
@@ -422,7 +439,7 @@ export default function AttendanceManagement() {
                   </td>
                 </tr>
               ) : (
-                filteredRecords.map((record) => {
+                paginatedRecords.map((record) => {
                   const status = getStatusInfo(record);
                   const StatusIcon = status.icon;
 
@@ -502,6 +519,23 @@ export default function AttendanceManagement() {
             </tbody>
           </table>
         </div>
+
+        {filteredRecords.length > 0 && (
+          <div className="border-t border-gray-200">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredRecords.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(newSize) => {
+                setItemsPerPage(newSize);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[10, 20, 50, 100]}
+            />
+          </div>
+        )}
       </div>
 
       {/* View Modal */}

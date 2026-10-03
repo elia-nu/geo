@@ -33,6 +33,7 @@ import {
   FunnelIcon,
 } from "@heroicons/react/24/outline";
 import FinancialDashboard from "./FinancialDashboard";
+import Pagination from "./ui/Pagination";
 import {
   validateBudgetForm,
   validateExpenseForm,
@@ -1860,6 +1861,8 @@ const ExpensesTab = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const total = expenses.reduce(
     (sum, exp) => sum + (Number(exp.amount) || 0),
@@ -1882,6 +1885,16 @@ const ExpensesTab = ({
       statusFilter === "all" || (exp.status || "").toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage) || 1;
+  const paginatedExpenses = filteredExpenses.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div className="space-y-5 sm:space-y-6 min-w-0">
@@ -1963,7 +1976,8 @@ const ExpensesTab = ({
             description={searchTerm ? "Try searching for a different title or vendor." : "Click 'Add Expense' above to record an expense."}
           />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                 <tr>
@@ -1993,7 +2007,7 @@ const ExpensesTab = ({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100 text-xs sm:text-sm">
-                {filteredExpenses.map((expense) => (
+                {paginatedExpenses.map((expense) => (
                   <tr
                     key={expense._id}
                     className="hover:bg-slate-50/80 transition-colors"
@@ -2075,6 +2089,21 @@ const ExpensesTab = ({
               </tbody>
             </table>
           </div>
+          <div className="border-t border-slate-100">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredExpenses.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(sz) => {
+                setItemsPerPage(sz);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[5, 10, 25, 50]}
+            />
+          </div>
+        </>
         )}
       </SectionPanel>
     </div>

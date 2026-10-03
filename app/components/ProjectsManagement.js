@@ -131,10 +131,17 @@ export default function ProjectsManagement() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [anchorEl]);
 
+  const getAuthHeaders = () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   async function fetchProjects() {
     try {
       setLoading(true);
-      const res = await fetch("/api/projects");
+      const res = await fetch("/api/projects", {
+        headers: { ...getAuthHeaders() },
+      });
       const data = await res.json();
       if (data.success) {
         setProjects(data.projects);

@@ -13,6 +13,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   IconButton,
   Chip,
   Dialog,
@@ -64,6 +65,15 @@ const ProjectAlertsPage = () => {
     priority: "",
     alertType: "",
   });
+
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const paginatedAlerts = alerts.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   // Fetch alerts and projects on component mount
   useEffect(() => {
@@ -467,7 +477,7 @@ const ProjectAlertsPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {alerts.map((alert) => (
+                  {paginatedAlerts.map((alert) => (
                     <TableRow key={alert._id}>
                       <TableCell sx={{ py: 3, maxWidth: { xs: 200, sm: 300 } }}>
                         <Box
@@ -629,6 +639,18 @@ const ProjectAlertsPage = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              component="div"
+              count={alerts.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(e, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+            />
           </Paper>
         )}
 

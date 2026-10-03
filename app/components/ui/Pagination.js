@@ -14,38 +14,40 @@ export default function Pagination({
   showTotal = true,
   className = "",
 }) {
-  if (totalItems === 0 && totalPages <= 1) return null;
-
+  const effectiveTotalPages = Math.max(1, totalPages);
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
   // Generate pagination numbers with ellipsis
   const getPageNumbers = () => {
+    if (effectiveTotalPages <= 1) return [1];
     const pages = [];
     const maxVisible = 5;
 
-    if (totalPages <= maxVisible + 2) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    if (effectiveTotalPages <= maxVisible + 2) {
+      for (let i = 1; i <= effectiveTotalPages; i++) pages.push(i);
     } else {
       pages.push(1);
       if (currentPage > 3) pages.push("...");
 
       const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
+      const end = Math.min(effectiveTotalPages - 1, currentPage + 1);
 
       for (let i = start; i <= end; i++) {
         if (!pages.includes(i)) pages.push(i);
       }
 
-      if (currentPage < totalPages - 2) pages.push("...");
-      pages.push(totalPages);
+      if (currentPage < effectiveTotalPages - 2) pages.push("...");
+      pages.push(effectiveTotalPages);
     }
     return pages;
   };
 
+  const isNavigationDisabled = totalPages <= 1;
+
   return (
     <div
-      className={`flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-2 border-t border-slate-100 bg-white select-none ${className}`}
+      className={`flex flex-col sm:flex-row items-center justify-between gap-4 py-3.5 px-3 border-t border-slate-100 bg-white select-none ${className}`}
     >
       {/* Left side: Item counters & Page Size selector */}
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
@@ -75,86 +77,87 @@ export default function Pagination({
         )}
       </div>
 
-      {/* Right side: Page navigation controls */}
-      {totalPages > 1 && (
-        <div className="flex items-center gap-1">
-          {/* First page */}
-          <button
-            onClick={() => onPageChange(1)}
-            disabled={currentPage <= 1}
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
-            title="First Page"
-            aria-label="First page"
-          >
-            <ChevronsLeft className="w-4 h-4" />
-          </button>
+      {/* Right side: Page navigation controls - always visible so pagination presence is unmistakable */}
+      <div className="flex items-center gap-1">
+        {/* First page */}
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={isNavigationDisabled || currentPage <= 1}
+          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          title="First Page"
+          aria-label="First page"
+        >
+          <ChevronsLeft className="w-4 h-4" />
+        </button>
 
-          {/* Previous page */}
-          <button
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
-            title="Previous Page"
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+        {/* Previous page */}
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={isNavigationDisabled || currentPage <= 1}
+          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          title="Previous Page"
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
 
-          {/* Number buttons */}
-          <div className="flex items-center gap-1 px-1">
-            {getPageNumbers().map((page, index) => {
-              if (page === "...") {
-                return (
-                  <span
-                    key={`ellipsis-${index}`}
-                    className="px-2 py-1 text-slate-400 text-xs font-semibold"
-                  >
-                    ...
-                  </span>
-                );
-              }
-
-              const isCurrent = page === currentPage;
+        {/* Number buttons */}
+        <div className="flex items-center gap-1 px-1">
+          {getPageNumbers().map((page, index) => {
+            if (page === "...") {
               return (
-                <button
-                  key={`page-${page}`}
-                  onClick={() => onPageChange(page)}
-                  className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all ${
-                    isCurrent
-                      ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
-                  aria-current={isCurrent ? "page" : undefined}
+                <span
+                  key={`ellipsis-${index}`}
+                  className="px-2 py-1 text-slate-400 text-xs font-semibold"
                 >
-                  {page}
-                </button>
+                  ...
+                </span>
               );
-            })}
-          </div>
+            }
 
-          {/* Next page */}
-          <button
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
-            title="Next Page"
-            aria-label="Next page"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-
-          {/* Last page */}
-          <button
-            onClick={() => onPageChange(totalPages)}
-            disabled={currentPage >= totalPages}
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
-            title="Last Page"
-            aria-label="Last page"
-          >
-            <ChevronsRight className="w-4 h-4" />
-          </button>
+            const isCurrent = page === currentPage || (effectiveTotalPages === 1 && page === 1);
+            return (
+              <button
+                key={`page-${page}`}
+                onClick={() => onPageChange(page)}
+                disabled={isNavigationDisabled}
+                className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all ${
+                  isCurrent && totalItems > 0
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
+                    : isCurrent && totalItems === 0
+                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+                aria-current={isCurrent ? "page" : undefined}
+              >
+                {page}
+              </button>
+            );
+          })}
         </div>
-      )}
+
+        {/* Next page */}
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={isNavigationDisabled || currentPage >= totalPages}
+          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          title="Next Page"
+          aria-label="Next page"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+
+        {/* Last page */}
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={isNavigationDisabled || currentPage >= totalPages}
+          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          title="Last Page"
+          aria-label="Last page"
+        >
+          <ChevronsRight className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }

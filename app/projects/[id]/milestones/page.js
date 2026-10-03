@@ -21,6 +21,7 @@ import {
   showDeleteConfirmDialog,
 } from "../../../utils/sweetAlert";
 import { usePermissions } from "../../../hooks/usePermissions";
+import Pagination from "../../../components/ui/Pagination";
 
 const STATUS_OPTIONS = [
   { value: "not_started", label: "Not Started" },
@@ -82,6 +83,10 @@ const ProjectMilestonesPage = ({ params }) => {
   const [currentMilestone, setCurrentMilestone] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -266,6 +271,12 @@ const ProjectMilestonesPage = ({ params }) => {
             milestones.length
         )
       : 0;
+
+  const totalPages = Math.ceil(milestones.length / itemsPerPage) || 1;
+  const paginatedMilestones = milestones.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   if (loading) {
     return (
@@ -464,7 +475,7 @@ const ProjectMilestonesPage = ({ params }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {milestones.map((milestone) => {
+                    {paginatedMilestones.map((milestone) => {
                       const isDeleting = deletingId === milestone._id;
                       const statusKey = milestone.status || "not_started";
 
@@ -552,7 +563,7 @@ const ProjectMilestonesPage = ({ params }) => {
 
               {/* Mobile cards */}
               <div className="divide-y divide-slate-100 md:hidden">
-                {milestones.map((milestone) => {
+                {paginatedMilestones.map((milestone) => {
                   const isDeleting = deletingId === milestone._id;
                   const statusKey = milestone.status || "not_started";
 
@@ -627,6 +638,23 @@ const ProjectMilestonesPage = ({ params }) => {
                   );
                 })}
               </div>
+
+              {milestones.length > 0 && (
+                <div className="border-t border-slate-200 bg-white">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={milestones.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    onItemsPerPageChange={(newSize) => {
+                      setItemsPerPage(newSize);
+                      setCurrentPage(1);
+                    }}
+                    pageSizeOptions={[5, 10, 20, 50]}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

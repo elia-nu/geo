@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { RefreshCw, Shield, LogIn, Download, AlertTriangle } from "lucide-react";
 import * as XLSX from "xlsx";
+import Pagination from "./ui/Pagination";
 
 export default function UserActivitySecurityAuditReport() {
   const [loading, setLoading] = useState(false);
@@ -47,6 +48,19 @@ export default function UserActivitySecurityAuditReport() {
   const loginSummary = summary.loginSummary || {};
   const logins = reportData?.logins || [];
   const suspiciousPatterns = reportData?.suspiciousPatterns || [];
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [reportData]);
+
+  const totalPages = Math.ceil((logins?.length || 0) / itemsPerPage) || 1;
+  const paginatedLogins = (logins || []).slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const handleExportExcel = () => {
     if (!reportData) return;
@@ -196,7 +210,7 @@ export default function UserActivitySecurityAuditReport() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {logins.slice(0, 30).map((e, i) => (
+                  {paginatedLogins.map((e, i) => (
                     <tr key={e.id || i}>
                       <td className="px-3 py-2 text-gray-700">{e.timestamp ? new Date(e.timestamp).toLocaleString() : "—"}</td>
                       <td className="px-3 py-2 text-black">{e.actor ?? "—"}</td>
@@ -205,6 +219,20 @@ export default function UserActivitySecurityAuditReport() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="border-t border-gray-100">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={logins.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(sz) => {
+                  setItemsPerPage(sz);
+                  setCurrentPage(1);
+                }}
+                pageSizeOptions={[10, 25, 50]}
+              />
             </div>
           </div>
 

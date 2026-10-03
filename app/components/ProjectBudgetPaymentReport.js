@@ -28,6 +28,7 @@ import {
   Receipt,
   Layers,
 } from "lucide-react";
+import Pagination from "./ui/Pagination";
 
 export default function ProjectBudgetPaymentReport() {
   const [loading, setLoading] = useState(false);
@@ -50,6 +51,10 @@ export default function ProjectBudgetPaymentReport() {
   const [projectsList, setProjectsList] = useState([]);
   const [expandedProjects, setExpandedProjects] = useState({});
   const [viewMode, setViewMode] = useState("projects"); // 'projects' | 'installments' | 'analytics'
+  const [projectsPage, setProjectsPage] = useState(1);
+  const [projectsPerPage, setProjectsPerPage] = useState(10);
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const [ledgerPerPage, setLedgerPerPage] = useState(10);
 
   useEffect(() => {
     fetchProjectsList();
@@ -238,6 +243,27 @@ export default function ProjectBudgetPaymentReport() {
   const summary = reportData?.summary || {};
   const projects = reportData?.projects || [];
   const installmentsLedger = reportData?.installmentsLedger || [];
+
+  useEffect(() => {
+    setProjectsPage(1);
+    setLedgerPage(1);
+  }, [filters, viewMode, reportData]);
+
+  const totalProjectsPages =
+    Math.ceil((projects?.length || 0) / projectsPerPage) || 1;
+  const paginatedProjects = useMemo(() => {
+    if (!Array.isArray(projects)) return [];
+    const start = (projectsPage - 1) * projectsPerPage;
+    return projects.slice(start, start + projectsPerPage);
+  }, [projects, projectsPage, projectsPerPage]);
+
+  const totalLedgerPages =
+    Math.ceil((installmentsLedger?.length || 0) / ledgerPerPage) || 1;
+  const paginatedLedger = useMemo(() => {
+    if (!Array.isArray(installmentsLedger)) return [];
+    const start = (ledgerPage - 1) * ledgerPerPage;
+    return installmentsLedger.slice(start, start + ledgerPerPage);
+  }, [installmentsLedger, ledgerPage, ledgerPerPage]);
 
   return (
     <div className="space-y-6">
@@ -613,7 +639,8 @@ export default function ProjectBudgetPaymentReport() {
           </div>
         ) : viewMode === "projects" ? (
           /* VIEW 1: PROJECTS BREAKDOWN TABLE */
-          <div className="overflow-x-auto">
+          <>
+            <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
                 <tr>
@@ -631,7 +658,7 @@ export default function ProjectBudgetPaymentReport() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {projects.length > 0 ? (
-                  projects.map((proj) => {
+                  paginatedProjects.map((proj) => {
                     const isExpanded = !!expandedProjects[proj.projectId];
                     const isOverBudget = proj.totalExpenses > proj.totalBudget && proj.totalBudget > 0;
                     const hasOverdue = proj.totalOverdueIncome > 0;
@@ -903,9 +930,25 @@ export default function ProjectBudgetPaymentReport() {
               </tbody>
             </table>
           </div>
+          <div className="border-t border-slate-100">
+            <Pagination
+              currentPage={projectsPage}
+              totalPages={totalProjectsPages}
+              totalItems={projects.length}
+              itemsPerPage={projectsPerPage}
+              onPageChange={setProjectsPage}
+              onItemsPerPageChange={(sz) => {
+                setProjectsPerPage(sz);
+                setProjectsPage(1);
+              }}
+              pageSizeOptions={[5, 10, 25, 50]}
+            />
+          </div>
+        </>
         ) : (
           /* VIEW 2: COMPREHENSIVE INSTALLMENTS & MILESTONE SCHEDULE LEDGER */
-          <div className="overflow-x-auto">
+          <>
+            <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
                 <tr>
@@ -923,7 +966,7 @@ export default function ProjectBudgetPaymentReport() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {installmentsLedger.length > 0 ? (
-                  installmentsLedger.map((inst, index) => {
+                  paginatedLedger.map((inst, index) => {
                     const isPaid = inst.status === "paid";
                     const isOverdue = inst.status === "overdue";
                     const isDueToday = inst.status === "due_today";
@@ -1014,6 +1057,21 @@ export default function ProjectBudgetPaymentReport() {
               </tbody>
             </table>
           </div>
+          <div className="border-t border-slate-100">
+            <Pagination
+              currentPage={ledgerPage}
+              totalPages={totalLedgerPages}
+              totalItems={installmentsLedger.length}
+              itemsPerPage={ledgerPerPage}
+              onPageChange={setLedgerPage}
+              onItemsPerPageChange={(sz) => {
+                setLedgerPerPage(sz);
+                setLedgerPage(1);
+              }}
+              pageSizeOptions={[10, 25, 50, 100]}
+            />
+          </div>
+        </>
         )}
       </div>
     </div>

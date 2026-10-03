@@ -22,6 +22,7 @@ import {
   showWarningToast,
 } from "../../../utils/sweetAlert";
 import { usePermissions } from "../../../hooks/usePermissions";
+import Pagination from "../../../components/ui/Pagination";
 
 const getEmployeeDisplayName = (employee) => {
   return (
@@ -60,6 +61,16 @@ const ProjectTeamPage = ({ params }) => {
   const [assigning, setAssigning] = useState(false);
   const [removingId, setRemovingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const totalPages = Math.ceil(assignedEmployees.length / itemsPerPage) || 1;
+  const paginatedEmployees = assignedEmployees.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   useEffect(() => {
     fetchProjectData();
@@ -407,7 +418,7 @@ const ProjectTeamPage = ({ params }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {assignedEmployees.map((employee) => {
+                    {paginatedEmployees.map((employee) => {
                       const name = getEmployeeDisplayName(employee);
                       const isRemoving = removingId === employee._id;
 
@@ -462,7 +473,7 @@ const ProjectTeamPage = ({ params }) => {
 
               {/* Mobile cards */}
               <div className="divide-y divide-slate-100 md:hidden">
-                {assignedEmployees.map((employee) => {
+                {paginatedEmployees.map((employee) => {
                   const name = getEmployeeDisplayName(employee);
                   const isRemoving = removingId === employee._id;
 
@@ -511,6 +522,23 @@ const ProjectTeamPage = ({ params }) => {
                   );
                 })}
               </div>
+
+              {assignedEmployees.length > 0 && (
+                <div className="border-t border-slate-200 bg-white">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={assignedEmployees.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    onItemsPerPageChange={(newSize) => {
+                      setItemsPerPage(newSize);
+                      setCurrentPage(1);
+                    }}
+                    pageSizeOptions={[5, 10, 20, 50]}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

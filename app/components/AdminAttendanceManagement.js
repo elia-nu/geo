@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "./ui/toast";
 import { formatWorkingHours, calculateEffectiveWorkingHours } from "../utils/timeUtils";
+import Pagination from "./ui/Pagination";
 
 export default function AdminAttendanceManagement() {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -634,70 +635,25 @@ export default function AdminAttendanceManagement() {
         )}
 
         {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
-            <div className="text-xs text-slate-500">
-              Showing {(pagination.currentPage - 1) * pagination.recordsPerPage + 1} to{" "}
-              {Math.min(
-                pagination.currentPage * pagination.recordsPerPage,
-                pagination.totalRecords
-              )}{" "}
-              of {pagination.totalRecords} records
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() =>
-                  setPagination((prev) => ({
-                    ...prev,
-                    currentPage: prev.currentPage - 1,
-                  }))
-                }
-                disabled={pagination.currentPage === 1}
-                className="p-2 border border-slate-200 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 text-slate-600 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-1">
-                {Array.from(
-                  { length: Math.min(5, pagination.totalPages) },
-                  (_, i) => {
-                    const pageNum = i + 1;
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() =>
-                          setPagination((prev) => ({
-                            ...prev,
-                            currentPage: pageNum,
-                          }))
-                        }
-                        className={`w-8 h-8 rounded-xl text-xs font-bold transition-colors ${
-                          pagination.currentPage === pageNum
-                            ? "bg-indigo-600 text-white shadow-sm"
-                            : "border border-slate-200 text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  }
-                )}
-              </div>
-
-              <button
-                onClick={() =>
-                  setPagination((prev) => ({
-                    ...prev,
-                    currentPage: prev.currentPage + 1,
-                  }))
-                }
-                disabled={pagination.currentPage === pagination.totalPages}
-                className="p-2 border border-slate-200 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 text-slate-600 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+        {attendanceRecords.length > 0 && (
+          <div className="pt-4 border-t border-slate-100">
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalRecords}
+              itemsPerPage={pagination.recordsPerPage}
+              onPageChange={(page) =>
+                setPagination((prev) => ({ ...prev, currentPage: page }))
+              }
+              onItemsPerPageChange={(sz) =>
+                setPagination((prev) => ({
+                  ...prev,
+                  recordsPerPage: sz,
+                  currentPage: 1,
+                }))
+              }
+              pageSizeOptions={[5, 10, 15, 30, 50]}
+            />
           </div>
         )}
       </div>

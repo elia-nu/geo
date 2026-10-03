@@ -1139,38 +1139,18 @@ export default function DocumentManager() {
         )}
 
         {/* Pagination Controls */}
-        {filteredDocuments.length > 0 && (
-          <div className="px-6 py-4 bg-slate-50/60 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 text-xs text-slate-500">
-              <span>
-                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                {Math.min(currentPage * itemsPerPage, filteredDocuments.length)} of{" "}
-                {filteredDocuments.length} documents
-              </span>
-              <div className="flex items-center gap-1.5 ml-2">
-                <span>Per page:</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700"
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
-              </div>
-            </div>
-
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={(p) => setCurrentPage(p)}
-            />
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredDocuments.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={(p) => setCurrentPage(p)}
+          onItemsPerPageChange={(sz) => {
+            setItemsPerPage(sz);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50]}
+        />
       </div>
 
       {/* Upload & Edit Document Dialog */}

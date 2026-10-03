@@ -48,6 +48,9 @@ export default function LoginPage() {
         localStorage.setItem("authToken", result.data.token);
         localStorage.setItem("employeeToken", result.data.token);
         localStorage.setItem("employeeData", JSON.stringify(result.data.employee));
+        if (typeof document !== "undefined") {
+          document.cookie = `authToken=${result.data.token}; path=/; max-age=86400; SameSite=Lax`;
+        }
         const role = result.data.employee?.role;
 
         // Roles allowed to access HRM dashboard

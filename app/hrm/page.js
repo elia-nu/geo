@@ -228,6 +228,11 @@ export default function HRMDashboard() {
         return;
       }
 
+      // Ensure cookie is synced for API requests
+      if (typeof document !== "undefined") {
+        document.cookie = `authToken=${token}; path=/; max-age=86400; SameSite=Lax`;
+      }
+
       // Decode JWT token (basic validation)
       const payload = JSON.parse(atob(token.split(".")[1]));
       const currentTime = Date.now() / 1000;
@@ -323,10 +328,10 @@ export default function HRMDashboard() {
     "project-categories": "project.read",
 
     // Organization
-    "departments": "department.manage",
-    "designations": "designation.manage",
-    "work-locations": "location.manage",
-    "locations": "location.manage",
+    "departments": "department.read",
+    "designations": "designation.read",
+    "work-locations": "location.read",
+    "locations": "location.read",
 
     // Access Control
     "role-management": "role.manage",

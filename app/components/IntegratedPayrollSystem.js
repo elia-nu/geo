@@ -19,6 +19,7 @@ import {
   Eye,
 } from "lucide-react";
 import { formatWorkingHours } from "../utils/timeUtils";
+import Pagination from "./ui/Pagination";
 // Calendar UI removed to start fresh
 
 export default function IntegratedPayrollSystem() {
@@ -64,6 +65,12 @@ export default function IntegratedPayrollSystem() {
     department: "all",
     search: "",
   });
+
+  // Pagination states
+  const [attendancePage, setAttendancePage] = useState(1);
+  const [attendancePerPage, setAttendancePerPage] = useState(10);
+  const [payrollPage, setPayrollPage] = useState(1);
+  const [payrollPerPage, setPayrollPerPage] = useState(25);
 
   // Format currency for Ethiopian Birr
   const formatCurrency = (amount) => {
@@ -397,6 +404,26 @@ export default function IntegratedPayrollSystem() {
         return true;
       })
     : [];
+
+  // Reset attendance page on filter or data changes
+  useEffect(() => {
+    setAttendancePage(1);
+  }, [attendanceFilters, attendanceData]);
+
+  const totalAttendancePages =
+    Math.ceil(filteredAttendanceData.length / attendancePerPage) || 1;
+  const paginatedAttendanceData = useMemo(() => {
+    const start = (attendancePage - 1) * attendancePerPage;
+    return filteredAttendanceData.slice(start, start + attendancePerPage);
+  }, [filteredAttendanceData, attendancePage, attendancePerPage]);
+
+  const totalPayrollPages =
+    Math.ceil((payrollData?.length || 0) / payrollPerPage) || 1;
+  const paginatedPayrollData = useMemo(() => {
+    if (!Array.isArray(payrollData)) return [];
+    const start = (payrollPage - 1) * payrollPerPage;
+    return payrollData.slice(start, start + payrollPerPage);
+  }, [payrollData, payrollPage, payrollPerPage]);
 
   // Get unique departments for filter
   const departments =
@@ -932,7 +959,8 @@ export default function IntegratedPayrollSystem() {
 
             {/* Attendance Table */}
             {filteredAttendanceData.length > 0 && (
-              <div className="overflow-x-auto">
+              <>
+                <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-gray-50">
@@ -960,7 +988,7 @@ export default function IntegratedPayrollSystem() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredAttendanceData.map((record, index) => {
+                    {paginatedAttendanceData.map((record, index) => {
                       if (!record) return null;
 
                       const statusInfo = getStatusInfo(record);
@@ -1007,6 +1035,21 @@ export default function IntegratedPayrollSystem() {
                   </tbody>
                 </table>
               </div>
+              <div className="border-t border-gray-200 bg-white">
+                <Pagination
+                  currentPage={attendancePage}
+                  totalPages={totalAttendancePages}
+                  totalItems={filteredAttendanceData.length}
+                  itemsPerPage={attendancePerPage}
+                  onPageChange={setAttendancePage}
+                  onItemsPerPageChange={(sz) => {
+                    setAttendancePerPage(sz);
+                    setAttendancePage(1);
+                  }}
+                  pageSizeOptions={[10, 25, 50, 100]}
+                />
+              </div>
+            </>
             )}
 
             {filteredAttendanceData.length === 0 &&
@@ -1199,7 +1242,7 @@ export default function IntegratedPayrollSystem() {
                     </thead>
                     <tbody>
                       {Array.isArray(payrollData) &&
-                        payrollData.map((employee, index) => {
+                        paginatedPayrollData.map((employee, index) => {
                           if (!employee) return null;
 
                           return (
@@ -1210,7 +1253,7 @@ export default function IntegratedPayrollSystem() {
                               }
                             >
                               <td className="border border-gray-200 px-2 py-3 text-sm text-center text-gray-700">
-                                {index + 1}
+                                {(payrollPage - 1) * payrollPerPage + index + 1}
                               </td>
                               <td className="border border-gray-200 px-3 py-3 text-sm text-gray-700">
                                 {employee.joiningDate
@@ -1409,6 +1452,22 @@ export default function IntegratedPayrollSystem() {
                     </tfoot>
                   </table>
                 </div>
+                {Array.isArray(payrollData) && payrollData.length > 0 && (
+                  <div className="border-t border-gray-200 bg-white">
+                    <Pagination
+                      currentPage={payrollPage}
+                      totalPages={totalPayrollPages}
+                      totalItems={payrollData.length}
+                      itemsPerPage={payrollPerPage}
+                      onPageChange={setPayrollPage}
+                      onItemsPerPageChange={(sz) => {
+                        setPayrollPerPage(sz);
+                        setPayrollPage(1);
+                      }}
+                      pageSizeOptions={[15, 25, 50, 100]}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 

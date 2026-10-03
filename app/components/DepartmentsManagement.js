@@ -22,6 +22,7 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "./ui/toast";
+import Pagination from "./ui/Pagination";
 import { usePermissions } from "../hooks/usePermissions";
 
 export default function DepartmentsManagement() {
@@ -30,6 +31,8 @@ export default function DepartmentsManagement() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState("cards"); // 'cards' | 'table'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(9);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [form, setForm] = useState({ name: "", description: "" });
   const [creating, setCreating] = useState(false);
@@ -182,6 +185,16 @@ export default function DepartmentsManagement() {
       )
     );
   }, [departments, search]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+  const paginatedDepartments = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
 
   const totalEmployees = useMemo(() => {
     return departments.reduce(
@@ -370,7 +383,7 @@ export default function DepartmentsManagement() {
       ) : viewMode === "cards" ? (
         /* Card Grid View */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((dept) => {
+          {paginatedDepartments.map((dept) => {
             const empCount = dept.employees?.length ?? dept.employeeCount ?? 0;
             return (
               <div
@@ -462,7 +475,7 @@ export default function DepartmentsManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {filtered.map((dept) => {
+                {paginatedDepartments.map((dept) => {
                   const empCount = dept.employees?.length ?? dept.employeeCount ?? 0;
                   return (
                     <tr key={dept._id} className="hover:bg-slate-50/60 transition-colors">
@@ -522,6 +535,24 @@ export default function DepartmentsManagement() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Pagination Bar */}
+      {filtered.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filtered.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(size) => {
+              setItemsPerPage(size);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[6, 9, 15, 30]}
+          />
         </div>
       )}
 
