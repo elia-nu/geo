@@ -17,8 +17,10 @@ import {
 import Layout from "./Layout";
 import Pagination from "./ui/Pagination";
 import { toast } from "./ui/toast";
+import { usePermissions } from "../hooks/usePermissions";
 
 const CategoryManagement = () => {
+  const { hasPermission } = usePermissions();
   const [activeTab, setActiveTab] = useState("project");
   const [categories, setCategories] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -226,13 +228,15 @@ const CategoryManagement = () => {
             </div>
           </div>
 
-          <button
-            onClick={handleCreate}
-            className="flex items-center gap-2 bg-white text-indigo-900 hover:bg-indigo-50 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all hover:scale-105 self-start lg:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Category</span>
-          </button>
+          {(hasPermission("project.create") || hasPermission("project.update")) && (
+            <button
+              onClick={handleCreate}
+              className="flex items-center gap-2 bg-white text-indigo-900 hover:bg-indigo-50 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all hover:scale-105 self-start lg:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Category</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -352,20 +356,24 @@ const CategoryManagement = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-xs font-medium">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleEdit(category)}
-                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(category)}
-                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {hasPermission("project.update") && (
+                            <button
+                              onClick={() => handleEdit(category)}
+                              className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {hasPermission("project.delete") && (
+                            <button
+                              onClick={() => handleDelete(category)}
+                              className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

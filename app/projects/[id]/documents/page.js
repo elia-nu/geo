@@ -18,9 +18,11 @@ import {
   showLoadingToast,
   showSuccessToast,
 } from "../../../utils/sweetAlert";
+import { usePermissions } from "../../../hooks/usePermissions";
 
 export default function ProjectDocumentsPage({ params }) {
   const { id: projectId } = use(params);
+  const { hasPermission } = usePermissions();
 
   const [project, setProject] = useState(null);
   const [documents, setDocuments] = useState([]);
@@ -260,13 +262,15 @@ export default function ProjectDocumentsPage({ params }) {
               {documents.length} document(s) • {expiringSoonCount} expiring within 30 days
             </p>
           </div>
-          <button
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-            onClick={openAdd}
-          >
-            <AddIcon className="mr-2 h-4 w-4" />
-            Add Document
-          </button>
+          {hasPermission("project.update") && (
+            <button
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={openAdd}
+            >
+              <AddIcon className="mr-2 h-4 w-4" />
+              Add Document
+            </button>
+          )}
         </div>
 
         {error && (
@@ -337,27 +341,33 @@ export default function ProjectDocumentsPage({ params }) {
                         >
                           <VisibilityIcon className="h-4 w-4" />
                         </a>
-                        <button
-                          className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-50 transition-colors"
-                          onClick={() => notify(d)}
-                          title="Notify contractor"
-                        >
-                          <NotificationsIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
-                          onClick={() => openEdit(d)}
-                          title="Edit"
-                        >
-                          <EditIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50 transition-colors"
-                          onClick={() => removeDocument(d)}
-                          title="Remove"
-                        >
-                          <DeleteIcon className="h-4 w-4" />
-                        </button>
+                        {hasPermission("project.update") && (
+                          <button
+                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-50 transition-colors"
+                            onClick={() => notify(d)}
+                            title="Notify contractor"
+                          >
+                            <NotificationsIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                        {hasPermission("project.update") && (
+                          <button
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                            onClick={() => openEdit(d)}
+                            title="Edit"
+                          >
+                            <EditIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                        {hasPermission("project.delete") && (
+                          <button
+                            className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50 transition-colors"
+                            onClick={() => removeDocument(d)}
+                            title="Remove"
+                          >
+                            <DeleteIcon className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

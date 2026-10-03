@@ -3,7 +3,7 @@ import { ObjectId } from "mongodb";
 import { join } from "path";
 import { mkdir, writeFile } from "fs/promises";
 import { getDb } from "../../../mongo";
-import { getCurrentUser } from "../../../middleware/auth";
+import { getCurrentUser, checkPermission } from "../../../middleware/auth";
 import { createAuditLog } from "../../../../utils/audit";
 
 function safeFilename(name) {
@@ -55,8 +55,18 @@ export async function GET(request, { params }) {
 // multipart/form-data: file + contractorName + contractorEmail + expiryDate + title + description
 export async function POST(request, { params }) {
   try {
-    const db = await getDb();
     const user = await getCurrentUser(request);
+    if (user && user.authenticated) {
+      const hasPerm = await checkPermission(user.userId, "project.update", user.role);
+      if (!hasPerm) {
+        return NextResponse.json(
+          { success: false, error: "Access denied: Missing 'project.update' permission" },
+          { status: 403 }
+        );
+      }
+    }
+
+    const db = await getDb();
     const { id: projectId } = await params;
 
     if (!ObjectId.isValid(projectId)) {

@@ -12,11 +12,14 @@ export async function GET(request) {
     // Get current user for role-based access
     const user = await getCurrentUser(request);
     
-    // Check permission to view reports (pass role from token)
-    const hasPermission = await checkPermission(user.userId, "reports.read", user.role);
+    // Check permission to view role audit reports (reports.organization or role.manage or role.read)
+    const hasPermission =
+      (await checkPermission(user.userId, "reports.organization", user.role)) ||
+      (await checkPermission(user.userId, "role.manage", user.role)) ||
+      (await checkPermission(user.userId, "role.read", user.role));
     if (!hasPermission) {
       return NextResponse.json(
-        { error: "Access denied. You don't have permission to view reports." },
+        { error: "Access denied. You don't have permission to view role audit reports." },
         { status: 403 }
       );
     }
@@ -133,59 +136,51 @@ export async function GET(request) {
       "profile",
     ];
 
-    // Standard role definitions (UI-driven)
-    const standardRoles = {
-      ADMIN: {
-        name: "Administrator",
-        permissions: adminUiPermissions,
-      },
-      HR_MANAGER: {
-        name: "HR Manager",
-        permissions: [
-          "employee.create",
-          "employee.read",
-          "employee.update",
-          "document.create",
-          "document.read",
-          "document.update",
-          "document.delete",
-          "reports.read",
-          "reports.export",
-          "audit.read",
-          "notifications.manage",
-        ],
-      },
-      HR_STAFF: {
-        name: "HR Staff",
-        permissions: [
-          "employee.read",
-          "employee.update",
-          "document.create",
-          "document.read",
-          "document.update",
-          "reports.read",
-        ],
-      },
-      EMPLOYEE: {
-        name: "Employee",
-        permissions: employeeUiPermissions,
-      },
-    };
+    // Dynamic role definitions from DB (with fallback to defaults)
+    const dbRoles = await db.collection("roles").find({ isActive: true }).toArray();
+    const dynamicRoles = {};
+    if (dbRoles && dbRoles.length > 0) {
+      for (const r of dbRoles) {
+        dynamicRoles[r.name] = {
+          name: r.displayName || r.name,
+          permissions: r.permissions || [],
+          level: r.level || 10,
+        };
+      }
+    } else {
+      dynamicRoles.ADMIN = { name: "Administrator", permissions: adminUiPermissions, level: 100 };
+      dynamicRoles.HR_MANAGER = { name: "HR Manager", permissions: ["employee.create", "employee.read", "employee.update", "document.create", "document.read", "reports.read"], level: 80 };
+      dynamicRoles.HR_STAFF = { name: "HR Staff", permissions: ["employee.read", "employee.update", "document.read"], level: 60 };
+      dynamicRoles.EMPLOYEE = { name: "Employee", permissions: employeeUiPermissions, level: 10 };
+    }
 
     // Analyze roles and permissions (one aggregated entry per role)
     const allPermissions = new Set();
     const roleMap = new Map(); // roleName -> aggregated role info
 
+    // Pre-populate roleMap with all DB-defined roles
+    for (const [name, def] of Object.entries(dynamicRoles)) {
+      roleMap.set(name, {
+        role: name,
+        roleDisplayName: def.name,
+        standardPermissions: def.permissions,
+        userIds: new Set(),
+        assignedUsers: [],
+        actualPermissionsSet: new Set(def.permissions),
+      });
+      def.permissions.forEach((p) => allPermissions.add(p));
+    }
+
     userRoles.forEach((userRole) => {
-      const roleName = userRole.role || "UNKNOWN";
-      const standardRole = standardRoles[roleName];
-      const standardPermissions = standardRole?.permissions || [];
+      const roleName = userRole.roleName || userRole.role || "UNKNOWN";
+      const dynamicRole = dynamicRoles[roleName];
+      const standardPermissions = dynamicRole?.permissions || [];
 
       // Ensure role entry
       if (!roleMap.has(roleName)) {
         roleMap.set(roleName, {
           role: roleName,
-          roleDisplayName: standardRole?.name || roleName,
+          roleDisplayName: dynamicRole?.name || roleName,
           standardPermissions,
           userIds: new Set(),
           assignedUsers: [],
@@ -326,7 +321,7 @@ export async function GET(request) {
       generatedAt: new Date().toISOString(),
       summary,
       roles: uniqueRoleAnalysis,
-      standardRoles,
+      standardRoles: dynamicRoles,
       totalRecords: uniqueRoleAnalysis.length,
     });
   } catch (error) {

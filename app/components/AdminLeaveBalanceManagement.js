@@ -17,8 +17,13 @@ import {
   X,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
+import usePermissions from "../hooks/usePermissions";
 
 export default function AdminLeaveBalanceManagement() {
+  const { hasPermission } = usePermissions();
+  const canManageLeave = hasPermission("leave.manage");
+  const canViewLeave = hasPermission("leave.view.all") || hasPermission("leave.read") || canManageLeave;
+  const canExportLeave = hasPermission("reports.leave") || hasPermission("reports.read") || canManageLeave;
   const [leaveBalances, setLeaveBalances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -297,13 +302,15 @@ export default function AdminLeaveBalanceManagement() {
               Refresh
             </button>
 
-            <button
-              onClick={exportLeaveBalances}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition-colors shadow-sm"
-            >
-              <Download className="w-4 h-4" />
-              Export
-            </button>
+            {canExportLeave && (
+              <button
+                onClick={exportLeaveBalances}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition-colors shadow-sm"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+            )}
           </div>
         </div>
 
@@ -594,37 +601,43 @@ export default function AdminLeaveBalanceManagement() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => {
-                              setSelectedEmployee(employee);
-                              setSelectedLeaveType("annual");
-                              setShowAdjustmentModal(true);
-                            }}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Adjust Annual Leave"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedEmployee(employee);
-                              setSelectedLeaveType("annual");
-                              setShowViewModal(true);
-                            }}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="View Annual Leave Balance"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              recalculateBalance(employee.employeeId)
-                            }
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="Recalculate"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </button>
+                          {canManageLeave && (
+                            <button
+                              onClick={() => {
+                                setSelectedEmployee(employee);
+                                setSelectedLeaveType("annual");
+                                setShowAdjustmentModal(true);
+                              }}
+                              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Adjust Annual Leave"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canViewLeave && (
+                            <button
+                              onClick={() => {
+                                setSelectedEmployee(employee);
+                                setSelectedLeaveType("annual");
+                                setShowViewModal(true);
+                              }}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="View Annual Leave Balance"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canManageLeave && (
+                            <button
+                              onClick={() =>
+                                recalculateBalance(employee.employeeId)
+                              }
+                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              title="Recalculate"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

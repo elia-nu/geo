@@ -30,6 +30,7 @@ import UploadDocumentDialog from "./UploadDocumentDialog";
 import DocumentDetailViewerModal from "./DocumentDetailViewerModal";
 import Pagination from "./ui/Pagination";
 import { toast } from "./ui/toast";
+import { usePermissions } from "../hooks/usePermissions";
 
 const DOCUMENT_CATEGORIES = [
   "All Types",
@@ -48,6 +49,7 @@ const DOCUMENT_CATEGORIES = [
 ];
 
 export default function DocumentManager() {
+  const { hasPermission } = usePermissions();
   const [documents, setDocuments] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -568,29 +570,31 @@ export default function DocumentManager() {
               <span className="hidden sm:inline">Refresh</span>
             </button>
 
-            <button
-              onClick={() => {
-                setEditingDocumentId(null);
-                setSelectedFile(null);
-                setNewDocument({
-                  entityType: "employee",
-                  employeeId: "",
-                  clientName: "",
-                  documentType: "",
-                  title: "",
-                  description: "",
-                  uploadDate: new Date(),
-                  expiryDate: "",
-                  status: "active",
-                  tags: [],
-                });
-                setIsUploadDialogOpen(true);
-              }}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Upload Document</span>
-            </button>
+            {hasPermission("document.create") && (
+              <button
+                onClick={() => {
+                  setEditingDocumentId(null);
+                  setSelectedFile(null);
+                  setNewDocument({
+                    entityType: "employee",
+                    employeeId: "",
+                    clientName: "",
+                    documentType: "",
+                    title: "",
+                    description: "",
+                    uploadDate: new Date(),
+                    expiryDate: "",
+                    status: "active",
+                    tags: [],
+                  });
+                  setIsUploadDialogOpen(true);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Upload Document</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -930,46 +934,54 @@ export default function DocumentManager() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* View in Detail */}
-                          <button
-                            type="button"
-                            onClick={() => openViewDialog(doc)}
-                            className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all font-semibold"
-                            title="See in Detail & Preview"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
+                          {hasPermission("document.read") && (
+                            <button
+                              type="button"
+                              onClick={() => openViewDialog(doc)}
+                              className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all font-semibold"
+                              title="See in Detail & Preview"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          )}
 
                           {/* Download */}
-                          <a
-                            href={`/api/documents/${docId}/download`}
-                            download={doc.originalName || "document"}
-                            className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all font-semibold"
-                            title="Download File"
-                          >
-                            <Download className="w-4 h-4" />
-                          </a>
+                          {hasPermission("document.read") && (
+                            <a
+                              href={`/api/documents/${docId}/download`}
+                              download={doc.originalName || "document"}
+                              className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all font-semibold"
+                              title="Download File"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          )}
 
                           {/* Edit / Replace */}
-                          <button
-                            type="button"
-                            onClick={() => openEditDialog(doc)}
-                            className="p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-all font-semibold"
-                            title="Edit / Replace File"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
+                          {hasPermission("document.update") && (
+                            <button
+                              type="button"
+                              onClick={() => openEditDialog(doc)}
+                              className="p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-all font-semibold"
+                              title="Edit / Replace File"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
 
                           {/* Delete */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDeleteDocument(docId, doc.title || doc.originalName)
-                            }
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                            title="Delete Document"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {hasPermission("document.delete") && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDeleteDocument(docId, doc.title || doc.originalName)
+                              }
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                              title="Delete Document"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1074,43 +1086,51 @@ export default function DocumentManager() {
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openViewDialog(doc)}
-                      className="flex-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-all flex items-center justify-center gap-1"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>View</span>
-                    </button>
+                    {hasPermission("document.read") && (
+                      <button
+                        type="button"
+                        onClick={() => openViewDialog(doc)}
+                        className="flex-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-all flex items-center justify-center gap-1"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View</span>
+                      </button>
+                    )}
 
-                    <a
-                      href={`/api/documents/${docId}/download`}
-                      download={doc.originalName || "document"}
-                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all"
-                      title="Download"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </a>
+                    {hasPermission("document.read") && (
+                      <a
+                        href={`/api/documents/${docId}/download`}
+                        download={doc.originalName || "document"}
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all"
+                        title="Download"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </a>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={() => openEditDialog(doc)}
-                      className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 transition-all"
-                      title="Edit / Replace"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
+                    {hasPermission("document.update") && (
+                      <button
+                        type="button"
+                        onClick={() => openEditDialog(doc)}
+                        className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 transition-all"
+                        title="Edit / Replace"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDeleteDocument(docId, doc.title || doc.originalName)
-                      }
-                      className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {hasPermission("document.delete") && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDeleteDocument(docId, doc.title || doc.originalName)
+                        }
+                        className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );

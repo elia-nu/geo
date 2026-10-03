@@ -22,7 +22,7 @@ export async function GET(request) {
     try {
       user = await getCurrentUser(request);
       if (user) {
-        const hasPermission = await checkPermission(user.userId, "reports.read", user.role);
+        const hasPermission = await checkPermission(user.userId, "reports.project", user.role);
         if (!hasPermission && user.role !== "admin" && user.role !== "superadmin") {
           return NextResponse.json(
             { error: "Access denied. You don't have permission to view project reports." },

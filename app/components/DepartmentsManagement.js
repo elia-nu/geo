@@ -22,8 +22,10 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "./ui/toast";
+import { usePermissions } from "../hooks/usePermissions";
 
 export default function DepartmentsManagement() {
+  const { hasPermission } = usePermissions();
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -215,16 +217,18 @@ export default function DepartmentsManagement() {
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </button>
-            <button
-              onClick={() => {
-                setForm({ name: "", description: "" });
-                setIsAddOpen(true);
-              }}
-              className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-lg shadow-blue-500/25 border border-blue-400/30 inline-flex items-center gap-2 transition-all active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              New Department
-            </button>
+            {hasPermission("department.manage") && (
+              <button
+                onClick={() => {
+                  setForm({ name: "", description: "" });
+                  setIsAddOpen(true);
+                }}
+                className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-lg shadow-blue-500/25 border border-blue-400/30 inline-flex items-center gap-2 transition-all active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                New Department
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -354,7 +358,7 @@ export default function DepartmentsManagement() {
               ? "Try clearing or adjusting your search query."
               : "Get started by creating your organization's first department."}
           </p>
-          {!search && (
+          {!search && hasPermission("department.manage") && (
             <button
               onClick={() => setIsAddOpen(true)}
               className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-xl inline-flex items-center gap-1.5 shadow-sm"
@@ -402,28 +406,34 @@ export default function DepartmentsManagement() {
                 </div>
 
                 <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
-                  <button
-                    onClick={() => setViewDept(dept)}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
-                  >
-                    <Eye className="w-3.5 h-3.5" /> View Members
-                  </button>
+                  {hasPermission("department.read") && (
+                    <button
+                      onClick={() => setViewDept(dept)}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View Members
+                    </button>
+                  )}
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => startEdit(dept)}
-                      className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Edit Department"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteDept(dept)}
-                      className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                      title="Delete Department"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="flex items-center gap-1 ml-auto">
+                    {hasPermission("department.manage") && (
+                      <button
+                        onClick={() => startEdit(dept)}
+                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit Department"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {hasPermission("department.manage") && (
+                      <button
+                        onClick={() => setDeleteDept(dept)}
+                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Delete Department"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -477,27 +487,33 @@ export default function DepartmentsManagement() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setViewDept(dept)}
-                            className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => startEdit(dept)}
-                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit Department"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteDept(dept)}
-                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Delete Department"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {hasPermission("department.read") && (
+                            <button
+                              onClick={() => setViewDept(dept)}
+                              className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          )}
+                          {hasPermission("department.manage") && (
+                            <button
+                              onClick={() => startEdit(dept)}
+                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit Department"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {hasPermission("department.manage") && (
+                            <button
+                              onClick={() => setDeleteDept(dept)}
+                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Delete Department"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

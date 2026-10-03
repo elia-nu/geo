@@ -57,6 +57,7 @@ import {
 } from "../utils/incomeLifecycle";
 import MetricCard from "./financial/MetricCard";
 import AmountCell from "./financial/AmountCell";
+import { usePermissions } from "../hooks/usePermissions";
 
 const PAYMENT_FREQUENCIES = [
   { value: "lump_sum", label: "Lump Sum" },
@@ -277,6 +278,9 @@ const EmptyState = ({ icon: Icon, title, description, action }) => (
 );
 
 const ProjectFinancialManagement = ({ projectId, projectName }) => {
+  const { hasPermission } = usePermissions();
+  const canManageBudget = hasPermission("project.budget");
+
   function getStatusColor(status) {
     switch ((status || "").toLowerCase()) {
       case "not_started":
@@ -1107,60 +1111,62 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
-            {!budgetData ? (
+          {canManageBudget && (
+            <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
+              {!budgetData ? (
+                <button
+                  onClick={() => {
+                    setBudgetForm({
+                      totalAmount: "",
+                      currency: "ETB",
+                      description: "",
+                      approvedBy: "",
+                      approvalDate: "",
+                    });
+                    setBudgetFormErrors({});
+                    setShowBudgetModal(true);
+                  }}
+                  disabled={!!actionLoading}
+                  className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Create Budget
+                </button>
+              ) : (
+                <button
+                  onClick={handleOpenEditBudget}
+                  disabled={!!actionLoading}
+                  className="inline-flex items-center gap-1.5 bg-slate-700/80 hover:bg-slate-700 text-white border border-white/10 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
+                >
+                  <PencilIcon className="w-4 h-4 text-slate-300" />
+                  Edit Budget
+                </button>
+              )}
               <button
                 onClick={() => {
-                  setBudgetForm({
-                    totalAmount: "",
-                    currency: "ETB",
-                    description: "",
-                    approvedBy: "",
-                    approvalDate: "",
-                  });
-                  setBudgetFormErrors({});
-                  setShowBudgetModal(true);
+                  resetExpenseForm();
+                  setEditingExpenseId(null);
+                  setShowExpenseModal(true);
                 }}
                 disabled={!!actionLoading}
-                className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
               >
                 <PlusIcon className="w-4 h-4" />
-                Create Budget
+                Add Expense
               </button>
-            ) : (
               <button
-                onClick={handleOpenEditBudget}
+                onClick={() => {
+                  resetPaymentPlanForm();
+                  setShowPaymentPlanModal(true);
+                }}
                 disabled={!!actionLoading}
-                className="inline-flex items-center gap-1.5 bg-slate-700/80 hover:bg-slate-700 text-white border border-white/10 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
               >
-                <PencilIcon className="w-4 h-4 text-slate-300" />
-                Edit Budget
+                <PlusIcon className="w-4 h-4" />
+                Add Payment Plan
               </button>
-            )}
-            <button
-              onClick={() => {
-                resetExpenseForm();
-                setEditingExpenseId(null);
-                setShowExpenseModal(true);
-              }}
-              disabled={!!actionLoading}
-              className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Add Expense
-            </button>
-            <button
-              onClick={() => {
-                resetPaymentPlanForm();
-                setShowPaymentPlanModal(true);
-              }}
-              disabled={!!actionLoading}
-              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all duration-150 disabled:opacity-60"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Add Payment Plan
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1239,18 +1245,22 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             currencyTitle={currencyTitle}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
-            onCreateBudget={() => {
-              setBudgetForm({
-                totalAmount: "",
-                currency: "ETB",
-                description: "",
-                approvedBy: "",
-                approvalDate: "",
-              });
-              setBudgetFormErrors({});
-              setShowBudgetModal(true);
-            }}
-            onEditBudget={handleOpenEditBudget}
+            onCreateBudget={
+              canManageBudget
+                ? () => {
+                    setBudgetForm({
+                      totalAmount: "",
+                      currency: "ETB",
+                      description: "",
+                      approvedBy: "",
+                      approvalDate: "",
+                    });
+                    setBudgetFormErrors({});
+                    setShowBudgetModal(true);
+                  }
+                : null
+            }
+            onEditBudget={canManageBudget ? handleOpenEditBudget : null}
           />
         )}
 
@@ -1262,8 +1272,8 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             currencyTitle={currencyTitle}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
-            onEditExpense={handleOpenEditExpense}
-            onDeleteExpense={handleDeleteExpense}
+            onEditExpense={canManageBudget ? handleOpenEditExpense : null}
+            onDeleteExpense={canManageBudget ? handleDeleteExpense : null}
             onPreviewReceipt={(url) => setPreviewReceiptImage(url)}
           />
         )}
@@ -1278,13 +1288,17 @@ const ProjectFinancialManagement = ({ projectId, projectName }) => {
             getStatusColor={getStatusColor}
             formatDate={formatDate}
             actionLoading={actionLoading}
-            onMarkPaid={handleMarkInstallmentPaid}
-            onAddLumpSumInstallment={handleAddLumpSumInstallment}
-            onDeletePlan={handleDeletePaymentPlan}
-            onAddPlan={() => {
-              resetPaymentPlanForm();
-              setShowPaymentPlanModal(true);
-            }}
+            onMarkPaid={canManageBudget ? handleMarkInstallmentPaid : null}
+            onAddLumpSumInstallment={canManageBudget ? handleAddLumpSumInstallment : null}
+            onDeletePlan={canManageBudget ? handleDeletePaymentPlan : null}
+            onAddPlan={
+              canManageBudget
+                ? () => {
+                    resetPaymentPlanForm();
+                    setShowPaymentPlanModal(true);
+                  }
+                : null
+            }
             onRefresh={fetchPaymentPlans}
           />
         )}
@@ -1704,13 +1718,15 @@ const BudgetTab = ({
           title="No project budget set"
           description="Create a project budget to set spending limits and monitor cost utilization."
           action={
-            <button
-              onClick={onCreateBudget}
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Create Budget
-            </button>
+            onCreateBudget ? (
+              <button
+                onClick={onCreateBudget}
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Create Budget
+              </button>
+            ) : null
           }
         />
       </SectionPanel>
@@ -1728,13 +1744,15 @@ const BudgetTab = ({
         title="Project Budget Overview"
         subtitle="Total allocated baseline budget, direct project expenses, and remaining funds"
         action={
-          <button
-            onClick={onEditBudget}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-xs"
-          >
-            <PencilIcon className="w-4 h-4" />
-            Edit Budget
-          </button>
+          onEditBudget ? (
+            <button
+              onClick={onEditBudget}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-xs"
+            >
+              <PencilIcon className="w-4 h-4" />
+              Edit Budget
+            </button>
+          ) : null
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -1967,9 +1985,11 @@ const ExpensesTab = ({
                   <th className="px-4 py-3 text-left text-xs uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-right text-xs uppercase tracking-wider">
-                    Actions
-                  </th>
+                  {(onEditExpense || onDeleteExpense) && (
+                    <th className="px-4 py-3 text-right text-xs uppercase tracking-wider">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100 text-xs sm:text-sm">
@@ -2026,24 +2046,30 @@ const ExpensesTab = ({
                         {expense.status || "approved"}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          onClick={() => onEditExpense(expense)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Edit Expense"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onDeleteExpense(expense._id)}
-                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Delete Expense"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                    {(onEditExpense || onDeleteExpense) && (
+                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                        <div className="inline-flex items-center gap-1">
+                          {onEditExpense && (
+                            <button
+                              onClick={() => onEditExpense(expense)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit Expense"
+                            >
+                              <PencilIcon className="w-4 h-4" />
+                            </button>
+                          )}
+                          {onDeleteExpense && (
+                            <button
+                              onClick={() => onDeleteExpense(expense._id)}
+                              className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Delete Expense"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -2191,13 +2217,15 @@ const PaymentPlanCard = ({
                 <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
               </Link>
             )}
-            <button
-              onClick={() => onDeletePlan(plan._id)}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-              title="Delete Payment Plan"
-            >
-              <TrashIcon className="w-4 h-4" />
-            </button>
+            {onDeletePlan && (
+              <button
+                onClick={() => onDeletePlan(plan._id)}
+                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                title="Delete Payment Plan"
+              >
+                <TrashIcon className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -2422,7 +2450,7 @@ const PaymentPlanCard = ({
                                 <CheckCircleIcon className="w-3.5 h-3.5" />
                                 Received
                               </span>
-                            ) : (
+                            ) : onMarkPaid ? (
                               <button
                                 onClick={() =>
                                   onMarkPaid(
@@ -2440,6 +2468,8 @@ const PaymentPlanCard = ({
                                 )}
                                 <span>Mark Paid</span>
                               </button>
+                            ) : (
+                              <span className="text-slate-400 text-xs">Unpaid</span>
                             )}
                           </td>
                         </tr>
@@ -2720,13 +2750,15 @@ const PaymentsTab = ({
               <span>Refresh</span>
             </button>
           )}
-          <button
-            onClick={onAddPlan}
-            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-sm hover:shadow transition-all whitespace-nowrap"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Add Payment Plan
-          </button>
+          {onAddPlan && (
+            <button
+              onClick={onAddPlan}
+              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-sm hover:shadow transition-all whitespace-nowrap"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Add Payment Plan
+            </button>
+          )}
         </div>
       </div>
 
@@ -2929,13 +2961,15 @@ const PaymentsTab = ({
             }
             action={
               paymentPlans.length === 0 ? (
-                <button
-                  onClick={onAddPlan}
-                  className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-all"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Add Payment Plan
-                </button>
+                onAddPlan ? (
+                  <button
+                    onClick={onAddPlan}
+                    className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-all"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Add Payment Plan
+                  </button>
+                ) : null
               ) : (
                 <button
                   onClick={() => {

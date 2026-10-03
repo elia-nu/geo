@@ -22,11 +22,14 @@ import {
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
 import { toast } from "./ui/toast";
+import usePermissions from "../hooks/usePermissions";
 
 export default function ManagerLeaveApproval({
   managerId,
   managerName = "Manager",
 }) {
+  const { hasPermission } = usePermissions();
+  const canApproveLeave = hasPermission("leave.approve");
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -482,7 +485,7 @@ export default function ManagerLeaveApproval({
                           <StatusIcon className="w-3.5 h-3.5" />
                           {status.text}
                         </span>
-                        {request.status === "pending" && (
+                        {request.status === "pending" && canApproveLeave && (
                           <div className="flex gap-1.5">
                             <button
                               onClick={() => handleApprovalAction(request, "approve")}

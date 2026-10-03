@@ -43,9 +43,10 @@ export default function EmployeePortal() {
   const handleLogout = () => {
     try {
       localStorage.removeItem("employeeToken");
+      localStorage.removeItem("authToken");
       localStorage.removeItem("employeeData");
     } catch {}
-    window.location.href = "/employee-login";
+    window.location.href = "/login";
   };
 
   useEffect(() => {
@@ -54,19 +55,49 @@ export default function EmployeePortal() {
 
   const checkAuthentication = async () => {
     try {
-      const token = localStorage.getItem("employeeToken");
-      const storedData = localStorage.getItem("employeeData");
+      const token = localStorage.getItem("employeeToken") || localStorage.getItem("authToken");
+      let storedData = localStorage.getItem("employeeData");
 
-      if (!token || !storedData) {
-        window.location.href = "/employee-login";
+      if (!token) {
+        window.location.href = "/login";
         return;
       }
 
-      const employee = JSON.parse(storedData);
-      console.log("Employee data from localStorage:", employee);
+      let employee = null;
+      if (storedData) {
+        try {
+          employee = JSON.parse(storedData);
+        } catch (e) {
+          console.error("Error parsing employeeData:", e);
+        }
+      }
+
+      if (!employee) {
+        try {
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          employee = {
+            _id: payload.id || payload.userId || payload.employeeId,
+            id: payload.id || payload.userId || payload.employeeId,
+            employeeId: payload.employeeId,
+            name: payload.name,
+            email: payload.email,
+            role: payload.role,
+          };
+          localStorage.setItem("employeeData", JSON.stringify(employee));
+        } catch (e) {
+          console.error("Error decoding token in employee portal:", e);
+        }
+      }
+
+      if (!employee) {
+        window.location.href = "/login";
+        return;
+      }
+
+      console.log("Employee data:", employee);
 
       // Fetch fresh employee data from the database to get latest work locations
-      const employeeId = employee._id || employee.id;
+      const employeeId = employee._id || employee.id || employee.employeeId;
 
       if (!employeeId) {
         setError("Invalid employee data. Please login again.");

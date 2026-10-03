@@ -22,9 +22,16 @@ import {
   Briefcase,
   Layers,
   Sparkles,
+  Shield,
+  Info,
+  Lock,
 } from "lucide-react";
+import { usePermissions } from "../hooks/usePermissions";
+import RoleAllowanceModal from "./RoleAllowanceModal";
 
 export default function Dashboard({ onSectionChange = () => {} }) {
+  const { user, role, permissions, isAdmin, hasPermission } = usePermissions();
+  const [isAllowanceModalOpen, setIsAllowanceModalOpen] = useState(false);
   const [stats, setStats] = useState({
     totalEmployees: 0,
     activeEmployees: 0,
@@ -201,34 +208,74 @@ export default function Dashboard({ onSectionChange = () => {} }) {
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold backdrop-blur-md border border-blue-400/20 mb-1">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-              <span>Enterprise HR & Workforce Intelligence</span>
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold backdrop-blur-md border border-blue-400/20">
+                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                <span>Enterprise HR & Workforce Intelligence</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAllowanceModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-semibold backdrop-blur-md border border-emerald-400/30 transition-colors cursor-pointer"
+                title="Click to review what your role is authorized to access"
+              >
+                <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Role: <strong>{role}</strong></span>
+                <span className="text-[10px] bg-emerald-500/40 px-1.5 py-0.5 rounded-full ml-1">What can I access?</span>
+              </button>
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">
-              HRM Executive Dashboard
+              {isAdmin ? "HRM Executive Dashboard" : `${role.replace(/_/g, " ")} Workspace`}
             </h1>
             <p className="text-slate-300 text-sm sm:text-base max-w-xl">
-              Monitor organizational performance, compliance, geofenced workforce operations, and payroll seamlessly.
+              {role === "FINANCE"
+                ? "Manage project financial budgets, compensation records, and payroll processing."
+                : role === "PROJECT_MANAGER"
+                ? "Monitor ongoing project milestones, budget allocations, and workforce team deployment."
+                : role === "HR_MANAGER" || role === "HR_STAFF"
+                ? "Oversee employee database records, onboarding compliance, document vault, and attendance."
+                : "Monitor organizational performance, compliance, geofenced workforce operations, and payroll seamlessly."}
             </p>
           </div>
 
           {/* Action buttons & Refresh */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {hasPermission("employee.create") && (
+              <Button
+                onClick={() => onSectionChange("employee-add")}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all transform active:scale-95 text-xs sm:text-sm"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Add Employee
+              </Button>
+            )}
+            {hasPermission("payroll.view") && (
+              <Button
+                onClick={() => onSectionChange("payroll")}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur font-medium transition-all text-xs sm:text-sm"
+              >
+                <DollarSign className="w-4 h-4 mr-2" />
+                Payroll Hub
+              </Button>
+            )}
+            {hasPermission("role.manage") && (
+              <Button
+                onClick={() => onSectionChange("role-management")}
+                variant="outline"
+                className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border-purple-400/30 backdrop-blur font-medium transition-all text-xs sm:text-sm"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Access Control
+              </Button>
+            )}
             <Button
-              onClick={() => onSectionChange("employee-add")}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all transform active:scale-95"
-            >
-              <Users className="w-4 h-4 mr-2" />
-              Add Employee
-            </Button>
-            <Button
-              onClick={() => onSectionChange("payroll")}
+              onClick={() => setIsAllowanceModalOpen(true)}
               variant="outline"
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur font-medium transition-all"
+              className="bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white border-white/20 backdrop-blur text-xs font-medium transition-all"
             >
-              <DollarSign className="w-4 h-4 mr-2" />
-              Payroll Hub
+              <Info className="w-4 h-4 mr-1.5 text-blue-400" />
+              Role Permissions
             </Button>
             <Button
               onClick={() => fetchStats(true)}
@@ -272,133 +319,146 @@ export default function Dashboard({ onSectionChange = () => {} }) {
         </div>
       )}
 
-      {/* Primary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-        {/* Total Employees */}
-        <Card
-          className="bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 hover:border-blue-200 group relative overflow-hidden"
-          onClick={() => onSectionChange("employees")}
-        >
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-600" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Total Workforce
-            </CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <Users className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-slate-900">
-              {stats.totalEmployees}
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-emerald-600">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>{stats.activeEmployees || stats.totalEmployees} Active staff</span>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Primary KPI Cards (Dynamically filtered by user permissions) */}
+      {(() => {
+        const kpiCards = [
+          hasPermission("employee.read") && {
+            id: "employees",
+            title: "Total Workforce",
+            value: stats.totalEmployees,
+            valueClass: "text-slate-900",
+            badge: `${stats.activeEmployees || stats.totalEmployees} Active staff`,
+            badgeIcon: TrendingUp,
+            badgeClass: "text-emerald-600",
+            icon: Users,
+            gradient: "from-blue-500 to-indigo-600",
+            iconBg: "bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white",
+            hoverBorder: "hover:border-blue-200",
+            section: "employees",
+          },
+          hasPermission("document.read") && {
+            id: "documents",
+            title: "Active Documents",
+            value: stats.totalDocuments,
+            valueClass: "text-slate-900",
+            badge: `${stats.activeDocuments || stats.totalDocuments} Valid records`,
+            badgeIcon: ShieldCheck,
+            badgeClass: "text-slate-500",
+            icon: FileText,
+            gradient: "from-emerald-500 to-teal-600",
+            iconBg: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white",
+            hoverBorder: "hover:border-emerald-200",
+            section: "documents",
+          },
+          hasPermission("document.read") && {
+            id: "document-expiry",
+            title: "Expiring Soon",
+            value: stats.expiringDocuments,
+            valueClass: "text-amber-600",
+            badge: "Next 30 Days",
+            badgeIcon: AlertCircle,
+            badgeClass: "text-amber-600",
+            icon: Clock,
+            gradient: "from-amber-500 to-orange-500",
+            iconBg: "bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white",
+            hoverBorder: "hover:border-amber-200",
+            section: "document-expiry",
+          },
+          hasPermission("document.read") && {
+            id: "document-expired",
+            title: "Expired Docs",
+            value: stats.expiredDocuments,
+            valueClass: "text-rose-600",
+            badge: "Requires attention",
+            badgeIcon: AlertCircle,
+            badgeClass: "text-rose-600",
+            icon: AlertTriangle,
+            gradient: "from-rose-500 to-red-600",
+            iconBg: "bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white",
+            hoverBorder: "hover:border-rose-200",
+            section: "document-expiry",
+          },
+          hasPermission("location.read") && {
+            id: "work-locations",
+            title: "Work Sites",
+            value: stats.workLocationStats?.total || 0,
+            valueClass: "text-purple-600",
+            badge: `${stats.workLocationStats?.active || 0} Active geofences`,
+            badgeIcon: Activity,
+            badgeClass: "text-purple-600",
+            icon: MapPin,
+            gradient: "from-purple-500 to-indigo-600",
+            iconBg: "bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white",
+            hoverBorder: "hover:border-purple-200",
+            section: "work-locations",
+          },
+          hasPermission("payroll.view") && !hasPermission("document.read") && {
+            id: "payroll",
+            title: "Payroll System",
+            value: "Active",
+            valueClass: "text-indigo-600",
+            badge: "Financial Hub",
+            badgeIcon: DollarSign,
+            badgeClass: "text-indigo-600",
+            icon: DollarSign,
+            gradient: "from-indigo-500 to-blue-600",
+            iconBg: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white",
+            hoverBorder: "hover:border-indigo-200",
+            section: "payroll",
+          },
+          hasPermission("project.read") && !hasPermission("document.read") && {
+            id: "projects",
+            title: "Projects Hub",
+            value: stats.projectsCount || "Active",
+            valueClass: "text-violet-600",
+            badge: "Milestones & Tasks",
+            badgeIcon: Briefcase,
+            badgeClass: "text-violet-600",
+            icon: Briefcase,
+            gradient: "from-violet-500 to-purple-600",
+            iconBg: "bg-violet-50 text-violet-600 group-hover:bg-violet-600 group-hover:text-white",
+            hoverBorder: "hover:border-violet-200",
+            section: "projects",
+          },
+        ].filter(Boolean);
 
-        {/* Total Documents */}
-        <Card
-          className="bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 hover:border-emerald-200 group relative overflow-hidden"
-          onClick={() => onSectionChange("documents")}
-        >
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-600" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Active Documents
-            </CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-              <FileText className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-slate-900">
-              {stats.totalDocuments}
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-slate-500">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              <span>{stats.activeDocuments || stats.totalDocuments} Valid records</span>
-            </div>
-          </CardContent>
-        </Card>
+        if (kpiCards.length === 0) return null;
 
-        {/* Expiring Soon */}
-        <Card
-          className="bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 hover:border-amber-200 group relative overflow-hidden"
-          onClick={() => onSectionChange("document-expiry")}
-        >
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Expiring Soon
-            </CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
-              <Clock className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-amber-600">
-              {stats.expiringDocuments}
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-amber-600">
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>Next 30 Days</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Expired Documents */}
-        <Card
-          className="bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 hover:border-rose-200 group relative overflow-hidden"
-          onClick={() => onSectionChange("document-expiry")}
-        >
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 to-red-600" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Expired Docs
-            </CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-rose-600">
-              {stats.expiredDocuments}
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-rose-600">
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>Requires attention</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Work Locations */}
-        <Card
-          className="bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 hover:border-purple-200 group relative overflow-hidden"
-          onClick={() => onSectionChange("work-locations")}
-        >
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-600" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Work Sites
-            </CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
-              <MapPin className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-purple-600">
-              {stats.workLocationStats?.total || 0}
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-purple-600">
-              <Activity className="w-3.5 h-3.5" />
-              <span>{stats.workLocationStats?.active || 0} Active geofences</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
+            {kpiCards.map((card) => {
+              const Icon = card.icon;
+              const BadgeIcon = card.badgeIcon;
+              return (
+                <Card
+                  key={card.id}
+                  className={`bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 ${card.hoverBorder} group relative overflow-hidden`}
+                  onClick={() => onSectionChange(card.section)}
+                >
+                  <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${card.gradient}`} />
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      {card.title}
+                    </CardTitle>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${card.iconBg}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-3xl font-extrabold ${card.valueClass || "text-slate-900"}`}>
+                      {card.value}
+                    </div>
+                    <div className={`flex items-center gap-1.5 mt-2 text-xs font-medium ${card.badgeClass}`}>
+                      {BadgeIcon && <BadgeIcon className="w-3.5 h-3.5" />}
+                      <span>{card.badge}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Analytics Breakdown: Departments & Work Locations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -539,87 +599,160 @@ export default function Dashboard({ onSectionChange = () => {} }) {
         </Card>
       </div>
 
-      {/* Quick Access Grid */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-900">Direct Actions & Hubs</h2>
-          <span className="text-xs text-slate-400">Fast shortcuts to primary modules</span>
-        </div>
+      {/* Direct Actions & Permitted Module Hubs */}
+      {(() => {
+        const allActionHubs = [
+          {
+            id: "employee-add",
+            permission: "employee.create",
+            title: "Add New Employee",
+            description: "Register onboarding profile & biometric ID",
+            icon: Users,
+            iconClass: "bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white",
+            border: "hover:border-blue-300",
+          },
+          {
+            id: "employees",
+            permission: "employee.read",
+            title: "Employee Directory",
+            description: "Browse personnel records, profiles & contracts",
+            icon: Users,
+            iconClass: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white",
+            border: "hover:border-cyan-300",
+          },
+          {
+            id: "documents",
+            permission: "document.read",
+            title: "Document Vault",
+            description: "Upload & audit employee compliance files",
+            icon: FileText,
+            iconClass: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white",
+            border: "hover:border-emerald-300",
+          },
+          {
+            id: "admin-attendance",
+            permission: "attendance.view",
+            title: "Attendance & GPS",
+            description: "Review check-ins, exceptions & daily logs",
+            icon: Calendar,
+            iconClass: "bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white",
+            border: "hover:border-amber-300",
+          },
+          {
+            id: "leave-approval",
+            permission: "leave.approve",
+            title: "Leave Approvals",
+            description: "Review pending employee vacation & sick leaves",
+            icon: CheckCircle2,
+            iconClass: "bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white",
+            border: "hover:border-teal-300",
+          },
+          {
+            id: "payroll",
+            permission: "payroll.view",
+            title: "Payroll Processing",
+            description: "Calculate compensation, tax & generate payslips",
+            icon: DollarSign,
+            iconClass: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white",
+            border: "hover:border-indigo-300",
+          },
+          {
+            id: "projects",
+            permission: "project.read",
+            title: "Projects & Tasks",
+            description: "Track project milestones, tasks & allocations",
+            icon: Briefcase,
+            iconClass: "bg-violet-50 text-violet-600 group-hover:bg-violet-600 group-hover:text-white",
+            border: "hover:border-violet-300",
+          },
+          {
+            id: "work-locations",
+            permission: "location.manage",
+            title: "Work Locations & GPS",
+            description: "Manage geofence sites and site personnel",
+            icon: MapPin,
+            iconClass: "bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white",
+            border: "hover:border-purple-300",
+          },
+          {
+            id: "role-management",
+            permission: "role.manage",
+            title: "Access Control & Roles",
+            description: "Configure system roles, access rules & assignments",
+            icon: Shield,
+            iconClass: "bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white",
+            border: "hover:border-rose-300",
+          },
+          {
+            id: "universal-system-reports",
+            permission: "reports.read",
+            title: "System Reports & Audits",
+            description: "Generate executive and departmental analytics",
+            icon: TrendingUp,
+            iconClass: "bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white",
+            border: "hover:border-blue-300",
+          },
+        ];
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button
-            type="button"
-            onClick={() => onSectionChange("employee-add")}
-            className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-slate-100 hover:border-blue-300 hover:shadow-md transition-all duration-200 text-left group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white transition-all">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-slate-900 text-sm group-hover:text-blue-600 transition-colors">
-                Add New Employee
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Register onboarding profile & biometric ID
-              </p>
-            </div>
-          </button>
+        const allowedHubs = allActionHubs.filter((hub) => hasPermission(hub.permission));
 
-          <button
-            type="button"
-            onClick={() => onSectionChange("documents")}
-            className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all duration-200 text-left group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-              <FileText className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-slate-900 text-sm group-hover:text-emerald-600 transition-colors">
-                Document Vault
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Upload & audit employee compliance files
-              </p>
-            </div>
-          </button>
+        if (allowedHubs.length === 0) return null;
 
-          <button
-            type="button"
-            onClick={() => onSectionChange("admin-attendance")}
-            className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-slate-100 hover:border-amber-300 hover:shadow-md transition-all duration-200 text-left group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:bg-amber-600 group-hover:text-white transition-all">
-              <Calendar className="w-6 h-6" />
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {isAdmin ? "Direct Actions & Hubs" : `Authorized Actions for ${role.replace(/_/g, " ")}`}
+                </h2>
+                <span className="text-xs text-slate-400">
+                  Showing {allowedHubs.length} modules permitted by your role assignment
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAllowanceModalOpen(true)}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+              >
+                View all permissions <ArrowRight className="w-3 h-3" />
+              </button>
             </div>
-            <div>
-              <h3 className="font-semibold text-slate-900 text-sm group-hover:text-amber-600 transition-colors">
-                Attendance & GPS
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Review check-ins, exceptions & daily logs
-              </p>
-            </div>
-          </button>
 
-          <button
-            type="button"
-            onClick={() => onSectionChange("payroll")}
-            className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-slate-100 hover:border-indigo-300 hover:shadow-md transition-all duration-200 text-left group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-              <DollarSign className="w-6 h-6" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {allowedHubs.map((hub) => {
+                const Icon = hub.icon;
+                return (
+                  <button
+                    key={hub.id}
+                    type="button"
+                    onClick={() => onSectionChange(hub.id)}
+                    className={`flex items-start gap-4 p-5 rounded-2xl bg-white border border-slate-100 ${hub.border} hover:shadow-md transition-all duration-200 text-left group`}
+                  >
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-all ${hub.iconClass}`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-slate-900 text-sm group-hover:text-blue-600 transition-colors truncate">
+                        {hub.title}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                        {hub.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            <div>
-              <h3 className="font-semibold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">
-                Payroll Processing
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Calculate compensation, tax & generate payslips
-              </p>
-            </div>
-          </button>
-        </div>
-      </div>
+          </div>
+        );
+      })()}
+
+      {/* Role Allowance Modal */}
+      <RoleAllowanceModal
+        isOpen={isAllowanceModalOpen}
+        onClose={() => setIsAllowanceModalOpen(false)}
+        onNavigateSection={onSectionChange}
+      />
     </div>
   );
 }

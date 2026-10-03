@@ -16,7 +16,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
 
     const user = await getCurrentUser(request);
-    const hasPermission = await checkPermission(user.userId, "reports.read", user.role);
+    const hasPermission = await checkPermission(user.userId, "reports.executive", user.role);
     if (!hasPermission) {
       return NextResponse.json(
         { error: "Access denied. You don't have permission to view executive reports." },

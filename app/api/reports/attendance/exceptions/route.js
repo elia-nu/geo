@@ -14,7 +14,7 @@ export async function GET(request) {
     const user = await getCurrentUser(request);
     const hasPermission = await checkPermission(
       user.userId,
-      "reports.read",
+      "reports.attendance",
       user.role
     );
     if (!hasPermission) {

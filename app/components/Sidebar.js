@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useSidebarStore } from "./useSidebarStore";
 import { useRouter } from "next/navigation";
+import { usePermissions } from "../hooks/usePermissions";
 import {
   Users,
   FileText,
@@ -34,12 +35,30 @@ const Sidebar = ({
   onSectionChange = () => {},
   isCollapsed: isCollapsedProp,
   onToggleCollapse: onToggleCollapseProp,
+  user: userProp = null,
 }) => {
   const router = useRouter();
   const [expandedMenus, setExpandedMenus] = useState({});
   const isCollapsedStore = useSidebarStore((s) => s.isCollapsed);
   const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
   const setCollapsed = useSidebarStore((s) => s.setCollapsed);
+  const { user: hookUser, hasPermission: hookHasPermission, hasAnyPermission: hookHasAnyPermission, isAdmin: hookIsAdmin } = usePermissions();
+
+  const user = userProp || hookUser;
+  const isAdmin = (user?.role === "ADMIN") || hookIsAdmin;
+  const hasPermission = (perm) => {
+    if (isAdmin) return true;
+    if (user?.permissions?.includes("*")) return true;
+    if (!perm) return true;
+    if (user?.permissions?.includes(perm)) return true;
+    return hookHasPermission(perm);
+  };
+  const hasAnyPermission = (perms) => {
+    if (isAdmin) return true;
+    if (user?.permissions?.includes("*")) return true;
+    if (!Array.isArray(perms) || perms.length === 0) return true;
+    return perms.some((p) => hasPermission(p));
+  };
 
   // Prefer props (for backward compatibility), else use store
   const isCollapsed =
@@ -151,6 +170,11 @@ const Sidebar = ({
     if (activeSection === "departments" || activeSection === "designations") {
       setExpandedMenus((prev) => ({ ...prev, organization: true }));
     }
+
+    // Auto-expand access control menu
+    if (activeSection === "role-management" || activeSection === "user-role-assignment") {
+      setExpandedMenus((prev) => ({ ...prev, "access-control": true }));
+    }
   }, [activeSection]);
 
   const menuItems = [
@@ -169,11 +193,13 @@ const Sidebar = ({
           id: "departments",
           label: "Departments",
           path: "/hrm?section=departments",
+          requiredPermission: "department.read",
         },
         {
           id: "designations",
           label: "Designations",
           path: "/hrm?section=designations",
+          requiredPermission: "designation.read",
         },
       ],
     },
@@ -186,16 +212,19 @@ const Sidebar = ({
           id: "employees",
           label: "Employees",
           path: "/hrm?section=employees",
+          requiredPermission: "employee.read",
         },
         {
           id: "employee-location",
           label: "Employee Location",
           path: "/hrm?section=employee-location",
+          requiredPermission: "location.read",
         },
         {
           id: "contracts",
           label: "Contracts",
           path: "/hrm?section=contracts",
+          requiredPermission: "contract.read",
         },
       ],
     },
@@ -204,30 +233,14 @@ const Sidebar = ({
       label: "Document Management",
       icon: FileText,
       path: "/hrm?section=documents",
-      // submenu: [
-      //   {
-      //     id: "document-list",
-      //     label: "All Documents",
-      //     path: "/hrm?section=documents",
-      //   },
-      //   {
-      //     id: "document-upload",
-      //     label: "Upload Document",
-      //     path: "/hrm?section=document-upload",
-      //   },
-      //   {
-      //     id: "document-expiry",
-      //     label: "Expiry Alerts",
-      //     path: "/hrm?section=document-expiry",
-      //   },
-      // ],
+      requiredPermission: "document.read",
     },
-
     {
       id: "work-locations",
       label: "Work Locations",
       icon: MapPin,
       path: "/hrm?section=work-locations",
+      requiredPermission: "location.read",
     },
     {
       id: "attendance",
@@ -238,21 +251,25 @@ const Sidebar = ({
           id: "admin-attendance",
           label: "Admin Management",
           path: "/hrm?section=admin-attendance",
+          requiredPermission: "attendance.view",
         },
         {
           id: "overtime-management",
           label: "Overtime Management",
           path: "/hrm?section=overtime-management",
+          requiredPermission: "overtime.view",
         },
         {
           id: "attendance-all",
           label: "All Attendance",
           path: "/hrm?section=attendance-all",
+          requiredPermission: "attendance.view",
         },
         {
           id: "attendance-reports",
           label: "Attendance Reports",
           path: "/hrm?section=attendance-reports",
+          requiredPermission: "reports.attendance",
         },
       ],
     },
@@ -261,6 +278,7 @@ const Sidebar = ({
       label: "Payroll",
       icon: Calculator,
       path: "/hrm?section=payroll",
+      requiredPermission: "payroll.view",
     },
     {
       id: "leave-management",
@@ -271,16 +289,19 @@ const Sidebar = ({
           id: "leave-approval",
           label: "Leave Approval",
           path: "/hrm?section=leave-approval",
+          requiredPermission: "leave.approve",
         },
         {
           id: "leave-history",
           label: "Leave Request History",
           path: "/hrm?section=leave-history",
+          requiredPermission: "leave.view.all",
         },
         {
           id: "leave-balances",
           label: "Leave Balances",
           path: "/hrm?section=leave-balances",
+          requiredPermission: "leave.manage",
         },
       ],
     },
@@ -288,63 +309,47 @@ const Sidebar = ({
       id: "project",
       label: "Project",
       icon: Briefcase,
-
       submenu: [
         {
           id: "projects",
           label: "Projects",
           path: "/hrm?section=projects",
+          requiredPermission: "project.read",
         },
         {
           id: "category-management",
           label: "Category Management",
           path: "/hrm?section=project-categories",
+          requiredPermission: "project.read",
         },
         {
           id: "budget-management",
           label: "Budget Management",
           path: "/hrm?section=budget-management",
+          requiredPermission: "project.budget",
         },
       ],
     },
-
-    // {
-    //   id: "notifications",
-    //   label: "Notifications",
-    //   icon: Bell,
-    //   path: "/hrm?section=notifications",
-    // },
-
-    /*{
-      id: "project-management",
-      label: "Project Management",
-      icon: Briefcase,
+    {
+      id: "access-control",
+      label: "Access Control",
+      icon: Shield,
+      requiredPermission: "role.manage",
       submenu: [
         {
-          id: "projects-list",
-          label: "Projects",
-          path: "/hrm?section=projects",
-        },
-
-        {
-          id: "project-budget",
-          label: "Budget & Finance",
-          icon: DollarSign,
-          path: "/hrm?section=budget-management",
-        },
-
-        {
-          id: "project-alerts",
-          label: "Project Alerts",
-          path: "/hrm?section=project-alerts",
+          id: "role-management",
+          label: "Role Management",
+          path: "/hrm?section=role-management",
+          requiredPermission: "role.manage",
         },
         {
-          id: "project-reports",
-          label: "Project Reports",
-          path: "/hrm?section=project-reports",
+          id: "user-role-assignment",
+          label: "User Assignments",
+          path: "/hrm?section=user-role-assignment",
+          requiredPermission: "role.manage",
         },
       ],
-    },*/
+    },
     {
       id: "calendar",
       label: "Calendar",
@@ -360,68 +365,62 @@ const Sidebar = ({
           id: "attendance-management-reports",
           label: "Attendance Management Reports",
           path: "/hrm?section=attendance-management-reports",
+          requiredPermission: "reports.attendance",
         },
         {
           id: "employee-management-reports",
           label: "Employee Management Reports",
           path: "/hrm?section=employee-management-reports",
+          requiredPermission: "reports.employee",
         },
         {
           id: "organization-management-reports",
           label: "Organization Management Reports",
           path: "/hrm?section=organization-management-reports",
+          requiredPermission: "reports.organization",
         },
         {
           id: "document-management-reports",
           label: "Document Management Reports",
           path: "/hrm?section=document-management-reports",
+          requiredPermission: "reports.document",
         },
         {
           id: "work-location-management-reports",
           label: "Work Location Management Reports",
           path: "/hrm?section=work-location-management-reports",
+          requiredPermission: "reports.location",
         },
         {
           id: "leave-reports",
           label: "Leave Management Reports",
           path: "/hrm?section=leave-reports",
+          requiredPermission: "reports.leave",
         },
         {
           id: "payroll-reports",
           label: "Payroll Management Reports",
           path: "/hrm?section=payroll-reports",
+          requiredPermission: "reports.payroll",
         },
         {
           id: "project-reports",
           label: "Project Management Reports",
           path: "/hrm?section=project-reports",
+          requiredPermission: "reports.project",
         },
         {
           id: "executive-reports",
           label: "Cross-System & Executive Reports",
           path: "/hrm?section=executive-reports",
+          requiredPermission: "reports.executive",
         },
         {
           id: "universal-system-reports",
           label: "Universal System Reports",
           path: "/hrm?section=universal-system-reports",
+          requiredPermission: "reports.read",
         },
-        // The following report links are temporarily disabled in the sidebar:
-        // {
-        //   id: "employee-stats",
-        //   label: "Employee Statistics",
-        //   path: "/hrm?section=employee-stats",
-        // },
-        // {
-        //   id: "department-stats",
-        //   label: "Department Analytics",
-        //   path: "/hrm?section=department-stats",
-        // },
-        // {
-        //   id: "document-stats",
-        //   label: "Document Reports",
-        //   path: "/hrm?section=document-stats",
-        // },
       ],
     },
     /*{
@@ -522,7 +521,22 @@ const Sidebar = ({
             scrollbarColor: "#475569 #1e293b",
           }}
         >
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => {
+            // Permission-based filtering: hide items the user can't access
+            if (item.requiredPermission && !isAdmin && !hasPermission(item.requiredPermission)) {
+              return false;
+            }
+            // If item has a submenu, ensure at least one submenu item is accessible
+            if (item.submenu) {
+              const visibleSub = item.submenu.filter((sub) => {
+                if (!sub.requiredPermission) return true;
+                if (isAdmin) return true;
+                return hasPermission(sub.requiredPermission);
+              });
+              if (visibleSub.length === 0) return false;
+            }
+            return true;
+          }).map((item) => {
             const Icon = item.icon;
             const isActive =
               activeSection === item.id ||
@@ -601,7 +615,13 @@ const Sidebar = ({
                     role="group"
                     aria-label={`${item.label} submenu`}
                   >
-                    {item.submenu.map((submenuItem) => {
+                    {item.submenu
+                      .filter((sub) => {
+                        if (!sub.requiredPermission) return true;
+                        if (isAdmin) return true;
+                        return hasPermission(sub.requiredPermission);
+                      })
+                      .map((submenuItem) => {
                       const SubmenuIcon = submenuItem.icon;
                       const isSubActive =
                         activeSection === submenuItem.id ||
@@ -650,12 +670,14 @@ const Sidebar = ({
           <div className="p-4 border-t border-slate-700 flex-shrink-0">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-white">AD</span>
+                <span className="text-xs font-bold text-white">
+                  {(user?.name || "U").substring(0, 2).toUpperCase()}
+                </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Admin User</p>
+                <p className="text-sm font-medium truncate">{user?.name || "User"}</p>
                 <p className="text-xs text-slate-400 truncate">
-                  admin@company.com
+                  {user?.role || "EMPLOYEE"}
                 </p>
               </div>
             </div>
@@ -663,7 +685,9 @@ const Sidebar = ({
         ) : (
           <div className="p-3 border-t border-slate-700 flex-shrink-0 flex justify-center">
             <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold text-white">AD</span>
+              <span className="text-xs font-bold text-white">
+                {(user?.name || "U").substring(0, 2).toUpperCase()}
+              </span>
             </div>
           </div>
         )}

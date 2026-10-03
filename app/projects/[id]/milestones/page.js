@@ -20,6 +20,7 @@ import {
   showWarningToast,
   showDeleteConfirmDialog,
 } from "../../../utils/sweetAlert";
+import { usePermissions } from "../../../hooks/usePermissions";
 
 const STATUS_OPTIONS = [
   { value: "not_started", label: "Not Started" },
@@ -72,6 +73,7 @@ const toDateInputValue = (dateValue) => {
 
 const ProjectMilestonesPage = ({ params }) => {
   const { id: projectId } = use(params);
+  const { hasPermission } = usePermissions();
 
   const [project, setProject] = useState(null);
   const [milestones, setMilestones] = useState([]);
@@ -353,13 +355,15 @@ const ProjectMilestonesPage = ({ params }) => {
                 Track key deliverables and progress for this project
               </p>
             </div>
-            <button
-              onClick={() => handleOpenDialog()}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-900/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-md active:scale-[0.98]"
-            >
-              <AddIcon className="!text-lg" />
-              Add Milestone
-            </button>
+            {hasPermission("project.update") && (
+              <button
+                onClick={() => handleOpenDialog()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-900/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-md active:scale-[0.98]"
+              >
+                <AddIcon className="!text-lg" />
+                Add Milestone
+              </button>
+            )}
           </div>
 
           {/* Project summary */}
@@ -421,13 +425,15 @@ const ProjectMilestonesPage = ({ params }) => {
                 Add your first milestone to track project progress and
                 deliverables.
               </p>
-              <button
-                onClick={() => handleOpenDialog()}
-                className="mt-6 inline-flex items-center gap-2 rounded-xl border border-blue-900/20 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-900 transition-all duration-200 hover:bg-blue-100 active:scale-[0.98]"
-              >
-                <AddIcon className="!text-lg" />
-                Add Milestone
-              </button>
+              {hasPermission("project.update") && (
+                <button
+                  onClick={() => handleOpenDialog()}
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl border border-blue-900/20 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-900 transition-all duration-200 hover:bg-blue-100 active:scale-[0.98]"
+                >
+                  <AddIcon className="!text-lg" />
+                  Add Milestone
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
@@ -452,7 +458,9 @@ const ProjectMilestonesPage = ({ params }) => {
                       <th className="px-5 py-3">Due Date</th>
                       <th className="px-5 py-3">Status</th>
                       <th className="px-5 py-3">Progress</th>
-                      <th className="px-5 py-3 text-right">Actions</th>
+                      {(hasPermission("project.update") || hasPermission("project.delete")) && (
+                        <th className="px-5 py-3 text-right">Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -503,32 +511,38 @@ const ProjectMilestonesPage = ({ params }) => {
                               </span>
                             </div>
                           </td>
-                          <td className="px-5 py-4 text-right">
-                            <div className="flex justify-end gap-1">
-                              <button
-                                onClick={() => handleOpenDialog(milestone)}
-                                disabled={deletingId !== null}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-blue-700 transition-all duration-200 hover:bg-blue-50 disabled:opacity-50"
-                                title="Edit milestone"
-                              >
-                                <EditIcon className="!text-lg" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleDeleteMilestone(milestone)
-                                }
-                                disabled={isDeleting || deletingId !== null}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                title="Delete milestone"
-                              >
-                                {isDeleting ? (
-                                  <span className="h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
-                                ) : (
-                                  <DeleteIcon className="!text-lg" />
+                          {(hasPermission("project.update") || hasPermission("project.delete")) && (
+                            <td className="px-5 py-4 text-right">
+                              <div className="flex justify-end gap-1">
+                                {hasPermission("project.update") && (
+                                  <button
+                                    onClick={() => handleOpenDialog(milestone)}
+                                    disabled={deletingId !== null}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-blue-700 transition-all duration-200 hover:bg-blue-50 disabled:opacity-50"
+                                    title="Edit milestone"
+                                  >
+                                    <EditIcon className="!text-lg" />
+                                  </button>
                                 )}
-                              </button>
-                            </div>
-                          </td>
+                                {hasPermission("project.delete") && (
+                                  <button
+                                    onClick={() =>
+                                      handleDeleteMilestone(milestone)
+                                    }
+                                    disabled={isDeleting || deletingId !== null}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    title="Delete milestone"
+                                  >
+                                    {isDeleting ? (
+                                      <span className="h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
+                                    ) : (
+                                      <DeleteIcon className="!text-lg" />
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -582,26 +596,32 @@ const ProjectMilestonesPage = ({ params }) => {
                             </span>
                           </div>
                         </div>
-                        <div className="flex shrink-0 flex-col gap-1">
-                          <button
-                            onClick={() => handleOpenDialog(milestone)}
-                            disabled={deletingId !== null}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-blue-700 transition-all hover:bg-blue-50 disabled:opacity-50"
-                          >
-                            <EditIcon className="!text-lg" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteMilestone(milestone)}
-                            disabled={isDeleting || deletingId !== null}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition-all hover:bg-red-50 disabled:opacity-50"
-                          >
-                            {isDeleting ? (
-                              <span className="h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
-                            ) : (
-                              <DeleteIcon className="!text-lg" />
+                        {(hasPermission("project.update") || hasPermission("project.delete")) && (
+                          <div className="flex shrink-0 flex-col gap-1">
+                            {hasPermission("project.update") && (
+                              <button
+                                onClick={() => handleOpenDialog(milestone)}
+                                disabled={deletingId !== null}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-blue-700 transition-all hover:bg-blue-50 disabled:opacity-50"
+                              >
+                                <EditIcon className="!text-lg" />
+                              </button>
                             )}
-                          </button>
-                        </div>
+                            {hasPermission("project.delete") && (
+                              <button
+                                onClick={() => handleDeleteMilestone(milestone)}
+                                disabled={isDeleting || deletingId !== null}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition-all hover:bg-red-50 disabled:opacity-50"
+                              >
+                                {isDeleting ? (
+                                  <span className="h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
+                                ) : (
+                                  <DeleteIcon className="!text-lg" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

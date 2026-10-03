@@ -50,8 +50,10 @@ import EmployeeSetupModal from "./EmployeeSetupModal";
 import DocumentDetailViewerModal from "./DocumentDetailViewerModal";
 import Pagination from "./ui/Pagination";
 import { toast } from "./ui/toast";
+import { usePermissions } from "../hooks/usePermissions";
 
 export default function EmployeeDatabase() {
+  const { hasPermission } = usePermissions();
   const searchInputRef = useRef(null);
   const [employees, setEmployees] = useState([]);
   const [filteredEmployees, setFilteredEmployees] = useState([]);
@@ -710,14 +712,16 @@ export default function EmployeeDatabase() {
               )}
             </div>
           </div>
-          <button
-            onClick={() => setIsStepperFormOpen(true)}
-            disabled={loading}
-            className="flex items-center gap-2 bg-white text-blue-700 hover:bg-blue-50 px-5 py-2.5 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 self-start lg:self-auto"
-          >
-            <UserPlus className="w-4 h-4" />
-            {loading ? "Loading..." : "Add Employee"}
-          </button>
+          {hasPermission("employee.create") && (
+            <button
+              onClick={() => setIsStepperFormOpen(true)}
+              disabled={loading}
+              className="flex items-center gap-2 bg-white text-blue-700 hover:bg-blue-50 px-5 py-2.5 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 self-start lg:self-auto"
+            >
+              <UserPlus className="w-4 h-4" />
+              {loading ? "Loading..." : "Add Employee"}
+            </button>
+          )}
         </div>
       </div>
       {/* Search and Filters */}
@@ -956,47 +960,55 @@ export default function EmployeeDatabase() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => {
-                              setSelectedEmployee(employee);
-                              setIsProfileDialogOpen(true);
-                            }}
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="View Profile"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedEmployee(employee);
-                              setIsEditDialogOpen(true);
-                            }}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit Employee"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedEmployee(employee);
-                              setIsSetupDialogOpen(true);
-                            }}
-                            className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                            title="Setup Employee"
-                          >
-                            <Settings className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedEmployee(employee);
-                              setIsDeleteDialogOpen(true);
-                            }}
-                            disabled={loading}
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
-                            title="Delete Employee"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {hasPermission("employee.read") && (
+                            <button
+                              onClick={() => {
+                                setSelectedEmployee(employee);
+                                setIsProfileDialogOpen(true);
+                              }}
+                              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              title="View Profile"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          )}
+                          {hasPermission("employee.update") && (
+                            <button
+                              onClick={() => {
+                                setSelectedEmployee(employee);
+                                setIsEditDialogOpen(true);
+                              }}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit Employee"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {(hasPermission("employee.update") || hasPermission("user.update")) && (
+                            <button
+                              onClick={() => {
+                                setSelectedEmployee(employee);
+                                setIsSetupDialogOpen(true);
+                              }}
+                              className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                              title="Setup Employee"
+                            >
+                              <Settings className="w-4 h-4" />
+                            </button>
+                          )}
+                          {hasPermission("employee.delete") && (
+                            <button
+                              onClick={() => {
+                                setSelectedEmployee(employee);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                              disabled={loading}
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                              title="Delete Employee"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1648,28 +1660,32 @@ export default function EmployeeDatabase() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setIsProfileDialogOpen(false);
-                      setIsEditDialogOpen(true);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium backdrop-blur-sm transition-all border border-white/10"
-                    title="Edit Profile"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsProfileDialogOpen(false);
-                      setIsSetupDialogOpen(true);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-all shadow-sm"
-                    title="Setup Credentials & Locations"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                    <span>Setup</span>
-                  </button>
+                  {hasPermission("employee.update") && (
+                    <button
+                      onClick={() => {
+                        setIsProfileDialogOpen(false);
+                        setIsEditDialogOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium backdrop-blur-sm transition-all border border-white/10"
+                      title="Edit Profile"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                  )}
+                  {(hasPermission("employee.update") || hasPermission("user.update")) && (
+                    <button
+                      onClick={() => {
+                        setIsProfileDialogOpen(false);
+                        setIsSetupDialogOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-all shadow-sm"
+                      title="Setup Credentials & Locations"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      <span>Setup</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setIsProfileDialogOpen(false);
@@ -2507,16 +2523,18 @@ export default function EmployeeDatabase() {
               </p>
 
               <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-                <button
-                  onClick={() => {
-                    setIsProfileDialogOpen(false);
-                    setIsEditDialogOpen(true);
-                  }}
-                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-xs sm:text-sm shadow-md transition-all hover:scale-[1.02]"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  <span>Edit Profile</span>
-                </button>
+                {hasPermission("employee.update") && (
+                  <button
+                    onClick={() => {
+                      setIsProfileDialogOpen(false);
+                      setIsEditDialogOpen(true);
+                    }}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-xs sm:text-sm shadow-md transition-all hover:scale-[1.02]"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Edit Profile</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setIsProfileDialogOpen(false);

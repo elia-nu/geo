@@ -21,6 +21,7 @@ import {
   showConfirmDialog,
   showWarningToast,
 } from "../../../utils/sweetAlert";
+import { usePermissions } from "../../../hooks/usePermissions";
 
 const getEmployeeDisplayName = (employee) => {
   return (
@@ -48,6 +49,7 @@ const statusStyles = {
 
 const ProjectTeamPage = ({ params }) => {
   const { id: projectId } = use(params);
+  const { hasPermission } = usePermissions();
 
   const [project, setProject] = useState(null);
   const [assignedEmployees, setAssignedEmployees] = useState([]);
@@ -313,13 +315,15 @@ const ProjectTeamPage = ({ params }) => {
                 Manage who is assigned to this project
               </p>
             </div>
-            <button
-              onClick={handleOpenDialog}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-900/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-md active:scale-[0.98]"
-            >
-              <AddIcon className="!text-lg" />
-              Assign Employees
-            </button>
+            {hasPermission("project.update") && (
+              <button
+                onClick={handleOpenDialog}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-900/20 transition-all duration-200 hover:bg-blue-800 hover:shadow-md active:scale-[0.98]"
+              >
+                <AddIcon className="!text-lg" />
+                Assign Employees
+              </button>
+            )}
           </div>
 
           {/* Project summary */}
@@ -364,13 +368,15 @@ const ProjectTeamPage = ({ params }) => {
               <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
                 Assign employees to collaborate on this project.
               </p>
-              <button
-                onClick={handleOpenDialog}
-                className="mt-6 inline-flex items-center gap-2 rounded-xl border border-blue-900/20 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-900 transition-all duration-200 hover:bg-blue-100 active:scale-[0.98]"
-              >
-                <AddIcon className="!text-lg" />
-                Assign Employees
-              </button>
+              {hasPermission("project.update") && (
+                <button
+                  onClick={handleOpenDialog}
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl border border-blue-900/20 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-900 transition-all duration-200 hover:bg-blue-100 active:scale-[0.98]"
+                >
+                  <AddIcon className="!text-lg" />
+                  Assign Employees
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
@@ -395,7 +401,9 @@ const ProjectTeamPage = ({ params }) => {
                       <th className="px-5 py-3">Email</th>
                       <th className="px-5 py-3">Role</th>
                       <th className="px-5 py-3">Department</th>
-                      <th className="px-5 py-3 text-right">Actions</th>
+                      {hasPermission("project.update") && (
+                        <th className="px-5 py-3 text-right">Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -429,20 +437,22 @@ const ProjectTeamPage = ({ params }) => {
                           <td className="px-5 py-4 text-sm text-slate-600">
                             {employee.department || "N/A"}
                           </td>
-                          <td className="px-5 py-4 text-right">
-                            <button
-                              onClick={() => handleRemoveEmployee(employee)}
-                              disabled={isRemoving || removingId !== null}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                              title="Remove from project"
-                            >
-                              {isRemoving ? (
-                                <span className="h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
-                              ) : (
-                                <DeleteIcon className="!text-lg" />
-                              )}
-                            </button>
-                          </td>
+                          {hasPermission("project.update") && (
+                            <td className="px-5 py-4 text-right">
+                              <button
+                                onClick={() => handleRemoveEmployee(employee)}
+                                disabled={isRemoving || removingId !== null}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Remove from project"
+                              >
+                                {isRemoving ? (
+                                  <span className="h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
+                                ) : (
+                                  <DeleteIcon className="!text-lg" />
+                                )}
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -483,17 +493,19 @@ const ProjectTeamPage = ({ params }) => {
                             </div>
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleRemoveEmployee(employee)}
-                          disabled={isRemoving || removingId !== null}
-                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 transition-all duration-200 hover:bg-red-50 disabled:opacity-50"
-                        >
-                          {isRemoving ? (
-                            <span className="h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
-                          ) : (
-                            <DeleteIcon className="!text-lg" />
-                          )}
-                        </button>
+                        {hasPermission("project.update") && (
+                          <button
+                            onClick={() => handleRemoveEmployee(employee)}
+                            disabled={isRemoving || removingId !== null}
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 transition-all duration-200 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {isRemoving ? (
+                              <span className="h-4 w-4 rounded-full border-2 border-red-200 border-t-red-600 animate-spin" />
+                            ) : (
+                              <DeleteIcon className="!text-lg" />
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

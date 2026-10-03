@@ -46,15 +46,15 @@ export default function ProtectedHRMDashboard() {
         return;
       }
 
-      // Check if user has admin role
-      if (payload.role !== "ADMIN") {
-        router.push("/unauthorized");
+      // Redirect to main HRM or employee-portal based on role
+      const hrmRoles = ["ADMIN", "HR_MANAGER", "HR_STAFF", "MANAGER", "PROJECT_MANAGER", "FINANCE"];
+      if (hrmRoles.includes(payload.role) || payload.permissions?.length > 0) {
+        router.replace("/hrm");
+        return;
+      } else {
+        router.replace("/employee-portal");
         return;
       }
-
-      setUser(payload);
-      setIsAuthenticated(true);
-      setIsAdmin(true);
     } catch (error) {
       console.error("Authentication error:", error);
       localStorage.removeItem("authToken");

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { unlink } from "fs/promises";
 import { getDb } from "../../../../mongo";
-import { getCurrentUser } from "../../../../middleware/auth";
+import { getCurrentUser, checkPermission } from "../../../../middleware/auth";
 import { createAuditLog } from "../../../../../utils/audit";
 
 function toISODateOnly(d) {
@@ -15,8 +15,18 @@ function toISODateOnly(d) {
 // PUT /api/projects/[id]/documents/[documentId]
 export async function PUT(request, { params }) {
   try {
-    const db = await getDb();
     const user = await getCurrentUser(request);
+    if (user && user.authenticated) {
+      const hasPerm = await checkPermission(user.userId, "project.update", user.role);
+      if (!hasPerm) {
+        return NextResponse.json(
+          { success: false, error: "Access denied: Missing 'project.update' permission" },
+          { status: 403 }
+        );
+      }
+    }
+
+    const db = await getDb();
     const { id: projectId, documentId } = await params;
 
     if (!ObjectId.isValid(projectId) || !ObjectId.isValid(documentId)) {
@@ -117,8 +127,18 @@ export async function PUT(request, { params }) {
 // DELETE /api/projects/[id]/documents/[documentId]
 export async function DELETE(request, { params }) {
   try {
-    const db = await getDb();
     const user = await getCurrentUser(request);
+    if (user && user.authenticated) {
+      const hasPerm = await checkPermission(user.userId, "project.delete", user.role);
+      if (!hasPerm) {
+        return NextResponse.json(
+          { success: false, error: "Access denied: Missing 'project.delete' permission" },
+          { status: 403 }
+        );
+      }
+    }
+
+    const db = await getDb();
     const { id: projectId, documentId } = await params;
 
     if (!ObjectId.isValid(projectId) || !ObjectId.isValid(documentId)) {

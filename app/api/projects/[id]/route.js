@@ -2,10 +2,26 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../utils/audit.js";
+import { getCurrentUser, checkPermission } from "../../middleware/auth.js";
 
 // Get a specific project by ID
 export async function GET(request, { params }) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user || !user.authenticated) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+    const hasPerm = await checkPermission(user.userId, "project.read", user.role);
+    if (!hasPerm) {
+      return NextResponse.json(
+        { error: "Access denied: Missing 'project.read' permission" },
+        { status: 403 }
+      );
+    }
+
     const db = await getDb();
     const { id } = await params;
 
@@ -143,6 +159,21 @@ export async function GET(request, { params }) {
 // Update a project
 export async function PUT(request, { params }) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user || !user.authenticated) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+    const hasPerm = await checkPermission(user.userId, "project.update", user.role);
+    if (!hasPerm) {
+      return NextResponse.json(
+        { error: "Access denied: Missing 'project.update' permission" },
+        { status: 403 }
+      );
+    }
+
     const db = await getDb();
     const { id } = await params;
     const data = await request.json();
@@ -290,6 +321,21 @@ export async function PUT(request, { params }) {
 // Delete a project
 export async function DELETE(request, { params }) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user || !user.authenticated) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+    const hasPerm = await checkPermission(user.userId, "project.delete", user.role);
+    if (!hasPerm) {
+      return NextResponse.json(
+        { error: "Access denied: Missing 'project.delete' permission" },
+        { status: 403 }
+      );
+    }
+
     const db = await getDb();
     const { id } = await params;
 

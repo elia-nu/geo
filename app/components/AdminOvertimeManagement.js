@@ -36,8 +36,12 @@ import {
 } from "lucide-react";
 import AttendancePhotoViewer from "./AttendancePhotoViewer";
 import { formatWorkingHours } from "../utils/timeUtils";
+import usePermissions from "../hooks/usePermissions";
 
 export default function AdminOvertimeManagement() {
+  const { hasPermission } = usePermissions();
+  const canManageOvertime = hasPermission("overtime.manage");
+  const canExportReports = hasPermission("reports.overtime") || hasPermission("reports.attendance") || hasPermission("reports.read") || canManageOvertime;
   const [activeTab, setActiveTab] = useState("requests"); // 'requests' | 'attendance' | 'reports'
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -632,28 +636,30 @@ export default function AdminOvertimeManagement() {
                             <Eye className="w-3.5 h-3.5" /> Details
                           </button>
 
-                          {req.status === "pending" ? (
-                            <>
+                          {canManageOvertime && (
+                            req.status === "pending" ? (
+                              <>
+                                <button
+                                  onClick={() => handleOpenApprovalModal(req, "approved")}
+                                  className="px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1"
+                                >
+                                  <Check className="w-3.5 h-3.5" /> Approve
+                                </button>
+                                <button
+                                  onClick={() => handleOpenApprovalModal(req, "rejected")}
+                                  className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1"
+                                >
+                                  <X className="w-3.5 h-3.5" /> Reject
+                                </button>
+                              </>
+                            ) : (
                               <button
-                                onClick={() => handleOpenApprovalModal(req, "approved")}
-                                className="px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1"
+                                onClick={() => handleOpenApprovalModal(req, req.status === "approved" ? "rejected" : "approved")}
+                                className="text-xs text-amber-700 hover:text-amber-900 underline font-semibold"
                               >
-                                <Check className="w-3.5 h-3.5" /> Approve
+                                Edit Decision
                               </button>
-                              <button
-                                onClick={() => handleOpenApprovalModal(req, "rejected")}
-                                className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1"
-                              >
-                                <X className="w-3.5 h-3.5" /> Reject
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() => handleOpenApprovalModal(req, req.status === "approved" ? "rejected" : "approved")}
-                              className="text-xs text-amber-700 hover:text-amber-900 underline font-semibold"
-                            >
-                              Edit Decision
-                            </button>
+                            )
                           )}
                         </div>
                       </td>
@@ -882,12 +888,14 @@ export default function AdminOvertimeManagement() {
                         )}
                       </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => handleOpenAttendanceReview(att, att.adminApprovalStatus === "approved" ? "approved" : "approved")}
-                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all inline-flex items-center gap-1"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5" /> Review Attendance
-                        </button>
+                        {canManageOvertime && (
+                          <button
+                            onClick={() => handleOpenAttendanceReview(att, att.adminApprovalStatus === "approved" ? "approved" : "approved")}
+                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all inline-flex items-center gap-1"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" /> Review Attendance
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1080,12 +1088,14 @@ export default function AdminOvertimeManagement() {
                 >
                   <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                 </button>
-                <button
-                  onClick={handleExportCSV}
-                  className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 transition-all"
-                >
-                  <Download className="w-3.5 h-3.5" /> Export CSV
-                </button>
+                {canExportReports && (
+                  <button
+                    onClick={handleExportCSV}
+                    className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Export CSV
+                  </button>
+                )}
               </div>
             </div>
 

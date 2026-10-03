@@ -149,6 +149,18 @@ export async function POST(request) {
 
     console.log("userRole", userRole);
 
+    // Get role definition for fresh permissions and display name
+    const roleName = userRole ? (userRole.roleName || userRole.role) : "EMPLOYEE";
+    const roleDef = await db.collection("roles").findOne({
+      name: roleName,
+      isActive: true,
+    });
+
+    // Use permissions from the role definition (fresh), falling back to user_roles
+    const permissions = roleDef
+      ? roleDef.permissions
+      : (userRole ? userRole.permissions : []);
+
     // Create JWT token
     const token = jwt.sign(
       {
@@ -160,8 +172,10 @@ export async function POST(request) {
         department: employee.personalDetails?.department || employee.department,
         workLocations: hasWorkLocations ? employee.workLocations : [],
         workLocation: hasOldLocation || null, // Keep for backward compatibility
-        role: userRole ? userRole.role : "EMPLOYEE",
-        permissions: userRole ? userRole.permissions : [],
+        role: roleName,
+        permissions: permissions,
+        roleLevel: roleDef?.level || 10,
+        roleDisplayName: roleDef?.displayName || roleName,
       },
       JWT_SECRET,
       { expiresIn: "24h" }
@@ -196,8 +210,8 @@ export async function POST(request) {
             employee.personalDetails?.department || employee.department,
           workLocations: hasWorkLocations ? employee.workLocations : [],
           workLocation: hasOldLocation || null, // Keep for backward compatibility
-          role: userRole ? userRole.role : "EMPLOYEE",
-          permissions: userRole ? userRole.permissions : [],
+          role: roleName,
+          permissions: permissions,
         },
       },
     });

@@ -64,6 +64,7 @@ export default function EmployeeLoginPage() {
 
       // Store token and employee data
       localStorage.setItem("employeeToken", result.data.token);
+      localStorage.setItem("authToken", result.data.token);
       localStorage.setItem(
         "employeeData",
         JSON.stringify(result.data.employee)

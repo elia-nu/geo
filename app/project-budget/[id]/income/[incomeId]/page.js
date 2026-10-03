@@ -29,6 +29,7 @@ import {
   refreshInstallmentStatuses,
   summarizeInstallments,
 } from "../../../../utils/incomeLifecycle";
+import { usePermissions } from "../../../../hooks/usePermissions";
 
 const formatDate = (date) => {
   if (!date) return "—";
@@ -56,6 +57,7 @@ const formatFrequencyLabel = (freq) => {
 
 const IncomeDetailPage = ({ params }) => {
   const { id: projectId, incomeId } = use(params);
+  const { hasPermission } = usePermissions();
   const [projectName, setProjectName] = useState("");
   const [income, setIncome] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -247,6 +249,30 @@ const IncomeDetailPage = ({ params }) => {
         return "bg-blue-50 text-blue-700 border-blue-200";
     }
   };
+
+  if (!hasPermission("project.budget")) {
+    return (
+      <Layout activeSection="budget-management">
+        <div className="flex justify-center items-center min-h-[70vh] px-4">
+          <div className="text-center max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+            <p className="text-lg text-amber-800 font-semibold mb-2">
+              Access Restricted
+            </p>
+            <p className="text-sm text-amber-700 mb-4">
+              You do not have permission to view or manage project financial budgets and payment plans.
+            </p>
+            <Link
+              href={`/projects/${projectId}`}
+              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              <ArrowLeftIcon className="w-4 h-4" />
+              Back to Project
+            </Link>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   if (loading) {
     return (

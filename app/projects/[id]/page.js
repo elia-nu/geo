@@ -70,9 +70,11 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "../../utils/sweetAlert";
+import { usePermissions } from "../../hooks/usePermissions";
 
 const ProjectDetailPage = ({ params }) => {
   const { id: projectId } = use(params);
+  const { hasPermission } = usePermissions();
 
   // State management
   const [project, setProject] = useState(null);
@@ -553,11 +555,15 @@ const ProjectDetailPage = ({ params }) => {
       label: "Tasks",
       icon: AssignmentIcon,
     },
-    {
-      href: `/project-budget/${projectId}`,
-      label: "Budget",
-      icon: AttachMoneyIcon,
-    },
+    ...(hasPermission("project.budget")
+      ? [
+          {
+            href: `/project-budget/${projectId}`,
+            label: "Budget",
+            icon: AttachMoneyIcon,
+          },
+        ]
+      : []),
     {
       href: `/projects/${projectId}/milestones`,
       label: "Milestones",
@@ -912,12 +918,14 @@ const ProjectDetailPage = ({ params }) => {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
                   <AttachMoneyIcon className="!text-[22px]" />
                 </div>
-                <Link
-                  href={`/project-budget/${projectId}`}
-                  className="text-xs font-semibold text-emerald-700 opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  Details →
-                </Link>
+                {hasPermission("project.budget") && (
+                  <Link
+                    href={`/project-budget/${projectId}`}
+                    className="text-xs font-semibold text-emerald-700 opacity-0 transition-opacity group-hover:opacity-100"
+                  >
+                    Details →
+                  </Link>
+                )}
               </div>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                 Budget
@@ -940,12 +948,14 @@ const ProjectDetailPage = ({ params }) => {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-700">
                   <AccountBalanceWalletIcon className="!text-[22px]" />
                 </div>
-                <Link
-                  href={`/project-budget/${projectId}`}
-                  className="text-xs font-semibold text-rose-700 opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  Details →
-                </Link>
+                {hasPermission("project.budget") && (
+                  <Link
+                    href={`/project-budget/${projectId}`}
+                    className="text-xs font-semibold text-rose-700 opacity-0 transition-opacity group-hover:opacity-100"
+                  >
+                    Details →
+                  </Link>
+                )}
               </div>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                 Expenses

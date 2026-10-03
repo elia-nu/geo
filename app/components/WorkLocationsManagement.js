@@ -18,8 +18,10 @@ import {
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
 import { toast } from "./ui/toast";
+import { usePermissions } from "../hooks/usePermissions";
 
 export default function WorkLocationsManagement() {
+  const { hasPermission } = usePermissions();
   const [locations, setLocations] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -431,13 +433,15 @@ export default function WorkLocationsManagement() {
             </div>
           </div>
 
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 bg-white text-indigo-900 hover:bg-indigo-50 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all hover:scale-105 self-start lg:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Work Location</span>
-          </button>
+          {hasPermission("location.manage") && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 bg-white text-indigo-900 hover:bg-indigo-50 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all hover:scale-105 self-start lg:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Work Location</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -511,7 +515,7 @@ export default function WorkLocationsManagement() {
               ? "Try adjusting your search keywords."
               : "Get started by registering your company's primary office or construction sites."}
           </p>
-          {!searchTerm && (
+          {!searchTerm && hasPermission("location.manage") && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
@@ -559,27 +563,33 @@ export default function WorkLocationsManagement() {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openAssignModal(location)}
-                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                        title="Assign Employees"
-                      >
-                        <Users className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => openEditModal(location)}
-                        className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                        title="Edit Location"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(location)}
-                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                        title="Delete Location"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {hasPermission("location.manage") && (
+                        <button
+                          onClick={() => openAssignModal(location)}
+                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          title="Assign Employees"
+                        >
+                          <Users className="w-4 h-4" />
+                        </button>
+                      )}
+                      {hasPermission("location.manage") && (
+                        <button
+                          onClick={() => openEditModal(location)}
+                          className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                          title="Edit Location"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      )}
+                      {hasPermission("location.manage") && (
+                        <button
+                          onClick={() => openDeleteModal(location)}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Delete Location"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -621,12 +631,14 @@ export default function WorkLocationsManagement() {
                     <Users className="w-3.5 h-3.5 text-slate-400" />
                     <span>{location.employeeCount || (location.assignedEmployees?.length || 0)} Assigned</span>
                   </span>
-                  <button
-                    onClick={() => openAssignModal(location)}
-                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
-                  >
-                    Manage Team →
-                  </button>
+                  {hasPermission("location.manage") && (
+                    <button
+                      onClick={() => openAssignModal(location)}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                    >
+                      Manage Team →
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

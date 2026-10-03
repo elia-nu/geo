@@ -2,10 +2,26 @@ import { NextResponse } from "next/server";
 import { getDb } from "../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../utils/audit.js";
+import { getCurrentUser, checkPermission } from "../middleware/auth.js";
 
 // Create a new project
 export async function POST(request) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user || !user.authenticated) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+    const hasPerm = await checkPermission(user.userId, "project.create", user.role);
+    if (!hasPerm) {
+      return NextResponse.json(
+        { error: "Access denied: Missing 'project.create' permission" },
+        { status: 403 }
+      );
+    }
+
     const db = await getDb();
     const data = await request.json();
 
@@ -131,6 +147,21 @@ export async function POST(request) {
 // Get all projects with optional filtering
 export async function GET(request) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user || !user.authenticated) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+    const hasPerm = await checkPermission(user.userId, "project.read", user.role);
+    if (!hasPerm) {
+      return NextResponse.json(
+        { error: "Access denied: Missing 'project.read' permission" },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category");
     const status = searchParams.get("status");

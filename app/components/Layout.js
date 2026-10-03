@@ -86,6 +86,7 @@ const Layout = ({
         }}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
+        user={user}
       />
 
       {/* Main Content */}

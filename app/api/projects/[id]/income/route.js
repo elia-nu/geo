@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
+import { getCurrentUser, checkPermission } from "../../../middleware/auth.js";
 import {
   buildIncomeRecord,
   refreshIncomeList,
@@ -124,6 +125,19 @@ export async function GET(request, { params }) {
 // Create expected income (or income with initial collection)
 export async function POST(request, { params }) {
   try {
+    const user = await getCurrentUser(request);
+    if (user && user.authenticated) {
+      const hasPerm =
+        (await checkPermission(user.userId, "project.budget", user.role)) ||
+        (await checkPermission(user.userId, "project.update", user.role));
+      if (!hasPerm) {
+        return NextResponse.json(
+          { error: "Access denied: Missing 'project.budget' permission" },
+          { status: 403 }
+        );
+      }
+    }
+
     const db = await getDb();
     const { id } = await params;
     const data = await request.json();
@@ -304,6 +318,19 @@ export async function POST(request, { params }) {
 // Bulk replace income array
 export async function PUT(request, { params }) {
   try {
+    const user = await getCurrentUser(request);
+    if (user && user.authenticated) {
+      const hasPerm =
+        (await checkPermission(user.userId, "project.budget", user.role)) ||
+        (await checkPermission(user.userId, "project.update", user.role));
+      if (!hasPerm) {
+        return NextResponse.json(
+          { error: "Access denied: Missing 'project.budget' permission" },
+          { status: 403 }
+        );
+      }
+    }
+
     const db = await getDb();
     const { id } = await params;
     const data = await request.json();

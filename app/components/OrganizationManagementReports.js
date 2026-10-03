@@ -1,15 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
-import { GitBranch, ShieldCheck, BarChart3 } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { GitBranch, ShieldCheck, BarChart3, AlertCircle } from "lucide-react";
 import OrganizationalStructureReport from "./OrganizationalStructureReport";
 import RolePermissionAuditReport from "./RolePermissionAuditReport";
 import DepartmentPerformanceReport from "./DepartmentPerformanceReport";
+import usePermissions from "../hooks/usePermissions";
 
 const TABS = [
   {
     id: "organizational-structure",
     label: "Organizational Structure Report",
+    requiredPermission: "reports.organization",
     description:
       "Hierarchy tree by Company → Department → Role for HR planning and governance audits.",
     icon: GitBranch,
@@ -18,6 +20,7 @@ const TABS = [
   {
     id: "role-permission-audit",
     label: "Role Audit Report",
+    requiredPermissions: ["role.manage", "reports.organization"],
     description:
       "Lists roles, system privileges and assigned users for governance and access review.",
     icon: ShieldCheck,
@@ -26,6 +29,7 @@ const TABS = [
   {
     id: "department-performance",
     label: "Department Performance Summary",
+    requiredPermission: "reports.organization",
     description:
       "Department-level attendance rate, leave frequency, payroll cost and workforce utilization summary.",
     icon: BarChart3,
@@ -34,8 +38,42 @@ const TABS = [
 ];
 
 export default function OrganizationManagementReports() {
-  const [activeTab, setActiveTab] = useState("organizational-structure");
-  const ActiveComponent = TABS.find((t) => t.id === activeTab)?.component;
+  const { hasPermission, isAdmin } = usePermissions();
+
+  const accessibleTabs = useMemo(() => {
+    if (isAdmin) return TABS;
+    return TABS.filter((tab) => {
+      if (tab.requiredPermissions) {
+        return tab.requiredPermissions.some((p) => hasPermission(p));
+      }
+      if (tab.requiredPermission) {
+        return hasPermission(tab.requiredPermission);
+      }
+      return true;
+    });
+  }, [hasPermission, isAdmin]);
+
+  const [activeTab, setActiveTab] = useState(
+    accessibleTabs[0]?.id || "organizational-structure"
+  );
+
+  // If activeTab is no longer accessible, reset to first accessible
+  const currentTab = accessibleTabs.find((t) => t.id === activeTab) || accessibleTabs[0];
+  const ActiveComponent = currentTab?.component;
+
+  if (accessibleTabs.length === 0) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-[60vh] flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md text-center">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-slate-800">Access Restricted</h3>
+          <p className="text-sm text-slate-500 mt-2">
+            Your role does not have permission to view Organization Management Reports.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">

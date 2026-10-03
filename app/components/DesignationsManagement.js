@@ -19,8 +19,10 @@ import {
   Filter,
 } from "lucide-react";
 import { toast } from "./ui/toast";
+import { usePermissions } from "../hooks/usePermissions";
 
 export default function DesignationsManagement() {
+  const { hasPermission } = usePermissions();
   const [designations, setDesignations] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [selectedDeptId, setSelectedDeptId] = useState("");
@@ -356,102 +358,106 @@ export default function DesignationsManagement() {
           </div>
 
           {/* Add Designation Card */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                <Plus className="w-4 h-4" />
+          {hasPermission("designation.manage") && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Add Designation</h3>
+                  <p className="text-xs text-slate-400">
+                    Assign title to <strong className="text-slate-700">{selectedDept?.name || "department"}</strong>
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">Add Designation</h3>
-                <p className="text-xs text-slate-400">
-                  Assign title to <strong className="text-slate-700">{selectedDept?.name || "department"}</strong>
-                </p>
-              </div>
-            </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-                  Designation Title *
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newDesignation}
-                    onChange={(e) => setNewDesignation(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") addDesignation();
-                    }}
-                    placeholder="e.g. Senior Software Engineer"
-                    className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none placeholder:text-slate-400"
-                  />
-                  <button
-                    onClick={addDesignation}
-                    disabled={!newDesignation.trim() || !selectedDeptId || actionLoading}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-sm inline-flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add
-                  </button>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                    Designation Title *
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newDesignation}
+                      onChange={(e) => setNewDesignation(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addDesignation();
+                      }}
+                      placeholder="e.g. Senior Software Engineer"
+                      className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none placeholder:text-slate-400"
+                    />
+                    <button
+                      onClick={addDesignation}
+                      disabled={!newDesignation.trim() || !selectedDeptId || actionLoading}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-sm inline-flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Quick Rename / Modify Card */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-                <Pencil className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">Rename Designation</h3>
-                <p className="text-xs text-slate-400">Update existing title in {selectedDept?.name || "department"}</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-                  Current Title
-                </label>
-                <select
-                  value={rename.oldName}
-                  onChange={(e) => setRename({ ...rename, oldName: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none cursor-pointer"
-                >
-                  <option value="">-- Choose existing role --</option>
-                  {deptDesignations.map((n) => (
-                    <option key={`old-${n}`} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
+          {hasPermission("designation.manage") && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Rename Designation</h3>
+                  <p className="text-xs text-slate-400">Update existing title in {selectedDept?.name || "department"}</p>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-                  New Title
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={rename.newName}
-                    onChange={(e) => setRename({ ...rename, newName: e.target.value })}
-                    placeholder="Enter updated name"
-                    className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none placeholder:text-slate-400"
-                  />
-                  <button
-                    onClick={updateDesignation}
-                    disabled={!rename.oldName || !rename.newName.trim() || actionLoading}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-95 shrink-0"
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                    Current Title
+                  </label>
+                  <select
+                    value={rename.oldName}
+                    onChange={(e) => setRename({ ...rename, oldName: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none cursor-pointer"
                   >
-                    Update
-                  </button>
+                    <option value="">-- Choose existing role --</option>
+                    {deptDesignations.map((n) => (
+                      <option key={`old-${n}`} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                    New Title
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={rename.newName}
+                      onChange={(e) => setRename({ ...rename, newName: e.target.value })}
+                      placeholder="Enter updated name"
+                      className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none placeholder:text-slate-400"
+                    />
+                    <button
+                      onClick={updateDesignation}
+                      disabled={!rename.oldName || !rename.newName.trim() || actionLoading}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-95 shrink-0"
+                    >
+                      Update
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Right Column: Interactive Designations Explorer (7 cols) */}
@@ -568,7 +574,7 @@ export default function DesignationsManagement() {
                         )}
                       </button>
 
-                      {viewFilter === "department" && (
+                      {viewFilter === "department" && hasPermission("designation.manage") && (
                         <button
                           onClick={() => setDeleteTarget(des)}
                           className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"

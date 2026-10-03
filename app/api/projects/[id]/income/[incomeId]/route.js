@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../../utils/audit.js";
+import { getCurrentUser, checkPermission } from "../../../../middleware/auth.js";
 import {
   applyCollection,
   enrichIncomeRecord,
@@ -62,6 +63,19 @@ export async function GET(request, { params }) {
  */
 export async function PUT(request, { params }) {
   try {
+    const user = await getCurrentUser(request);
+    if (user && user.authenticated) {
+      const hasPerm =
+        (await checkPermission(user.userId, "project.budget", user.role)) ||
+        (await checkPermission(user.userId, "project.update", user.role));
+      if (!hasPerm) {
+        return NextResponse.json(
+          { error: "Access denied: Missing 'project.budget' permission" },
+          { status: 403 }
+        );
+      }
+    }
+
     const db = await getDb();
     const { id, incomeId } = await params;
     const data = await request.json();
@@ -373,6 +387,19 @@ export async function PUT(request, { params }) {
 // Delete specific income entry
 export async function DELETE(request, { params }) {
   try {
+    const user = await getCurrentUser(request);
+    if (user && user.authenticated) {
+      const hasPerm =
+        (await checkPermission(user.userId, "project.budget", user.role)) ||
+        (await checkPermission(user.userId, "project.delete", user.role));
+      if (!hasPerm) {
+        return NextResponse.json(
+          { error: "Access denied: Missing 'project.budget' permission" },
+          { status: 403 }
+        );
+      }
+    }
+
     const db = await getDb();
     const { id, incomeId } = await params;
 

@@ -1,15 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
-import { Users, ClipboardList, Briefcase } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Users, ClipboardList, Briefcase, AlertCircle } from "lucide-react";
 import EmployeeMasterReport from "./EmployeeMasterReport";
 import EmployeeAllocationReport from "./EmployeeAllocationReport";
 import EmployeeLifecycleReport from "./EmployeeLifecycleReport";
+import usePermissions from "../hooks/usePermissions";
 
 const TABS = [
   {
     id: "employee-master",
     label: "Employee Master Report",
+    requiredPermission: "reports.employee",
     description:
       "Full employee registry with status, role, department, work location, supervisor, contract type & joining date.",
     icon: ClipboardList,
@@ -18,6 +20,7 @@ const TABS = [
   {
     id: "employee-allocation",
     label: "Employee Allocation Report",
+    requiredPermission: "reports.employee",
     description:
       "Employees assigned per project, site location, department and supervisor with utilization insights.",
     icon: Briefcase,
@@ -26,6 +29,7 @@ const TABS = [
   {
     id: "employee-lifecycle",
     label: "Employee Lifecycle Activity Report",
+    requiredPermission: "reports.employee",
     description:
       "Tracks employee creation, transfers, role changes and terminations with timestamps and admin actor logs.",
     icon: Users,
@@ -34,8 +38,38 @@ const TABS = [
 ];
 
 export default function EmployeeManagementReports() {
-  const [activeTab, setActiveTab] = useState("employee-master");
-  const ActiveComponent = TABS.find((t) => t.id === activeTab)?.component;
+  const { hasPermission, isAdmin } = usePermissions();
+
+  const accessibleTabs = useMemo(() => {
+    if (isAdmin) return TABS;
+    return TABS.filter((tab) => {
+      if (tab.requiredPermission) {
+        return hasPermission(tab.requiredPermission);
+      }
+      return true;
+    });
+  }, [hasPermission, isAdmin]);
+
+  const [activeTab, setActiveTab] = useState(
+    accessibleTabs[0]?.id || "employee-master"
+  );
+
+  const currentTab = accessibleTabs.find((t) => t.id === activeTab) || accessibleTabs[0];
+  const ActiveComponent = currentTab?.component;
+
+  if (accessibleTabs.length === 0) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-[60vh] flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md text-center">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-slate-800">Access Restricted</h3>
+          <p className="text-sm text-slate-500 mt-2">
+            Your role does not have permission to view Employee Management Reports.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">

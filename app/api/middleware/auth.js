@@ -33,16 +33,23 @@ export async function getCurrentUser(request) {
           userId,
           email: userEmail,
           role: request.headers.get("x-user-role") || "EMPLOYEE",
+          permissions: [],
+          authenticated: true,
         };
       }
     }
 
-    // If still no token, default to system/admin for backward compatibility
+    // If still no token, return unauthenticated guest user
+    // NOTE: Previously this defaulted to ADMIN which was a security hole.
+    // Individual API routes that truly need backward-compat system access
+    // should check for this and handle accordingly.
     if (!token) {
       return {
-        userId: "system",
-        email: "admin@company.com",
-        role: "ADMIN",
+        userId: "guest",
+        email: null,
+        role: "GUEST",
+        permissions: [],
+        authenticated: false,
       };
     }
 
@@ -50,70 +57,152 @@ export async function getCurrentUser(request) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       return {
-        userId: decoded.employeeId || decoded.userId || "system",
-        email: decoded.email || "admin@company.com",
+        userId: decoded.employeeId || decoded.userId || "unknown",
+        email: decoded.email || null,
         role: decoded.role || "EMPLOYEE",
         permissions: decoded.permissions || [],
+        department: decoded.department || null,
+        name: decoded.name || null,
+        authenticated: true,
       };
     } catch (jwtError) {
-      console.error("JWT verification error:", jwtError);
-      // If token is invalid, return system user for backward compatibility
+      console.error("JWT verification error:", jwtError.message);
+      // Invalid/expired token — return unauthenticated
       return {
-        userId: "system",
-        email: "admin@company.com",
-        role: "ADMIN",
+        userId: "guest",
+        email: null,
+        role: "GUEST",
+        permissions: [],
+        authenticated: false,
+        tokenError: jwtError.message,
       };
     }
   } catch (error) {
     console.error("Error getting current user:", error);
-    // Return system user as fallback
     return {
-      userId: "system",
-      email: "admin@company.com",
-      role: "ADMIN",
+      userId: "guest",
+      email: null,
+      role: "GUEST",
+      permissions: [],
+      authenticated: false,
     };
   }
 }
 
+// Check if a user has a specific permission
 export async function checkPermission(userId, permission, userRoleFromToken = null) {
   try {
-    const db = await getDb();
-
-    // If role is provided from token and it's ADMIN, grant all permissions
+    // ADMIN role always has all permissions
     if (userRoleFromToken === "ADMIN") {
       return true;
     }
 
-    // First, try to get role from user_roles collection
+    const db = await getDb();
+
+    // Get user's role assignment from DB
     const userRole = await db.collection("user_roles").findOne({
       userId,
       isActive: true,
     });
 
-    // If user has ADMIN role, grant all permissions
-    if (userRole && userRole.role === "ADMIN") {
+    let roleName = userRole?.roleName || userRole?.role || userRoleFromToken;
+    let effectivePerms = userRole?.permissions || [];
+
+    // Always fetch fresh permissions from the role definition
+    if (roleName) {
+      const roleDoc = await db.collection("roles").findOne({ name: roleName, isActive: true });
+      if (roleDoc && Array.isArray(roleDoc.permissions) && roleDoc.permissions.length > 0) {
+        effectivePerms = roleDoc.permissions;
+      }
+    }
+
+    if (!userRole && (!effectivePerms || effectivePerms.length === 0)) {
+      // Default employee permissions
+      const defaultPerms = [
+        "employee.read.own", "employee.update.own",
+        "document.read.own", "document.create.own",
+        "attendance.checkin", "leave.request", "task.read.own",
+      ];
+      return defaultPerms.includes(permission);
+    }
+
+    // ADMIN role or wildcard permissions
+    if (roleName === "ADMIN") {
       return true;
     }
 
-    // Check if user has the specific permission
-    if (userRole && userRole.permissions && userRole.permissions.includes(permission)) {
+    if (effectivePerms.includes("*")) {
       return true;
     }
 
-    // If no role found, check if userId is "system" (admin fallback)
-    if (userId === "system") {
+    // Check specific permission
+    if (effectivePerms.includes(permission)) {
       return true;
     }
 
-    // Default to false if no permission found
+    // Cross-compatibility aliases for reports
+    if (permission === "reports.payroll" || permission === "payroll.reports") {
+      if (
+        effectivePerms.includes("reports.payroll") ||
+        effectivePerms.includes("payroll.reports") ||
+        effectivePerms.includes("payroll.manage")
+      ) {
+        return true;
+      }
+    }
+
+    if (permission === "reports.attendance" || permission === "attendance.reports") {
+      if (
+        effectivePerms.includes("reports.attendance") ||
+        effectivePerms.includes("attendance.reports") ||
+        effectivePerms.includes("attendance.manage")
+      ) {
+        return true;
+      }
+    }
+
+    if (permission === "reports.project" || permission === "project.reports") {
+      if (
+        effectivePerms.includes("reports.project") ||
+        effectivePerms.includes("project.reports") ||
+        effectivePerms.includes("project.read")
+      ) {
+        return true;
+      }
+    }
+
+    if (permission === "reports.leave" || permission === "leave.reports" || permission === "leave.manage") {
+      if (
+        effectivePerms.includes("reports.leave") ||
+        effectivePerms.includes("leave.reports") ||
+        effectivePerms.includes("leave.manage")
+      ) {
+        return true;
+      }
+    }
+
+    if (permission === "reports.read") {
+      if (
+        effectivePerms.includes("reports.read") ||
+        effectivePerms.some((p) => typeof p === "string" && p.startsWith("reports."))
+      ) {
+        return true;
+      }
+    }
+
+    // Check for broader permission (e.g., "employee.read" covers "employee.read.own")
+    const permParts = permission.split(".");
+    if (permParts.length > 2) {
+      const broaderPerm = permParts.slice(0, 2).join(".");
+      if (effectivePerms.includes(broaderPerm)) {
+        return true;
+      }
+    }
+
     return false;
   } catch (error) {
     console.error("Error checking permission:", error);
-    // If there's an error and userId is system, grant permission
-    if (userId === "system") {
-      return true;
-    }
-    // If role from token is ADMIN, grant permission even on error
+    // On error, only grant if ADMIN from token (fail-closed)
     if (userRoleFromToken === "ADMIN") {
       return true;
     }
@@ -121,11 +210,46 @@ export async function checkPermission(userId, permission, userRoleFromToken = nu
   }
 }
 
+// Check multiple permissions at once (returns true if user has ANY of them)
+export async function checkAnyPermission(userId, permissions, userRoleFromToken = null) {
+  for (const perm of permissions) {
+    if (await checkPermission(userId, perm, userRoleFromToken)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Check multiple permissions at once (returns true if user has ALL of them)
+export async function checkAllPermissions(userId, permissions, userRoleFromToken = null) {
+  for (const perm of permissions) {
+    if (!(await checkPermission(userId, perm, userRoleFromToken))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Higher-order function that wraps an API handler with permission checking
 export async function requirePermission(permission) {
   return async function middleware(request, handler) {
     try {
       const user = await getCurrentUser(request);
-      const hasPermission = await checkPermission(user.userId, permission);
+
+      if (!user.authenticated) {
+        return new Response(
+          JSON.stringify({
+            error: "Authentication required",
+            message: "Please log in to access this resource",
+          }),
+          {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const hasPermission = await checkPermission(user.userId, permission, user.role);
 
       if (!hasPermission) {
         return new Response(
@@ -153,6 +277,27 @@ export async function requirePermission(permission) {
   };
 }
 
+// Helper: require authentication (any logged-in user)
+export async function requireAuth(request) {
+  const user = await getCurrentUser(request);
+  if (!user.authenticated) {
+    return {
+      user: null,
+      error: new Response(
+        JSON.stringify({
+          error: "Authentication required",
+          message: "Please log in to access this resource",
+        }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }
+      ),
+    };
+  }
+  return { user, error: null };
+}
+
 // Helper function to check if user can access specific employee data
 export async function canAccessEmployee(userId, employeeId, permission) {
   const hasGeneralPermission = await checkPermission(userId, permission);
@@ -162,8 +307,7 @@ export async function canAccessEmployee(userId, employeeId, permission) {
   const hasOwnPermission = await checkPermission(userId, permission + ".own");
   if (hasOwnPermission) {
     // Check if the employeeId belongs to the current user
-    // This would require linking users to employees in your system
-    return userId === employeeId; // Simplified check
+    return userId === employeeId;
   }
 
   return false;
@@ -174,8 +318,6 @@ export async function logWithUser(action, entityType, entityId, metadata = {}) {
   try {
     const { createAuditLog } = await import("../audit/route");
 
-    // In a real application, you would get the current user from context
-    // For now, we'll use default values
     await createAuditLog({
       action,
       entityType,
@@ -189,19 +331,29 @@ export async function logWithUser(action, entityType, entityId, metadata = {}) {
   }
 }
 
-// Role hierarchy check
-export function hasHigherRole(userRole, targetRole) {
-  const roleHierarchy = {
-    ADMIN: 4,
-    HR_MANAGER: 3,
-    HR_STAFF: 2,
-    EMPLOYEE: 1,
-  };
+// Role hierarchy check — now supports dynamic roles from DB
+export async function hasHigherRole(userRole, targetRole) {
+  try {
+    const db = await getDb();
 
-  return roleHierarchy[userRole] > roleHierarchy[targetRole];
+    const [userRoleDef, targetRoleDef] = await Promise.all([
+      db.collection("roles").findOne({ name: userRole, isActive: true }),
+      db.collection("roles").findOne({ name: targetRole, isActive: true }),
+    ]);
+
+    const userLevel = userRoleDef?.level ?? 0;
+    const targetLevel = targetRoleDef?.level ?? 0;
+
+    return userLevel > targetLevel;
+  } catch (error) {
+    console.error("Error in role hierarchy check:", error);
+    // Fallback to hardcoded hierarchy
+    const fallback = { ADMIN: 100, HR_MANAGER: 80, HR_STAFF: 60, MANAGER: 50, PROJECT_MANAGER: 50, FINANCE: 40, EMPLOYEE: 10 };
+    return (fallback[userRole] || 0) > (fallback[targetRole] || 0);
+  }
 }
 
-// Get user's role level
+// Get user's role and level
 export async function getUserRole(userId) {
   try {
     const db = await getDb();
@@ -211,9 +363,51 @@ export async function getUserRole(userId) {
       isActive: true,
     });
 
-    return userRole ? userRole.role : "EMPLOYEE"; // Default to employee
+    return userRole ? (userRole.roleName || userRole.role) : "EMPLOYEE";
   } catch (error) {
     console.error("Error getting user role:", error);
     return "EMPLOYEE";
+  }
+}
+
+// Get full user permissions (combines role permissions)
+export async function getUserPermissions(userId) {
+  try {
+    const db = await getDb();
+
+    const userRole = await db.collection("user_roles").findOne({
+      userId,
+      isActive: true,
+    });
+
+    if (!userRole) {
+      return {
+        role: "EMPLOYEE",
+        permissions: ["employee.read.own", "employee.update.own", "document.read.own", "document.create.own", "attendance.checkin", "leave.request", "task.read.own"],
+        level: 10,
+      };
+    }
+
+    const roleName = userRole.roleName || userRole.role;
+
+    // Get role definition for level info
+    const roleDef = await db.collection("roles").findOne({
+      name: roleName,
+      isActive: true,
+    });
+
+    return {
+      role: roleName,
+      permissions: userRole.permissions || [],
+      level: roleDef?.level || 0,
+      displayName: roleDef?.displayName || roleName,
+    };
+  } catch (error) {
+    console.error("Error getting user permissions:", error);
+    return {
+      role: "EMPLOYEE",
+      permissions: [],
+      level: 10,
+    };
   }
 }

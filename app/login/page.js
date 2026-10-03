@@ -46,20 +46,25 @@ export default function LoginPage() {
 
       if (result.success) {
         localStorage.setItem("authToken", result.data.token);
+        localStorage.setItem("employeeToken", result.data.token);
+        localStorage.setItem("employeeData", JSON.stringify(result.data.employee));
+        const role = result.data.employee?.role;
 
-        if (result.data.employee.role === "ADMIN") {
+        // Roles allowed to access HRM dashboard
+        const hrmRoles = ["ADMIN", "HR_MANAGER", "HR_STAFF", "MANAGER", "PROJECT_MANAGER", "FINANCE"];
+
+        if (hrmRoles.includes(role)) {
           showSuccessToast("Welcome back!", "Signing you in…");
-          // Brief pause so the toast and loading state feel smooth
           await new Promise((resolve) => setTimeout(resolve, 400));
-          router.push("/hrm/protected");
+          router.push("/hrm");
           return;
         }
 
-        localStorage.removeItem("authToken");
-        const msg =
-          "Access denied. Admin role required to access HRM dashboard.";
-        setError(msg);
-        showErrorToast("Access Denied", msg);
+        // EMPLOYEE and other roles go to the employee portal
+        showSuccessToast("Welcome!", "Redirecting to your portal…");
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        router.push("/employee-portal");
+        return;
       } else {
         const msg = result.error || "Login failed";
         setError(msg);
@@ -203,7 +208,7 @@ export default function LoginPage() {
               </h3>
               <ul className="text-sm text-blue-700 space-y-1">
                 <li>• Valid Employee ID and Password</li>
-                <li>• Admin role assigned by system administrator</li>
+                <li>• Role assigned by system administrator</li>
                 <li>• Active employee status</li>
               </ul>
             </div>

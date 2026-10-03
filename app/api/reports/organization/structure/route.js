@@ -13,11 +13,11 @@ export async function GET(request) {
     // Get current user for role-based access
     const user = await getCurrentUser(request);
     
-    // Check permission to view reports (pass role from token)
-    const hasPermission = await checkPermission(user.userId, "reports.read", user.role);
+    // Check permission to view organization reports
+    const hasPermission = await checkPermission(user.userId, "reports.organization", user.role);
     if (!hasPermission) {
       return NextResponse.json(
-        { error: "Access denied. You don't have permission to view reports." },
+        { error: "Access denied. You don't have permission to view organization reports." },
         { status: 403 }
       );
     }

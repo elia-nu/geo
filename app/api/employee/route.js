@@ -39,17 +39,25 @@ export async function POST(request) {
     const result = await db.collection("employees").insertOne(employeeData);
     const employeeId = result.insertedId.toString();
 
-    // Automatically assign EMPLOYEE role
+    // Automatically assign EMPLOYEE role from roles collection
+    const defaultRoleDoc = await db.collection("roles").findOne({ name: "EMPLOYEE" });
+    const defaultPermissions = defaultRoleDoc?.permissions || [
+      "employee.read.own",
+      "employee.update.own",
+      "document.read.own",
+      "document.create.own",
+      "attendance.checkin",
+      "leave.request",
+      "task.read.own",
+    ];
+
     const userRole = {
       userId: employeeId,
       email: employeeData.personalDetails?.email || employeeData.email,
+      roleId: defaultRoleDoc?._id || null,
+      roleName: "EMPLOYEE",
       role: "EMPLOYEE",
-      permissions: [
-        "employee.read.own",
-        "employee.update.own",
-        "document.read.own",
-        "document.create.own",
-      ],
+      permissions: defaultPermissions,
       assignedBy: "system",
       assignedAt: new Date(),
       isActive: true,
