@@ -124,8 +124,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_TASK_CATEGORY",
       entityType: "taskCategory",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         categoryName: updatedCategory.name,
         changes: updateData,
@@ -203,8 +202,7 @@ export async function DELETE(request, { params }) {
       action: "DELETE_TASK_CATEGORY",
       entityType: "taskCategory",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         categoryName: category.name,
       },

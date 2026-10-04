@@ -394,8 +394,7 @@ export async function GET(request, { params }) {
       action: "GENERATE_UTILIZATION_REPORT",
       entityType: "project",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         projectName: project.name,
         reportType,

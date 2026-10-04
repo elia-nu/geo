@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../../../mongo";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../../../../utils/audit";
 
 // PUT - Update a specific budget allocation
 export async function PUT(request, { params }) {
@@ -193,6 +194,20 @@ export async function PUT(request, { params }) {
       }
     }
 
+    createAuditLog({
+      action: "UPDATE_BUDGET_ALLOCATION",
+      entityType: "project_budget",
+      entityId: `${projectId}_${allocationId}`,
+      request,
+      metadata: {
+        projectId,
+        allocationId,
+        allocationName: updateData.name || currentAllocation.name,
+        amount: newAmount,
+        previousAmount: currentAllocation.amount,
+      },
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       message: "Budget allocation updated successfully",
@@ -271,6 +286,19 @@ export async function DELETE(request, { params }) {
         { status: 404 }
       );
     }
+
+    createAuditLog({
+      action: "DELETE_BUDGET_ALLOCATION",
+      entityType: "project_budget",
+      entityId: `${projectId}_${allocationId}`,
+      request,
+      metadata: {
+        projectId,
+        allocationId,
+        allocationName: allocation.name,
+        amount: allocation.amount,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

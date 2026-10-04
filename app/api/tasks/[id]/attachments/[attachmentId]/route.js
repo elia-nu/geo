@@ -3,6 +3,7 @@ import { getDb } from "../../../../mongo";
 import { ObjectId } from "mongodb";
 import { unlink } from "fs/promises";
 import { join } from "path";
+import { createAuditLog } from "../../../../../utils/audit";
 
 // Delete an attachment
 export async function DELETE(request, { params }) {
@@ -79,6 +80,18 @@ export async function DELETE(request, { params }) {
         { status: 500 }
       );
     }
+
+    createAuditLog({
+      action: "DELETE_ATTACHMENT",
+      entityType: "task",
+      entityId: id,
+      request,
+      metadata: {
+        attachmentId,
+        fileName: attachment.originalName,
+        taskTitle: task.title,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,
@@ -166,6 +179,18 @@ export async function PUT(request, { params }) {
         { status: 500 }
       );
     }
+
+    createAuditLog({
+      action: "UPDATE_ATTACHMENT",
+      entityType: "task",
+      entityId: id,
+      request,
+      metadata: {
+        attachmentId,
+        fileName: attachment.originalName,
+        taskTitle: task.title,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

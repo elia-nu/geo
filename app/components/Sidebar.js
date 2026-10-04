@@ -51,6 +51,9 @@ const Sidebar = ({
     if (user?.permissions?.includes("*")) return true;
     if (!perm) return true;
     if (user?.permissions?.includes(perm)) return true;
+    if (perm === "project.read" && (user?.permissions?.includes("project.read.assigned") || user?.permissions?.includes("project.read.own") || user?.permissions?.includes("project.manage"))) {
+      return true;
+    }
     return hookHasPermission(perm);
   };
   const hasAnyPermission = (perms) => {
@@ -107,6 +110,7 @@ const Sidebar = ({
       activeSection === "completed-activities" ||
       activeSection === "workflow-bottlenecks" ||
       activeSection === "user-activity-security" ||
+      activeSection === "employee-portal-audit" ||
       activeSection === "attendance-management-reports"
     ) {
       setExpandedMenus((prev) => ({
@@ -626,7 +630,11 @@ const Sidebar = ({
                       const isSubActive =
                         activeSection === submenuItem.id ||
                         (submenuItem.id === "projects-list" &&
-                          activeSection === "projects");
+                          activeSection === "projects") ||
+                        (submenuItem.id === "universal-system-reports" &&
+                          ["universal-system-reports", "completed-activities", "workflow-bottlenecks", "user-activity-security", "employee-portal-audit"].includes(activeSection)) ||
+                        (submenuItem.id === "executive-reports" &&
+                          ["executive-reports", "system-health", "compliance-audit", "workforce-productivity-roi", "executive-dashboard"].includes(activeSection));
                       return (
                         <button
                           key={submenuItem.id}

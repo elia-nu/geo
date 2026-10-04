@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../utils/audit";
 
 // Calculate base + seniority allowance: 16 + floor(Years of Service / 2)
 function getAnnualLeaveAllowance(yearsOfService) {
@@ -200,6 +201,24 @@ export async function PUT(request) {
     const updated = await db
       .collection("leave_balances")
       .findOne({ employeeId: new ObjectId(employeeId) });
+
+    createAuditLog({
+      action: "UPDATE",
+      entityType: "leave_balance",
+      entityId: employeeId,
+      status: "SUCCESS",
+      request,
+      changes: {
+        before: currentAnnual.available || 0,
+        after: newAvailable,
+        adjustment,
+      },
+      metadata: {
+        leaveType: leaveType || "annual",
+        reason: reason || "Manual Admin Adjustment",
+        adminId,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

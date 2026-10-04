@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Download, RefreshCw, DollarSign, TrendingUp, AlertTriangle } from "lucide-react";
+import { formatCurrency, currencyTitle } from "../utils/currency";
 
 export default function ProjectCostBudgetPerformanceReport() {
   const [loading, setLoading] = useState(false);
@@ -119,21 +120,36 @@ export default function ProjectCostBudgetPerformanceReport() {
                 <DollarSign className="w-5 h-5 text-blue-600" />
                 <span className="font-medium text-blue-900">Total Budget</span>
               </div>
-              <p className="text-xl font-bold text-blue-600">{summary.totalBudget ?? 0}</p>
+              <p
+                className="text-xl font-bold text-blue-600 cursor-default"
+                title={currencyTitle(summary.totalBudget ?? 0)}
+              >
+                {formatCurrency(summary.totalBudget ?? 0)}
+              </p>
             </div>
             <div className="bg-amber-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-5 h-5 text-amber-600" />
                 <span className="font-medium text-amber-900">Total Expenses</span>
               </div>
-              <p className="text-xl font-bold text-amber-600">{summary.totalExpenses ?? 0}</p>
+              <p
+                className="text-xl font-bold text-amber-600 cursor-default"
+                title={currencyTitle(summary.totalExpenses ?? 0)}
+              >
+                {formatCurrency(summary.totalExpenses ?? 0)}
+              </p>
             </div>
             <div className="bg-red-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
                 <span className="font-medium text-red-900">Forecasted Overrun</span>
               </div>
-              <p className="text-xl font-bold text-red-600">{summary.totalForecastedOverrun ?? 0}</p>
+              <p
+                className="text-xl font-bold text-red-600 cursor-default"
+                title={currencyTitle(summary.totalForecastedOverrun ?? 0)}
+              >
+                {formatCurrency(summary.totalForecastedOverrun ?? 0)}
+              </p>
             </div>
           </div>
 
@@ -156,12 +172,39 @@ export default function ProjectCostBudgetPerformanceReport() {
                   {rows.map((r) => (
                     <tr key={r.projectId}>
                       <td className="px-3 py-2 text-black font-medium">{r.projectName}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.totalBudget}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.totalExpenses}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.actualPayrollCost}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.budgetUtilization}%</td>
-                      <td className="px-3 py-2 text-right text-black">{r.dailyBurnRate}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.forecastedOverrun}</td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.totalBudget)}
+                      >
+                        {formatCurrency(r.totalBudget)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.totalExpenses)}
+                      >
+                        {formatCurrency(r.totalExpenses)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.actualPayrollCost)}
+                      >
+                        {formatCurrency(r.actualPayrollCost)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-black font-semibold">
+                        {r.budgetUtilization}%
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.dailyBurnRate)}
+                      >
+                        {formatCurrency(r.dailyBurnRate)}/day
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-red-600 font-mono font-bold cursor-default"
+                        title={currencyTitle(r.forecastedOverrun)}
+                      >
+                        {formatCurrency(r.forecastedOverrun)}
+                      </td>
                       <td className="px-3 py-2 text-black">{r.budgetVsActualNote}</td>
                     </tr>
                   ))}

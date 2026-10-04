@@ -374,6 +374,7 @@ export default function HRMDashboard() {
     "completed-activities": "reports.read",
     "workflow-bottlenecks": "reports.read",
     "user-activity-security": "audit.read",
+    "employee-portal-audit": "reports.read",
   };
 
   const renderContent = () => {
@@ -430,6 +431,17 @@ export default function HRMDashboard() {
           userPermissions.includes("reports.leave") ||
           userPermissions.includes("leave.reports") ||
           userPermissions.includes("leave.manage")
+        ) {
+          return true;
+        }
+      }
+
+      if (perm === "project.read") {
+        if (
+          userPermissions.includes("project.read") ||
+          userPermissions.includes("project.read.assigned") ||
+          userPermissions.includes("project.read.own") ||
+          userPermissions.includes("project.manage")
         ) {
           return true;
         }
@@ -665,6 +677,7 @@ export default function HRMDashboard() {
       case "completed-activities":
       case "workflow-bottlenecks":
       case "user-activity-security":
+      case "employee-portal-audit":
         return (
           <UniversalSystemReports
             initialTab={

@@ -28,7 +28,7 @@ const DEFAULT_ROLES = [
       "task.read", "task.assign", "task.manage",
       "department.read", "department.manage",
       "designation.read", "designation.manage",
-      "location.read", "location.manage",
+      "location.read", "location.create", "location.update", "location.delete", "location.assign", "location.manage",
       "geofence.read",
       "contract.read", "contract.manage",
       "reports.read", "reports.export", "reports.attendance", "reports.employee",
@@ -97,7 +97,7 @@ const DEFAULT_ROLES = [
     level: 50,
     permissions: [
       "employee.read",
-      "project.create", "project.read", "project.update", "project.budget",
+      "project.create", "project.read", "project.read.assigned", "project.update", "project.budget",
       "task.create", "task.read", "task.assign", "task.manage",
       "reports.read", "reports.project",
       "department.read",

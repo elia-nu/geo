@@ -276,8 +276,7 @@ export async function POST(request, { params }) {
       action: "ADD_EXPENSE",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: existingProject.name,
         expenseTitle: title,
@@ -384,8 +383,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_EXPENSES",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: existingProject.name,
         expensesCount: expenses.length,

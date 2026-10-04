@@ -249,6 +249,20 @@ export async function POST(request) {
       entityId: documentId.toString(),
       userId: employeeId,
       userEmail: employee.personalDetails?.email || employee.email || "",
+      userName: employeeName,
+      userRole: employee.role || "EMPLOYEE",
+      request,
+      changes: {
+        before: null,
+        after: {
+          type,
+          leaveType: leaveType || null,
+          startDate: startDate || null,
+          endDate: endDate || null,
+          reason,
+          filesCount: uploadedFiles.length,
+        },
+      },
       metadata: {
         employeeName,
         documentType: type,
@@ -336,6 +350,11 @@ export async function PUT(request) {
       entityId: documentId,
       userId: supervisorId,
       userEmail: "supervisor@company.com",
+      request,
+      changes: {
+        before: { status: existingDocument.status },
+        after: { status, supervisorNotes: supervisorNotes || "" },
+      },
       metadata: {
         employeeId: existingDocument.employeeId,
         employeeName: existingDocument.employeeName,

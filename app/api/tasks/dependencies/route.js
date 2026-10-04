@@ -224,8 +224,8 @@ export async function POST(request) {
       action: "UPDATE_TASK_DEPENDENCIES",
       entityType: "task",
       entityId: taskId,
+      request,
       userId: updatedBy || "admin",
-      userEmail: "admin@company.com",
       metadata: {
         taskTitle: task.title,
         dependenciesCount: dependencyObjectIds.length,

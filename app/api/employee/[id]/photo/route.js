@@ -3,6 +3,7 @@ import { getDb } from "../../../mongo";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../../utils/audit";
 
 export async function POST(request, { params }) {
   try {
@@ -105,6 +106,19 @@ export async function POST(request, { params }) {
       }
     );
 
+    createAuditLog({
+      action: "UPDATE",
+      entityType: "employee_photo",
+      entityId: id,
+      status: "SUCCESS",
+      request,
+      metadata: {
+        fileName,
+        fileSize: buffer.length,
+        mimeType: file.type,
+      },
+    }).catch(() => {});
+
     return NextResponse.json({
       message: "Photo uploaded successfully",
       photoUrl: photoData.photoUrl,
@@ -175,6 +189,17 @@ export async function DELETE(request, { params }) {
         },
       }
     );
+
+    createAuditLog({
+      action: "DELETE",
+      entityType: "employee_photo",
+      entityId: id,
+      status: "SUCCESS",
+      request,
+      metadata: {
+        photoFileName: employee.photoFileName || null,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       message: "Photo deleted successfully",

@@ -22,6 +22,12 @@ import { usePermissions } from "../hooks/usePermissions";
 
 export default function WorkLocationsManagement() {
   const { hasPermission } = usePermissions();
+  const canRead = hasPermission("location.read") || hasPermission("location.manage");
+  const canCreate = hasPermission("location.create") || hasPermission("location.manage");
+  const canUpdate = hasPermission("location.update") || hasPermission("location.manage");
+  const canDelete = hasPermission("location.delete") || hasPermission("location.manage");
+  const canAssign = hasPermission("location.assign") || hasPermission("location.manage");
+
   const [locations, setLocations] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,15 +72,24 @@ export default function WorkLocationsManagement() {
     return String(value);
   };
 
+  const getAuthHeaders = () => {
+    const token = typeof window !== "undefined" ? (localStorage.getItem("authToken") || localStorage.getItem("employeeToken")) : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   useEffect(() => {
-    fetchLocations();
-    fetchEmployees();
-  }, []);
+    if (canRead) {
+      fetchLocations();
+      fetchEmployees();
+    }
+  }, [canRead]);
 
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/work-locations");
+      const response = await fetch("/api/work-locations", {
+        headers: { ...getAuthHeaders() },
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -92,7 +107,9 @@ export default function WorkLocationsManagement() {
 
   const fetchEmployees = async () => {
     try {
-      const response = await fetch("/api/employee");
+      const response = await fetch("/api/employee", {
+        headers: { ...getAuthHeaders() },
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -134,6 +151,7 @@ export default function WorkLocationsManagement() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...getAuthHeaders(),
         },
         body: JSON.stringify(locationForm),
       });
@@ -178,6 +196,7 @@ export default function WorkLocationsManagement() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify(locationForm),
         }
@@ -223,6 +242,9 @@ export default function WorkLocationsManagement() {
         `/api/work-locations/${locationToDelete._id}`,
         {
           method: "DELETE",
+          headers: {
+            ...getAuthHeaders(),
+          },
         }
       );
 
@@ -261,6 +283,7 @@ export default function WorkLocationsManagement() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify(assignForm),
         }
@@ -316,7 +339,10 @@ export default function WorkLocationsManagement() {
       // Try to fetch freshest location with assigned employees
       try {
         const res = await fetch(
-          `/api/work-locations/${normalizeId(location._id)}`
+          `/api/work-locations/${normalizeId(location._id)}`,
+          {
+            headers: { ...getAuthHeaders() },
+          }
         );
         if (res.ok) {
           const data = await res.json();
@@ -395,6 +421,24 @@ export default function WorkLocationsManagement() {
     return filteredLocations.slice(start, start + itemsPerPage);
   }, [filteredLocations, currentPage, itemsPerPage]);
 
+  if (!canRead) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center max-w-lg mx-auto my-12 shadow-sm">
+        <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h3 className="text-lg font-bold text-slate-900 mb-2">Access Denied</h3>
+        <p className="text-sm text-slate-500 mb-4">
+          You do not have permission to view work locations. Contact your administrator to request{" "}
+          <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-xs font-mono">
+            location.read
+          </code>{" "}
+          permission.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Hero Header */}
@@ -433,7 +477,7 @@ export default function WorkLocationsManagement() {
             </div>
           </div>
 
-          {hasPermission("location.manage") && (
+          {canCreate && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-2 bg-white text-indigo-900 hover:bg-indigo-50 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all hover:scale-105 self-start lg:self-auto"
@@ -515,7 +559,7 @@ export default function WorkLocationsManagement() {
               ? "Try adjusting your search keywords."
               : "Get started by registering your company's primary office or construction sites."}
           </p>
-          {!searchTerm && hasPermission("location.manage") && (
+          {!searchTerm && canCreate && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
@@ -563,7 +607,7 @@ export default function WorkLocationsManagement() {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      {hasPermission("location.manage") && (
+                      {canAssign && (
                         <button
                           onClick={() => openAssignModal(location)}
                           className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -572,7 +616,7 @@ export default function WorkLocationsManagement() {
                           <Users className="w-4 h-4" />
                         </button>
                       )}
-                      {hasPermission("location.manage") && (
+                      {canUpdate && (
                         <button
                           onClick={() => openEditModal(location)}
                           className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -581,7 +625,7 @@ export default function WorkLocationsManagement() {
                           <Edit className="w-4 h-4" />
                         </button>
                       )}
-                      {hasPermission("location.manage") && (
+                      {canDelete && (
                         <button
                           onClick={() => openDeleteModal(location)}
                           className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
@@ -631,7 +675,7 @@ export default function WorkLocationsManagement() {
                     <Users className="w-3.5 h-3.5 text-slate-400" />
                     <span>{location.employeeCount || (location.assignedEmployees?.length || 0)} Assigned</span>
                   </span>
-                  {hasPermission("location.manage") && (
+                  {canAssign && (
                     <button
                       onClick={() => openAssignModal(location)}
                       className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"

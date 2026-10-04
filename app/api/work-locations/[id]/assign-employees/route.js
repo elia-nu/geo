@@ -2,10 +2,24 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
+import { getCurrentUser, checkPermission } from "../../../middleware/auth.js";
 
 // Sync / replace assigned employees for a work location (supports assigning, unassigning, and clearing all)
 export async function PUT(request, { params }) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const hasPerm = await checkPermission(user.userId, "location.assign", user.role);
+    if (!hasPerm) {
+      return NextResponse.json(
+        { error: "Access denied. 'location.assign' or 'location.manage' permission required." },
+        { status: 403 }
+      );
+    }
+
     const db = await getDb();
     const { id } = await params;
     const data = await request.json();
@@ -99,8 +113,7 @@ export async function PUT(request, { params }) {
       action: "SYNC_ASSIGNED_EMPLOYEES",
       entityType: "work_location",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         locationName: workLocation.name,
         assignedCount: newEmployeeObjectIds.length,
@@ -201,8 +214,7 @@ export async function POST(request, { params }) {
       action: "ASSIGN_EMPLOYEES",
       entityType: "work_location",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         locationName: workLocation.name,
         assignedEmployeeIds: employeeIds,
@@ -226,6 +238,19 @@ export async function POST(request, { params }) {
 // Remove employees from a work location
 export async function DELETE(request, { params }) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const hasPerm = await checkPermission(user.userId, "location.assign", user.role);
+    if (!hasPerm) {
+      return NextResponse.json(
+        { error: "Access denied. 'location.assign' or 'location.manage' permission required." },
+        { status: 403 }
+      );
+    }
+
     const db = await getDb();
     const { id } = await params;
     const data = await request.json();
@@ -285,8 +310,7 @@ export async function DELETE(request, { params }) {
       action: "REMOVE_EMPLOYEES",
       entityType: "work_location",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         locationName: workLocation.name,
         removedEmployeeIds: employeeIds,

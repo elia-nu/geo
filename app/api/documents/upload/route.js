@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
+import { createAuditLog } from "../../../utils/audit";
 
 export async function POST(request) {
   try {
@@ -13,7 +14,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    const parsedDocumentData = JSON.parse(documentData);
+    const parsedDocumentData = JSON.parse(documentData || "{}");
     const db = await getDb();
 
     // Create uploads directory if it doesn't exist
@@ -46,6 +47,23 @@ export async function POST(request) {
     };
 
     const result = await db.collection("documents").insertOne(document);
+
+    createAuditLog({
+      action: "CREATE",
+      entityType: "document",
+      entityId: result.insertedId.toString(),
+      status: "SUCCESS",
+      request,
+      metadata: {
+        title: parsedDocumentData.title || file.name,
+        originalName: file.name,
+        fileSize: buffer.length,
+        mimeType: file.type,
+        category: parsedDocumentData.category || null,
+        employeeId: parsedDocumentData.employeeId || null,
+      },
+    }).catch(() => {});
+
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error("Error uploading document:", error);

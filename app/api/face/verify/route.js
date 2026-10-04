@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createAuditLog } from "../../../utils/audit";
 
 const FACE_API_ENDPOINT =
   "https://eastus.api.cognitive.microsoft.com/face/v1.0";
@@ -11,7 +12,7 @@ export async function POST(request) {
     // Demo mode - works without API key
     if (!FACE_API_KEY) {
       // Simulate face detection for demo purposes
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API delay
 
       const demoResult = {
         success: true,
@@ -19,6 +20,17 @@ export async function POST(request) {
         confidence: 0.95,
         message: "Face verified successfully (Demo Mode)",
       };
+
+      createAuditLog({
+        action: "FACE_VERIFY",
+        entityType: "security",
+        status: "SUCCESS",
+        request,
+        metadata: {
+          mode: "demo",
+          confidence: 0.95,
+        },
+      }).catch(() => {});
 
       return NextResponse.json(demoResult);
     }
@@ -34,12 +46,32 @@ export async function POST(request) {
     });
 
     if (!detectResponse.ok) {
+      createAuditLog({
+        action: "FACE_VERIFY",
+        entityType: "security",
+        status: "FAILED",
+        request,
+        metadata: {
+          error: "Face detection API failed",
+        },
+      }).catch(() => {});
+
       throw new Error("Face detection failed");
     }
 
     const detectedFaces = await detectResponse.json();
 
     if (detectedFaces.length === 0) {
+      createAuditLog({
+        action: "FACE_VERIFY",
+        entityType: "security",
+        status: "FAILED",
+        request,
+        metadata: {
+          error: "No face detected in the image",
+        },
+      }).catch(() => {});
+
       return NextResponse.json(
         { error: "No face detected in the image" },
         { status: 400 }
@@ -47,6 +79,17 @@ export async function POST(request) {
     }
 
     if (detectedFaces.length > 1) {
+      createAuditLog({
+        action: "FACE_VERIFY",
+        entityType: "security",
+        status: "FAILED",
+        request,
+        metadata: {
+          error: "Multiple faces detected",
+          count: detectedFaces.length,
+        },
+      }).catch(() => {});
+
       return NextResponse.json(
         {
           error:
@@ -64,6 +107,17 @@ export async function POST(request) {
       confidence: 0.95,
       message: "Face verified successfully",
     };
+
+    createAuditLog({
+      action: "FACE_VERIFY",
+      entityType: "security",
+      status: "SUCCESS",
+      request,
+      metadata: {
+        faceId,
+        confidence: 0.95,
+      },
+    }).catch(() => {});
 
     return NextResponse.json(verificationResult);
   } catch (error) {

@@ -67,8 +67,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_DEPARTMENT",
       entityType: "department",
       entityId: params.id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: { update },
     });
 
@@ -79,7 +78,7 @@ export async function PUT(request, { params }) {
   }
 }
 
-export async function DELETE(_request, { params }) {
+export async function DELETE(request, { params }) {
   try {
     const db = await getDb();
     if (!ObjectId.isValid(params.id)) {
@@ -118,8 +117,7 @@ export async function DELETE(_request, { params }) {
       action: "DELETE_DEPARTMENT",
       entityType: "department",
       entityId: params.id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: { name: dept.name },
     });
 

@@ -285,8 +285,7 @@ export async function POST(request, { params }) {
       action: "ADD_INCOME",
       entityType: "project",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         projectName: existingProject.name,
         incomeTitle: title,
@@ -383,8 +382,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_INCOME",
       entityType: "project",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         projectName: existingProject.name,
         incomeCount: income.length,

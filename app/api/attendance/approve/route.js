@@ -82,8 +82,8 @@ export async function PUT(request) {
       action: action === "approve" ? "APPROVE_ATTENDANCE" : "REJECT_ATTENDANCE",
       entityType: "daily_attendance",
       entityId: attendanceId,
+      request,
       userId: adminId,
-      userEmail: "admin@company.com", // Replace with actual admin email
       metadata: {
         employeeName: employeeName,
         employeeId: attendanceRecord.employeeId,

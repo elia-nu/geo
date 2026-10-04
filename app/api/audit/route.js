@@ -1,24 +1,22 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../mongo";
+import { createAuditLog, logActivity } from "../../utils/audit";
+
+export { createAuditLog, logActivity };
 
 // Log audit events
 export async function POST(request) {
   try {
     const auditData = await request.json();
 
-    const db = await getDb();
-
-    const auditLog = {
+    const auditId = await createAuditLog({
       ...auditData,
-      timestamp: new Date(),
-      id: generateAuditId(),
-    };
-
-    await db.collection("audit_logs").insertOne(auditLog);
+      request,
+    });
 
     return NextResponse.json({
       message: "Audit log created successfully",
-      auditId: auditLog.id,
+      auditId,
     });
   } catch (error) {
     console.error("Error creating audit log:", error);
@@ -92,8 +90,4 @@ export async function GET(request) {
       { status: 500 }
     );
   }
-}
-
-function generateAuditId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }

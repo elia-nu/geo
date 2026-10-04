@@ -148,8 +148,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_MILESTONE",
       entityType: "project_milestone",
       entityId: `${id}_${milestoneId}`,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: project.name,
         milestoneTitle: title || project.milestones[milestoneIndex].title,
@@ -253,8 +252,7 @@ export async function DELETE(request, { params }) {
       action: "DELETE_MILESTONE",
       entityType: "project_milestone",
       entityId: `${id}_${milestoneId}`,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: project.name,
         milestoneTitle: milestone.title,

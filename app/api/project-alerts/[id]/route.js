@@ -114,8 +114,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_ALERT",
       entityType: "project_alert",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         alertType: existingAlert.alertType,
         projectId: existingAlert.projectId.toString(),
@@ -169,8 +168,7 @@ export async function DELETE(request, { params }) {
       action: "DELETE_ALERT",
       entityType: "project_alert",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         alertType: existingAlert.alertType,
         projectId: existingAlert.projectId.toString(),

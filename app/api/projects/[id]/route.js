@@ -14,10 +14,15 @@ export async function GET(request, { params }) {
         { status: 401 }
       );
     }
-    const hasPerm = await checkPermission(user.userId, "project.read", user.role);
-    if (!hasPerm) {
+    const canReadAll = await checkPermission(user.userId, "project.read", user.role);
+    const canReadAssigned =
+      canReadAll ||
+      (await checkPermission(user.userId, "project.read.assigned", user.role)) ||
+      (await checkPermission(user.userId, "project.read.own", user.role));
+
+    if (!canReadAll && !canReadAssigned) {
       return NextResponse.json(
-        { error: "Access denied: Missing 'project.read' permission" },
+        { error: "Access denied: Missing 'project.read' or 'project.read.assigned' permission" },
         { status: 403 }
       );
     }
@@ -143,6 +148,28 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
+    // If user is restricted to assigned projects only, ensure they are assigned
+    if (!canReadAll) {
+      const userObjectId = ObjectId.isValid(user.userId) ? new ObjectId(user.userId) : null;
+      const userIds = [String(user.userId)];
+      if (userObjectId) userIds.push(String(userObjectId));
+
+      const isAssigned = (
+        project.assignedEmployees?.some((emp) => userIds.includes(String(emp?._id || emp))) ||
+        userIds.includes(String(project.managerId)) ||
+        userIds.includes(String(project.projectManager)) ||
+        userIds.includes(String(project.createdBy)) ||
+        project.team?.some((t) => userIds.includes(String(t.employeeId)))
+      );
+
+      if (!isAssigned) {
+        return NextResponse.json(
+          { error: "Access denied: You are not assigned to this project" },
+          { status: 403 }
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
       project,
@@ -193,6 +220,29 @@ export async function PUT(request, { params }) {
 
     if (!existingProject) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Check if user is restricted to assigned projects
+    const canReadAll = await checkPermission(user.userId, "project.read", user.role);
+    if (!canReadAll) {
+      const userObjectId = ObjectId.isValid(user.userId) ? new ObjectId(user.userId) : null;
+      const userIds = [String(user.userId)];
+      if (userObjectId) userIds.push(String(userObjectId));
+
+      const isAssigned = (
+        existingProject.assignedEmployees?.some((emp) => userIds.includes(String(emp?._id || emp))) ||
+        userIds.includes(String(existingProject.managerId)) ||
+        userIds.includes(String(existingProject.projectManager)) ||
+        userIds.includes(String(existingProject.createdBy)) ||
+        existingProject.team?.some((t) => userIds.includes(String(t.employeeId)))
+      );
+
+      if (!isAssigned) {
+        return NextResponse.json(
+          { error: "Access denied: You can only edit projects you are assigned to" },
+          { status: 403 }
+        );
+      }
     }
 
     // Prepare update data
@@ -294,8 +344,8 @@ export async function PUT(request, { params }) {
       action: "UPDATE",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      user,
+      request,
       metadata: {
         projectName: name || existingProject.name,
         updatedFields: Object.keys(updateData).filter(
@@ -356,6 +406,29 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
+    // Check if user is restricted to assigned projects
+    const canReadAll = await checkPermission(user.userId, "project.read", user.role);
+    if (!canReadAll) {
+      const userObjectId = ObjectId.isValid(user.userId) ? new ObjectId(user.userId) : null;
+      const userIds = [String(user.userId)];
+      if (userObjectId) userIds.push(String(userObjectId));
+
+      const isAssigned = (
+        existingProject.assignedEmployees?.some((emp) => userIds.includes(String(emp?._id || emp))) ||
+        userIds.includes(String(existingProject.managerId)) ||
+        userIds.includes(String(existingProject.projectManager)) ||
+        userIds.includes(String(existingProject.createdBy)) ||
+        existingProject.team?.some((t) => userIds.includes(String(t.employeeId)))
+      );
+
+      if (!isAssigned) {
+        return NextResponse.json(
+          { error: "Access denied: You can only delete projects you are assigned to" },
+          { status: 403 }
+        );
+      }
+    }
+
     // Delete the project
     const result = await db.collection("projects").deleteOne({
       _id: new ObjectId(id),
@@ -366,8 +439,8 @@ export async function DELETE(request, { params }) {
       action: "DELETE",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      user,
+      request,
       metadata: {
         projectName: existingProject.name,
         category: existingProject.category,

@@ -171,8 +171,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_PROJECT_PROGRESS",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: project.name,
         previousProgress: project.progress,

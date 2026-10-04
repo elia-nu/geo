@@ -69,8 +69,7 @@ export async function POST(request) {
       action: "SETUP_EMPLOYEE_PASSWORD",
       entityType: "employee",
       entityId: employee._id.toString(),
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         employeeName,
         employeeId: employee.employeeId || employee.personalDetails?.employeeId,

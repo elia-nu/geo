@@ -91,8 +91,8 @@ export async function POST(request) {
         action: "BULK_ASSIGN_TASK",
         entityType: "task",
         entityId: task._id.toString(),
+        request,
         userId: assignedBy || "admin",
-        userEmail: "admin@company.com",
         metadata: {
           taskTitle: task.title,
           newAssignees: assignedToObjectIds.length,

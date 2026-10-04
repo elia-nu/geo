@@ -148,10 +148,22 @@ export function usePermissions() {
         }
       }
 
-      // 3. Domain read grants broad read access (e.g. employee.read grants employee.read.own)
+      // Project assigned / own alias
+      if (permission === "project.read.assigned" || permission === "project.read.own") {
+        if (
+          permissions.includes("project.read.assigned") ||
+          permissions.includes("project.read.own") ||
+          permissions.includes("project.read") ||
+          permissions.includes("project.manage")
+        ) {
+          return true;
+        }
+      }
+
+      // 3. Domain read grants broad read access (e.g. employee.read grants employee.read.own, project.read grants project.read.assigned)
       // Note: domain !== "reports" prevents generic reports.read from granting specific category reports
       if (domain && domain !== "reports" && permissions.includes(`${domain}.read`)) {
-        if (action === "read" || (action === "read" && subAction === "own")) {
+        if (action === "read" || (action === "read" && (subAction === "own" || subAction === "assigned"))) {
           return true;
         }
       }

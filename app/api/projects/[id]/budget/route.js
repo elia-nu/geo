@@ -395,8 +395,7 @@ export async function POST(request, { params }) {
       action: "CREATE_BUDGET",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: existingProject.name,
         totalAmount,
@@ -595,8 +594,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_BUDGET",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: existingProject.name,
         updatedFields: Object.keys(updateData).filter(

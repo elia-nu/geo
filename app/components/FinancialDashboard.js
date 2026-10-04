@@ -240,13 +240,19 @@ const FinancialDashboard = ({ projectId, projectName }) => {
               <div className="flex justify-between text-xs text-slate-500 pt-1">
                 <span>
                   Collected:{" "}
-                  <strong className="text-slate-800 font-semibold">
+                  <strong
+                    className="text-slate-800 font-semibold cursor-default"
+                    title={currencyTitle(totalCollectedAmount)}
+                  >
                     {formatCurrency(totalCollectedAmount)}
                   </strong>
                 </span>
                 <span>
                   Outstanding:{" "}
-                  <strong className="text-amber-700 font-semibold">
+                  <strong
+                    className="text-amber-700 font-semibold cursor-default"
+                    title={currencyTitle(totalOutstandingAmount)}
+                  >
                     {formatCurrency(totalOutstandingAmount)}
                   </strong>
                 </span>
@@ -337,7 +343,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Total Expected
             </p>
-            <p className="text-base sm:text-lg font-bold text-slate-900 mt-1 tabular-nums">
+            <p
+              className="text-base sm:text-lg font-bold text-slate-900 mt-1 tabular-nums cursor-default"
+              title={currencyTitle(totalExpectedAmount)}
+            >
               {formatCurrency(totalExpectedAmount)}
             </p>
             <p className="text-xs text-slate-400 mt-0.5">Total project amount</p>
@@ -346,7 +355,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">
               Total Collected
             </p>
-            <p className="text-base sm:text-lg font-bold text-emerald-600 mt-1 tabular-nums">
+            <p
+              className="text-base sm:text-lg font-bold text-emerald-600 mt-1 tabular-nums cursor-default"
+              title={currencyTitle(totalCollectedAmount)}
+            >
               {formatCurrency(totalCollectedAmount)}
             </p>
             <p className="text-xs text-emerald-600/80 mt-0.5">
@@ -362,7 +374,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">
               Outstanding / Unpaid
             </p>
-            <p className="text-base sm:text-lg font-bold text-amber-700 mt-1 tabular-nums">
+            <p
+              className="text-base sm:text-lg font-bold text-amber-700 mt-1 tabular-nums cursor-default"
+              title={currencyTitle(totalOutstandingAmount)}
+            >
               {formatCurrency(totalOutstandingAmount)}
             </p>
             <p className="text-xs text-amber-600/80 mt-0.5">Pending & partial</p>
@@ -371,7 +386,10 @@ const FinancialDashboard = ({ projectId, projectName }) => {
             <p className="text-xs font-semibold text-rose-700 uppercase tracking-wider">
               Overdue Amount
             </p>
-            <p className="text-base sm:text-lg font-bold text-rose-600 mt-1 tabular-nums">
+            <p
+              className="text-base sm:text-lg font-bold text-rose-600 mt-1 tabular-nums cursor-default"
+              title={currencyTitle(paymentTracking?.summary?.totalOverdue || 0)}
+            >
               {formatCurrency(paymentTracking?.summary?.totalOverdue || 0)}
             </p>
             <p className="text-xs text-rose-600/80 mt-0.5">
@@ -437,16 +455,25 @@ const FinancialDashboard = ({ projectId, projectName }) => {
                         {freqLabel}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-right font-bold text-slate-900 tabular-nums">
+                    <td
+                      className="px-4 py-3.5 text-right font-bold text-slate-900 tabular-nums cursor-default"
+                      title={currencyTitle(totalAmt)}
+                    >
                       {formatCurrency(totalAmt)}
                     </td>
-                    <td className="px-4 py-3.5 text-right font-bold text-emerald-600 tabular-nums">
+                    <td
+                      className="px-4 py-3.5 text-right font-bold text-emerald-600 tabular-nums cursor-default"
+                      title={currencyTitle(paidAmt)}
+                    >
                       {formatCurrency(paidAmt)}
                       <div className="text-[11px] text-slate-400 font-normal">
                         {collectionRate.toFixed(0)}% paid
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 text-right font-bold tabular-nums">
+                    <td
+                      className="px-4 py-3.5 text-right font-bold tabular-nums cursor-default"
+                      title={currencyTitle(unpaidAmt)}
+                    >
                       <span className={unpaidAmt > 0 ? "text-amber-700" : "text-slate-400"}>
                         {formatCurrency(unpaidAmt)}
                       </span>

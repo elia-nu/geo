@@ -29,6 +29,10 @@ import {
   Layers,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
+import {
+  formatCurrency as formatCurrencyUtil,
+  currencyTitle,
+} from "../utils/currency";
 
 export default function ProjectBudgetPaymentReport() {
   const [loading, setLoading] = useState(false);
@@ -124,12 +128,8 @@ export default function ProjectBudgetPaymentReport() {
     }));
   };
 
-  const formatCurrency = (val, currency = "ETB") => {
-    const num = Number(val) || 0;
-    return `${currency} ${num.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+  const formatCurrency = (val, currency = "ETB", options = {}) => {
+    return formatCurrencyUtil(val, currency, options);
   };
 
   // Export CSV: Projects Summary
@@ -342,7 +342,10 @@ export default function ProjectBudgetPaymentReport() {
             <span className="text-[11px] font-bold uppercase tracking-wider">Total Allocated Budget</span>
             <Building className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-xl font-extrabold text-slate-900 mt-1">
+          <div
+            className="text-xl font-extrabold text-slate-900 mt-1 cursor-default"
+            title={currencyTitle(summary.totalBudget || 0)}
+          >
             {formatCurrency(summary.totalBudget || 0)}
           </div>
           <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
@@ -371,7 +374,10 @@ export default function ProjectBudgetPaymentReport() {
             <span className="text-[11px] font-bold uppercase tracking-wider">Total Expected Inflow</span>
             <FileText className="w-4 h-4 text-blue-500" />
           </div>
-          <div className="text-xl font-extrabold text-blue-900 mt-1">
+          <div
+            className="text-xl font-extrabold text-blue-900 mt-1 cursor-default"
+            title={currencyTitle(summary.totalExpectedIncome || 0)}
+          >
             {formatCurrency(summary.totalExpectedIncome || 0)}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
@@ -385,7 +391,10 @@ export default function ProjectBudgetPaymentReport() {
             <span className="text-[11px] font-bold uppercase tracking-wider">Collected Revenue</span>
             <CreditCard className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-xl font-extrabold text-emerald-700 mt-1">
+          <div
+            className="text-xl font-extrabold text-emerald-700 mt-1 cursor-default"
+            title={currencyTitle(summary.totalCollectedIncome || 0)}
+          >
             {formatCurrency(summary.totalCollectedIncome || 0)}
           </div>
           <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
@@ -406,12 +415,20 @@ export default function ProjectBudgetPaymentReport() {
             <span className="text-[11px] font-bold uppercase tracking-wider">Outstanding Inflow</span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="text-xl font-extrabold text-amber-900 mt-1">
+          <div
+            className="text-xl font-extrabold text-amber-900 mt-1 cursor-default"
+            title={currencyTitle(summary.totalUncollectedIncome || 0)}
+          >
             {formatCurrency(summary.totalUncollectedIncome || 0)}
           </div>
           <div className="text-[11px] text-rose-600 mt-1 font-semibold flex items-center justify-between">
             <span>Overdue Due:</span>
-            <span>{formatCurrency(summary.totalOverdueIncome || 0)}</span>
+            <span
+              className="cursor-default"
+              title={currencyTitle(summary.totalOverdueIncome || 0)}
+            >
+              {formatCurrency(summary.totalOverdueIncome || 0)}
+            </span>
           </div>
         </div>
 
@@ -421,7 +438,10 @@ export default function ProjectBudgetPaymentReport() {
             <span className="text-[11px] font-bold uppercase tracking-wider">Total Incurred Expenses</span>
             <ArrowDownRight className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="text-xl font-extrabold text-rose-700 mt-1">
+          <div
+            className="text-xl font-extrabold text-rose-700 mt-1 cursor-default"
+            title={currencyTitle(summary.totalExpenses || 0)}
+          >
             {formatCurrency(summary.totalExpenses || 0)}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
@@ -439,9 +459,12 @@ export default function ProjectBudgetPaymentReport() {
             <span className="text-[11px] font-bold uppercase tracking-wider">Net Operating Cash</span>
             <Wallet className="w-4 h-4 text-slate-500" />
           </div>
-          <div className={`text-xl font-extrabold mt-1 ${
-            (summary.netCashFlow || 0) >= 0 ? "text-emerald-700" : "text-rose-700"
-          }`}>
+          <div
+            className={`text-xl font-extrabold mt-1 cursor-default ${
+              (summary.netCashFlow || 0) >= 0 ? "text-emerald-700" : "text-rose-700"
+            }`}
+            title={currencyTitle(summary.netCashFlow || 0)}
+          >
             {formatCurrency(summary.netCashFlow || 0)}
           </div>
           <div className="text-[11px] opacity-75 mt-1">
@@ -682,17 +705,26 @@ export default function ProjectBudgetPaymentReport() {
 
                           {/* Allocated Budget */}
                           <td className="p-3.5 text-right whitespace-nowrap">
-                            <span className="font-bold text-slate-900 text-xs">
+                            <span
+                              className="font-bold text-slate-900 text-xs cursor-default"
+                              title={currencyTitle(proj.totalBudget, proj.currency)}
+                            >
                               {formatCurrency(proj.totalBudget, proj.currency)}
                             </span>
-                            <div className="text-[10px] text-slate-400">
+                            <div
+                              className="text-[10px] text-slate-400 cursor-default"
+                              title={currencyTitle(proj.budgetRemaining, proj.currency)}
+                            >
                               Rem: {formatCurrency(proj.budgetRemaining, proj.currency)}
                             </div>
                           </td>
 
                           {/* Expenses */}
                           <td className="p-3.5 text-right whitespace-nowrap">
-                            <span className="font-bold text-rose-700 text-xs">
+                            <span
+                              className="font-bold text-rose-700 text-xs cursor-default"
+                              title={currencyTitle(proj.totalExpenses, proj.currency)}
+                            >
                               {formatCurrency(proj.totalExpenses, proj.currency)}
                             </span>
                             <div className="text-[10px] text-slate-400">
@@ -717,14 +749,20 @@ export default function ProjectBudgetPaymentReport() {
 
                           {/* Expected Inflow (Contract Value) */}
                           <td className="p-3.5 text-right whitespace-nowrap">
-                            <span className="font-bold text-blue-900 text-xs">
+                            <span
+                              className="font-bold text-blue-900 text-xs cursor-default"
+                              title={currencyTitle(proj.totalExpectedIncome, proj.currency)}
+                            >
                               {formatCurrency(proj.totalExpectedIncome, proj.currency)}
                             </span>
                           </td>
 
                           {/* Collected Inflow */}
                           <td className="p-3.5 text-right whitespace-nowrap">
-                            <span className="font-bold text-emerald-700 text-xs">
+                            <span
+                              className="font-bold text-emerald-700 text-xs cursor-default"
+                              title={currencyTitle(proj.totalCollectedIncome, proj.currency)}
+                            >
                               {formatCurrency(proj.totalCollectedIncome, proj.currency)}
                             </span>
                             <div className="text-[10px] text-emerald-600 font-semibold">
@@ -734,11 +772,17 @@ export default function ProjectBudgetPaymentReport() {
 
                           {/* Outstanding Balance */}
                           <td className="p-3.5 text-right whitespace-nowrap">
-                            <span className="font-bold text-amber-900 text-xs">
+                            <span
+                              className="font-bold text-amber-900 text-xs cursor-default"
+                              title={currencyTitle(proj.totalUncollectedIncome, proj.currency)}
+                            >
                               {formatCurrency(proj.totalUncollectedIncome, proj.currency)}
                             </span>
                             {hasOverdue && (
-                              <div className="text-[10px] text-rose-600 font-bold">
+                              <div
+                                className="text-[10px] text-rose-600 font-bold cursor-default"
+                                title={currencyTitle(proj.totalOverdueIncome, proj.currency)}
+                              >
                                 {formatCurrency(proj.totalOverdueIncome, proj.currency)} overdue
                               </div>
                             )}
@@ -747,9 +791,10 @@ export default function ProjectBudgetPaymentReport() {
                           {/* Net Cash Flow */}
                           <td className="p-3.5 text-right whitespace-nowrap">
                             <span
-                              className={`font-extrabold text-xs ${
+                              className={`font-extrabold text-xs cursor-default ${
                                 proj.netCashFlow >= 0 ? "text-emerald-700" : "text-rose-700"
                               }`}
+                              title={currencyTitle(proj.netCashFlow, proj.currency)}
                             >
                               {formatCurrency(proj.netCashFlow, proj.currency)}
                             </span>
@@ -837,13 +882,31 @@ export default function ProjectBudgetPaymentReport() {
                                           </div>
                                           <div className="flex items-center gap-3 text-[11px]">
                                             <span>
-                                              Expected: <strong className="text-slate-900">{formatCurrency(inc.expectedAmount, proj.currency)}</strong>
+                                              Expected:{" "}
+                                              <strong
+                                                className="text-slate-900 cursor-default"
+                                                title={currencyTitle(inc.expectedAmount, proj.currency)}
+                                              >
+                                                {formatCurrency(inc.expectedAmount, proj.currency)}
+                                              </strong>
                                             </span>
                                             <span>
-                                              Collected: <strong className="text-emerald-700">{formatCurrency(inc.collectedAmount, proj.currency)}</strong>
+                                              Collected:{" "}
+                                              <strong
+                                                className="text-emerald-700 cursor-default"
+                                                title={currencyTitle(inc.collectedAmount, proj.currency)}
+                                              >
+                                                {formatCurrency(inc.collectedAmount, proj.currency)}
+                                              </strong>
                                             </span>
                                             <span>
-                                              Outstanding: <strong className="text-amber-800">{formatCurrency(inc.uncollectedAmount, proj.currency)}</strong>
+                                              Outstanding:{" "}
+                                              <strong
+                                                className="text-amber-800 cursor-default"
+                                                title={currencyTitle(inc.uncollectedAmount, proj.currency)}
+                                              >
+                                                {formatCurrency(inc.uncollectedAmount, proj.currency)}
+                                              </strong>
                                             </span>
                                           </div>
                                         </div>
@@ -872,13 +935,22 @@ export default function ProjectBudgetPaymentReport() {
                                                     <td className="p-2 whitespace-nowrap font-mono text-slate-800">
                                                       {inst.dueDate || "—"}
                                                     </td>
-                                                    <td className="p-2 text-right font-semibold text-slate-900">
+                                                    <td
+                                                      className="p-2 text-right font-semibold text-slate-900 cursor-default"
+                                                      title={currencyTitle(inst.amount, proj.currency)}
+                                                    >
                                                       {formatCurrency(inst.amount, proj.currency)}
                                                     </td>
-                                                    <td className="p-2 text-right font-bold text-emerald-700">
+                                                    <td
+                                                      className="p-2 text-right font-bold text-emerald-700 cursor-default"
+                                                      title={currencyTitle(inst.collectedAmount, proj.currency)}
+                                                    >
                                                       {formatCurrency(inst.collectedAmount, proj.currency)}
                                                     </td>
-                                                    <td className="p-2 text-right font-semibold text-amber-800">
+                                                    <td
+                                                      className="p-2 text-right font-semibold text-amber-800 cursor-default"
+                                                      title={currencyTitle(inst.remainingAmount, proj.currency)}
+                                                    >
                                                       {formatCurrency(inst.remainingAmount, proj.currency)}
                                                     </td>
                                                     <td className="p-2 text-center">
@@ -998,17 +1070,26 @@ export default function ProjectBudgetPaymentReport() {
                         </td>
 
                         {/* Scheduled Amount */}
-                        <td className="p-3.5 text-right whitespace-nowrap font-bold text-slate-900 text-xs">
+                        <td
+                          className="p-3.5 text-right whitespace-nowrap font-bold text-slate-900 text-xs cursor-default"
+                          title={currencyTitle(inst.amount, inst.currency)}
+                        >
                           {formatCurrency(inst.amount, inst.currency)}
                         </td>
 
                         {/* Collected Amount */}
-                        <td className="p-3.5 text-right whitespace-nowrap font-bold text-emerald-700 text-xs">
+                        <td
+                          className="p-3.5 text-right whitespace-nowrap font-bold text-emerald-700 text-xs cursor-default"
+                          title={currencyTitle(inst.collectedAmount, inst.currency)}
+                        >
                           {formatCurrency(inst.collectedAmount, inst.currency)}
                         </td>
 
                         {/* Remaining Balance */}
-                        <td className="p-3.5 text-right whitespace-nowrap font-bold text-amber-900 text-xs">
+                        <td
+                          className="p-3.5 text-right whitespace-nowrap font-bold text-amber-900 text-xs cursor-default"
+                          title={currencyTitle(inst.remainingAmount, inst.currency)}
+                        >
                           {formatCurrency(inst.remainingAmount, inst.currency)}
                         </td>
 

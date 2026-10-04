@@ -16,6 +16,7 @@ import {
   FolderKanban,
   X as CloseIcon,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
 import Pagination from "./ui/Pagination";
@@ -74,7 +75,11 @@ const initialFormData = {
 };
 
 export default function ProjectsManagement() {
-  const { hasPermission } = usePermissions();
+  const { hasPermission, user } = usePermissions();
+  const canReadAll = hasPermission("project.read") || hasPermission("project.manage");
+  const canReadAssigned = canReadAll || hasPermission("project.read.assigned") || hasPermission("project.read.own");
+  const isAssignedOnly = !canReadAll && canReadAssigned;
+
   const [projects, setProjects] = useState([]);
   const [projectCategories, setProjectCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +89,7 @@ export default function ProjectsManagement() {
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [scopeFilter, setScopeFilter] = useState("all"); // "all" | "assigned"
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
@@ -105,8 +111,10 @@ export default function ProjectsManagement() {
   const menuRef = useRef(null);
 
   useEffect(() => {
-    fetchProjects();
-    fetchProjectCategories();
+    if (canReadAssigned) {
+      fetchProjects();
+      fetchProjectCategories();
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     if (
@@ -116,7 +124,7 @@ export default function ProjectsManagement() {
       setShowBudgetBanner(true);
       setTimeout(() => setShowBudgetBanner(false), 5000);
     }
-  }, []);
+  }, [canReadAssigned, scopeFilter]);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -139,12 +147,15 @@ export default function ProjectsManagement() {
   async function fetchProjects() {
     try {
       setLoading(true);
-      const res = await fetch("/api/projects", {
+      const url = (!canReadAll || scopeFilter === "assigned")
+        ? "/api/projects?assignedOnly=true"
+        : "/api/projects";
+      const res = await fetch(url, {
         headers: { ...getAuthHeaders() },
       });
       const data = await res.json();
       if (data.success) {
-        setProjects(data.projects);
+        setProjects(data.projects || []);
       } else {
         showErrorToast(
           "Load Failed",
@@ -253,7 +264,10 @@ export default function ProjectsManagement() {
       const method = currentProject ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -298,6 +312,9 @@ export default function ProjectsManagement() {
       setDeleting(true);
       const res = await fetch(`/api/projects/${selectedProjectId}`, {
         method: "DELETE",
+        headers: {
+          ...getAuthHeaders(),
+        },
       });
       const data = await res.json();
       if (data.success) {
@@ -335,7 +352,10 @@ export default function ProjectsManagement() {
       setUpdatingStatus(true);
       const res = await fetch(`/api/projects/${selectedProjectForStatus._id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({ status: newStatus }),
       });
       const data = await res.json();
@@ -384,7 +404,10 @@ export default function ProjectsManagement() {
         `/api/projects/${selectedProjectForProgress._id}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
           body: JSON.stringify({ progress: progressValue }),
         }
       );
@@ -452,6 +475,26 @@ export default function ProjectsManagement() {
     );
   }
 
+  if (!canReadAssigned) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm p-12 text-center max-w-lg mx-auto my-12 border border-slate-100">
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Access Denied</h2>
+        <p className="text-slate-600 mb-4 text-sm leading-relaxed">
+          You do not have permission to view projects. Contact your administrator to request{" "}
+          <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-xs font-mono">
+            project.read
+          </code>{" "}
+          or{" "}
+          <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-xs font-mono">
+            project.read.assigned
+          </code>{" "}
+          permission.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 -m-6 p-6">
       {showBudgetBanner && (
@@ -489,9 +532,17 @@ export default function ProjectsManagement() {
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
               Projects
             </h1>
+            {isAssignedOnly && (
+              <span className="ml-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <PeopleIcon className="w-3.5 h-3.5" />
+                Assigned Projects Only
+              </span>
+            )}
           </div>
           <p className="text-sm text-slate-500">
-            Manage and track your project portfolio
+            {isAssignedOnly
+              ? "Viewing only the projects you are assigned to as manager or team member"
+              : "Manage and track your project portfolio"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -519,7 +570,7 @@ export default function ProjectsManagement() {
 
       {/* Filters */}
       <div className="mb-6 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-sm">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className={`grid grid-cols-1 gap-4 ${canReadAll ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Search
@@ -535,6 +586,22 @@ export default function ProjectsManagement() {
               />
             </div>
           </div>
+
+          {canReadAll && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                View Scope
+              </label>
+              <select
+                value={scopeFilter}
+                onChange={(e) => setScopeFilter(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="all">All Company Projects</option>
+                <option value="assigned">Assigned to Me Only</option>
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">

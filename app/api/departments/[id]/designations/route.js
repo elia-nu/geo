@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../../utils/audit";
 
 export async function GET(request, { params }) {
   try {
@@ -70,6 +71,19 @@ export async function POST(request, { params }) {
         { _id: new ObjectId(id) },
         { $addToSet: { designations: name } }
       );
+
+    createAuditLog({
+      action: "CREATE",
+      entityType: "designation",
+      entityId: id,
+      status: "SUCCESS",
+      request,
+      metadata: {
+        departmentId: id,
+        designationName: name,
+      },
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       updated: result.modifiedCount === 1,
@@ -111,6 +125,21 @@ export async function PUT(request, { params }) {
         { _id: new ObjectId(id) },
         { $set: { designations: updated } }
       );
+
+    createAuditLog({
+      action: "UPDATE",
+      entityType: "designation",
+      entityId: id,
+      status: "SUCCESS",
+      request,
+      changes: { before: oldName, after: newName },
+      metadata: {
+        departmentId: id,
+        oldName,
+        newName,
+      },
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       updated: res.modifiedCount === 1,
@@ -136,6 +165,19 @@ export async function DELETE(request, { params }) {
     const res = await db
       .collection("departments")
       .updateOne({ _id: new ObjectId(id) }, { $pull: { designations: name } });
+
+    createAuditLog({
+      action: "DELETE",
+      entityType: "designation",
+      entityId: id,
+      status: "SUCCESS",
+      request,
+      metadata: {
+        departmentId: id,
+        designationName: name,
+      },
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       updated: res.modifiedCount === 1,

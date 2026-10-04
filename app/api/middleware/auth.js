@@ -190,8 +190,26 @@ export async function checkPermission(userId, permission, userRoleFromToken = nu
       }
     }
 
-    // Check for broader permission (e.g., "employee.read" covers "employee.read.own")
+    // Project assigned / own alias
+    if (permission === "project.read.assigned" || permission === "project.read.own") {
+      if (
+        effectivePerms.includes("project.read.assigned") ||
+        effectivePerms.includes("project.read.own") ||
+        effectivePerms.includes("project.read") ||
+        effectivePerms.includes("project.manage")
+      ) {
+        return true;
+      }
+    }
+
+    // Check for domain-level manage permission (e.g. "location.manage" covers "location.read", "location.create", etc.)
     const permParts = permission.split(".");
+    const domain = permParts[0];
+    if (domain && domain !== "reports" && effectivePerms.includes(`${domain}.manage`)) {
+      return true;
+    }
+
+    // Check for broader permission (e.g., "employee.read" covers "employee.read.own")
     if (permParts.length > 2) {
       const broaderPerm = permParts.slice(0, 2).join(".");
       if (effectivePerms.includes(broaderPerm)) {
@@ -252,6 +270,26 @@ export async function requirePermission(permission) {
       const hasPermission = await checkPermission(user.userId, permission, user.role);
 
       if (!hasPermission) {
+        // Record access denial in audit logs for security & compliance visibility
+        import("../../utils/audit").then(({ createAuditLog }) => {
+          createAuditLog({
+            action: "ACCESS_DENIED",
+            entityType: "security",
+            entityId: permission,
+            userId: user.userId,
+            userEmail: user.email,
+            userRole: user.role,
+            userName: user.name,
+            status: "DENIED",
+            request,
+            metadata: {
+              requiredPermission: permission,
+              url: request.url,
+              method: request.method,
+            },
+          }).catch(() => {});
+        }).catch(() => {});
+
         return new Response(
           JSON.stringify({
             error: "Access denied",
@@ -314,16 +352,18 @@ export async function canAccessEmployee(userId, employeeId, permission) {
 }
 
 // Audit logging with user context
-export async function logWithUser(action, entityType, entityId, metadata = {}) {
+export async function logWithUser(action, entityType, entityId, metadata = {}, user = null) {
   try {
-    const { createAuditLog } = await import("../audit/route");
+    const { createAuditLog } = await import("../../utils/audit");
 
     await createAuditLog({
       action,
       entityType,
       entityId,
-      userId: "system",
-      userEmail: "system@company.com",
+      userId: user?.userId || "system",
+      userEmail: user?.email || "system@company.com",
+      userName: user?.name || null,
+      userRole: user?.role || null,
       metadata,
     });
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../../mongo";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../../../utils/audit";
 
 // Update a comment
 export async function PUT(request, { params }) {
@@ -81,6 +82,17 @@ export async function PUT(request, { params }) {
       );
     }
 
+    createAuditLog({
+      action: "UPDATE_COMMENT",
+      entityType: "task",
+      entityId: id,
+      request,
+      metadata: {
+        commentId,
+        taskTitle: task.title,
+      },
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       message: "Comment updated successfully",
@@ -155,6 +167,17 @@ export async function DELETE(request, { params }) {
         { status: 500 }
       );
     }
+
+    createAuditLog({
+      action: "DELETE_COMMENT",
+      entityType: "task",
+      entityId: id,
+      request,
+      metadata: {
+        commentId,
+        taskTitle: task.title,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

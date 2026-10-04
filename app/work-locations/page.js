@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Layout from "../components/Layout";
+import { usePermissions } from "../hooks/usePermissions";
 import {
   MapPin,
   Plus,
@@ -17,6 +18,13 @@ import {
 } from "lucide-react";
 
 export default function WorkLocationsPage() {
+  const { hasPermission } = usePermissions();
+  const canRead = hasPermission("location.read") || hasPermission("location.manage");
+  const canCreate = hasPermission("location.create") || hasPermission("location.manage");
+  const canUpdate = hasPermission("location.update") || hasPermission("location.manage");
+  const canDelete = hasPermission("location.delete") || hasPermission("location.manage");
+  const canAssign = hasPermission("location.assign") || hasPermission("location.manage");
+
   const [activeSection, setActiveSection] = useState("work-locations");
 
   const handleSectionChange = (section) => {
@@ -70,15 +78,24 @@ export default function WorkLocationsPage() {
     employeeIds: [],
   });
 
+  const getAuthHeaders = () => {
+    const token = typeof window !== "undefined" ? (localStorage.getItem("authToken") || localStorage.getItem("employeeToken")) : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   useEffect(() => {
-    fetchLocations();
-    fetchEmployees();
-  }, []);
+    if (canRead) {
+      fetchLocations();
+      fetchEmployees();
+    }
+  }, [canRead]);
 
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/work-locations");
+      const response = await fetch("/api/work-locations", {
+        headers: { ...getAuthHeaders() },
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -96,7 +113,9 @@ export default function WorkLocationsPage() {
 
   const fetchEmployees = async () => {
     try {
-      const response = await fetch("/api/employee");
+      const response = await fetch("/api/employee", {
+        headers: { ...getAuthHeaders() },
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -134,6 +153,7 @@ export default function WorkLocationsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...getAuthHeaders(),
         },
         body: JSON.stringify(locationForm),
       });
@@ -178,6 +198,7 @@ export default function WorkLocationsPage() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify(locationForm),
         }
@@ -223,6 +244,9 @@ export default function WorkLocationsPage() {
         `/api/work-locations/${locationToDelete._id}`,
         {
           method: "DELETE",
+          headers: {
+            ...getAuthHeaders(),
+          },
         }
       );
 
@@ -261,6 +285,7 @@ export default function WorkLocationsPage() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify(assignForm),
         }
@@ -346,137 +371,158 @@ export default function WorkLocationsPage() {
 
   return (
     <Layout activeSection={activeSection} onSectionChange={handleSectionChange}>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-black mb-2">
-                Work Location Management
-              </h1>
-              <p className="text-gray-600">
-                Create and manage work locations, assign employees to multiple
-                locations
-              </p>
-            </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Location</span>
-            </button>
-          </div>
+      {!canRead ? (
+        <div className="bg-white rounded-lg shadow p-12 text-center max-w-lg mx-auto my-12">
+          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-black mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4 text-sm">
+            You do not have permission to view work locations. Contact your administrator to request{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">
+              location.read
+            </code>{" "}
+            permission.
+          </p>
         </div>
-
-        {/* Message Display */}
-        {message && (
-          <div
-            className={`p-4 rounded-lg flex items-center space-x-2 ${
-              messageType === "success"
-                ? "bg-green-100 text-green-700"
-                : messageType === "error"
-                ? "bg-red-100 text-red-700"
-                : "bg-blue-100 text-blue-700"
-            }`}
-          >
-            {messageType === "success" ? (
-              <CheckCircle className="w-5 h-5" />
-            ) : (
-              <AlertCircle className="w-5 h-5" />
-            )}
-            <span>{message}</span>
-          </div>
-        )}
-
-        {/* Search and Filter */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search locations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+      ) : (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-black mb-2">
+                  Work Location Management
+                </h1>
+                <p className="text-gray-600">
+                  Create and manage work locations, assign employees to multiple
+                  locations
+                </p>
               </div>
+              {canCreate && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Location</span>
+                </button>
+              )}
             </div>
-            <button
-              onClick={fetchLocations}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center space-x-2"
-            >
-              <Filter className="w-4 h-4" />
-              <span>Refresh</span>
-            </button>
           </div>
-        </div>
 
-        {/* Locations Grid */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          </div>
-        ) : filteredLocations.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-black mb-2">
-              No work locations found
-            </h3>
-            <p className="text-gray-600 mb-4">
-              {searchTerm
-                ? "No locations match your search criteria."
-                : "Get started by creating your first work location."}
-            </p>
-            {!searchTerm && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-              >
-                Create First Location
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredLocations.map((location) => (
-              <div
-                key={location._id}
-                className="bg-white rounded-lg shadow p-6"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold text-black">
-                      {location.name || location.siteName || "Unnamed Location"}
-                    </h3>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => openAssignModal(location)}
-                      className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                      title="Assign Employees"
-                    >
-                      <Users className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => openEditModal(location)}
-                      className="p-1 text-gray-600 hover:bg-gray-50 rounded"
-                      title="Edit Location"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => openDeleteModal(location)}
-                      className="p-1 text-red-600 hover:bg-red-50 rounded"
-                      title="Delete Location"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+          {/* Message Display */}
+          {message && (
+            <div
+              className={`p-4 rounded-lg flex items-center space-x-2 ${
+                messageType === "success"
+                  ? "bg-green-100 text-green-700"
+                  : messageType === "error"
+                  ? "bg-red-100 text-red-700"
+                  : "bg-blue-100 text-blue-700"
+              }`}
+            >
+              {messageType === "success" ? (
+                <CheckCircle className="w-5 h-5" />
+              ) : (
+                <AlertCircle className="w-5 h-5" />
+              )}
+              <span>{message}</span>
+            </div>
+          )}
+
+          {/* Search and Filter */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center space-x-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search locations..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
                 </div>
+              </div>
+              <button
+                onClick={fetchLocations}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center space-x-2"
+              >
+                <Filter className="w-4 h-4" />
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Locations Grid */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+          ) : filteredLocations.length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-12 text-center">
+              <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-black mb-2">
+                No work locations found
+              </h3>
+              <p className="text-gray-600 mb-4">
+                {searchTerm
+                  ? "No locations match your search criteria."
+                  : "Get started by creating your first work location."}
+              </p>
+              {!searchTerm && canCreate && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  Create First Location
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredLocations.map((location) => (
+                <div
+                  key={location._id}
+                  className="bg-white rounded-lg shadow p-6"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold text-black">
+                        {location.name || location.siteName || "Unnamed Location"}
+                      </h3>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {canAssign && (
+                        <button
+                          onClick={() => openAssignModal(location)}
+                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          title="Assign Employees"
+                        >
+                          <Users className="w-4 h-4" />
+                        </button>
+                      )}
+                      {canUpdate && (
+                        <button
+                          onClick={() => openEditModal(location)}
+                          className="p-1 text-gray-600 hover:bg-gray-50 rounded"
+                          title="Edit Location"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => openDeleteModal(location)}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          title="Delete Location"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
                 <div className="space-y-2 text-sm text-gray-600">
                   {location.address && (
@@ -1193,6 +1239,7 @@ export default function WorkLocationsPage() {
           </div>
         )}
       </div>
+      )}
     </Layout>
   );
 }

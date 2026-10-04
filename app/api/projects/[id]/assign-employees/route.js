@@ -112,8 +112,7 @@ export async function POST(request, { params }) {
       action: "ASSIGN_EMPLOYEES",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: project.name,
         employeesAssigned: employeeIds.length,
@@ -215,8 +214,7 @@ export async function DELETE(request, { params }) {
       action: "REMOVE_EMPLOYEE",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: project.name,
         employeeId: employeeId,

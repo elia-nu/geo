@@ -352,8 +352,7 @@ export async function PUT(request, { params }) {
       action: data.action === "collect" ? "COLLECT_INCOME" : "UPDATE_INCOME",
       entityType: "project",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         projectName: project.name,
         incomeId,
@@ -450,8 +449,7 @@ export async function DELETE(request, { params }) {
       action: "DELETE_INCOME",
       entityType: "project",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         projectName: project.name,
         incomeId,

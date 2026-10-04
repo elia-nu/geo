@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../utils/audit";
 
 // Get approval routing for a leave request
 export async function GET(request) {
@@ -71,6 +72,18 @@ export async function PUT(request) {
       },
       { upsert: true }
     );
+
+    createAuditLog({
+      action: "UPDATE",
+      entityType: "leave_approval_routing",
+      entityId: employeeId,
+      status: "SUCCESS",
+      request,
+      metadata: {
+        adminId,
+        levelsCount: routingConfig?.levels?.length || 0,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

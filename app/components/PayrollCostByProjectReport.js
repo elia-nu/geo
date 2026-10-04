@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Download, RefreshCw, Briefcase, MapPin, Building2, Milestone, DollarSign } from "lucide-react";
+import { formatCurrency, currencyTitle } from "../utils/currency";
 
 export default function PayrollCostByProjectReport() {
   const [loading, setLoading] = useState(false);
@@ -152,10 +153,30 @@ export default function PayrollCostByProjectReport() {
                     <tr key={r.projectId}>
                       <td className="px-3 py-2 text-black">{r.projectName}</td>
                       <td className="px-3 py-2 text-right text-black">{r.employeeCount}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.allowances}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.deductions}</td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.grossPay)}
+                      >
+                        {formatCurrency(r.grossPay)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.netPay)}
+                      >
+                        {formatCurrency(r.netPay)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.allowances)}
+                      >
+                        {formatCurrency(r.allowances)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.deductions)}
+                      >
+                        {formatCurrency(r.deductions)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -183,8 +204,18 @@ export default function PayrollCostByProjectReport() {
                     <tr key={r.siteId}>
                       <td className="px-3 py-2 text-black">{r.siteName}</td>
                       <td className="px-3 py-2 text-right text-black">{r.employeeCount}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.grossPay)}
+                      >
+                        {formatCurrency(r.grossPay)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.netPay)}
+                      >
+                        {formatCurrency(r.netPay)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -209,8 +240,18 @@ export default function PayrollCostByProjectReport() {
                     <tr key={r.department}>
                       <td className="px-3 py-2 text-black">{r.department}</td>
                       <td className="px-3 py-2 text-right text-black">{r.employeeCount}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.grossPay)}
+                      >
+                        {formatCurrency(r.grossPay)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.netPay)}
+                      >
+                        {formatCurrency(r.netPay)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -241,8 +282,18 @@ export default function PayrollCostByProjectReport() {
                         <td className="px-3 py-2 text-black">{r.projectName}</td>
                         <td className="px-3 py-2 text-black">{r.phaseName}</td>
                         <td className="px-3 py-2 text-right text-black">{r.employeeCount}</td>
-                        <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
-                        <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
+                        <td
+                          className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                          title={currencyTitle(r.grossPay)}
+                        >
+                          {formatCurrency(r.grossPay)}
+                        </td>
+                        <td
+                          className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                          title={currencyTitle(r.netPay)}
+                        >
+                          {formatCurrency(r.netPay)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

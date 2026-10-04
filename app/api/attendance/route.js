@@ -1,5 +1,6 @@
 import { getDb } from "../mongo";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../utils/audit";
 
 // Calculate distance between two coordinates using Haversine formula
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -167,6 +168,21 @@ export async function POST(req) {
 
         // Check if user is outside geofence radius
         if (distance > geofence.radius) {
+          createAuditLog({
+            action: "GEOFENCE_VALIDATION_FAILED",
+            entityType: "attendance",
+            entityId: data.employeeId || data.id,
+            status: "DENIED",
+            request: req,
+            metadata: {
+              distance: Math.round(distance),
+              allowedRadius: geofence.radius,
+              geofenceName: data.name,
+              lat: data.lat,
+              lng: data.lng,
+            },
+          }).catch(() => {});
+
           return new Response(
             JSON.stringify({
               error: `You are outside your allowed area. Distance: ${Math.round(
@@ -198,6 +214,29 @@ export async function POST(req) {
   }
 
   await db.collection("attendance").insertOne(data);
+
+  // Audit log attendance check-in / check-out
+  const actionType =
+    data.type === "check-out" || data.action === "check-out"
+      ? "EMPLOYEE_CHECK_OUT"
+      : "EMPLOYEE_CHECK_IN";
+
+  createAuditLog({
+    action: actionType,
+    entityType: "attendance",
+    entityId: data.id || data.employeeId,
+    status: "SUCCESS",
+    request: req,
+    metadata: {
+      employeeId: data.employeeId,
+      lat: data.lat,
+      lng: data.lng,
+      geofenceValidated: data.geofenceValidated || false,
+      distanceFromCenter: data.distanceFromCenter || null,
+      notes: data.notes || null,
+    },
+  }).catch(() => {});
+
   return Response.json({ success: true });
 }
 
@@ -210,6 +249,19 @@ export async function PUT(req) {
     .updateOne({ id: data.id }, { $set: data });
   if (result.matchedCount === 0)
     return new Response("Not found", { status: 404 });
+
+  createAuditLog({
+    action: "UPDATE_ATTENDANCE",
+    entityType: "attendance",
+    entityId: data.id,
+    status: "SUCCESS",
+    request: req,
+    metadata: {
+      updatedFields: Object.keys(data),
+      employeeId: data.employeeId,
+    },
+  }).catch(() => {});
+
   return Response.json({ success: true });
 }
 
@@ -221,5 +273,17 @@ export async function DELETE(req) {
   const result = await db.collection("attendance").deleteOne({ id });
   if (result.deletedCount === 0)
     return new Response("Not found", { status: 404 });
+
+  createAuditLog({
+    action: "DELETE",
+    entityType: "attendance",
+    entityId: id,
+    status: "SUCCESS",
+    request: req,
+    metadata: {
+      deletedAttendanceId: id,
+    },
+  }).catch(() => {});
+
   return Response.json({ success: true });
 }

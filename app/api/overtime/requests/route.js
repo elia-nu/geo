@@ -255,6 +255,20 @@ export async function POST(request) {
       entityId: result.insertedId.toString(),
       userId: employeeId,
       userEmail: employee.personalDetails?.email || employee.email || "",
+      userName: employeeName,
+      userRole: employee.role || "EMPLOYEE",
+      request,
+      changes: {
+        before: null,
+        after: {
+          date,
+          startTime,
+          endTime,
+          requestedHours: calculatedHours,
+          reason,
+          project,
+        },
+      },
       metadata: {
         employeeName,
         date,
@@ -373,8 +387,8 @@ export async function PUT(request) {
       action: "REVIEW_OVERTIME_REQUEST",
       entityType: "overtime_request",
       entityId: requestId,
+      request,
       userId: supervisorId || "admin",
-      userEmail: "admin@company.com",
       metadata: {
         employeeId: existingRequest.employeeId,
         employeeName: existingRequest.employeeName,

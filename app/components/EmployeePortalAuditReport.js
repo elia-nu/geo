@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import {
   RefreshCw,
-  ClipboardList,
+  UserCheck,
   Calendar,
   Download,
   FileSpreadsheet,
@@ -12,17 +12,15 @@ import {
   AlertTriangle,
   Eye,
   X,
-  Users,
-  Briefcase,
   Clock,
   CalendarDays,
-  DollarSign,
+  KeyRound,
   FileText,
-  Shield,
-  Layers,
+  CheckSquare,
+  ShieldAlert,
 } from "lucide-react";
 
-export default function CompletedActivitiesMasterAuditReport() {
+export default function EmployeePortalAuditReport() {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
@@ -41,7 +39,7 @@ export default function CompletedActivitiesMasterAuditReport() {
     startDate: startOfMonth,
     endDate: endOfMonth,
     actor: "",
-    module: "all",
+    actionCategory: "all", // all, attendance, leave_overtime, documents, security, tasks
     status: "all", // all, success, failed
   });
 
@@ -54,11 +52,13 @@ export default function CompletedActivitiesMasterAuditReport() {
       if (filters.startDate) params.set("startDate", filters.startDate);
       if (filters.endDate) params.set("endDate", filters.endDate);
       if (filters.actor?.trim()) params.set("actor", filters.actor.trim());
-      if (filters.module && filters.module !== "all")
-        params.set("module", filters.module);
+      if (filters.actionCategory && filters.actionCategory !== "all")
+        params.set("actionCategory", filters.actionCategory);
+      if (filters.status && filters.status !== "all")
+        params.set("status", filters.status);
 
       const res = await fetch(
-        `/api/reports/executive/completed-activities?${params.toString()}`,
+        `/api/reports/executive/employee-portal-activities?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${authToken}` },
         }
@@ -69,7 +69,7 @@ export default function CompletedActivitiesMasterAuditReport() {
       }
       const data = await res.json();
       setReportData(data);
-      setMessage("Completed Activities (Master Audit) report generated.");
+      setMessage("Employee Portal Activity report generated successfully.");
       setMessageType("success");
     } catch (error) {
       setMessage(error.message || "Failed to generate report");
@@ -80,16 +80,9 @@ export default function CompletedActivitiesMasterAuditReport() {
   };
 
   const summary = reportData?.summary || {};
-  let events = reportData?.events || [];
-  const byModule = summary.byModule || {};
-  const byStatus = summary.byStatus || {};
+  const events = reportData?.events || [];
+  const byActivity = summary.byActivity || {};
 
-  // Client-side status filter if requested
-  if (filters.status && filters.status !== "all") {
-    events = events.filter((e) => e.status === filters.status);
-  }
-
-  // Format changes into readable summary string
   const formatChangesText = (changes) => {
     if (!changes) return "—";
     try {
@@ -120,33 +113,31 @@ export default function CompletedActivitiesMasterAuditReport() {
     if (!events.length) return;
 
     const headers = [
-      "Actor",
-      "Actor Email",
-      "Role",
+      "Employee Name",
+      "Employee ID",
+      "Employee Email",
       "Timestamp",
-      "Module",
-      "Action",
+      "Activity",
+      "Action Code",
+      "Category",
       "Status",
-      "Outcome Description",
-      "Entity Type",
-      "Entity ID",
       "What Was Changed",
+      "Failure Reason",
       "IP Address",
       "User Agent",
     ];
 
     const rows = events.map((e) => [
-      e.actorName || e.actor || "",
-      e.actorEmail || "",
-      e.actorRole || "",
+      e.employeeName || "",
+      e.employeeId || "",
+      e.employeeEmail || "",
       e.timestamp ? new Date(e.timestamp).toISOString() : "",
-      e.module || "",
+      e.activityTitle || e.action || "",
       e.action || "",
-      e.status?.toUpperCase() || "",
-      e.outcome || "",
-      e.source || "",
-      e.entityId || "",
+      e.category || "",
+      e.status || "",
       formatChangesText(e.changes),
+      e.errorReason || "",
       e.ipAddress || "",
       e.userAgent || "",
     ]);
@@ -166,7 +157,7 @@ export default function CompletedActivitiesMasterAuditReport() {
     link.setAttribute("href", encodedUri);
     link.setAttribute(
       "download",
-      `completed_activities_audit_${new Date().toISOString().slice(0, 10)}.csv`
+      `employee_portal_activities_${new Date().toISOString().slice(0, 10)}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -181,74 +172,68 @@ export default function CompletedActivitiesMasterAuditReport() {
     const wb = XLSX.utils.book_new();
 
     const summaryRows = [
-      ["Completed Activities (Master Audit) - Executive Summary"],
+      ["Employee Portal Activities - Executive Report"],
       [],
       ["Metric", "Value"],
-      ["Total Events", summary.totalEvents ?? 0],
-      ["By Module - Employees & Org", byModule.employee ?? 0],
-      ["By Module - Projects & Budgets", byModule.projects ?? 0],
-      ["By Module - Attendance", byModule.attendance ?? 0],
-      ["By Module - Leave & Overtime", byModule.leave ?? 0],
-      ["By Module - Payroll", byModule.payroll ?? 0],
-      ["By Module - Documents", byModule.documents ?? 0],
-      ["By Status - Success", byStatus.success ?? 0],
-      ["By Status - Failed", byStatus.failed ?? 0],
-      ["By Status - Other", byStatus.other ?? 0],
+      ["Total Portal Events", summary.totalPortalEvents ?? 0],
+      ["Success Count", summary.successCount ?? 0],
+      ["Failed Count", summary.failedCount ?? 0],
+      ["By Category - Attendance & Breaks", byActivity.attendance ?? 0],
+      ["By Category - Leave & Overtime", byActivity.leave_overtime ?? 0],
+      ["By Category - Documents & Excuses", byActivity.documents ?? 0],
+      ["By Category - Password & Profile", byActivity.security ?? 0],
+      ["By Category - Tasks & Projects", byActivity.tasks ?? 0],
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), "Summary");
 
     const eventRows = [
       [
-        "Actor",
-        "Actor Email",
-        "Role",
+        "Employee Name",
+        "Employee ID",
+        "Employee Email",
         "Timestamp",
-        "Module",
-        "Action",
+        "Activity Title",
+        "Action Code",
+        "Category",
         "Status",
-        "Outcome",
-        "Entity Type",
-        "Entity ID",
         "What Was Changed",
+        "Failure Reason",
         "IP Address",
       ],
       ...events.map((e) => [
-        e.actorName || e.actor || "",
-        e.actorEmail || "",
-        e.actorRole || "",
+        e.employeeName || "",
+        e.employeeId || "",
+        e.employeeEmail || "",
         e.timestamp ? new Date(e.timestamp).toLocaleString() : "",
-        e.module ?? "",
-        e.action ?? "",
-        e.status?.toUpperCase() ?? "",
-        e.outcome ?? "",
-        e.source ?? "",
-        e.entityId ?? "",
+        e.activityTitle || "",
+        e.action || "",
+        e.category || "",
+        e.status || "",
         formatChangesText(e.changes),
-        e.ipAddress ?? "",
+        e.errorReason || "",
+        e.ipAddress || "",
       ]),
     ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(eventRows), "Audit Events");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(eventRows), "Portal Activities");
 
-    const fileName = `completed_activities_audit_${new Date()
+    const fileName = `employee_portal_activities_${new Date()
       .toISOString()
       .slice(0, 10)}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
-  const getModuleBadgeColor = (mod) => {
-    switch (mod) {
-      case "employee":
-        return "bg-indigo-100 text-indigo-800 border-indigo-200";
-      case "projects":
-        return "bg-rose-100 text-rose-800 border-rose-200";
+  const getCategoryBadge = (cat) => {
+    switch (cat) {
       case "attendance":
         return "bg-blue-100 text-blue-800 border-blue-200";
-      case "leave":
+      case "leave_overtime":
         return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "payroll":
-        return "bg-amber-100 text-amber-800 border-amber-200";
       case "documents":
         return "bg-purple-100 text-purple-800 border-purple-200";
+      case "security":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "tasks":
+        return "bg-rose-100 text-rose-800 border-rose-200";
       default:
         return "bg-slate-100 text-slate-800 border-slate-200";
     }
@@ -260,11 +245,11 @@ export default function CompletedActivitiesMasterAuditReport() {
       <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <ClipboardList className="w-6 h-6 text-indigo-600" />
-            Completed Activities Report (Master Audit)
+            <UserCheck className="w-6 h-6 text-indigo-600" />
+            Employee Portal Activities (Self-Service Audit)
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            Enterprise-wide audit trail of all transactions: employee &amp; org updates, project &amp; budget adjustments, attendance logs, leave approvals, payroll calculations, and document actions.
+            Dedicated audit trail of all employee self-service actions: clock ins/outs, break timings, excuse documents, leave &amp; overtime submissions, password resets, and biometric results.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -281,7 +266,7 @@ export default function CompletedActivitiesMasterAuditReport() {
               <button
                 onClick={handleExportCSV}
                 className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex items-center gap-2 shadow-sm transition"
-                title="Download CSV file"
+                title="Download CSV"
               >
                 <Download className="w-4 h-4" />
                 Export CSV
@@ -289,7 +274,7 @@ export default function CompletedActivitiesMasterAuditReport() {
               <button
                 onClick={handleExportExcel}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 shadow-sm transition"
-                title="Download Excel spreadsheet"
+                title="Download Excel"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 Export Excel
@@ -325,11 +310,11 @@ export default function CompletedActivitiesMasterAuditReport() {
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-            Actor (Filter)
+            Employee Filter
           </label>
           <input
             type="text"
-            placeholder="Name, email, or user ID"
+            placeholder="Name, email, or employee ID"
             value={filters.actor}
             onChange={(e) => setFilters({ ...filters, actor: e.target.value })}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -337,20 +322,19 @@ export default function CompletedActivitiesMasterAuditReport() {
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-            Module
+            Activity Category
           </label>
           <select
-            value={filters.module}
-            onChange={(e) => setFilters({ ...filters, module: e.target.value })}
+            value={filters.actionCategory}
+            onChange={(e) => setFilters({ ...filters, actionCategory: e.target.value })}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
           >
-            <option value="all">All Modules</option>
-            <option value="employee">Employees &amp; Organization</option>
-            <option value="projects">Projects, Budgets &amp; Tasks</option>
-            <option value="attendance">Attendance &amp; Geofences</option>
-            <option value="leave">Leave &amp; Overtime</option>
-            <option value="payroll">Payroll &amp; Compensation</option>
-            <option value="documents">Documents Management</option>
+            <option value="all">All Self-Service Activities</option>
+            <option value="attendance">Clock In/Out &amp; Breaks</option>
+            <option value="leave_overtime">Leave &amp; Overtime Requests</option>
+            <option value="documents">Excuses &amp; Document Uploads</option>
+            <option value="security">Password &amp; Profile Updates</option>
+            <option value="tasks">Assigned Task Updates</option>
           </select>
         </div>
         <div>
@@ -364,7 +348,7 @@ export default function CompletedActivitiesMasterAuditReport() {
           >
             <option value="all">All Statuses</option>
             <option value="success">Success Only</option>
-            <option value="failed">Failed / Access Denied Only</option>
+            <option value="failed">Failed / Validation Denied Only</option>
           </select>
         </div>
       </div>
@@ -390,144 +374,68 @@ export default function CompletedActivitiesMasterAuditReport() {
 
       {reportData && (
         <div className="space-y-6">
-          {/* Module Breakdown Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-xl p-4 border border-indigo-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-indigo-900 font-semibold text-xs mb-1">
-                <Layers className="w-4 h-4 text-indigo-600" />
-                Total Events
-              </div>
-              <p className="text-2xl font-extrabold text-indigo-700">
-                {summary.totalEvents ?? 0}
+          {/* Summary Metric Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <div className="bg-indigo-50/80 rounded-xl p-3.5 border border-indigo-200">
+              <span className="text-xs font-semibold text-indigo-900 block">Total Actions</span>
+              <p className="text-2xl font-black text-indigo-700 mt-1">
+                {summary.totalPortalEvents ?? 0}
               </p>
             </div>
-
-            <div className="bg-gradient-to-br from-violet-50 to-violet-100/50 rounded-xl p-4 border border-violet-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-violet-900 font-semibold text-xs mb-1">
-                <Users className="w-4 h-4 text-violet-600" />
-                Employees &amp; Org
-              </div>
-              <p className="text-2xl font-extrabold text-violet-700">
-                {byModule.employee ?? 0}
+            <div className="bg-emerald-50/80 rounded-xl p-3.5 border border-emerald-200">
+              <span className="text-xs font-semibold text-emerald-900 block">Successes</span>
+              <p className="text-2xl font-black text-emerald-700 mt-1">
+                {summary.successCount ?? 0}
               </p>
             </div>
-
-            <div className="bg-gradient-to-br from-rose-50 to-rose-100/50 rounded-xl p-4 border border-rose-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-rose-900 font-semibold text-xs mb-1">
-                <Briefcase className="w-4 h-4 text-rose-600" />
-                Projects &amp; Budget
-              </div>
-              <p className="text-2xl font-extrabold text-rose-700">
-                {byModule.projects ?? 0}
+            <div className="bg-rose-50/80 rounded-xl p-3.5 border border-rose-200">
+              <span className="text-xs font-semibold text-rose-900 block">Failures / Denied</span>
+              <p className="text-2xl font-black text-rose-700 mt-1">
+                {summary.failedCount ?? 0}
               </p>
             </div>
-
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-4 border border-blue-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-blue-900 font-semibold text-xs mb-1">
-                <Clock className="w-4 h-4 text-blue-600" />
-                Attendance
-              </div>
-              <p className="text-2xl font-extrabold text-blue-700">
-                {byModule.attendance ?? 0}
+            <div className="bg-blue-50/80 rounded-xl p-3.5 border border-blue-200">
+              <span className="text-xs font-semibold text-blue-900 block flex items-center gap-1">
+                <Clock className="w-3 h-3 text-blue-600" /> Attendance
+              </span>
+              <p className="text-xl font-bold text-blue-700 mt-1">
+                {byActivity.attendance ?? 0}
               </p>
             </div>
-
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-4 border border-emerald-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-emerald-900 font-semibold text-xs mb-1">
-                <CalendarDays className="w-4 h-4 text-emerald-600" />
-                Leave &amp; Overtime
-              </div>
-              <p className="text-2xl font-extrabold text-emerald-700">
-                {byModule.leave ?? 0}
+            <div className="bg-emerald-50/80 rounded-xl p-3.5 border border-emerald-200">
+              <span className="text-xs font-semibold text-emerald-900 block flex items-center gap-1">
+                <CalendarDays className="w-3 h-3 text-emerald-600" /> Leave/Overtime
+              </span>
+              <p className="text-xl font-bold text-emerald-700 mt-1">
+                {byActivity.leave_overtime ?? 0}
               </p>
             </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl p-4 border border-amber-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-amber-900 font-semibold text-xs mb-1">
-                <DollarSign className="w-4 h-4 text-amber-600" />
-                Payroll
-              </div>
-              <p className="text-2xl font-extrabold text-amber-700">
-                {byModule.payroll ?? 0}
+            <div className="bg-purple-50/80 rounded-xl p-3.5 border border-purple-200">
+              <span className="text-xs font-semibold text-purple-900 block flex items-center gap-1">
+                <FileText className="w-3 h-3 text-purple-600" /> Documents
+              </span>
+              <p className="text-xl font-bold text-purple-700 mt-1">
+                {byActivity.documents ?? 0}
               </p>
             </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl p-4 border border-purple-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-purple-900 font-semibold text-xs mb-1">
-                <FileText className="w-4 h-4 text-purple-600" />
-                Documents
-              </div>
-              <p className="text-2xl font-extrabold text-purple-700">
-                {byModule.documents ?? 0}
+            <div className="bg-amber-50/80 rounded-xl p-3.5 border border-amber-200">
+              <span className="text-xs font-semibold text-amber-900 block flex items-center gap-1">
+                <KeyRound className="w-3 h-3 text-amber-600" /> Security/Pass
+              </span>
+              <p className="text-xl font-bold text-amber-700 mt-1">
+                {byActivity.security ?? 0}
               </p>
             </div>
           </div>
 
-          {/* Success vs Failed Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
-                <div>
-                  <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">
-                    Success
-                  </p>
-                  <p className="text-xl font-bold text-emerald-700">
-                    {byStatus.success ?? 0}
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-medium text-emerald-600 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                Completed
-              </span>
-            </div>
-
-            <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <XCircle className="w-5 h-5 text-rose-600" />
-                <div>
-                  <p className="text-xs font-semibold text-rose-800 uppercase tracking-wide">
-                    Failed / Denied
-                  </p>
-                  <p className="text-xl font-bold text-rose-700">
-                    {byStatus.failed ?? 0}
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-medium text-rose-600 bg-rose-100/80 px-2 py-0.5 rounded-full">
-                Errors / Denied
-              </span>
-            </div>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between col-span-2 sm:col-span-1">
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-slate-500" />
-                <div>
-                  <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
-                    Other / Neutral
-                  </p>
-                  <p className="text-xl font-bold text-slate-700">
-                    {byStatus.other ?? 0}
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-medium text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full">
-                Audited
-              </span>
-            </div>
-          </div>
-
-          {/* Detailed Audit Table */}
+          {/* Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-slate-500" />
-                <h3 className="text-sm font-bold text-slate-900">
-                  Transaction Audit Trail ({events.length} records)
-                </h3>
-              </div>
+              <h3 className="text-sm font-bold text-slate-900">
+                Self-Service Activity Stream ({events.length} records)
+              </h3>
               <span className="text-xs text-slate-500">
-                Click any row or &quot;Details&quot; to view complete changes &amp; metadata
+                Shows exact submission changes, device IP, and failure reasons
               </span>
             </div>
 
@@ -536,22 +444,22 @@ export default function CompletedActivitiesMasterAuditReport() {
                 <thead className="bg-slate-100 text-slate-700 sticky top-0 z-10">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
-                      Actor
+                      Employee
                     </th>
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
                       Timestamp
                     </th>
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
-                      Module
+                      Activity
                     </th>
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
-                      Action
+                      Category
                     </th>
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider min-w-[200px]">
-                      Outcome &amp; What Changed
+                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider min-w-[220px]">
+                      Submitted / Changed Payload
                     </th>
                     <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">
                       Details
@@ -562,13 +470,13 @@ export default function CompletedActivitiesMasterAuditReport() {
                   {events.length === 0 ? (
                     <tr>
                       <td colSpan="7" className="px-4 py-8 text-center text-slate-500">
-                        No audit activities match the selected criteria.
+                        No portal activities found for the selected dates and filters.
                       </td>
                     </tr>
                   ) : (
                     events.map((e, idx) => {
-                      const isSuccess = e.status === "success";
-                      const isFailed = e.status === "failed";
+                      const isSuccess = e.status === "SUCCESS";
+                      const isFailed = e.status === "FAILED";
                       const changesText = formatChangesText(e.changes);
 
                       return (
@@ -578,14 +486,12 @@ export default function CompletedActivitiesMasterAuditReport() {
                           className="hover:bg-slate-50 cursor-pointer transition"
                         >
                           <td className="px-4 py-3">
-                            <div className="font-medium text-slate-900">
-                              {e.actorName || e.actorEmail || e.actor || "System"}
+                            <div className="font-semibold text-slate-900">
+                              {e.employeeName}
                             </div>
-                            {e.actorRole && (
-                              <span className="text-[11px] font-semibold text-slate-500 uppercase bg-slate-100 px-1.5 py-0.5 rounded">
-                                {e.actorRole}
-                              </span>
-                            )}
+                            <div className="text-xs text-slate-500">
+                              {e.employeeEmail || e.employeeId || "—"}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-slate-600 whitespace-nowrap text-xs">
                             {e.timestamp
@@ -595,45 +501,51 @@ export default function CompletedActivitiesMasterAuditReport() {
                                 })
                               : "—"}
                           </td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-slate-900 text-xs">
+                              {e.activityTitle}
+                            </div>
+                            <div className="font-mono text-[10px] text-slate-500">
+                              {e.action}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span
-                              className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border capitalize ${getModuleBadgeColor(
-                                e.module
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border capitalize ${getCategoryBadge(
+                                e.category
                               )}`}
                             >
-                              {e.module === "employee"
-                                ? "Employee"
-                                : e.module === "projects"
-                                ? "Projects/Budget"
-                                : e.module}
+                              {e.category?.replace(/_/g, " ")}
                             </span>
-                          </td>
-                          <td className="px-4 py-3 font-mono text-xs text-slate-800">
-                            {e.action}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span
                               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
                                 isSuccess
                                   ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                  : isFailed
-                                  ? "bg-rose-100 text-rose-800 border border-rose-200"
-                                  : "bg-slate-100 text-slate-700 border border-slate-200"
+                                  : "bg-rose-100 text-rose-800 border border-rose-200"
                               }`}
                             >
-                              {isSuccess && <CheckCircle className="w-3.5 h-3.5" />}
-                              {isFailed && <XCircle className="w-3.5 h-3.5" />}
-                              {isSuccess ? "Success" : isFailed ? "Failed" : "Other"}
+                              {isSuccess ? (
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                              )}
+                              {e.status}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-700 text-xs">
-                            <div className="font-medium text-slate-900">
-                              {e.outcome || "Completed"}
-                            </div>
-                            {changesText !== "—" && (
-                              <div className="text-[11px] text-slate-500 truncate max-w-sm font-mono mt-0.5">
+                          <td className="px-4 py-3 text-xs">
+                            {isFailed && e.errorReason ? (
+                              <div className="text-rose-700 font-medium">
+                                Error: {e.errorReason}
+                              </div>
+                            ) : null}
+                            {changesText !== "—" ? (
+                              <div className="text-slate-600 font-mono text-[11px] truncate max-w-xs">
                                 {changesText}
                               </div>
+                            ) : (
+                              <div className="text-slate-400 italic">Standard execution</div>
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -643,7 +555,7 @@ export default function CompletedActivitiesMasterAuditReport() {
                                 setSelectedEvent(e);
                               }}
                               className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition"
-                              title="Inspect Details"
+                              title="View Full Payload"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
@@ -658,26 +570,23 @@ export default function CompletedActivitiesMasterAuditReport() {
 
             {events.length > 0 && (
               <div className="px-5 py-3 border-t border-slate-200 text-xs text-slate-500 bg-slate-50/50 flex justify-between items-center">
-                <span>
-                  Showing {events.length} records.
-                </span>
-                <span>Audit events are cryptographically recorded in MongoDB.</span>
+                <span>Showing {events.length} portal self-service records.</span>
+                <span>Protected by audit ledger and IP traceability.</span>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Detail Modal: Inspect What Was Changed */}
+      {/* Detail Inspection Modal */}
       {selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150">
-            {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 text-indigo-600" />
+                <UserCheck className="w-5 h-5 text-indigo-600" />
                 <h3 className="font-bold text-slate-900 text-base">
-                  Audit Transaction Details
+                  Employee Portal Transaction Details
                 </h3>
               </div>
               <button
@@ -688,38 +597,38 @@ export default function CompletedActivitiesMasterAuditReport() {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-4">
               <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
                 <div>
-                  <span className="text-slate-500 block">Action</span>
-                  <span className="font-bold text-slate-900 font-mono text-sm">
-                    {selectedEvent.action}
+                  <span className="text-slate-500 block">Employee</span>
+                  <span className="font-bold text-slate-900 text-sm">
+                    {selectedEvent.employeeName}
+                  </span>
+                  <span className="text-slate-500 block text-[11px]">
+                    {selectedEvent.employeeEmail || selectedEvent.employeeId}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">Status</span>
                   <span
                     className={`inline-flex items-center gap-1 font-bold text-xs mt-0.5 ${
-                      selectedEvent.status === "success"
+                      selectedEvent.status === "SUCCESS"
                         ? "text-emerald-700"
                         : "text-rose-700"
                     }`}
                   >
-                    {selectedEvent.status === "success" ? (
+                    {selectedEvent.status === "SUCCESS" ? (
                       <CheckCircle className="w-3.5 h-3.5" />
                     ) : (
                       <XCircle className="w-3.5 h-3.5" />
                     )}
-                    {selectedEvent.status?.toUpperCase()}
+                    {selectedEvent.status}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Actor</span>
-                  <span className="font-medium text-slate-900">
-                    {selectedEvent.actorName
-                      ? `${selectedEvent.actorName} (${selectedEvent.actorEmail || selectedEvent.actorId})`
-                      : selectedEvent.actor}
+                  <span className="text-slate-500 block">Activity</span>
+                  <span className="font-semibold text-slate-900">
+                    {selectedEvent.activityTitle} ({selectedEvent.action})
                   </span>
                 </div>
                 <div>
@@ -731,35 +640,32 @@ export default function CompletedActivitiesMasterAuditReport() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Module &amp; Entity</span>
-                  <span className="font-medium text-slate-900">
-                    {selectedEvent.module} / {selectedEvent.source || "—"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Entity ID</span>
-                  <span className="font-mono text-slate-900">
-                    {selectedEvent.entityId || "—"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">IP Address</span>
+                  <span className="text-slate-500 block">Client IP</span>
                   <span className="font-mono text-slate-900">
                     {selectedEvent.ipAddress || "—"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Client Device</span>
+                  <span className="text-slate-500 block">Device User Agent</span>
                   <span className="font-mono text-slate-900 truncate block max-w-xs">
                     {selectedEvent.userAgent || "—"}
                   </span>
                 </div>
               </div>
 
-              {/* What Was Changed Section */}
+              {selectedEvent.errorReason && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold block">Rejection / Error Reason:</span>
+                    {selectedEvent.errorReason}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                  What Was Changed (Field Differences)
+                  What Was Submitted / Changed
                 </h4>
                 {selectedEvent.changes ? (
                   <div className="bg-slate-900 text-slate-100 p-3.5 rounded-xl font-mono text-xs overflow-x-auto max-h-48">
@@ -767,15 +673,14 @@ export default function CompletedActivitiesMasterAuditReport() {
                   </div>
                 ) : (
                   <p className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    No field modifications recorded for this activity (read-only or atomic event).
+                    Standard action payload without field delta.
                   </p>
                 )}
               </div>
 
-              {/* Additional Metadata */}
               <div>
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                  Metadata &amp; Operation Context
+                  Complete Transaction Metadata
                 </h4>
                 {selectedEvent.metadata ? (
                   <div className="bg-slate-50 text-slate-900 p-3.5 rounded-xl font-mono text-xs border border-slate-200 overflow-x-auto max-h-48">
@@ -783,13 +688,12 @@ export default function CompletedActivitiesMasterAuditReport() {
                   </div>
                 ) : (
                   <p className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    No extra metadata logged.
+                    No extra metadata stored.
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
               <button
                 onClick={() => setSelectedEvent(null)}

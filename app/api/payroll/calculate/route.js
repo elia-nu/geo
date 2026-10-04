@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../utils/audit";
 import {
   calculateWorkingDays,
   isHoliday,
@@ -557,6 +558,21 @@ export async function POST(request) {
     );
     console.log(`Total gross salary: ${summary.totalGross}`);
     console.log(`Total net salary: ${summary.totalNet}`);
+
+    createAuditLog({
+      action: "CALCULATE",
+      entityType: "payroll",
+      entityId: `${targetYear}-${targetMonth}`,
+      status: "SUCCESS",
+      request,
+      metadata: {
+        month: targetMonth,
+        year: targetYear,
+        totalEmployees: payrollData.length,
+        totalGross: summary.totalGross,
+        totalNet: summary.totalNet,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

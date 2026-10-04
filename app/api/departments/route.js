@@ -169,8 +169,7 @@ export async function POST(request) {
       action: "CREATE_DEPARTMENT",
       entityType: "department",
       entityId: result.insertedId.toString(),
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         departmentName: name,
         projectId: projectId,

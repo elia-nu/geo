@@ -27,6 +27,10 @@ import {
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import Pagination from "./ui/Pagination";
+import {
+  formatCurrency as formatCurrencyUtil,
+  currencyTitle,
+} from "../utils/currency";
 
 export default function BudgetManagement() {
   const router = useRouter();
@@ -109,12 +113,8 @@ export default function BudgetManagement() {
     }
   };
 
-  const formatCurrency = (amount, currency = "ETB") => {
-    return new Intl.NumberFormat("en-ET", {
-      style: "currency",
-      currency: "ETB",
-      maximumFractionDigits: 0,
-    }).format(amount || 0);
+  const formatCurrency = (amount, currency = "ETB", options = {}) => {
+    return formatCurrencyUtil(amount, currency, options);
   };
 
   const formatPercentage = (value) => `${(value || 0).toFixed(1)}%`;
@@ -356,7 +356,10 @@ export default function BudgetManagement() {
             </div>
           </div>
           <div className="space-y-2">
-            <div className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <div
+              className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight cursor-default"
+              title={currencyTitle(metrics.totalBudget)}
+            >
               {formatCurrency(metrics.totalBudget)}
             </div>
             <div className="flex items-center justify-between text-xs text-slate-500">
@@ -379,7 +382,10 @@ export default function BudgetManagement() {
             </div>
           </div>
           <div className="space-y-2">
-            <div className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <div
+              className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight cursor-default"
+              title={currencyTitle(metrics.totalExpenses)}
+            >
               {formatCurrency(metrics.totalExpenses)}
             </div>
             {/* Overall burn rate progress */}
@@ -425,7 +431,10 @@ export default function BudgetManagement() {
             </div>
           </div>
           <div className="space-y-2">
-            <div className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <div
+              className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight cursor-default"
+              title={currencyTitle(metrics.totalIncome)}
+            >
               {formatCurrency(metrics.totalIncome)}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -456,11 +465,12 @@ export default function BudgetManagement() {
           </div>
           <div className="space-y-2">
             <div
-              className={`text-2xl font-extrabold tracking-tight ${
+              className={`text-2xl font-extrabold tracking-tight cursor-default ${
                 metrics.netProfitLoss >= 0
                   ? "text-emerald-600 dark:text-emerald-400"
                   : "text-rose-600 dark:text-rose-400"
               }`}
+              title={currencyTitle(metrics.netProfitLoss)}
             >
               {formatCurrency(metrics.netProfitLoss)}
             </div>
@@ -636,7 +646,10 @@ export default function BudgetManagement() {
                           <span className="text-slate-400 block text-[10px] uppercase font-semibold">
                             Total Budget
                           </span>
-                          <span className="font-extrabold text-slate-900 dark:text-white text-sm">
+                          <span
+                            className="font-extrabold text-slate-900 dark:text-white text-sm cursor-default"
+                            title={currencyTitle(budget.totalAmount, budget.currency)}
+                          >
                             {formatCurrency(budget.totalAmount, budget.currency)}
                           </span>
                         </div>
@@ -644,8 +657,11 @@ export default function BudgetManagement() {
                           <span className="text-slate-400 block text-[10px] uppercase font-semibold">
                             Committed Spent
                           </span>
-                          <span className="font-extrabold text-amber-600 dark:text-amber-400 text-sm">
-                            {formatCurrency(budget.summary?.totalExpenses || 0)}
+                          <span
+                            className="font-extrabold text-amber-600 dark:text-amber-400 text-sm cursor-default"
+                            title={currencyTitle(budget.summary?.totalExpenses || 0, budget.currency)}
+                          >
+                            {formatCurrency(budget.summary?.totalExpenses || 0, budget.currency)}
                           </span>
                         </div>
                       </div>
@@ -683,14 +699,23 @@ export default function BudgetManagement() {
                       {/* Remaining / Revenue row */}
                       <div className="flex items-center justify-between pt-1 text-xs text-slate-500">
                         <span>
-                          Income: <strong className="text-emerald-600">{formatCurrency(budget.summary?.totalIncome || 0)}</strong>
+                          Income:{" "}
+                          <strong
+                            className="text-emerald-600 cursor-default"
+                            title={currencyTitle(budget.summary?.totalIncome || 0, budget.currency)}
+                          >
+                            {formatCurrency(budget.summary?.totalIncome || 0, budget.currency)}
+                          </strong>
                         </span>
                         <span>
                           Bal:{" "}
                           <strong
-                            className={remaining < 0 ? "text-rose-600 font-bold" : "text-slate-800 dark:text-slate-200"}
+                            className={`cursor-default ${
+                              remaining < 0 ? "text-rose-600 font-bold" : "text-slate-800 dark:text-slate-200"
+                            }`}
+                            title={currencyTitle(remaining, budget.currency)}
                           >
-                            {formatCurrency(remaining)}
+                            {formatCurrency(remaining, budget.currency)}
                           </strong>
                         </span>
                       </div>
@@ -773,14 +798,23 @@ export default function BudgetManagement() {
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {getStatusBadge(budget)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-white">
+                      <td
+                        className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-white cursor-default"
+                        title={hasBudget ? currencyTitle(budget.totalAmount, budget.currency) : undefined}
+                      >
                         {hasBudget ? formatCurrency(budget.totalAmount, budget.currency) : "—"}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-amber-600 dark:text-amber-400">
-                        {hasBudget ? formatCurrency(budget.summary?.totalExpenses || 0) : "—"}
+                      <td
+                        className="py-3.5 px-4 text-right font-mono font-bold text-amber-600 dark:text-amber-400 cursor-default"
+                        title={hasBudget ? currencyTitle(budget.summary?.totalExpenses || 0, budget.currency) : undefined}
+                      >
+                        {hasBudget ? formatCurrency(budget.summary?.totalExpenses || 0, budget.currency) : "—"}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        {hasBudget ? formatCurrency(budget.summary?.totalIncome || 0) : "—"}
+                      <td
+                        className="py-3.5 px-4 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 cursor-default"
+                        title={hasBudget ? currencyTitle(budget.summary?.totalIncome || 0, budget.currency) : undefined}
+                      >
+                        {hasBudget ? formatCurrency(budget.summary?.totalIncome || 0, budget.currency) : "—"}
                       </td>
                       <td className="py-3.5 px-4 min-w-[140px]">
                         {hasBudget ? (

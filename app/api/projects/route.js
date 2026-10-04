@@ -75,6 +75,17 @@ export async function POST(request) {
       }
     }
 
+    // Ensure creator is assigned to the new project so they can view and manage it
+    if (user.userId) {
+      const creatorIdStr = String(user.userId);
+      const isAlreadyAssigned = employeeObjectIds.some(
+        (id) => String(id) === creatorIdStr
+      );
+      if (!isAlreadyAssigned && ObjectId.isValid(user.userId)) {
+        employeeObjectIds.push(new ObjectId(user.userId));
+      }
+    }
+
     // Create project object
     const project = {
       name,
@@ -86,6 +97,7 @@ export async function POST(request) {
       status,
       progress: 0,
       assignedEmployees: employeeObjectIds,
+      createdBy: ObjectId.isValid(user.userId) ? new ObjectId(user.userId) : user.userId,
       milestones: milestones.map((milestone) => ({
         ...milestone,
         _id: new ObjectId(),
@@ -116,14 +128,14 @@ export async function POST(request) {
       action: "CREATE",
       entityType: "project",
       entityId: result.insertedId.toString(),
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      user,
+      request,
       metadata: {
         projectName: name,
         category,
         startDate,
         endDate,
-        assignedEmployees: assignedEmployees.length,
+        assignedEmployees: employeeObjectIds.length,
       },
     });
 
@@ -144,7 +156,7 @@ export async function POST(request) {
   }
 }
 
-// Get all projects with optional filtering
+// Get all projects with optional filtering and role-based assignment scoping
 export async function GET(request) {
   try {
     const user = await getCurrentUser(request);
@@ -154,10 +166,19 @@ export async function GET(request) {
         { status: 401 }
       );
     }
-    const hasPerm = await checkPermission(user.userId, "project.read", user.role);
-    if (!hasPerm) {
+
+    // Check project read permissions:
+    // "project.read" grants viewing ALL projects across the organization.
+    // "project.read.assigned" grants viewing ONLY projects where the user is assigned.
+    const canReadAll = await checkPermission(user.userId, "project.read", user.role);
+    const canReadAssigned =
+      canReadAll ||
+      (await checkPermission(user.userId, "project.read.assigned", user.role)) ||
+      (await checkPermission(user.userId, "project.read.own", user.role));
+
+    if (!canReadAll && !canReadAssigned) {
       return NextResponse.json(
-        { error: "Access denied: Missing 'project.read' permission" },
+        { error: "Access denied: Missing 'project.read' or 'project.read.assigned' permission" },
         { status: 403 }
       );
     }
@@ -166,6 +187,7 @@ export async function GET(request) {
     const category = searchParams.get("category");
     const status = searchParams.get("status");
     const employeeId = searchParams.get("employeeId");
+    const assignedOnly = searchParams.get("assignedOnly") === "true";
     const includeEmployees = searchParams.get("includeEmployees") === "true";
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 50;
@@ -175,9 +197,34 @@ export async function GET(request) {
     // Build query
     let query = {};
 
-    if (category) query.category = category;
-    if (status) query.status = status;
-    if (employeeId) query.assignedEmployees = new ObjectId(employeeId);
+    if (category && category !== "all") query.category = category;
+    if (status && status !== "all") query.status = status;
+    if (employeeId && ObjectId.isValid(employeeId)) {
+      query.assignedEmployees = new ObjectId(employeeId);
+    }
+
+    // If user cannot read all projects, or client explicitly asked for assignedOnly
+    if (!canReadAll || assignedOnly) {
+      const userObjectId = ObjectId.isValid(user.userId) ? new ObjectId(user.userId) : null;
+      const userIds = [String(user.userId)];
+      if (userObjectId) userIds.push(userObjectId);
+
+      const assignedFilter = {
+        $or: [
+          { assignedEmployees: { $in: userIds } },
+          { managerId: { $in: userIds } },
+          { projectManager: { $in: userIds } },
+          { createdBy: { $in: userIds } },
+          { "team.employeeId": { $in: userIds } },
+        ],
+      };
+
+      if (Object.keys(query).length > 0) {
+        query = { $and: [query, assignedFilter] };
+      } else {
+        query = assignedFilter;
+      }
+    }
 
     const skip = (page - 1) * limit;
 

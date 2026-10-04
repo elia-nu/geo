@@ -2,10 +2,24 @@ import { NextResponse } from "next/server";
 import { getDb } from "../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../utils/audit.js";
+import { getCurrentUser, checkPermission } from "../middleware/auth.js";
 
 // Create a new work location
 export async function POST(request) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const hasPerm = await checkPermission(user.userId, "location.create", user.role);
+    if (!hasPerm) {
+      return NextResponse.json(
+        { error: "Access denied. 'location.create' or 'location.manage' permission required." },
+        { status: 403 }
+      );
+    }
+
     const db = await getDb();
     const data = await request.json();
 
@@ -48,8 +62,8 @@ export async function POST(request) {
       action: "CREATE",
       entityType: "work_location",
       entityId: result.insertedId.toString(),
-      userId: "admin",
-      userEmail: "admin@company.com",
+      userId: user.userId || "system",
+      userEmail: user.email || "user@company.com",
       metadata: {
         locationName: name,
         address: address,
@@ -75,8 +89,21 @@ export async function POST(request) {
 }
 
 // Get all work locations
-export async function GET() {
+export async function GET(request) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const hasPerm = await checkPermission(user.userId, "location.read", user.role);
+    if (!hasPerm) {
+      return NextResponse.json(
+        { error: "Access denied. 'location.read' permission required." },
+        { status: 403 }
+      );
+    }
+
     const db = await getDb();
 
     // Get all work locations with employee count

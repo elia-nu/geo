@@ -181,8 +181,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_EMPLOYEE_WORK_LOCATION",
       entityType: "employee",
       entityId: String(existingEmployee._id),
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         employeeName,
         previousLocation:

@@ -62,7 +62,14 @@ export async function GET(request) {
     const targetModules =
       moduleFilter && moduleFilter !== "all"
         ? new Set([moduleFilter])
-        : new Set(["attendance", "leave", "payroll", "documents", "projects"]);
+        : new Set([
+            "attendance",
+            "leave",
+            "payroll",
+            "documents",
+            "projects",
+            "employee",
+          ]);
 
     const events = [];
     const summary = {
@@ -73,6 +80,7 @@ export async function GET(request) {
         payroll: 0,
         documents: 0,
         projects: 0,
+        employee: 0,
       },
       byStatus: {
         success: 0,
@@ -83,79 +91,184 @@ export async function GET(request) {
 
     function classifyModule(ev) {
       const t = (ev.entityType || "").toLowerCase();
-      const action = ev.action || "";
+      const action = (ev.action || "").toUpperCase();
       const id = (ev.entityId || "").toString().toLowerCase();
 
+      // Attendance
       if (
         t === "daily_attendance" ||
         t === "attendance" ||
+        t === "geofence" ||
+        t === "face_verification" ||
         action.startsWith("EMPLOYEE_CHECK_") ||
-        action === "UPDATE_ATTENDANCE"
+        action.startsWith("EMPLOYEE_LUNCH_") ||
+        action.includes("ATTENDANCE") ||
+        action.includes("GEOFENCE")
       ) {
         return "attendance";
       }
 
+      // Leave & Overtime
       if (
         t === "leave_request" ||
         t === "leave_balance" ||
         t === "leave" ||
+        t === "overtime_request" ||
+        t.includes("leave") ||
+        t.includes("overtime") ||
+        action.includes("LEAVE") ||
+        action.includes("OVERTIME") ||
         (t === "attendance_document" &&
-          (ev.metadata?.leaveType || ev.metadata?.documentType) === "leave")
+          (ev.metadata?.leaveType ||
+            ev.metadata?.documentType === "leave" ||
+            ev.metadata?.type === "leave"))
       ) {
         return "leave";
       }
 
+      // Payroll
       if (
         t === "payroll" ||
+        t.includes("payroll") ||
+        action.includes("PAYROLL") ||
         (t === "report" && id.includes("payroll"))
       ) {
         return "payroll";
       }
 
+      // Documents
       if (
         t === "document" ||
         t === "attendance_document" ||
-        id.includes("document")
+        id.includes("document") ||
+        action.includes("DOCUMENT")
       ) {
         return "documents";
       }
 
+      // Projects & Budgets & Tasks
       if (
         t === "project" ||
         t === "task" ||
         t === "project_alert" ||
         t === "project_budget" ||
-        t === "project_milestone"
+        t === "project_milestone" ||
+        t === "project_expense" ||
+        t === "project_income" ||
+        t === "project_payment" ||
+        t === "budget_allocation" ||
+        t === "budget_allocation_category" ||
+        t === "income_category" ||
+        t === "task_category" ||
+        t.includes("project") ||
+        t.includes("budget") ||
+        t.includes("expense") ||
+        t.includes("income") ||
+        t.includes("milestone") ||
+        t.includes("task") ||
+        action.includes("PROJECT") ||
+        action.includes("BUDGET") ||
+        action.includes("EXPENSE") ||
+        action.includes("INCOME") ||
+        action.includes("MILESTONE") ||
+        action.includes("TASK")
       ) {
         return "projects";
+      }
+
+      // Employee & Organization & Roles
+      // Employee, Organization, Roles & Authentication
+      if (
+        t === "employee" ||
+        t === "employee_photo" ||
+        t === "department" ||
+        t === "designation" ||
+        t === "work_location" ||
+        t === "role" ||
+        t === "user_role" ||
+        t === "user" ||
+        t === "auth" ||
+        t.includes("employee") ||
+        t.includes("department") ||
+        t.includes("designation") ||
+        t.includes("location") ||
+        t.includes("role") ||
+        t.includes("auth") ||
+        action.startsWith("EMPLOYEE_") ||
+        action.startsWith("BULK_") ||
+        action.startsWith("PASSWORD_") ||
+        action.startsWith("LOGIN_") ||
+        action.includes("DEPARTMENT") ||
+        action.includes("DESIGNATION") ||
+        action.includes("ROLE") ||
+        action.includes("WORK_LOCATION")
+      ) {
+        return "employee";
       }
 
       return null;
     }
 
     function classifyOutcome(ev) {
-      if (ev.metadata && ev.metadata.success === false) {
+      const s = String(ev.status || "").toUpperCase();
+      if (s === "FAILED" || s === "FAILURE" || s === "ERROR") return "failed";
+      if (ev.metadata && (ev.metadata.success === false || ev.metadata.error))
+        return "failed";
+      const a = (ev.action || "").toUpperCase();
+      if (
+        a === "ACCESS_DENIED" ||
+        a.includes("FAIL") ||
+        a.includes("DENIED") ||
+        a.includes("ERROR") ||
+        a.includes("REJECT")
+      ) {
         return "failed";
       }
-      const a = ev.action || "";
-      if (a.endsWith("_FAIL") || a.endsWith("_FAILED")) return "failed";
-      if (
-        a === "EMPLOYEE_CHECK_IN" ||
-        a === "EMPLOYEE_CHECK_OUT" ||
-        a === "EMPLOYEE_LUNCH_IN" ||
-        a === "EMPLOYEE_LUNCH_OUT" ||
-        a.startsWith("LEAVE_REQUEST_") ||
-        a === "SUBMIT_ATTENDANCE_DOCUMENT" ||
-        a === "REVIEW_ATTENDANCE_DOCUMENT" ||
-        a === "CREATE" ||
-        a === "UPDATE" ||
-        a === "CREATE_TASK" ||
-        a === "UPDATE_TASK" ||
-        a === "COMPLETE_TASK"
-      ) {
-        return "success";
+      if (s === "SUCCESS") return "success";
+      return "success";
+    }
+
+    function formatOutcomeDescription(ev, outcome) {
+      if (outcome === "failed") {
+        return (
+          ev.metadata?.error ||
+          ev.metadata?.reason ||
+          ev.metadata?.rejectionReason ||
+          (ev.action === "LOGIN_FAILURE" ? "Invalid login credentials" : null) ||
+          ev.metadata?.message ||
+          "Operation failed or rejected"
+        );
       }
-      return "other";
+      if (ev.metadata?.summary) return ev.metadata.summary;
+      if (ev.metadata?.description) return ev.metadata.description;
+      if (ev.metadata?.note) return ev.metadata.note;
+
+      const act = (ev.action || "").toUpperCase();
+      const entity = (ev.entityType || "").replace(/_/g, " ");
+
+      if (act === "LOGIN_SUCCESS") return "User authenticated successfully";
+      if (act === "LEAVE_REQUEST_APPROVE") return "Leave request approved";
+      if (act === "LEAVE_REQUEST_REJECT") return `Leave request rejected${ev.metadata?.reason ? `: ${ev.metadata.reason}` : ""}`;
+      if (act === "REVIEW_OVERTIME_REQUEST") return `Overtime request reviewed (${ev.metadata?.newStatus || "updated"})`;
+      if (act === "CREATE") return `Created ${entity}`;
+      if (act === "UPDATE") return `Updated ${entity}`;
+      if (act === "DELETE") return `Deleted ${entity}`;
+      if (act === "CALCULATE") return `Calculated ${entity}`;
+      if (act === "VIEW") return `Viewed ${entity}`;
+      if (act === "EXPORT") return `Exported ${entity} data`;
+      if (act === "BULK_IMPORT")
+        return `Imported ${ev.metadata?.count || "bulk"} records`;
+      if (act === "EMPLOYEE_CHECK_IN") return "Clocked in successfully";
+      if (act === "EMPLOYEE_CHECK_OUT") return "Clocked out successfully";
+      if (act === "SUBMIT_ATTENDANCE_DOCUMENT")
+        return "Submitted excuse/leave document";
+      if (act === "SUBMIT_OVERTIME_REQUEST") return "Submitted overtime request";
+      if (act === "PASSWORD_CHANGE_SUCCESS")
+        return "Password updated successfully";
+      if (act === "ROLE_ASSIGNED")
+        return `Assigned role ${ev.metadata?.newRole || ""}`;
+
+      return "Completed successfully";
     }
 
     for (const ev of rawLogs) {
@@ -164,11 +277,13 @@ export async function GET(request) {
 
       const actorId = ev.userId || "";
       const actorEmail = ev.userEmail || "";
+      const actorName = ev.userName || "";
       if (actor) {
         const needle = actor.toLowerCase();
         if (
           !actorId.toString().toLowerCase().includes(needle) &&
-          !actorEmail.toLowerCase().includes(needle)
+          !actorEmail.toLowerCase().includes(needle) &&
+          !actorName.toLowerCase().includes(needle)
         ) {
           continue;
         }
@@ -182,21 +297,24 @@ export async function GET(request) {
 
       events.push({
         id: ev.id || ev._id?.toString?.() || "",
-        actor: actorEmail || actorId || "system",
+        actor: actorName
+          ? `${actorName} (${actorEmail || actorId})`
+          : actorEmail || actorId || "System",
         actorId: actorId || null,
         actorEmail: actorEmail || null,
+        actorName: actorName || null,
+        actorRole: ev.userRole || null,
         timestamp: ev.timestamp || ev.createdAt || null,
         module,
         action: ev.action,
         status: outcome,
-        outcome:
-          ev.metadata?.outcome ||
-          ev.metadata?.status ||
-          ev.metadata?.newStatus ||
-          outcome,
+        outcome: formatOutcomeDescription(ev, outcome),
         source: ev.entityType,
         entityId: ev.entityId,
+        changes: ev.changes || null,
         metadata: ev.metadata || null,
+        ipAddress: ev.ipAddress || null,
+        userAgent: ev.userAgent || null,
       });
     }
 

@@ -246,9 +246,8 @@ export async function POST(request) {
       action: "CREATE_TASK",
       entityType: "task",
       entityId: result.insertedId.toString(),
-
+      request,
       userId: createdBy || "admin",
-      userEmail: "admin@company.com",
       metadata: {
         taskTitle: title,
         projectId: projectId,

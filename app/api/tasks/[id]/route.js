@@ -484,8 +484,8 @@ export async function PUT(request, { params }) {
       action: "UPDATE_TASK",
       entityType: "task",
       entityId: id,
+      request,
       userId: updatedBy || "admin",
-      userEmail: "admin@company.com",
       metadata: {
         taskTitle: title || existingTask.title,
         previousStatus: existingTask.status,
@@ -565,8 +565,7 @@ export async function DELETE(request, { params }) {
       action: "DELETE_TASK",
       entityType: "task",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         taskTitle: task.title,
         projectId: task.projectId.toString(),

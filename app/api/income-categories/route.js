@@ -107,8 +107,7 @@ export async function POST(request) {
       action: "CREATE_INCOME_CATEGORY",
       entityType: "incomeCategory",
       entityId: result.insertedId.toString(),
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         categoryName: name,
         status,

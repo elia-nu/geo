@@ -3,6 +3,7 @@ import { getDb } from "../../../mongo";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../../utils/audit";
 
 export async function POST(request, { params }) {
   try {
@@ -73,6 +74,20 @@ export async function POST(request, { params }) {
         // ignore if missing
       }
     }
+
+    createAuditLog({
+      action: "UPDATE",
+      entityType: "document",
+      entityId: id,
+      status: "SUCCESS",
+      request,
+      metadata: {
+        actionType: "file_replaced",
+        originalName: file.name,
+        fileSize: buffer.length,
+        mimeType: file.type,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (error) {

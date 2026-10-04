@@ -20,6 +20,7 @@ import {
   ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import { format, parseISO } from "date-fns";
+import { formatCurrency, currencyTitle } from "../utils/currency";
 
 const BudgetManagementPage = () => {
   const router = useRouter();
@@ -97,13 +98,6 @@ const BudgetManagementPage = () => {
 
   const handleViewBudget = (projectId) => {
     router.push(`/project-budget/${projectId}`);
-  };
-
-  const formatCurrency = (amount, currency = "ETB") => {
-    return new Intl.NumberFormat("en-ET", {
-      style: "currency",
-      currency: "ETB",
-    }).format(amount || 0);
   };
 
   const formatPercentage = (value) => {
@@ -307,7 +301,10 @@ const BudgetManagementPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Total Budget</p>
-                <p className="text-2xl font-bold text-black">
+                <p
+                  className="text-2xl font-bold text-black cursor-default"
+                  title={currencyTitle(totalBudget)}
+                >
                   {formatCurrency(totalBudget)}
                 </p>
               </div>
@@ -338,30 +335,40 @@ const BudgetManagementPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <p className="text-sm text-gray-600">Total Budget</p>
-                <p className="text-xl font-bold text-black">
+                <p
+                  className="text-xl font-bold text-black cursor-default"
+                  title={currencyTitle(financialSummary.summary?.totalBudget || 0)}
+                >
                   {formatCurrency(financialSummary.summary?.totalBudget || 0)}
                 </p>
               </div>
               <div className="text-center">
                 <p className="text-sm text-gray-600">Total Expenses</p>
-                <p className="text-xl font-bold text-black">
+                <p
+                  className="text-xl font-bold text-black cursor-default"
+                  title={currencyTitle(financialSummary.summary?.totalExpenses || 0)}
+                >
                   {formatCurrency(financialSummary.summary?.totalExpenses || 0)}
                 </p>
               </div>
               <div className="text-center">
                 <p className="text-sm text-gray-600">Total Income</p>
-                <p className="text-xl font-bold text-black">
+                <p
+                  className="text-xl font-bold text-black cursor-default"
+                  title={currencyTitle(financialSummary.summary?.totalIncome || 0)}
+                >
                   {formatCurrency(financialSummary.summary?.totalIncome || 0)}
                 </p>
               </div>
               <div className="text-center">
                 <p className="text-sm text-gray-600">Profit/Loss</p>
                 <p
-                  className={`text-xl font-bold ${
+                  className={`text-xl font-bold cursor-default ${
                     (financialSummary.summary?.totalProfitLoss || 0) >= 0
                       ? "text-green-600"
                       : "text-red-600"
                   }`}
+                  title={currencyTitle(financialSummary.summary?.totalProfitLoss || 0)}
                 >
                   {formatCurrency(
                     financialSummary.summary?.totalProfitLoss || 0
@@ -506,23 +513,34 @@ const BudgetManagementPage = () => {
                           )}
                           {hasBudget && (
                             <>
-                              <span className="font-medium text-green-600">
+                              <span
+                                className="font-medium text-green-600 cursor-default"
+                                title={currencyTitle(budget.totalAmount, budget.currency)}
+                              >
                                 Budget:{" "}
                                 {formatCurrency(
                                   budget.totalAmount,
                                   budget.currency
                                 )}
                               </span>
-                              <span className="font-medium text-blue-600">
+                              <span
+                                className="font-medium text-blue-600 cursor-default"
+                                title={currencyTitle(budget.summary?.totalExpenses || 0, budget.currency)}
+                              >
                                 Expenses:{" "}
                                 {formatCurrency(
-                                  budget.summary?.totalExpenses || 0
+                                  budget.summary?.totalExpenses || 0,
+                                  budget.currency
                                 )}
                               </span>
-                              <span className="font-medium text-purple-600">
+                              <span
+                                className="font-medium text-purple-600 cursor-default"
+                                title={currencyTitle(budget.summary?.totalIncome || 0, budget.currency)}
+                              >
                                 Income:{" "}
                                 {formatCurrency(
-                                  budget.summary?.totalIncome || 0
+                                  budget.summary?.totalIncome || 0,
+                                  budget.currency
                                 )}
                               </span>
                             </>

@@ -122,8 +122,7 @@ export async function POST(request, { params }) {
       action: "ADD_MILESTONE",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: project?.name || "Unknown Project",
         milestoneTitle: title,
@@ -224,8 +223,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_MILESTONES",
       entityType: "project",
       entityId: id,
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         projectName: project?.name || "Unknown Project",
         milestonesCount: processedMilestones.length,

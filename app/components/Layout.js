@@ -108,8 +108,16 @@ const Layout = ({
                   ? "Dashboard"
                   : activeSection === "project-finances"
                   ? "Financial Management"
-                  : activeSection === "budget-management"
-                  ? "Budget Management"
+                  : activeSection === "employee-portal-audit"
+                  ? "Employee Portal Activities Audit"
+                  : activeSection === "universal-system-reports"
+                  ? "Universal System Reports"
+                  : activeSection === "completed-activities"
+                  ? "Completed Activities (Master Audit)"
+                  : activeSection === "workflow-bottlenecks"
+                  ? "Workflow Bottlenecks & SLA Breach"
+                  : activeSection === "user-activity-security"
+                  ? "User Activity & Security Audit"
                   : formatSectionName(activeSection)}
               </h2>
               <div className="hidden md:block">

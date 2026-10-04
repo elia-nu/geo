@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Download, RefreshCw, FileText, DollarSign, Building2, Briefcase, Users } from "lucide-react";
+import { formatCurrency, currencyTitle } from "../utils/currency";
 
 export default function PayrollSummaryReport() {
   const [loading, setLoading] = useState(false);
@@ -166,28 +167,48 @@ export default function PayrollSummaryReport() {
                 <DollarSign className="w-5 h-5 text-blue-600" />
                 <span className="font-medium text-blue-900">Gross Pay</span>
               </div>
-              <p className="text-xl font-bold text-blue-600">{summary.grossPay ?? 0}</p>
+              <p
+                className="text-xl font-bold text-blue-600 cursor-default"
+                title={currencyTitle(summary.grossPay ?? 0)}
+              >
+                {formatCurrency(summary.grossPay ?? 0)}
+              </p>
             </div>
             <div className="bg-emerald-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="w-5 h-5 text-emerald-600" />
                 <span className="font-medium text-emerald-900">Net Pay</span>
               </div>
-              <p className="text-xl font-bold text-emerald-600">{summary.netPay ?? 0}</p>
+              <p
+                className="text-xl font-bold text-emerald-600 cursor-default"
+                title={currencyTitle(summary.netPay ?? 0)}
+              >
+                {formatCurrency(summary.netPay ?? 0)}
+              </p>
             </div>
             <div className="bg-amber-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FileText className="w-5 h-5 text-amber-600" />
                 <span className="font-medium text-amber-900">Deductions</span>
               </div>
-              <p className="text-xl font-bold text-amber-600">{summary.deductions ?? 0}</p>
+              <p
+                className="text-xl font-bold text-amber-600 cursor-default"
+                title={currencyTitle(summary.deductions ?? 0)}
+              >
+                {formatCurrency(summary.deductions ?? 0)}
+              </p>
             </div>
             <div className="bg-indigo-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="w-5 h-5 text-indigo-600" />
                 <span className="font-medium text-indigo-900">Allowances</span>
               </div>
-              <p className="text-xl font-bold text-indigo-600">{summary.allowances ?? 0}</p>
+              <p
+                className="text-xl font-bold text-indigo-600 cursor-default"
+                title={currencyTitle(summary.allowances ?? 0)}
+              >
+                {formatCurrency(summary.allowances ?? 0)}
+              </p>
             </div>
           </div>
 
@@ -213,10 +234,30 @@ export default function PayrollSummaryReport() {
                     <tr key={r.employeeId}>
                       <td className="px-3 py-2 text-black">{r.employeeName}</td>
                       <td className="px-3 py-2 text-black">{r.department}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.deductions}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.allowances}</td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.grossPay)}
+                      >
+                        {formatCurrency(r.grossPay)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.netPay)}
+                      >
+                        {formatCurrency(r.netPay)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.deductions)}
+                      >
+                        {formatCurrency(r.deductions)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.allowances)}
+                      >
+                        {formatCurrency(r.allowances)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -243,8 +284,18 @@ export default function PayrollSummaryReport() {
                   {byDepartment.map((r) => (
                     <tr key={r.department}>
                       <td className="px-3 py-2 text-black">{r.department}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.grossPay)}
+                      >
+                        {formatCurrency(r.grossPay)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.netPay)}
+                      >
+                        {formatCurrency(r.netPay)}
+                      </td>
                       <td className="px-3 py-2 text-right text-black">{r.employeeCount}</td>
                     </tr>
                   ))}
@@ -269,8 +320,18 @@ export default function PayrollSummaryReport() {
                   {byProject.map((r) => (
                     <tr key={r.projectId}>
                       <td className="px-3 py-2 text-black">{r.projectName}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.grossPay}</td>
-                      <td className="px-3 py-2 text-right text-black">{r.netPay}</td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.grossPay)}
+                      >
+                        {formatCurrency(r.grossPay)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right text-black font-mono font-medium cursor-default"
+                        title={currencyTitle(r.netPay)}
+                      >
+                        {formatCurrency(r.netPay)}
+                      </td>
                       <td className="px-3 py-2 text-right text-black">{r.employeeCount}</td>
                     </tr>
                   ))}

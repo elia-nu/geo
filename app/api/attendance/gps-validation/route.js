@@ -60,6 +60,24 @@ export async function POST(request) {
       consistencyValidation,
     };
 
+    if (!result.isValid || result.riskScore > 30) {
+      import("../../../utils/audit.js").then(({ createAuditLog }) => {
+        createAuditLog({
+          action: "GPS_VALIDATION_FLAGGED",
+          entityType: "attendance",
+          status: result.isValid ? "WARNING" : "FAILED",
+          request,
+          metadata: {
+            latitude,
+            longitude,
+            accuracy,
+            riskScore: overallRiskScore,
+            issues: allIssues,
+          },
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+
     return NextResponse.json({
       success: true,
       validation: result,

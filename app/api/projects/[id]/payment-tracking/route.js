@@ -364,8 +364,7 @@ export async function PUT(request, { params }) {
       action: "UPDATE_PAYMENT_STATUS",
       entityType: "project",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         projectName: project.name,
         paymentId,
@@ -475,8 +474,7 @@ export async function POST(request, { params }) {
       action: "ADD_PARTIAL_PAYMENT",
       entityType: "project",
       entityId: id,
-      userId: "admin",
-      userEmail: "admin@company.com",
+      request,
       metadata: {
         projectName: project.name,
         paymentId,

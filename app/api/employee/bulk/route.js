@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
+import { createAuditLog } from "../../../utils/audit";
 
 export async function POST(request) {
   try {
@@ -10,13 +11,13 @@ export async function POST(request) {
 
     switch (action) {
       case "import":
-        return await bulkImportEmployees(db, data);
+        return await bulkImportEmployees(db, data, request);
       case "export":
-        return await bulkExportEmployees(db, employeeIds);
+        return await bulkExportEmployees(db, employeeIds, request);
       case "update":
-        return await bulkUpdateEmployees(db, employeeIds, data);
+        return await bulkUpdateEmployees(db, employeeIds, data, request);
       case "delete":
-        return await bulkDeleteEmployees(db, employeeIds);
+        return await bulkDeleteEmployees(db, employeeIds, request);
       default:
         return NextResponse.json(
           {
@@ -35,7 +36,7 @@ export async function POST(request) {
   }
 }
 
-async function bulkImportEmployees(db, employees) {
+async function bulkImportEmployees(db, employees, request) {
   const results = {
     successful: 0,
     failed: 0,
@@ -100,13 +101,25 @@ async function bulkImportEmployees(db, employees) {
     }
   }
 
+  createAuditLog({
+    action: "BULK_IMPORT",
+    entityType: "employee",
+    status: results.failed === 0 ? "SUCCESS" : "PARTIAL",
+    request,
+    metadata: {
+      total: employees.length,
+      successful: results.successful,
+      failed: results.failed,
+    },
+  }).catch(() => {});
+
   return NextResponse.json({
     message: `Bulk import completed. ${results.successful} successful, ${results.failed} failed`,
     ...results,
   });
 }
 
-async function bulkExportEmployees(db, employeeIds) {
+async function bulkExportEmployees(db, employeeIds, request) {
   try {
     let query = {};
 
@@ -135,6 +148,16 @@ async function bulkExportEmployees(db, employeeIds) {
       };
     });
 
+    createAuditLog({
+      action: "EXPORT",
+      entityType: "employee",
+      status: "SUCCESS",
+      request,
+      metadata: {
+        exportedCount: exportData.length,
+      },
+    }).catch(() => {});
+
     return NextResponse.json({
       message: `Exported ${exportData.length} employees`,
       count: exportData.length,
@@ -146,7 +169,7 @@ async function bulkExportEmployees(db, employeeIds) {
   }
 }
 
-async function bulkUpdateEmployees(db, employeeIds, updateData) {
+async function bulkUpdateEmployees(db, employeeIds, updateData, request) {
   const results = {
     successful: 0,
     failed: 0,
@@ -199,13 +222,26 @@ async function bulkUpdateEmployees(db, employeeIds, updateData) {
     }
   }
 
+  createAuditLog({
+    action: "BULK_UPDATE",
+    entityType: "employee",
+    status: results.failed === 0 ? "SUCCESS" : "PARTIAL",
+    request,
+    metadata: {
+      total: employeeIds.length,
+      successful: results.successful,
+      failed: results.failed,
+      updatedFields: Object.keys(updateData || {}),
+    },
+  }).catch(() => {});
+
   return NextResponse.json({
     message: `Bulk update completed. ${results.successful} successful, ${results.failed} failed`,
     ...results,
   });
 }
 
-async function bulkDeleteEmployees(db, employeeIds) {
+async function bulkDeleteEmployees(db, employeeIds, request) {
   const results = {
     successful: 0,
     failed: 0,
@@ -265,6 +301,18 @@ async function bulkDeleteEmployees(db, employeeIds) {
       });
     }
   }
+
+  createAuditLog({
+    action: "BULK_DELETE",
+    entityType: "employee",
+    status: results.failed === 0 ? "SUCCESS" : "PARTIAL",
+    request,
+    metadata: {
+      total: employeeIds.length,
+      successful: results.successful,
+      failed: results.failed,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({
     message: `Bulk delete completed. ${results.successful} successful, ${results.failed} failed`,

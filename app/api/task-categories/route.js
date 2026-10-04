@@ -105,8 +105,7 @@ export async function POST(request) {
       action: "CREATE_TASK_CATEGORY",
       entityType: "taskCategory",
       entityId: result.insertedId.toString(),
-      userId: "admin", // Replace with actual user ID when auth is implemented
-      userEmail: "admin@company.com", // Replace with actual user email
+      request,
       metadata: {
         categoryName: name,
         status,

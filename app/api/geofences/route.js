@@ -1,4 +1,5 @@
 import { getDb } from "../mongo";
+import { createAuditLog } from "../../utils/audit";
 
 export async function GET(req) {
   const db = await getDb();
@@ -17,6 +18,21 @@ export async function POST(req) {
   const db = await getDb();
   const data = await req.json();
   await db.collection("geofences").insertOne(data);
+
+  createAuditLog({
+    action: "CREATE",
+    entityType: "geofence",
+    entityId: data.name,
+    status: "SUCCESS",
+    request: req,
+    metadata: {
+      geofenceName: data.name,
+      radius: data.radius,
+      lat: data.lat,
+      lng: data.lng,
+    },
+  }).catch(() => {});
+
   return Response.json({ success: true });
 }
 
@@ -29,6 +45,19 @@ export async function PUT(req) {
     .updateOne({ name: data.name }, { $set: data });
   if (result.matchedCount === 0)
     return new Response("Not found", { status: 404 });
+
+  createAuditLog({
+    action: "UPDATE",
+    entityType: "geofence",
+    entityId: data.name,
+    status: "SUCCESS",
+    request: req,
+    metadata: {
+      geofenceName: data.name,
+      updatedFields: Object.keys(data),
+    },
+  }).catch(() => {});
+
   return Response.json({ success: true });
 }
 
@@ -40,5 +69,17 @@ export async function DELETE(req) {
   const result = await db.collection("geofences").deleteOne({ name });
   if (result.deletedCount === 0)
     return new Response("Not found", { status: 404 });
+
+  createAuditLog({
+    action: "DELETE",
+    entityType: "geofence",
+    entityId: name,
+    status: "SUCCESS",
+    request: req,
+    metadata: {
+      deletedGeofenceName: name,
+    },
+  }).catch(() => {});
+
   return Response.json({ success: true });
 }

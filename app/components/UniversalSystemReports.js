@@ -2,15 +2,17 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ClipboardList, AlertTriangle, UserCheck } from "lucide-react";
+import { ClipboardList, AlertTriangle, UserCheck, UserCog } from "lucide-react";
 import CompletedActivitiesMasterAuditReport from "./CompletedActivitiesMasterAuditReport";
 import WorkflowBottleneckSLAReport from "./WorkflowBottleneckSLAReport";
 import UserActivitySecurityAuditReport from "./UserActivitySecurityAuditReport";
+import EmployeePortalAuditReport from "./EmployeePortalAuditReport";
 
 const TAB_IDS = [
   "completed-activities",
   "workflow-bottlenecks",
   "user-activity-security",
+  "employee-portal-audit",
 ];
 
 const TABS = [
@@ -31,6 +33,12 @@ const TABS = [
     label: "User Activity & Security Audit",
     icon: UserCheck,
     component: UserActivitySecurityAuditReport,
+  },
+  {
+    id: "employee-portal-audit",
+    label: "Employee Portal Activities",
+    icon: UserCog,
+    component: EmployeePortalAuditReport,
   },
 ];
 
@@ -66,7 +74,7 @@ export default function UniversalSystemReports({ initialTab }) {
           </h1>
           <p className="text-gray-600 mb-6">
             10.1 Completed Activities (Master Audit) • 10.2 Workflow Bottleneck
-            &amp; SLA Breach • 10.3 User Activity &amp; Security Audit
+            &amp; SLA Breach • 10.3 User Activity &amp; Security Audit • 10.4 Employee Portal Activities
           </p>
 
           <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-6">

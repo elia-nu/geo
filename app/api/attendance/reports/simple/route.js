@@ -187,8 +187,8 @@ export async function POST(request) {
       action: "GENERATE_SIMPLE_ATTENDANCE_REPORT",
       entityType: "attendance_reports",
       entityId: reportResult.insertedId.toString(),
+      request,
       userId: adminId,
-      userEmail: "admin@company.com",
       metadata: {
         reportType,
         startDate,
