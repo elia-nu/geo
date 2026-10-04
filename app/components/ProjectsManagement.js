@@ -31,6 +31,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import Pagination from "./ui/Pagination";
 import { formatCurrency as formatCurrencyUtil, currencyTitle } from "../utils/currency";

@@ -183,13 +183,38 @@ export default function IntegratedPayrollSystem() {
           : [];
 
         // Enhance each row with overtime & original values for later adjustment (all calcs based on Salary)
-        const enhancedRows = rows.map((row) => ({
-          ...row,
-          overtime: 0,
-          originalIncomeTax: row.incomeTax,
-          originalNetSalary: row.netSalary,
-          taxableIncome: row.salary ?? row.adjustedGross ?? row.grossSalary ?? 0,
-        }));
+        const enhancedRows = rows.map((row) => {
+          const salaryVal = row.salary ?? 0;
+          const empPension = salaryVal <= 0 ? 0 : (row.employeePension || 0);
+          const emprPension = salaryVal <= 0 ? 0 : (row.employerPension || 0);
+          const incTax = salaryVal <= 0 ? 0 : (row.incomeTax || 0);
+          const allowances =
+            (row.transportAllowance || 0) +
+            (row.telephoneAllowance || 0) +
+            (row.posAllowance || 0);
+          const computedNet = Math.max(
+            0,
+            salaryVal - (incTax + empPension) + allowances
+          );
+          const safeNet =
+            row.netSalary != null && row.netSalary > 0
+              ? row.netSalary
+              : computedNet;
+
+          return {
+            ...row,
+            employeePension: empPension,
+            employerPension: emprPension,
+            incomeTax: incTax,
+            netSalary: safeNet,
+            overtime: 0,
+            originalIncomeTax: incTax,
+            originalNetSalary: safeNet,
+            taxableIncome:
+              row.taxableIncome ??
+              (row.salary ?? row.adjustedGross ?? row.grossSalary ?? 0),
+          };
+        });
 
         setPayrollData(enhancedRows);
         setSummary(result.data.summary || null);
@@ -438,23 +463,25 @@ export default function IntegratedPayrollSystem() {
     if (!Array.isArray(payrollData) || !payrollData.length) return;
 
     const csvHeaders = [
+      "#",
+      "Hire Date",
       "Employee Name",
       "Position",
       "Department",
       "Basic Salary",
-      "Salary",
-      "Employee Pension (7%)",
-      "Employer Pension (11%)",
-      "Taxable Income",
-      "Gross Payment",
-      "Income Tax",
-      "Total Deduction",
-      "No. of Working Days",
+      "Working Days",
+      "Overtime",
+      "Earned Salary",
       "Transport Allowance",
       "Telephone Allowance",
-      "POS Allowance",
-      "Overtime",
-      "Net Salary",
+      "Position Allowance",
+      "Taxable Income",
+      "Gross Pay",
+      "Income Tax",
+      "Pension (7%)",
+      "Pension (11%)",
+      "Total Deductions",
+      "Net Pay",
     ];
 
     const getSalary = (e) =>
@@ -464,54 +491,67 @@ export default function IntegratedPayrollSystem() {
     const getTaxableIncome = (e) =>
       e.taxableIncome ?? getSalary(e) + (e.overtime ?? 0);
 
-    const csvRows = payrollData.map((employee) => [
-      employee?.name || "",
-      employee?.position || "",
-      employee?.department || "",
-      (employee?.grossSalary || 0).toFixed(2),
-      getSalary(employee).toFixed(2),
-      (employee?.employeePension || 0).toFixed(2),
-      (employee?.employerPension || 0).toFixed(2),
-      getTaxableIncome(employee).toFixed(2),
-      (
-        getTaxableIncome(employee) +
+    const csvRows = payrollData.map((employee, index) => {
+      const salary = getSalary(employee);
+      const taxable = getTaxableIncome(employee);
+      const allowances =
         (employee?.transportAllowance || 0) +
         (employee?.telephoneAllowance || 0) +
-        (employee?.posAllowance || 0)
-      ).toFixed(2),
-      (employee?.incomeTax || 0).toFixed(2),
-      ((employee?.employeePension || 0) + (employee?.incomeTax || 0)).toFixed(
-        2
-      ),
-      (employee?.workingDays != null
-        ? (employee?.workingDays || 0) - (employee?.deductionDays || 0)
-        : ""
-      ).toString(),
-      (employee?.transportAllowance || 0).toFixed(2),
-      (employee?.telephoneAllowance || 0).toFixed(2),
-      (employee?.posAllowance || 0).toFixed(2),
-      (employee?.overtime || 0).toFixed(2),
-      (employee?.netSalary || 0).toFixed(2),
-    ]);
+        (employee?.posAllowance || 0);
+      const grossPay = taxable + allowances;
+      const deductions =
+        (employee?.employeePension || 0) + (employee?.incomeTax || 0);
+      const workingDays =
+        employee?.workingDays != null
+          ? Math.max(0, (employee.workingDays || 0) - (employee.deductionDays || 0))
+          : 0;
+      const hireDate = employee?.joiningDate
+        ? new Date(employee.joiningDate).toLocaleDateString("en-CA")
+        : "-";
+
+      return [
+        (index + 1).toString(),
+        hireDate,
+        employee?.name || "Unknown",
+        employee?.position || employee?.designation || "-",
+        employee?.department || "-",
+        (employee?.grossSalary || 0).toFixed(2),
+        workingDays.toString(),
+        (employee?.overtime || 0).toFixed(2),
+        salary.toFixed(2),
+        (employee?.transportAllowance || 0).toFixed(2),
+        (employee?.telephoneAllowance || 0).toFixed(2),
+        (employee?.posAllowance || 0).toFixed(2),
+        taxable.toFixed(2),
+        grossPay.toFixed(2),
+        (employee?.incomeTax || 0).toFixed(2),
+        (employee?.employeePension || 0).toFixed(2),
+        (employee?.employerPension || 0).toFixed(2),
+        deductions.toFixed(2),
+        (employee?.netSalary || 0).toFixed(2),
+      ];
+    });
 
     // Add totals row (using computedSummary so it reflects overtime edits)
     csvRows.push([
       "TOTALS",
       "",
       "",
+      "",
+      "",
       (computedSummary?.totalGross || 0).toFixed(2),
-      (computedSummary?.totalSalary || 0).toFixed(2),
-      (computedSummary?.totalEmployeePension || 0).toFixed(2),
-      (computedSummary?.totalEmployerPension || 0).toFixed(2),
-      (computedSummary?.totalTaxableIncome || 0).toFixed(2),
-      (computedSummary?.totalGrossPayment || 0).toFixed(2),
-      (computedSummary?.totalIncomeTax || 0).toFixed(2),
-      (computedSummary?.totalStatutoryDeduction || 0).toFixed(2),
       (computedSummary?.totalWorkedDays || 0).toString(),
+      (computedSummary?.totalOvertime || 0).toFixed(2),
+      (computedSummary?.totalSalary || 0).toFixed(2),
       (computedSummary?.totalTransportAllowance || 0).toFixed(2),
       (computedSummary?.totalTelephoneAllowance || 0).toFixed(2),
       (computedSummary?.totalPosAllowance || 0).toFixed(2),
-      (computedSummary?.totalOvertime || 0).toFixed(2),
+      (computedSummary?.totalTaxableIncome || 0).toFixed(2),
+      (computedSummary?.totalGrossPayment || 0).toFixed(2),
+      (computedSummary?.totalIncomeTax || 0).toFixed(2),
+      (computedSummary?.totalEmployeePension || 0).toFixed(2),
+      (computedSummary?.totalEmployerPension || 0).toFixed(2),
+      (computedSummary?.totalStatutoryDeduction || 0).toFixed(2),
       (computedSummary?.totalNet || 0).toFixed(2),
     ]);
 
@@ -519,7 +559,7 @@ export default function IntegratedPayrollSystem() {
       .map((row) => row.map((field) => `"${field}"`).join(","))
       .join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
@@ -627,11 +667,13 @@ export default function IntegratedPayrollSystem() {
           (row.telephoneAllowance || 0) +
           (row.posAllowance || 0);
 
-        const net =
+        const net = Math.max(
+          0,
           salary +
-          overtime -
-          (newIncomeTax + (row.employeePension || 0)) +
-          allowances;
+            overtime -
+            (newIncomeTax + (row.employeePension || 0)) +
+            allowances
+        );
 
         return {
           ...updated,
@@ -1103,159 +1145,190 @@ export default function IntegratedPayrollSystem() {
             {/* Modal Body */}
             <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
               {/* Summary Cards */}
-              <div className="p-6 border-b border-gray-200 bg-white">
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                  <div className="bg-blue-50 rounded-lg p-4 text-center">
-                    <Users className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-                    <h4 className="text-sm font-medium text-gray-600">
-                      Total Employees
-                    </h4>
-                    <span className="text-2xl font-bold text-blue-600">
+              <div className="p-5 border-b border-slate-200 bg-white shadow-2xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                  {/* Total Employees */}
+                  <div className="bg-gradient-to-br from-blue-50/80 via-white to-blue-50/30 rounded-xl border border-blue-100 p-3.5 shadow-2xs text-center flex flex-col justify-between">
+                    <div className="flex items-center justify-center gap-1.5 text-blue-700 mb-1">
+                      <Users className="w-4 h-4" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Employees
+                      </span>
+                    </div>
+                    <span className="text-xl font-extrabold text-blue-900">
                       {computedSummary?.totalEmployees || 0}
                     </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Staff on Payroll</span>
                   </div>
 
-                  <div className="bg-green-50 rounded-lg p-4 text-center">
-                    <DollarSign className="w-6 h-6 text-green-600 mx-auto mb-2" />
-                    <h4 className="text-sm font-medium text-gray-600">
-                      Total Basic Salary
-                    </h4>
-                    <span className="text-lg font-bold text-green-600">
+                  {/* Total Basic Salary */}
+                  <div className="bg-gradient-to-br from-sky-50/80 via-white to-sky-50/30 rounded-xl border border-sky-100 p-3.5 shadow-2xs text-center flex flex-col justify-between">
+                    <div className="flex items-center justify-center gap-1.5 text-sky-700 mb-1">
+                      <DollarSign className="w-4 h-4" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Basic Salary
+                      </span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-sky-900 truncate" title={formatCurrency(computedSummary?.totalGross || 0)}>
                       {formatCurrency(computedSummary?.totalGross || 0)}
                     </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Base Total</span>
                   </div>
 
-                  <div className="bg-red-50 rounded-lg p-4 text-center">
-                    <TrendingDown className="w-6 h-6 text-red-600 mx-auto mb-2" />
-                    <h4 className="text-sm font-medium text-gray-600">
-                      Income Tax
-                    </h4>
-                    <span className="text-lg font-bold text-red-600">
-                      {formatCurrency(computedSummary?.totalIncomeTax || 0)}
-                    </span>
-                  </div>
-
-                  <div className="bg-yellow-50 rounded-lg p-4 text-center">
-                    <TrendingUp className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
-                    <h4 className="text-sm font-medium text-gray-600">
-                      Employee Pension
-                    </h4>
-                    <span className="text-lg font-bold text-yellow-600">
-                      {formatCurrency(
-                        computedSummary?.totalEmployeePension || 0
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="bg-purple-50 rounded-lg p-4 text-center">
-                    <TrendingUp className="w-6 h-6 text-purple-600 mx-auto mb-2" />
-                    <h4 className="text-sm font-medium text-gray-600">
-                      Employer Pension
-                    </h4>
-                    <span className="text-lg font-bold text-purple-600">
-                      {formatCurrency(
-                        computedSummary?.totalEmployerPension || 0
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="bg-emerald-50 rounded-lg p-4 text-center">
-                    <DollarSign className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
-                    <h4 className="text-sm font-medium text-gray-600">
-                      Total Net
-                    </h4>
-                    <span className="text-lg font-bold text-emerald-600">
-                      {formatCurrency(computedSummary?.totalNet || 0)}
-                    </span>
-                  </div>
-
-                  <div className="bg-orange-50 rounded-lg p-4 text-center md:col-span-2">
-                    <TrendingUp className="w-6 h-6 text-orange-600 mx-auto mb-2" />
-                    <h4 className="text-sm font-medium text-gray-600">
-                      Total Overtime
-                    </h4>
-                    <span className="text-lg font-bold text-orange-600">
+                  {/* Total Overtime */}
+                  <div className="bg-gradient-to-br from-amber-50/80 via-white to-amber-50/30 rounded-xl border border-amber-100 p-3.5 shadow-2xs text-center flex flex-col justify-between">
+                    <div className="flex items-center justify-center gap-1.5 text-amber-700 mb-1">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Overtime
+                      </span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-amber-900 truncate" title={formatCurrency(computedSummary?.totalOvertime || 0)}>
                       {formatCurrency(computedSummary?.totalOvertime || 0)}
                     </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Approved OT</span>
+                  </div>
+
+                  {/* Income Tax */}
+                  <div className="bg-gradient-to-br from-rose-50/80 via-white to-rose-50/30 rounded-xl border border-rose-100 p-3.5 shadow-2xs text-center flex flex-col justify-between">
+                    <div className="flex items-center justify-center gap-1.5 text-rose-700 mb-1">
+                      <TrendingDown className="w-4 h-4" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Income Tax
+                      </span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-rose-700 truncate" title={formatCurrency(computedSummary?.totalIncomeTax || 0)}>
+                      {formatCurrency(computedSummary?.totalIncomeTax || 0)}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">PAYE Withheld</span>
+                  </div>
+
+                  {/* Employee Pension */}
+                  <div className="bg-gradient-to-br from-purple-50/80 via-white to-purple-50/30 rounded-xl border border-purple-100 p-3.5 shadow-2xs text-center flex flex-col justify-between">
+                    <div className="flex items-center justify-center gap-1.5 text-purple-700 mb-1">
+                      <TrendingDown className="w-4 h-4" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Pension (7%)
+                      </span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-purple-900 truncate" title={formatCurrency(computedSummary?.totalEmployeePension || 0)}>
+                      {formatCurrency(computedSummary?.totalEmployeePension || 0)}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Staff Share</span>
+                  </div>
+
+                  {/* Employer Pension */}
+                  <div className="bg-gradient-to-br from-indigo-50/80 via-white to-indigo-50/30 rounded-xl border border-indigo-100 p-3.5 shadow-2xs text-center flex flex-col justify-between">
+                    <div className="flex items-center justify-center gap-1.5 text-indigo-700 mb-1">
+                      <TrendingUp className="w-4 h-4" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Pension (11%)
+                      </span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-indigo-900 truncate" title={formatCurrency(computedSummary?.totalEmployerPension || 0)}>
+                      {formatCurrency(computedSummary?.totalEmployerPension || 0)}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Employer Share</span>
+                  </div>
+
+                  {/* Total Net */}
+                  <div className={`rounded-xl border p-3.5 shadow-2xs text-center flex flex-col justify-between ${
+                    (computedSummary?.totalNet || 0) < 0
+                      ? "bg-gradient-to-br from-rose-100/90 via-white to-rose-50/50 border-rose-300 text-rose-900"
+                      : "bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/40 border-emerald-200 text-emerald-900"
+                  }`}>
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <DollarSign className={`w-4 h-4 ${(computedSummary?.totalNet || 0) < 0 ? "text-rose-700" : "text-emerald-700"}`} />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Total Net Pay
+                      </span>
+                    </div>
+                    <span className={`text-xs sm:text-sm font-extrabold truncate ${
+                      (computedSummary?.totalNet || 0) < 0 ? "text-rose-700" : "text-emerald-800"
+                    }`} title={formatCurrency(computedSummary?.totalNet || 0)}>
+                      {formatCurrency(computedSummary?.totalNet || 0)}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Net Disbursement</span>
                   </div>
                 </div>
               </div>
 
               {/* Payroll Table */}
-              <div className="flex-1 p-6 overflow-hidden">
-                <div className="overflow-x-auto overflow-y-auto max-h-full">
-                  <table className="w-full border-collapse">
-                    <thead className="sticky top-0 z-10 bg-gray-100">
-                      <tr className="border-b-2 border-orange-400">
-                        <th className="border border-gray-200 px-2 py-3 text-center text-sm font-medium text-gray-700 w-12">
-                          NO.
+              <div className="flex-1 p-5 overflow-hidden flex flex-col">
+                <div className="overflow-x-auto overflow-y-auto max-h-full rounded-xl border border-slate-200 bg-white shadow-2xs">
+                  <table className="w-full border-collapse text-left">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur border-b border-slate-300">
+                      <tr>
+                        <th className="border-r border-slate-200 px-2.5 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-12 bg-slate-100">
+                          #
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-left text-sm font-medium text-gray-700">
-                          Date of Employee
+                        <th className="border-r border-slate-200 px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap bg-slate-100">
+                          Hire Date
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-left text-sm font-medium text-gray-700">
-                          NAME OF EMPLOYEES
+                        <th className="border-r border-slate-200 px-3 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap min-w-[150px] bg-slate-100">
+                          Employee Name
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                        <th className="border-r border-slate-200 px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap bg-slate-100">
                           Basic Salary
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
-                          No. of Working Days
+                        <th className="border-r border-slate-200 px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap bg-slate-100">
+                          Working Days
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                        <th className="border-r border-slate-200 px-2.5 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap bg-slate-100">
                           Overtime
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
-                          Salary
+                        <th className="border-r border-slate-200 px-3 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap bg-slate-100 font-bold">
+                          Earned Salary
                         </th>
-                        <th className="border border-gray-200 px-2 py-3 text-right text-sm font-medium text-gray-600 bg-orange-50">
+                        <th className="border-r border-slate-200 px-2.5 py-3 text-right text-xs font-semibold text-amber-900 uppercase tracking-wider whitespace-nowrap bg-amber-50/50">
                           Transport
                         </th>
-                        <th className="border border-gray-200 px-2 py-3 text-right text-sm font-medium text-gray-600 bg-orange-50">
+                        <th className="border-r border-slate-200 px-2.5 py-3 text-right text-xs font-semibold text-amber-900 uppercase tracking-wider whitespace-nowrap bg-amber-50/50">
                           Telephone
                         </th>
-                        <th className="border border-gray-200 border-l-2 border-l-red-400 px-2 py-3 text-right text-sm font-medium text-gray-600 bg-orange-50">
-                          Pos Allowance
+                        <th className="border-r border-slate-200 px-2.5 py-3 text-right text-xs font-semibold text-amber-900 uppercase tracking-wider whitespace-nowrap bg-amber-50/50">
+                          Position Allow.
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                        <th className="border-r border-slate-200 px-3 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap bg-slate-100">
                           Taxable Income
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700 bg-blue-200">
-                          Gross Payment
+                        <th className="border-r border-slate-200 px-3 py-3 text-right text-xs font-semibold text-blue-900 uppercase tracking-wider whitespace-nowrap bg-blue-50/80 font-bold">
+                          Gross Pay
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
+                        <th className="border-r border-slate-200 px-3 py-3 text-right text-xs font-semibold text-rose-800 uppercase tracking-wider whitespace-nowrap bg-rose-50/50">
                           Income Tax
                         </th>
-                        <th className="border border-gray-200 px-2 py-3 text-right text-sm font-medium text-gray-600 bg-purple-50">
-                          7%
+                        <th className="border-r border-slate-200 px-2.5 py-3 text-right text-xs font-semibold text-purple-900 uppercase tracking-wider whitespace-nowrap bg-purple-50/50">
+                          Pension (7%)
                         </th>
-                        <th className="border border-gray-200 px-2 py-3 text-right text-sm font-medium text-gray-600 bg-purple-50">
-                          11%
+                        <th className="border-r border-slate-200 px-2.5 py-3 text-right text-xs font-semibold text-indigo-900 uppercase tracking-wider whitespace-nowrap bg-indigo-50/50">
+                          Pension (11%)
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
-                          Total Deduction
+                        <th className="border-r border-slate-200 px-3 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap bg-slate-100">
+                          Total Deductions
                         </th>
-                        <th className="border border-gray-200 px-3 py-3 text-right text-sm font-medium text-gray-700">
-                          Net Payment New
+                        <th className="px-3 py-3 text-right text-xs font-bold text-emerald-900 uppercase tracking-wider whitespace-nowrap bg-emerald-50">
+                          Net Pay
                         </th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100">
                       {Array.isArray(payrollData) &&
                         paginatedPayrollData.map((employee, index) => {
                           if (!employee) return null;
+                          const netVal = employee.netSalary || 0;
 
                           return (
                             <tr
                               key={employee.employeeId || index}
-                              className={
-                                index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                              }
+                              className={`transition-colors hover:bg-blue-50/40 ${
+                                index % 2 === 0 ? "bg-white" : "bg-slate-50/50"
+                              }`}
                             >
-                              <td className="border border-gray-200 px-2 py-3 text-sm text-center text-gray-700">
+                              <td className="border-r border-slate-100 px-2.5 py-2.5 text-xs text-center text-slate-500 font-mono">
                                 {(payrollPage - 1) * payrollPerPage + index + 1}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-700">
+                              <td className="border-r border-slate-100 px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap font-mono">
                                 {employee.joiningDate
                                   ? new Date(
                                       employee.joiningDate
@@ -1266,18 +1339,26 @@ export default function IntegratedPayrollSystem() {
                                     })
                                   : "-"}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm font-medium text-black">
-                                {employee.name || "Unknown"}
+                              <td className="border-r border-slate-100 px-3 py-2.5 text-xs font-semibold text-slate-900 whitespace-nowrap">
+                                <div>{employee.name || "Unknown"}</div>
+                                {employee.position && (
+                                  <div className="text-[10px] font-normal text-slate-400">
+                                    {employee.position}
+                                  </div>
+                                )}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-700 text-right font-mono">
+                              <td className="border-r border-slate-100 px-3 py-2.5 text-xs text-slate-700 text-right font-mono">
                                 {formatCurrency(employee.grossSalary || 0)}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
-                                <span className="inline-flex items-center justify-end gap-1 w-full">
-                                  <span>
+                              <td className="border-r border-slate-100 px-3 py-2.5 text-xs text-slate-800 text-right font-mono">
+                                <div className="inline-flex items-center justify-end gap-1.5 w-full">
+                                  <span className="font-semibold">
                                     {employee.workingDays != null
-                                      ? (employee.workingDays || 0) -
-                                        (employee.deductionDays || 0)
+                                      ? Math.max(
+                                          0,
+                                          (employee.workingDays || 0) -
+                                            (employee.deductionDays || 0)
+                                        )
                                       : "-"}
                                   </span>
                                   <button
@@ -1288,14 +1369,14 @@ export default function IntegratedPayrollSystem() {
                                         employee,
                                       })
                                     }
-                                    className="p-1 rounded hover:bg-gray-200 text-gray-600 hover:text-black"
+                                    className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition-colors shadow-2xs"
                                     title="View attendance & absence details"
                                   >
-                                    <Eye className="w-4 h-4" />
+                                    <Eye className="w-3.5 h-3.5" />
                                   </button>
-                                </span>
+                                </div>
                               </td>
-                              <td className="border border-gray-200 px-2 py-2 text-sm text-right">
+                              <td className="border-r border-slate-100 px-2 py-2 text-center">
                                 <input
                                   type="number"
                                   min="0"
@@ -1308,10 +1389,10 @@ export default function IntegratedPayrollSystem() {
                                     )
                                   }
                                   onFocus={(e) => e.target.select()}
-                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm text-black"
+                                  className="w-20 px-2 py-1 border border-slate-300 rounded-md text-right text-xs font-mono font-semibold text-slate-900 bg-white shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-all"
                                 />
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-700 text-right font-mono">
+                              <td className="border-r border-slate-100 px-3 py-2.5 text-xs text-slate-800 text-right font-mono font-semibold">
                                 {formatCurrency(
                                   employee.salary ??
                                     ((employee.grossSalary || 0) / 30) *
@@ -1322,20 +1403,20 @@ export default function IntegratedPayrollSystem() {
                                       )
                                 )}
                               </td>
-                              <td className="border border-gray-200 px-2 py-3 text-sm text-gray-700 text-right font-mono">
+                              <td className="border-r border-slate-100 px-2.5 py-2.5 text-xs text-slate-700 text-right font-mono bg-amber-50/20">
                                 {formatCurrency(
                                   employee.transportAllowance || 0
                                 )}
                               </td>
-                              <td className="border border-gray-200 px-2 py-3 text-sm text-gray-700 text-right font-mono">
+                              <td className="border-r border-slate-100 px-2.5 py-2.5 text-xs text-slate-700 text-right font-mono bg-amber-50/20">
                                 {formatCurrency(
                                   employee.telephoneAllowance || 0
                                 )}
                               </td>
-                              <td className="border border-gray-200 border-l-2 border-l-red-400 px-2 py-3 text-sm text-gray-700 text-right font-mono">
+                              <td className="border-r border-slate-100 px-2.5 py-2.5 text-xs text-slate-700 text-right font-mono bg-amber-50/20">
                                 {formatCurrency(employee.posAllowance || 0)}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-800 text-right font-mono font-medium">
+                              <td className="border-r border-slate-100 px-3 py-2.5 text-xs text-slate-800 text-right font-mono font-medium">
                                 {formatCurrency(
                                   employee.taxableIncome ??
                                     (employee.salary ??
@@ -1345,7 +1426,7 @@ export default function IntegratedPayrollSystem() {
                                       (employee.overtime ?? 0)
                                 )}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-800 text-right font-mono bg-blue-100">
+                              <td className="border-r border-slate-100 px-3 py-2.5 text-xs text-blue-900 text-right font-mono font-bold bg-blue-50/40">
                                 {formatCurrency(
                                   (employee.taxableIncome ??
                                     (employee.salary ??
@@ -1358,94 +1439,104 @@ export default function IntegratedPayrollSystem() {
                                     (employee.posAllowance || 0)
                                 )}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm text-red-600 text-right font-mono font-medium">
+                              <td className="border-r border-slate-100 px-3 py-2.5 text-xs text-rose-700 text-right font-mono font-medium bg-rose-50/20">
                                 {formatCurrency(employee.incomeTax || 0)}
                               </td>
-                              <td className="border border-gray-200 px-2 py-3 text-sm text-gray-700 text-right font-mono">
+                              <td className="border-r border-slate-100 px-2.5 py-2.5 text-xs text-purple-900 text-right font-mono bg-purple-50/20">
                                 {formatCurrency(employee.employeePension || 0)}
                               </td>
-                              <td className="border border-gray-200 px-2 py-3 text-sm text-gray-700 text-right font-mono">
+                              <td className="border-r border-slate-100 px-2.5 py-2.5 text-xs text-indigo-900 text-right font-mono bg-indigo-50/20">
                                 {formatCurrency(employee.employerPension || 0)}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm text-gray-800 text-right font-mono">
+                              <td className="border-r border-slate-100 px-3 py-2.5 text-xs text-slate-800 text-right font-mono">
                                 {formatCurrency(
                                   (employee.employeePension || 0) +
                                     (employee.incomeTax || 0)
                                 )}
                               </td>
-                              <td className="border border-gray-200 px-3 py-3 text-sm text-green-600 text-right font-mono font-bold">
-                                {formatCurrency(employee.netSalary || 0)}
+                              <td className={`px-3 py-2.5 text-xs text-right font-mono font-bold whitespace-nowrap ${
+                                netVal < 0
+                                  ? "text-rose-600 bg-rose-50/70"
+                                  : netVal === 0
+                                  ? "text-slate-400 bg-slate-50/30"
+                                  : "text-emerald-700 bg-emerald-50/40"
+                              }`}>
+                                {formatCurrency(netVal)}
                               </td>
                             </tr>
                           );
                         })}
                     </tbody>
-                    <tfoot>
-                      <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
+                    <tfoot className="sticky bottom-0 z-10 bg-slate-100/95 backdrop-blur border-t-2 border-slate-300 font-bold">
+                      <tr>
                         <td
-                          className="border border-gray-200 px-2 py-3 text-sm text-black"
+                          className="border-r border-slate-200 px-3 py-3 text-xs text-slate-800 uppercase tracking-wider"
                           colSpan="3"
                         >
                           TOTALS
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
+                        <td className="border-r border-slate-200 px-3 py-3 text-xs text-slate-900 text-right font-mono">
                           {formatCurrency(computedSummary?.totalGross || 0)}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
+                        <td className="border-r border-slate-200 px-3 py-3 text-xs text-slate-900 text-right font-mono">
                           {computedSummary?.totalWorkedDays ?? ""}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                        <td className="border-r border-slate-200 px-2 py-3 text-xs text-slate-900 text-right font-mono">
                           {formatCurrency(computedSummary?.totalOvertime || 0)}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
+                        <td className="border-r border-slate-200 px-3 py-3 text-xs text-slate-900 text-right font-mono">
                           {formatCurrency(computedSummary?.totalSalary || 0)}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                        <td className="border-r border-slate-200 px-2.5 py-3 text-xs text-amber-900 text-right font-mono bg-amber-50/30">
                           {formatCurrency(
                             computedSummary?.totalTransportAllowance || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                        <td className="border-r border-slate-200 px-2.5 py-3 text-xs text-amber-900 text-right font-mono bg-amber-50/30">
                           {formatCurrency(
                             computedSummary?.totalTelephoneAllowance || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                        <td className="border-r border-slate-200 px-2.5 py-3 text-xs text-amber-900 text-right font-mono bg-amber-50/30">
                           {formatCurrency(
                             computedSummary?.totalPosAllowance || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono font-medium">
+                        <td className="border-r border-slate-200 px-3 py-3 text-xs text-slate-900 text-right font-mono font-medium">
                           {formatCurrency(
                             computedSummary?.totalTaxableIncome || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono bg-blue-100">
+                        <td className="border-r border-slate-200 px-3 py-3 text-xs text-blue-900 text-right font-mono bg-blue-50/60">
                           {formatCurrency(
                             computedSummary?.totalGrossPayment || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-red-600 text-right font-mono">
+                        <td className="border-r border-slate-200 px-3 py-3 text-xs text-rose-700 text-right font-mono bg-rose-50/30">
                           {formatCurrency(
                             computedSummary?.totalIncomeTax || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                        <td className="border-r border-slate-200 px-2.5 py-3 text-xs text-purple-900 text-right font-mono bg-purple-50/30">
                           {formatCurrency(
                             computedSummary?.totalEmployeePension || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-2 py-3 text-sm text-black text-right font-mono">
+                        <td className="border-r border-slate-200 px-2.5 py-3 text-xs text-indigo-900 text-right font-mono bg-indigo-50/30">
                           {formatCurrency(
                             computedSummary?.totalEmployerPension || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-black text-right font-mono">
+                        <td className="border-r border-slate-200 px-3 py-3 text-xs text-slate-900 text-right font-mono">
                           {formatCurrency(
                             computedSummary?.totalStatutoryDeduction || 0
                           )}
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-sm text-green-600 text-right font-mono">
+                        <td className={`px-3 py-3 text-xs text-right font-mono font-bold whitespace-nowrap ${
+                          (computedSummary?.totalNet || 0) < 0
+                            ? "text-rose-600 bg-rose-50/70"
+                            : "text-emerald-800 bg-emerald-50/50"
+                        }`}>
                           {formatCurrency(computedSummary?.totalNet || 0)}
                         </td>
                       </tr>

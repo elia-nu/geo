@@ -447,18 +447,22 @@ export async function POST(request) {
       const salary =
         (grossSalary / 30) * noOfWorkingDays;
 
-      // Calculate deductions and contributions from Basic Salary (grossSalary)
-      const employeePension = grossSalary * 0.07; // 7% employee contribution
-      const employerPension = grossSalary * 0.11; // 11% employer contribution
+      // Calculate deductions and contributions:
+      // If employee worked 0 days (salary is 0), no pension or tax is withheld from zero pay
+      // Pension withholding cannot exceed earned salary, preventing negative net salary
+      const employeePension = salary <= 0 ? 0 : Math.min(salary, grossSalary * 0.07);
+      const employerPension = salary <= 0 ? 0 : grossSalary * 0.11;
       // Income tax is calculated from Taxable Income (Salary + overtime; overtime is 0 on backend)
       const taxableIncome = salary;
       const incomeTax = calculateIncomeTax(taxableIncome);
 
-      // Net salary from Salary (all allowances added to net)
+      // Net salary from Salary (all allowances added to net, minimum 0)
       const totalAllowances =
         transportAllowance + telephoneAllowance + posAllowance;
-      const netSalary =
-        salary - (incomeTax + employeePension) + totalAllowances;
+      const netSalary = Math.max(
+        0,
+        salary - (incomeTax + employeePension) + totalAllowances
+      );
 
       const result = {
         employeeId: employee._id.toString(),
