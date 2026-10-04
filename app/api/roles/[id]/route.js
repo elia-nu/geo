@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import { getCurrentUser, checkPermission } from "../../middleware/auth";
-import { getAllPermissionKeys } from "../permissions/route";
+import { getAllPermissionKeys } from "../../../utils/permissions";
 
 // GET /api/roles/[id] — get a single role by ID
 export async function GET(request, { params }) {

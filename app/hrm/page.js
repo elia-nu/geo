@@ -55,10 +55,19 @@ const WorkLocationsManagement = dynamic(() => import("../components/WorkLocation
   loading: () => <SectionSkeleton title="Loading Work Locations..." />,
   ssr: false,
 });
-const ProjectsManagement = dynamic(() => import("../components/ProjectsManagement"), {
-  loading: () => <SectionSkeleton title="Loading Projects..." />,
-  ssr: false,
-});
+const ProjectsManagement = dynamic(
+  () =>
+    import("../components/ProjectsManagement").catch((err) => {
+      console.warn("Retrying ProjectsManagement chunk import...", err);
+      return new Promise((resolve) => setTimeout(resolve, 500)).then(() =>
+        import("../components/ProjectsManagement")
+      );
+    }),
+  {
+    loading: () => <SectionSkeleton title="Loading Projects..." />,
+    ssr: false,
+  }
+);
 const CategoryManagement = dynamic(() => import("../components/CategoryManagement"), {
   loading: () => <SectionSkeleton title="Loading Categories..." />,
   ssr: false,

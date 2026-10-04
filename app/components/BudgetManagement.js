@@ -275,11 +275,80 @@ export default function BudgetManagement() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <div className="w-12 h-12 rounded-full border-3 border-emerald-500 border-t-transparent animate-spin"></div>
-        <p className="text-sm font-semibold text-slate-500 animate-pulse">
-          Loading comprehensive financial portfolio...
-        </p>
+      <div className="space-y-7 pb-16 animate-pulse">
+        {/* Executive Banner Skeleton */}
+        <div className="rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 p-8 text-white space-y-4 shadow-lg">
+          <div className="h-5 w-48 bg-slate-700/80 rounded-full" />
+          <div className="h-9 w-96 bg-slate-700/80 rounded-xl" />
+          <div className="h-4 w-full max-w-xl bg-slate-700/60 rounded" />
+          <div className="flex gap-3 pt-2">
+            <div className="h-10 w-32 bg-slate-700 rounded-xl" />
+            <div className="h-10 w-32 bg-slate-700 rounded-xl" />
+          </div>
+        </div>
+
+        {/* 4 Financial KPI Card Skeletons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="h-3.5 w-24 bg-slate-200 rounded" />
+                <div className="h-9 w-9 rounded-xl bg-slate-100" />
+              </div>
+              <div className="h-8 w-36 bg-slate-200 rounded-lg" />
+              <div className="h-3 w-28 bg-slate-100 rounded" />
+            </div>
+          ))}
+        </div>
+
+        {/* Control Bar Skeleton */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-4 justify-between">
+          <div className="h-10 w-full max-w-md bg-slate-100 rounded-xl" />
+          <div className="flex gap-2">
+            <div className="h-10 w-28 bg-slate-100 rounded-xl" />
+            <div className="h-10 w-28 bg-slate-100 rounded-xl" />
+            <div className="h-10 w-20 bg-slate-100 rounded-xl" />
+          </div>
+        </div>
+
+        {/* 6 Grid Card Skeletons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-5 w-40 bg-slate-200 rounded" />
+                  <div className="h-3 w-20 bg-slate-100 rounded" />
+                </div>
+                <div className="h-6 w-20 bg-slate-100 rounded-full" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 py-2 border-y border-slate-100">
+                <div className="space-y-1">
+                  <div className="h-3 w-16 bg-slate-100 rounded" />
+                  <div className="h-5 w-24 bg-slate-200 rounded" />
+                </div>
+                <div className="space-y-1">
+                  <div className="h-3 w-16 bg-slate-100 rounded" />
+                  <div className="h-5 w-24 bg-slate-200 rounded" />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between">
+                  <div className="h-3 w-20 bg-slate-100 rounded" />
+                  <div className="h-3 w-10 bg-slate-100 rounded" />
+                </div>
+                <div className="h-2 w-full bg-slate-100 rounded-full" />
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-slate-100">
+                <div className="h-9 flex-1 bg-slate-100 rounded-xl" />
+                <div className="h-9 w-24 bg-slate-100 rounded-xl" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

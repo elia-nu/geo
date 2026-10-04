@@ -69,12 +69,63 @@ const ProjectBudgetPage = ({ params }) => {
   if (loading) {
     return (
       <Layout activeSection="budget-management">
-        <div className="flex justify-center items-center min-h-[70vh]">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-12 w-12 rounded-full border-2 border-slate-200 border-t-blue-600 animate-spin" />
-            <p className="text-sm text-slate-500 font-medium animate-pulse">
-              Loading project budget & financial management…
-            </p>
+        <div className="p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-slate-50 via-white to-blue-50/20 min-h-screen min-w-0 space-y-6">
+          {/* Breadcrumbs & Header Skeleton */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-pulse">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-16 bg-slate-200 rounded-md" />
+              <div className="h-3 w-3 bg-slate-200 rounded-full" />
+              <div className="h-4 w-36 bg-slate-200 rounded-md" />
+              <div className="h-3 w-3 bg-slate-200 rounded-full" />
+              <div className="h-4 w-44 bg-slate-200 rounded-md" />
+            </div>
+            <div className="h-9 w-32 bg-slate-200 rounded-xl" />
+          </div>
+
+          {/* Project Banner Skeleton */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-2">
+                <div className="h-7 w-64 bg-slate-200 rounded-lg" />
+                <div className="flex items-center gap-2">
+                  <div className="h-5 w-24 bg-slate-200 rounded-full" />
+                  <div className="h-5 w-20 bg-slate-200 rounded-full" />
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-28 bg-slate-200 rounded-xl" />
+                <div className="h-10 w-32 bg-slate-200 rounded-xl" />
+              </div>
+            </div>
+
+            {/* 4 Financial KPI Card Skeletons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50/70 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="h-3.5 w-20 bg-slate-200 rounded" />
+                    <div className="h-7 w-7 rounded-lg bg-slate-200" />
+                  </div>
+                  <div className="h-6 w-28 bg-slate-200 rounded-md" />
+                  <div className="h-2.5 w-full bg-slate-200 rounded-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Tabs & Content Skeleton */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse space-y-6">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="h-9 w-24 bg-slate-200 rounded-lg" />
+              ))}
+            </div>
+            <div className="space-y-3 pt-2">
+              <div className="h-10 w-full bg-slate-100 rounded-xl" />
+              <div className="h-14 w-full bg-slate-50 rounded-xl border border-slate-100" />
+              <div className="h-14 w-full bg-slate-50 rounded-xl border border-slate-100" />
+              <div className="h-14 w-full bg-slate-50 rounded-xl border border-slate-100" />
+            </div>
           </div>
         </div>
       </Layout>

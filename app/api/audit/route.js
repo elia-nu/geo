@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../mongo";
-import { createAuditLog, logActivity } from "../../utils/audit";
-
-export { createAuditLog, logActivity };
+import { createAuditLog } from "../../utils/audit";
 
 // Log audit events
 export async function POST(request) {
