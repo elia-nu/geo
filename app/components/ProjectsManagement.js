@@ -44,15 +44,6 @@ import {
 } from "../utils/sweetAlert";
 import { usePermissions } from "../hooks/usePermissions";
 
-const BudgetManagement = dynamic(() => import("./BudgetManagement"), {
-  loading: () => (
-    <div className="flex h-64 items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
-    </div>
-  ),
-  ssr: false,
-});
-
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
   { value: "not_started", label: "Not Started" },
@@ -118,7 +109,6 @@ export default function ProjectsManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const [showBudgetBanner, setShowBudgetBanner] = useState(false);
-  const [activeMainTab, setActiveMainTab] = useState("projects"); // "projects" | "budget"
   const [viewMode, setViewMode] = useState("grid"); // "grid" | "table"
   const [sortBy, setSortBy] = useState("updated"); // "updated" | "progress_desc" | "progress_asc" | "start_date" | "name"
   const [formData, setFormData] = useState(initialFormData);
@@ -144,9 +134,6 @@ export default function ProjectsManagement() {
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("tab") === "budget") {
-      setActiveMainTab("budget");
-    }
     if (
       urlParams.get("from") === "budget" ||
       urlParams.get("tab") === "budget"
@@ -544,14 +531,8 @@ export default function ProjectsManagement() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 -m-6 p-6 space-y-6 animate-pulse">
-        {/* Main Tabs Skeleton */}
-        <div className="flex gap-2 border-b border-slate-200 pb-3">
-          <div className="h-10 w-44 bg-slate-200 rounded-xl" />
-          <div className="h-10 w-52 bg-slate-100 rounded-xl" />
-        </div>
-
         {/* Header Skeleton */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-xl bg-slate-200" />
@@ -560,14 +541,13 @@ export default function ProjectsManagement() {
             <div className="h-4 w-72 rounded bg-slate-100" />
           </div>
           <div className="flex gap-2">
-            <div className="h-10 w-28 rounded-xl bg-slate-200" />
             <div className="h-10 w-32 rounded-xl bg-slate-200" />
           </div>
         </div>
 
-        {/* 5 KPI Metric Cards Skeleton */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-          {[1, 2, 3, 4, 5].map((i) => (
+        {/* 4 KPI Metric Cards Skeleton */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2.5 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="h-3 w-16 bg-slate-200 rounded" />
@@ -644,79 +624,27 @@ export default function ProjectsManagement() {
     );
   }
 
-  if (activeMainTab === "budget") {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 -m-6 p-6 space-y-6">
-        {/* Navigation Tabs Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setActiveMainTab("projects")}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-xs"
-            >
-              <FolderKanban className="w-4 h-4 text-blue-900" />
-              <span>Projects Portfolio</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                {projects.length}
-              </span>
-            </button>
-            <button
-              onClick={() => setActiveMainTab("budget")}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all bg-emerald-700 text-white shadow-md shadow-emerald-800/20 scale-[1.01]"
-            >
-              <CurrencyDollarIcon className="w-4 h-4 text-emerald-200" />
-              <span>Budget & Financial Overview</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-white/20 text-white">
-                Live Hub
-              </span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fetchProjects()}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-xs"
-              title="Refresh project budgets"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Embedded Full Portfolio Budget Management Component */}
-        <BudgetManagement />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 -m-6 p-6 space-y-6">
-      {/* Navigation Tabs Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setActiveMainTab("projects")}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all bg-blue-900 text-white shadow-md shadow-blue-900/20 scale-[1.01]"
-          >
-            <FolderKanban className="w-4 h-4 text-blue-200" />
-            <span>Projects Portfolio</span>
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-white/20 text-white">
-              {projects.length}
-            </span>
-          </button>
-          {hasPermission("project.budget") && (
-            <button
-              onClick={() => setActiveMainTab("budget")}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-xs"
-            >
-              <CurrencyDollarIcon className="w-4 h-4 text-emerald-600" />
-              <span>Budget & Financial Overview</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Full Hub
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-900 text-white shadow-sm shadow-blue-900/20">
+            <FolderKanban className="w-5 h-5 text-blue-200" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                Projects
+              </h1>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-100">
+                {projects.length} {projects.length === 1 ? "project" : "projects"}
               </span>
-            </button>
-          )}
+            </div>
+            <p className="text-xs text-slate-500">
+              Overview and manage organizational projects, timelines, and delivery teams.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -734,7 +662,7 @@ export default function ProjectsManagement() {
       </div>
 
       {/* Interactive KPI Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Projects */}
         <button
           type="button"
@@ -830,48 +758,6 @@ export default function ProjectsManagement() {
           </div>
           <p className="text-[11px] text-amber-600 mt-0.5">Pending review</p>
         </button>
-
-        {/* Portfolio Budget */}
-        {hasPermission("project.budget") ? (
-          <button
-            type="button"
-            onClick={() => setActiveMainTab("budget")}
-            className="text-left p-4 rounded-2xl border bg-gradient-to-br from-emerald-50 to-teal-50/50 border-emerald-200/80 hover:border-emerald-300 transition-all duration-200 shadow-xs hover:shadow-md"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                Portfolio Budget
-              </span>
-              <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
-                <CurrencyDollarIcon className="w-4 h-4" />
-              </div>
-            </div>
-            <div
-              className="text-xl font-extrabold text-emerald-900 tracking-tight truncate"
-              title={currencyTitle(projectMetrics.totalBudget)}
-            >
-              {formatCurrencyUtil(projectMetrics.totalBudget)}
-            </div>
-            <p className="text-[11px] text-emerald-700 mt-0.5">
-              {projectMetrics.budgetedCount} project{projectMetrics.budgetedCount === 1 ? "" : "s"} budgeted →
-            </p>
-          </button>
-        ) : (
-          <div className="p-4 rounded-2xl border bg-white border-slate-200/80 shadow-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Team Members
-              </span>
-              <div className="p-1.5 rounded-lg bg-slate-100 text-slate-600">
-                <PeopleIcon className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              {projectMetrics.totalTeam}
-            </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">Total assignments</p>
-          </div>
-        )}
       </div>
 
       {/* Control Bar: Search, Scope, Category, Status, Sort & View Toggle */}
