@@ -34,7 +34,6 @@ import {
   Description as DescriptionIcon,
 } from "@mui/icons-material";
 import Link from "next/link";
-import ProjectFinancialManagement from "../../components/ProjectFinancialManagement";
 import {
   format,
   parseISO,
@@ -90,7 +89,6 @@ const ProjectDetailPage = ({ params }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeProjectTab, setActiveProjectTab] = useState("overview"); // "overview" | "budget"
 
   // Budget editing states
   const [isEditingBudget, setIsEditingBudget] = useState(false);
@@ -874,47 +872,22 @@ const ProjectDetailPage = ({ params }) => {
                   className="flex gap-1 border-b border-slate-200 pb-0"
                   aria-label="Project sections"
                 >
-                  <button
-                    type="button"
-                    onClick={() => setActiveProjectTab("overview")}
-                    className={`group relative flex shrink-0 items-center gap-2 rounded-t-lg px-4 py-3 text-sm font-semibold transition-colors ${
-                      activeProjectTab === "overview"
-                        ? "border-b-2 border-blue-900 text-blue-900 bg-blue-50/50"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-blue-900"
-                    }`}
+                  <Link
+                    href={`/projects/${projectId}`}
+                    className="group relative flex shrink-0 items-center gap-2 rounded-t-lg border-b-2 border-blue-900 bg-blue-50/50 px-4 py-3 text-sm font-semibold text-blue-900 transition-colors"
                   >
-                    <BarChartIcon
-                      className={`!text-[18px] ${
-                        activeProjectTab === "overview"
-                          ? "text-blue-900"
-                          : "text-slate-400"
-                      }`}
-                    />
+                    <BarChartIcon className="!text-[18px] text-blue-900" />
                     Overview & Analytics
-                  </button>
+                  </Link>
 
                   {hasPermission("project.budget") && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveProjectTab("budget")}
-                      className={`group relative flex shrink-0 items-center gap-2 rounded-t-lg px-4 py-3 text-sm font-semibold transition-colors ${
-                        activeProjectTab === "budget"
-                          ? "border-b-2 border-blue-900 text-blue-900 bg-blue-50/50"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-blue-900"
-                      }`}
+                    <Link
+                      href={`/project-budget/${projectId}`}
+                      className="group relative flex shrink-0 items-center gap-2 rounded-t-lg px-4 py-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-900"
                     >
-                      <AttachMoneyIcon
-                        className={`!text-[18px] ${
-                          activeProjectTab === "budget"
-                            ? "text-blue-900"
-                            : "text-slate-400"
-                        }`}
-                      />
+                      <AttachMoneyIcon className="!text-[18px] text-slate-400 transition-colors group-hover:text-blue-900" />
                       Budget & Financials
-                      <span className="ml-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
-                        Hub
-                      </span>
-                    </button>
+                    </Link>
                   )}
 
                   <Link
@@ -956,119 +929,81 @@ const ProjectDetailPage = ({ params }) => {
 
         {/* Main Content */}
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          {activeProjectTab === "budget" ? (
-            <div className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Project Budget & Financial Hub
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Manage allocations, track real-time expenses, issue invoices, and generate financial reports for {project.name}.
-                  </p>
+          {/* Key Metrics */}
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Tasks */}
+            <div className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-blue-200 hover:shadow-md">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                  <AssignmentIcon className="!text-[22px]" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveProjectTab("overview")}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    ← Back to Overview
-                  </button>
+                <Link
+                  href={`/task-management?projectId=${projectId}`}
+                  className="text-xs font-semibold text-blue-900 opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  View →
+                </Link>
+              </div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Total Tasks
+              </p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">
+                {taskStats.total || 0}
+              </p>
+              <p className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-600">
+                <CheckCircleIcon className="!text-sm" />
+                {taskStats.completed || 0} completed
+              </p>
+            </div>
+
+            {/* Budget */}
+            <div className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <AttachMoneyIcon className="!text-[22px]" />
+                </div>
+                {hasPermission("project.budget") && (
                   <Link
                     href={`/project-budget/${projectId}`}
-                    target="_blank"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-blue-900 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-800"
+                    className="text-xs font-semibold text-emerald-700 opacity-0 transition-opacity group-hover:opacity-100 hover:underline"
                   >
-                    Open Standalone Page ↗
+                    Details →
                   </Link>
-                </div>
+                )}
               </div>
-
-              <ProjectFinancialManagement
-                projectId={projectId}
-                projectName={project.name}
-              />
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Budget
+              </p>
+              <p className="mt-1 truncate text-2xl font-bold text-slate-900">
+                {new Intl.NumberFormat("en-ET", {
+                  style: "currency",
+                  currency: "ETB",
+                  maximumFractionDigits: 0,
+                }).format(getBudgetAmount(project.budget))}
+              </p>
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                {hasBudget(project.budget) ? "Allocated" : "Not set"}
+              </p>
             </div>
-          ) : (
-            <>
-              {/* Key Metrics */}
-              <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {/* Tasks */}
-                <div className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-blue-200 hover:shadow-md">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
-                      <AssignmentIcon className="!text-[22px]" />
-                    </div>
-                    <Link
-                      href={`/task-management?projectId=${projectId}`}
-                      className="text-xs font-semibold text-blue-900 opacity-0 transition-opacity group-hover:opacity-100"
-                    >
-                      View →
-                    </Link>
-                  </div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Total Tasks
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-slate-900">
-                    {taskStats.total || 0}
-                  </p>
-                  <p className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-600">
-                    <CheckCircleIcon className="!text-sm" />
-                    {taskStats.completed || 0} completed
-                  </p>
-                </div>
 
-                {/* Budget */}
-                <div className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-                      <AttachMoneyIcon className="!text-[22px]" />
-                    </div>
-                    {hasPermission("project.budget") && (
-                      <button
-                        type="button"
-                        onClick={() => setActiveProjectTab("budget")}
-                        className="text-xs font-semibold text-emerald-700 opacity-0 transition-opacity group-hover:opacity-100 hover:underline"
-                      >
-                        Manage →
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Budget
-                  </p>
-                  <p className="mt-1 truncate text-2xl font-bold text-slate-900">
-                    {new Intl.NumberFormat("en-ET", {
-                      style: "currency",
-                      currency: "ETB",
-                      maximumFractionDigits: 0,
-                    }).format(getBudgetAmount(project.budget))}
-                  </p>
-                  <p className="mt-2 text-xs font-medium text-slate-500">
-                    {hasBudget(project.budget) ? "Allocated" : "Not set"}
-                  </p>
+            {/* Expenses */}
+            <div className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-rose-200 hover:shadow-md">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-700">
+                  <AccountBalanceWalletIcon className="!text-[22px]" />
                 </div>
-
-                {/* Expenses */}
-                <div className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-rose-200 hover:shadow-md">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-700">
-                      <AccountBalanceWalletIcon className="!text-[22px]" />
-                    </div>
-                    {hasPermission("project.budget") && (
-                      <button
-                        type="button"
-                        onClick={() => setActiveProjectTab("budget")}
-                        className="text-xs font-semibold text-rose-700 opacity-0 transition-opacity group-hover:opacity-100 hover:underline"
-                      >
-                        Manage →
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Expenses
-                  </p>
+                {hasPermission("project.budget") && (
+                  <Link
+                    href={`/project-budget/${projectId}`}
+                    className="text-xs font-semibold text-rose-700 opacity-0 transition-opacity group-hover:opacity-100 hover:underline"
+                  >
+                    Details →
+                  </Link>
+                )}
+              </div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Expenses
+              </p>
                   <p className="mt-1 truncate text-2xl font-bold text-slate-900">
                     {new Intl.NumberFormat("en-ET", {
                       style: "currency",
@@ -1689,11 +1624,9 @@ const ProjectDetailPage = ({ params }) => {
               </div>
             </div>
           </div>
-        </>
-      )}
-    </div>
-  </div>
-</Layout>
+        </div>
+      </div>
+    </Layout>
   );
 };
 
