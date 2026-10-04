@@ -15,7 +15,8 @@ import EmployeeTasks from "../components/EmployeeTasks";
 import EmployeeMilestones from "../components/EmployeeMilestones";
 import EmployeeProfile from "../components/EmployeeProfile";
 import EmployeeOvertime from "../components/EmployeeOvertime";
-import { MapPin, Navigation, CheckCircle, Menu, X, Bell, AlertCircle } from "lucide-react";
+import { MapPin, Navigation, CheckCircle, Menu, X, Bell, AlertCircle, AlertTriangle } from "lucide-react";
+import { getEthiopianDate, getEthiopianTime, formatEthiopianDateTime } from "../utils/timeUtils";
 
 export default function EmployeePortal() {
   const isCollapsed = useSidebarStore((s) => s.isCollapsed);
@@ -675,20 +676,53 @@ function EnhancedDailyAttendance({
   const [locationLoading, setLocationLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [todayRecord, setTodayRecord] = useState(null);
+  const [serverSkewMs, setServerSkewMs] = useState(0);
+  const [serverDate, setServerDate] = useState(getEthiopianDate());
+  const [timeTamperAlert, setTimeTamperAlert] = useState(null);
 
-  // Update current time every second
+  // Sync with authoritative Yegar Linux server time
+  useEffect(() => {
+    const syncServerTime = async () => {
+      try {
+        const res = await fetch("/api/server-time", { cache: "no-store" });
+        const data = await res.json();
+        if (data.success && data.timestamp) {
+          const skew = data.timestamp - Date.now();
+          setServerSkewMs(skew);
+          if (data.ethiopianDate) {
+            setServerDate(data.ethiopianDate);
+          }
+          // Flag if phone clock deviates by more than 2 minutes (120,000 ms)
+          if (Math.abs(skew) > 120000) {
+            const minutesDiff = Math.round(Math.abs(skew) / 60000);
+            setTimeTamperAlert({
+              minutes: minutesDiff,
+              isAhead: skew < 0,
+            });
+          } else {
+            setTimeTamperAlert(null);
+          }
+        }
+      } catch (err) {
+        console.warn("Server time sync failed, using local time fallback:", err);
+      }
+    };
+    syncServerTime();
+  }, []);
+
+  // Update current time every second using synchronized server clock
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
+      setCurrentTime(new Date(Date.now() + serverSkewMs));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [serverSkewMs]);
 
   // Fetch today's attendance record
   useEffect(() => {
     fetchTodayAttendance();
-  }, [employeeId]);
+  }, [employeeId, serverDate]);
 
   useEffect(() => {
     if (showMap && !currentLocation) {
@@ -696,12 +730,13 @@ function EnhancedDailyAttendance({
     }
   }, [showMap]);
 
-  // Fetch today's attendance record
+  // Fetch today's attendance record using authoritative Ethiopian server date
   const fetchTodayAttendance = async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = serverDate || getEthiopianDate();
       const response = await fetch(
-        `/api/attendance/daily?employeeId=${employeeId}&date=${today}`
+        `/api/attendance/daily?employeeId=${employeeId}&date=${today}`,
+        { cache: "no-store" }
       );
       const result = await response.json();
 
@@ -801,18 +836,11 @@ function EnhancedDailyAttendance({
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-xl border border-white/15 text-left sm:text-right">
               <div className="text-2xl font-extrabold font-mono tracking-tight text-white">
-                {currentTime.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
+                {getEthiopianTime(currentTime, { showSeconds: true })}
               </div>
-              <div className="text-xs text-blue-200">
-                {currentTime.toLocaleDateString([], {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                })}
+              <div className="text-[11px] text-blue-200 flex items-center gap-1.5 sm:justify-end mt-0.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>EAT (UTC+3) Server Time</span>
               </div>
             </div>
 
@@ -871,6 +899,21 @@ function EnhancedDailyAttendance({
           </div>
         </div>
       </div>
+
+      {/* Anti-Tampering Device Clock Alert */}
+      {timeTamperAlert && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start gap-3 text-amber-900 shadow-sm animate-in fade-in">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-xs space-y-0.5">
+            <p className="font-bold text-amber-950">
+              Phone Clock Skew Detected ({timeTamperAlert.minutes} min {timeTamperAlert.isAhead ? "Fast" : "Slow"})
+            </p>
+            <p className="text-amber-800">
+              Your device clock differs from company server time. Attendance and overtime punch timestamps are strictly locked to Ethiopian Server Time (UTC+3) to ensure audit compliance.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Inline Interactive Map (outside modal) */}
       {showMap && workLocations.length > 0 && (

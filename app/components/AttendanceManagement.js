@@ -194,7 +194,7 @@ export default function AttendanceManagement() {
   const calculateWorkingHours = (record) => {
     if (!record) return "—";
     // If employee is on leave, show 0 hours
-    if (record.leaveInfo) return "0h 00m";
+    if (record.leaveInfo) return "0h 0m";
     return formatWorkingHours(record);
   };
 

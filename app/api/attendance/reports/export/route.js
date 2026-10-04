@@ -158,8 +158,11 @@ function generateExcelReport(reportData, reportType, startDate, endDate) {
       "Date",
       "Department",
       "Check-in Time",
+      "Lunch-Out Time",
+      "Lunch-In Time",
       "Check-out Time",
-      "Working Hours",
+      "Effective Hours (Formatted)",
+      "Working Hours (Decimal)",
       "Work Location",
       "Face Verified",
       "Location Verified",
@@ -175,12 +178,19 @@ function generateExcelReport(reportData, reportType, startDate, endDate) {
         record.date || "N/A",
         record.department || "N/A",
         record.checkInTime
-          ? new Date(record.checkInTime).toLocaleString()
+          ? new Date(record.checkInTime).toLocaleTimeString()
           : "N/A",
+        record.lunchOutTime
+          ? new Date(record.lunchOutTime).toLocaleTimeString()
+          : "—",
+        record.lunchInTime
+          ? new Date(record.lunchInTime).toLocaleTimeString()
+          : "—",
         record.checkOutTime
-          ? new Date(record.checkOutTime).toLocaleString()
+          ? new Date(record.checkOutTime).toLocaleTimeString()
           : "N/A",
-        record.workingHours || "N/A",
+        record.formattedHours || "N/A",
+        record.workingHours !== undefined && record.workingHours !== null ? record.workingHours : 0,
         record.workLocationName || "N/A",
         record.faceVerified ? "Yes" : "No",
         record.locationVerified ? "Yes" : "No",
@@ -196,9 +206,12 @@ function generateExcelReport(reportData, reportType, startDate, endDate) {
       { wch: 15 }, // Employee ID
       { wch: 12 }, // Date
       { wch: 15 }, // Department
-      { wch: 20 }, // Check-in Time
-      { wch: 20 }, // Check-out Time
-      { wch: 15 }, // Working Hours
+      { wch: 16 }, // Check-in Time
+      { wch: 16 }, // Lunch-Out Time
+      { wch: 16 }, // Lunch-In Time
+      { wch: 16 }, // Check-out Time
+      { wch: 18 }, // Effective Hours (Formatted)
+      { wch: 16 }, // Working Hours (Decimal)
       { wch: 20 }, // Work Location
       { wch: 12 }, // Face Verified
       { wch: 15 }, // Location Verified

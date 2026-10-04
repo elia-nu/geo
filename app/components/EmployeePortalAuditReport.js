@@ -18,6 +18,7 @@ import {
   FileText,
   CheckSquare,
   ShieldAlert,
+  Flame,
 } from "lucide-react";
 
 export default function EmployeePortalAuditReport() {
@@ -39,7 +40,7 @@ export default function EmployeePortalAuditReport() {
     startDate: startOfMonth,
     endDate: endOfMonth,
     actor: "",
-    actionCategory: "all", // all, attendance, leave_overtime, documents, security, tasks
+    actionCategory: "all", // all, attendance, leave, overtime, documents, security, tasks
     status: "all", // all, success, failed
   });
 
@@ -179,7 +180,8 @@ export default function EmployeePortalAuditReport() {
       ["Success Count", summary.successCount ?? 0],
       ["Failed Count", summary.failedCount ?? 0],
       ["By Category - Attendance & Breaks", byActivity.attendance ?? 0],
-      ["By Category - Leave & Overtime", byActivity.leave_overtime ?? 0],
+      ["By Category - Leave Requests", byActivity.leave ?? 0],
+      ["By Category - Overtime (Orange)", byActivity.overtime ?? 0],
       ["By Category - Documents & Excuses", byActivity.documents ?? 0],
       ["By Category - Password & Profile", byActivity.security ?? 0],
       ["By Category - Tasks & Projects", byActivity.tasks ?? 0],
@@ -222,41 +224,24 @@ export default function EmployeePortalAuditReport() {
     XLSX.writeFile(wb, fileName);
   };
 
-  const getCategoryBadge = (cat) => {
-    switch (cat) {
-      case "attendance":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "leave_overtime":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "documents":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "security":
-        return "bg-amber-100 text-amber-800 border-amber-200";
-      case "tasks":
-        return "bg-rose-100 text-rose-800 border-rose-200";
-      default:
-        return "bg-slate-100 text-slate-800 border-slate-200";
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+    <div className="space-y-6 bg-white">
+      {/* Header Banner - White with Navy Blue and Blue */}
+      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <UserCheck className="w-6 h-6 text-indigo-600" />
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5">
+            <UserCheck className="w-6 h-6 text-blue-600" />
             Employee Portal Activities (Self-Service Audit)
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Dedicated audit trail of all employee self-service actions: clock ins/outs, break timings, excuse documents, leave &amp; overtime submissions, password resets, and biometric results.
+          <p className="text-sm text-slate-600 mt-1">
+            Dedicated audit trail of all employee self-service actions: clock ins/outs, break timings, excuse documents, leave &amp; overtime submissions, and security authentications.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleGenerateReport}
             disabled={loading}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50 flex items-center gap-2 shadow-sm transition"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 flex items-center gap-2 shadow-xs transition"
           >
             <RefreshCw className={loading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
             {loading ? "Generating..." : "Generate Report"}
@@ -265,18 +250,18 @@ export default function EmployeePortalAuditReport() {
             <>
               <button
                 onClick={handleExportCSV}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex items-center gap-2 shadow-sm transition"
+                className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-lg font-medium flex items-center gap-2 shadow-xs transition"
                 title="Download CSV"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-4 h-4 text-blue-400" />
                 Export CSV
               </button>
               <button
                 onClick={handleExportExcel}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 shadow-sm transition"
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 rounded-lg font-medium flex items-center gap-2 shadow-xs transition"
                 title="Download Excel"
               >
-                <FileSpreadsheet className="w-4 h-4" />
+                <FileSpreadsheet className="w-4 h-4 text-blue-600" />
                 Export Excel
               </button>
             </>
@@ -284,32 +269,32 @@ export default function EmployeePortalAuditReport() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      {/* Filter Bar - Clean White with Navy Blue Labels */}
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
             Start Date
           </label>
           <input
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
             End Date
           </label>
           <input
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
             Employee Filter
           </label>
           <input
@@ -317,56 +302,55 @@ export default function EmployeePortalAuditReport() {
             placeholder="Name, email, or employee ID"
             value={filters.actor}
             onChange={(e) => setFilters({ ...filters, actor: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
             Activity Category
           </label>
           <select
             value={filters.actionCategory}
             onChange={(e) => setFilters({ ...filters, actionCategory: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none"
           >
             <option value="all">All Self-Service Activities</option>
             <option value="attendance">Clock In/Out &amp; Breaks</option>
-            <option value="leave_overtime">Leave &amp; Overtime Requests</option>
-            <option value="documents">Excuses &amp; Document Uploads</option>
-            <option value="security">Password &amp; Profile Updates</option>
+            <option value="leave">Leave Requests</option>
+            <option value="overtime">Overtime (Orange)</option>
+            <option value="documents">Excuses &amp; Documents</option>
+            <option value="security">Password &amp; Auth</option>
             <option value="tasks">Assigned Task Updates</option>
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
             Status
           </label>
           <select
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none"
           >
             <option value="all">All Statuses</option>
             <option value="success">Success Only</option>
-            <option value="failed">Failed / Validation Denied Only</option>
+            <option value="failed">Failed / Denied Only</option>
           </select>
         </div>
       </div>
 
       {message && (
         <div
-          className={`p-3 rounded-xl text-sm font-medium flex items-center gap-2 ${
+          className={`p-3.5 rounded-xl text-sm font-medium flex items-center gap-2.5 ${
             messageType === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-              : messageType === "error"
-              ? "bg-rose-50 text-rose-800 border border-rose-200"
-              : "bg-blue-50 text-blue-800 border border-blue-200"
+              ? "bg-white text-slate-900 border border-slate-300 shadow-xs"
+              : "bg-white text-slate-900 border border-red-300 shadow-xs"
           }`}
         >
           {messageType === "success" ? (
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <CheckCircle className="w-5 h-5 text-blue-600 shrink-0" />
           ) : (
-            <AlertTriangle className="w-4 h-4 text-rose-600" />
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
           )}
           {message}
         </div>
@@ -374,94 +358,97 @@ export default function EmployeePortalAuditReport() {
 
       {reportData && (
         <div className="space-y-6">
-          {/* Summary Metric Cards */}
+          {/* Summary Metric Cards: Fully White with Navy Blue, and OVERTIME ONLY ORANGE */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            <div className="bg-indigo-50/80 rounded-xl p-3.5 border border-indigo-200">
-              <span className="text-xs font-semibold text-indigo-900 block">Total Actions</span>
-              <p className="text-2xl font-black text-indigo-700 mt-1">
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <span className="text-xs font-bold text-slate-700 block">Total Actions</span>
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {summary.totalPortalEvents ?? 0}
               </p>
             </div>
-            <div className="bg-emerald-50/80 rounded-xl p-3.5 border border-emerald-200">
-              <span className="text-xs font-semibold text-emerald-900 block">Successes</span>
-              <p className="text-2xl font-black text-emerald-700 mt-1">
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <span className="text-xs font-bold text-slate-700 block">Successes</span>
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {summary.successCount ?? 0}
               </p>
             </div>
-            <div className="bg-rose-50/80 rounded-xl p-3.5 border border-rose-200">
-              <span className="text-xs font-semibold text-rose-900 block">Failures / Denied</span>
-              <p className="text-2xl font-black text-rose-700 mt-1">
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <span className="text-xs font-bold text-slate-700 block">Failures / Denied</span>
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {summary.failedCount ?? 0}
               </p>
             </div>
-            <div className="bg-blue-50/80 rounded-xl p-3.5 border border-blue-200">
-              <span className="text-xs font-semibold text-blue-900 block flex items-center gap-1">
-                <Clock className="w-3 h-3 text-blue-600" /> Attendance
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <span className="text-xs font-bold text-slate-700 block flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-blue-600" /> Attendance
               </span>
-              <p className="text-xl font-bold text-blue-700 mt-1">
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {byActivity.attendance ?? 0}
               </p>
             </div>
-            <div className="bg-emerald-50/80 rounded-xl p-3.5 border border-emerald-200">
-              <span className="text-xs font-semibold text-emerald-900 block flex items-center gap-1">
-                <CalendarDays className="w-3 h-3 text-emerald-600" /> Leave/Overtime
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <span className="text-xs font-bold text-slate-700 block flex items-center gap-1">
+                <CalendarDays className="w-3.5 h-3.5 text-blue-600" /> Leave
               </span>
-              <p className="text-xl font-bold text-emerald-700 mt-1">
-                {byActivity.leave_overtime ?? 0}
+              <p className="text-2xl font-black text-slate-900 mt-1">
+                {byActivity.leave ?? 0}
               </p>
             </div>
-            <div className="bg-purple-50/80 rounded-xl p-3.5 border border-purple-200">
-              <span className="text-xs font-semibold text-purple-900 block flex items-center gap-1">
-                <FileText className="w-3 h-3 text-purple-600" /> Documents
+
+            {/* OVERTIME: ONLY ORANGE */}
+            <div className="bg-orange-50/80 rounded-xl p-4 border-2 border-orange-300 shadow-xs">
+              <span className="text-xs font-black text-orange-950 block flex items-center gap-1">
+                <Flame className="w-3.5 h-3.5 text-orange-600" /> Overtime
               </span>
-              <p className="text-xl font-bold text-purple-700 mt-1">
+              <p className="text-2xl font-black text-orange-600 mt-1">
+                {byActivity.overtime ?? 0}
+              </p>
+            </div>
+
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <span className="text-xs font-bold text-slate-700 block flex items-center gap-1">
+                <FileText className="w-3.5 h-3.5 text-blue-600" /> Documents
+              </span>
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {byActivity.documents ?? 0}
-              </p>
-            </div>
-            <div className="bg-amber-50/80 rounded-xl p-3.5 border border-amber-200">
-              <span className="text-xs font-semibold text-amber-900 block flex items-center gap-1">
-                <KeyRound className="w-3 h-3 text-amber-600" /> Security/Pass
-              </span>
-              <p className="text-xl font-bold text-amber-700 mt-1">
-                {byActivity.security ?? 0}
               </p>
             </div>
           </div>
 
-          {/* Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-              <h3 className="text-sm font-bold text-slate-900">
-                Self-Service Activity Stream ({events.length} records)
+          {/* Table: Clean White and Navy Blue */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+              <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">
+                Self-Service Activity Ledger ({events.length} records)
               </h3>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-500 font-medium">
                 Shows exact submission changes, device IP, and failure reasons
               </span>
             </div>
 
             <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-100 text-slate-700 sticky top-0 z-10">
+                <thead className="bg-slate-50 text-slate-800 sticky top-0 z-10 border-b border-slate-200">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900">
                       Employee
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900">
                       Timestamp
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900">
                       Activity
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900">
                       Category
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider min-w-[220px]">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900 min-w-[220px]">
                       Submitted / Changed Payload
                     </th>
-                    <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right font-bold text-xs uppercase tracking-wider text-slate-900">
                       Details
                     </th>
                   </tr>
@@ -469,7 +456,7 @@ export default function EmployeePortalAuditReport() {
                 <tbody className="bg-white divide-y divide-slate-100">
                   {events.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan="7" className="px-4 py-10 text-center text-slate-500 font-medium">
                         No portal activities found for the selected dates and filters.
                       </td>
                     </tr>
@@ -478,22 +465,23 @@ export default function EmployeePortalAuditReport() {
                       const isSuccess = e.status === "SUCCESS";
                       const isFailed = e.status === "FAILED";
                       const changesText = formatChangesText(e.changes);
+                      const isOvertime = e.category === "overtime" || e.action?.includes("OVERTIME");
 
                       return (
                         <tr
                           key={e.id || idx}
                           onClick={() => setSelectedEvent(e)}
-                          className="hover:bg-slate-50 cursor-pointer transition"
+                          className="hover:bg-slate-50/80 cursor-pointer transition"
                         >
-                          <td className="px-4 py-3">
-                            <div className="font-semibold text-slate-900">
+                          <td className="px-4 py-3.5">
+                            <div className="font-bold text-slate-900">
                               {e.employeeName}
                             </div>
                             <div className="text-xs text-slate-500">
                               {e.employeeEmail || e.employeeId || "—"}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap text-xs">
+                          <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap text-xs font-mono">
                             {e.timestamp
                               ? new Date(e.timestamp).toLocaleString(undefined, {
                                   dateStyle: "short",
@@ -501,60 +489,63 @@ export default function EmployeePortalAuditReport() {
                                 })
                               : "—"}
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-slate-900 text-xs">
+                          <td className="px-4 py-3.5">
+                            <div className="font-bold text-slate-900 text-xs">
                               {e.activityTitle}
                             </div>
-                            <div className="font-mono text-[10px] text-slate-500">
+                            <div className="font-mono text-[10px] text-slate-500 font-medium">
                               {e.action}
                             </div>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span
-                              className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border capitalize ${getCategoryBadge(
-                                e.category
-                              )}`}
-                            >
-                              {e.category?.replace(/_/g, " ")}
-                            </span>
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            {/* OVERTIME ONLY IS ORANGE; ALL OTHERS ARE NAVY/BLUE/WHITE */}
+                            {isOvertime ? (
+                              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-orange-100 text-orange-900 border border-orange-300">
+                                Overtime
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white text-slate-800 border border-slate-300 capitalize">
+                                {e.category?.replace(/_/g, " ")}
+                              </span>
+                            )}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-4 py-3.5 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
                                 isSuccess
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                  : "bg-rose-100 text-rose-800 border border-rose-200"
+                                  ? "bg-white text-blue-700 border-blue-300"
+                                  : "bg-white text-slate-800 border-slate-300"
                               }`}
                             >
                               {isSuccess ? (
-                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                <CheckCircle className="w-3.5 h-3.5 text-blue-600" />
                               ) : (
-                                <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                                <XCircle className="w-3.5 h-3.5 text-slate-600" />
                               )}
                               {e.status}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3.5 text-xs">
                             {isFailed && e.errorReason ? (
-                              <div className="text-rose-700 font-medium">
+                              <div className="text-slate-800 font-bold bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block">
                                 Error: {e.errorReason}
                               </div>
                             ) : null}
                             {changesText !== "—" ? (
-                              <div className="text-slate-600 font-mono text-[11px] truncate max-w-xs">
+                              <div className="text-slate-600 font-mono text-[11px] truncate max-w-xs mt-0.5">
                                 {changesText}
                               </div>
                             ) : (
                               <div className="text-slate-400 italic">Standard execution</div>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-4 py-3.5 text-right">
                             <button
                               onClick={(ev) => {
                                 ev.stopPropagation();
                                 setSelectedEvent(e);
                               }}
-                              className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition"
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
                               title="View Full Payload"
                             >
                               <Eye className="w-4 h-4" />
@@ -569,9 +560,9 @@ export default function EmployeePortalAuditReport() {
             </div>
 
             {events.length > 0 && (
-              <div className="px-5 py-3 border-t border-slate-200 text-xs text-slate-500 bg-slate-50/50 flex justify-between items-center">
+              <div className="px-5 py-3.5 border-t border-slate-200 text-xs text-slate-500 bg-white flex justify-between items-center font-medium">
                 <span>Showing {events.length} portal self-service records.</span>
-                <span>Protected by audit ledger and IP traceability.</span>
+                <span>Protected by immutable audit ledger.</span>
               </div>
             )}
           </div>
@@ -581,26 +572,26 @@ export default function EmployeePortalAuditReport() {
       {/* Detail Inspection Modal */}
       {selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-indigo-600" />
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150 border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-2.5">
+                <UserCheck className="w-5 h-5 text-blue-600" />
                 <h3 className="font-bold text-slate-900 text-base">
                   Employee Portal Transaction Details
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/50 transition"
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto space-y-4">
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+            <div className="p-6 overflow-y-auto space-y-4 bg-white">
+              <div className="grid grid-cols-2 gap-3.5 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
                 <div>
-                  <span className="text-slate-500 block">Employee</span>
+                  <span className="text-slate-500 block font-medium">Employee</span>
                   <span className="font-bold text-slate-900 text-sm">
                     {selectedEvent.employeeName}
                   </span>
@@ -609,44 +600,44 @@ export default function EmployeePortalAuditReport() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Status</span>
+                  <span className="text-slate-500 block font-medium">Status</span>
                   <span
                     className={`inline-flex items-center gap-1 font-bold text-xs mt-0.5 ${
                       selectedEvent.status === "SUCCESS"
-                        ? "text-emerald-700"
-                        : "text-rose-700"
+                        ? "text-blue-700"
+                        : "text-slate-800"
                     }`}
                   >
                     {selectedEvent.status === "SUCCESS" ? (
-                      <CheckCircle className="w-3.5 h-3.5" />
+                      <CheckCircle className="w-3.5 h-3.5 text-blue-600" />
                     ) : (
-                      <XCircle className="w-3.5 h-3.5" />
+                      <XCircle className="w-3.5 h-3.5 text-slate-600" />
                     )}
                     {selectedEvent.status}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Activity</span>
+                  <span className="text-slate-500 block font-medium">Activity</span>
                   <span className="font-semibold text-slate-900">
                     {selectedEvent.activityTitle} ({selectedEvent.action})
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Timestamp</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="text-slate-500 block font-medium">Timestamp</span>
+                  <span className="font-semibold text-slate-900">
                     {selectedEvent.timestamp
                       ? new Date(selectedEvent.timestamp).toLocaleString()
                       : "—"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Client IP</span>
-                  <span className="font-mono text-slate-900">
+                  <span className="text-slate-500 block font-medium">Client IP</span>
+                  <span className="font-mono text-slate-900 font-bold">
                     {selectedEvent.ipAddress || "—"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Device User Agent</span>
+                  <span className="text-slate-500 block font-medium">Device User Agent</span>
                   <span className="font-mono text-slate-900 truncate block max-w-xs">
                     {selectedEvent.userAgent || "—"}
                   </span>
@@ -654,50 +645,50 @@ export default function EmployeePortalAuditReport() {
               </div>
 
               {selectedEvent.errorReason && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
-                  <ShieldAlert className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                <div className="p-3.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 flex items-start gap-2.5">
+                  <ShieldAlert className="w-4 h-4 text-slate-700 mt-0.5 shrink-0" />
                   <div>
-                    <span className="font-bold block">Rejection / Error Reason:</span>
+                    <span className="font-bold block text-slate-900">Rejection / Error Reason:</span>
                     {selectedEvent.errorReason}
                   </div>
                 </div>
               )}
 
               <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
                   What Was Submitted / Changed
                 </h4>
                 {selectedEvent.changes ? (
-                  <div className="bg-slate-900 text-slate-100 p-3.5 rounded-xl font-mono text-xs overflow-x-auto max-h-48">
+                  <div className="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-xs overflow-x-auto max-h-48 border border-slate-800">
                     <pre>{JSON.stringify(selectedEvent.changes, null, 2)}</pre>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <p className="text-xs text-slate-500 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                     Standard action payload without field delta.
                   </p>
                 )}
               </div>
 
               <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
                   Complete Transaction Metadata
                 </h4>
                 {selectedEvent.metadata ? (
-                  <div className="bg-slate-50 text-slate-900 p-3.5 rounded-xl font-mono text-xs border border-slate-200 overflow-x-auto max-h-48">
+                  <div className="bg-slate-50 text-slate-900 p-4 rounded-xl font-mono text-xs border border-slate-200 overflow-x-auto max-h-48">
                     <pre>{JSON.stringify(selectedEvent.metadata, null, 2)}</pre>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <p className="text-xs text-slate-500 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                     No extra metadata stored.
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+            <div className="px-6 py-3.5 border-t border-slate-200 bg-white flex justify-end">
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 text-sm font-medium transition"
+                className="px-5 py-2 bg-slate-900 hover:bg-black text-white rounded-lg text-sm font-bold transition shadow-xs"
               >
                 Close
               </button>

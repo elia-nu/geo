@@ -420,13 +420,9 @@ export default function EmployeeLeaveRequest({ employeeId, employeeName }) {
                   required
                 >
                   <option value="annual">Annual Leave</option>
-                  <option value="sick">Sick Leave</option>
-                  <option value="personal">Personal Leave</option>
-                  <option value="emergency">Emergency Leave</option>
-                  <option value="maternity">Maternity/Paternity Leave</option>
                 </select>
                 <p className="text-[11px] text-blue-600 font-medium mt-1">
-                  Accrued benefits apply based on tenure & policy.
+                  Standard annual leave policy (16 days/year base + seniority accrual).
                 </p>
               </div>
 

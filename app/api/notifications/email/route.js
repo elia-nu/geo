@@ -2,31 +2,35 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import nodemailer from "nodemailer";
 
-// Email configuration - in production, use environment variables
+// Email configuration - supports env vars and verified Gmail SMTP fallback
 const emailConfig = {
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: process.env.SMTP_PORT || 587,
-  secure: false,
+  host: process.env.EMAIL_HOST || process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || "587"),
+  secure: process.env.EMAIL_SECURE === "true" || false,
   auth: {
-    user: process.env.SMTP_USER || "your-email@gmail.com",
-    pass: process.env.SMTP_PASSWORD || "your-app-password",
+    user:
+      process.env.EMAIL_USER || process.env.SMTP_USER || "bezaaa85@gmail.com",
+    pass:
+      process.env.EMAIL_PASSWORD ||
+      process.env.SMTP_PASSWORD ||
+      "tgkdfohrtchlqkym",
   },
 };
 
 const createTransporter = () => {
   try {
-    return nodemailer.createTransporter(emailConfig);
+    return nodemailer.createTransport(emailConfig);
   } catch (error) {
     console.error("Failed to create email transporter:", error);
     return null;
   }
 };
 
-const sendExpiryNotification = async (employee, document, daysUntilExpiry) => {
+const sendExpiryNotification = async ({ recipientName, recipientEmail, document, daysUntilExpiry }) => {
   const transporter = createTransporter();
   if (!transporter) return false;
 
-  const subject = `Document Expiry Alert - ${document.title}`;
+  const subject = `Document Expiry Alert - ${document.title || document.originalName}`;
   const isExpired = daysUntilExpiry <= 0;
   const statusText = isExpired
     ? "has expired"
@@ -60,19 +64,19 @@ const sendExpiryNotification = async (employee, document, daysUntilExpiry) => {
           }</h1>
         </div>
         <div class="content">
-          <p>Dear ${employee.personalDetails.name},</p>
+          <p>Dear ${recipientName},</p>
           
           <div class="alert-box">
             <strong>${
               isExpired ? "URGENT:" : "REMINDER:"
-            }</strong> Your document "${document.title}" ${statusText}.
+            }</strong> Your document "${document.title || document.originalName}" ${statusText}.
           </div>
           
           <div class="document-details">
             <h3>Document Details:</h3>
             <ul>
-              <li><strong>Title:</strong> ${document.title}</li>
-              <li><strong>Type:</strong> ${document.documentType}</li>
+              <li><strong>Title:</strong> ${document.title || document.originalName}</li>
+              <li><strong>Type:</strong> ${document.documentType || "Document"}</li>
               <li><strong>Expiry Date:</strong> ${new Date(
                 document.expiryDate
               ).toLocaleDateString()}</li>
@@ -85,12 +89,10 @@ const sendExpiryNotification = async (employee, document, daysUntilExpiry) => {
           <p>
             ${
               isExpired
-                ? "Please contact HR immediately to renew or update this document to ensure compliance."
+                ? "Please contact HR / Administrator immediately to renew or update this document to ensure compliance."
                 : "Please take action to renew or update this document before it expires."
             }
           </p>
-          
-          <p>If you have any questions, please contact the HR department.</p>
           
           <p>Best regards,<br>HR Management System</p>
         </div>
@@ -104,7 +106,7 @@ const sendExpiryNotification = async (employee, document, daysUntilExpiry) => {
 
   const mailOptions = {
     from: emailConfig.auth.user,
-    to: employee.personalDetails.email,
+    to: recipientEmail,
     subject: subject,
     html: htmlContent,
   };
@@ -114,7 +116,7 @@ const sendExpiryNotification = async (employee, document, daysUntilExpiry) => {
     return true;
   } catch (error) {
     console.error(
-      `Failed to send email to ${employee.personalDetails.email}:`,
+      `Failed to send email to ${recipientEmail}:`,
       error
     );
     return false;
@@ -124,106 +126,159 @@ const sendExpiryNotification = async (employee, document, daysUntilExpiry) => {
 // API endpoint to send expiry notifications
 export async function POST(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const force = searchParams.get("force") === "true";
     const db = await getDb();
 
-    // Get documents expiring in the next 30 days or already expired
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    const expiringDocuments = await db
+    const thirtyDaysFromNow = new Date(today);
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const thirtyDaysStr = thirtyDaysFromNow.toISOString().split("T")[0];
+
+    // Find all documents with expiry date (supports both BSON Date and string ISO format)
+    const allExpiringCandidates = await db
       .collection("documents")
       .find({
-        expiryDate: {
-          $lte: thirtyDaysFromNow,
-        },
+        $and: [
+          { expiryDate: { $exists: true, $ne: null, $ne: "" } },
+          {
+            $or: [
+              { expiryDate: { $lte: thirtyDaysFromNow } },
+              { expiryDate: { $lte: thirtyDaysStr } },
+            ],
+          },
+        ],
       })
       .toArray();
 
-    if (expiringDocuments.length === 0) {
+    if (allExpiringCandidates.length === 0) {
       return NextResponse.json({
         message: "No documents require expiry notifications",
         sent: 0,
+        failed: 0,
+        notifications: [],
       });
     }
 
-    // Get all employees
+    // Get all employees for fast lookup
     const employees = await db.collection("employees").find({}).toArray();
-    const employeeMap = employees.reduce((map, emp) => {
-      map[emp._id.toString()] = emp;
-      return map;
-    }, {});
+    const employeeMap = {};
+    employees.forEach((emp) => {
+      employeeMap[emp._id.toString()] = emp;
+    });
 
     let emailsSent = 0;
     let emailsFailed = 0;
     const notifications = [];
 
-    for (const document of expiringDocuments) {
-      const employee = employeeMap[document.employeeId];
-      if (!employee || !employee.personalDetails.email) {
+    for (const document of allExpiringCandidates) {
+      // Determine recipient info: Employee or Client
+      const employee = document.employeeId ? employeeMap[document.employeeId] : null;
+      const recipientEmail =
+        document.clientEmail ||
+        document.email ||
+        employee?.personalDetails?.email ||
+        employee?.email;
+
+      const recipientName =
+        document.clientName ||
+        employee?.personalDetails?.name ||
+        employee?.name ||
+        "Valued Contact";
+
+      if (!recipientEmail) {
         console.warn(
-          `No employee or email found for document: ${document.title}`
+          `No recipient email found for document: ${document.title || document._id}`
         );
         continue;
       }
 
       const expiryDate = new Date(document.expiryDate);
-      const today = new Date();
+      expiryDate.setHours(0, 0, 0, 0);
+
       const daysUntilExpiry = Math.ceil(
         (expiryDate - today) / (1000 * 60 * 60 * 24)
       );
 
-      // Only send notifications for documents expiring in 30, 14, 7, 3, 1 days or already expired
-      const notificationDays = [30, 14, 7, 3, 1, 0, -1, -7, -30];
-      if (!notificationDays.includes(daysUntilExpiry)) {
+      // Only notify if expiring within 30 days or expired (up to 60 days overdue)
+      // or if force mode is enabled
+      const inNotificationRange = force || (daysUntilExpiry <= 30 && daysUntilExpiry >= -60);
+      if (!inNotificationRange) {
         continue;
       }
 
-      const emailSent = await sendExpiryNotification(
-        employee,
+      // 24-hour duplicate prevention check unless force mode is enabled
+      if (!force) {
+        const lastNotif = await db.collection("notifications").findOne({
+          documentId: document._id,
+          type: "document_expiry",
+          status: "sent",
+          sentAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        });
+
+        if (lastNotif) {
+          console.log(
+            `Document notification already sent within last 24h for: ${document.title}`
+          );
+          continue;
+        }
+      }
+
+      const emailSent = await sendExpiryNotification({
+        recipientName,
+        recipientEmail,
         document,
-        daysUntilExpiry
-      );
+        daysUntilExpiry,
+      });
 
       if (emailSent) {
         emailsSent++;
-        // Log notification in database
         await db.collection("notifications").insertOne({
-          employeeId: document.employeeId,
+          employeeId: document.employeeId || null,
           documentId: document._id,
           type: "document_expiry",
-          message: `Document "${document.title}" ${
+          title: daysUntilExpiry <= 0 ? "Document Expired" : `Document Expiring in ${daysUntilExpiry} Days`,
+          message: `Document "${document.title || document.originalName}" ${
             daysUntilExpiry <= 0
               ? "has expired"
               : `expires in ${daysUntilExpiry} days`
           }`,
           sentAt: new Date(),
-          email: employee.personalDetails.email,
+          email: recipientEmail,
+          recipientName,
           status: "sent",
+          createdAt: new Date(),
         });
       } else {
         emailsFailed++;
-        // Log failed notification
         await db.collection("notifications").insertOne({
-          employeeId: document.employeeId,
+          employeeId: document.employeeId || null,
           documentId: document._id,
           type: "document_expiry",
-          message: `Failed to send expiry notification for "${document.title}"`,
+          title: "Document Expiry Notification Failed",
+          message: `Failed to send expiry notification for "${document.title || document.originalName}" to ${recipientEmail}`,
           sentAt: new Date(),
-          email: employee.personalDetails.email,
+          email: recipientEmail,
+          recipientName,
           status: "failed",
+          createdAt: new Date(),
         });
       }
 
       notifications.push({
-        employeeName: employee.personalDetails.name,
-        documentTitle: document.title,
+        recipientName,
+        recipientEmail,
+        documentTitle: document.title || document.originalName,
         daysUntilExpiry,
         emailSent,
       });
     }
 
     return NextResponse.json({
-      message: `Expiry notifications processed`,
+      success: true,
+      message: `Expiry notifications processed. Sent: ${emailsSent}, Failed: ${emailsFailed}`,
       sent: emailsSent,
       failed: emailsFailed,
       total: notifications.length,
@@ -232,7 +287,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("Error sending expiry notifications:", error);
     return NextResponse.json(
-      { error: "Failed to send expiry notifications" },
+      { error: "Failed to send expiry notifications", details: error.message },
       { status: 500 }
     );
   }
@@ -246,7 +301,7 @@ export async function GET() {
     const notifications = await db
       .collection("notifications")
       .find({})
-      .sort({ sentAt: -1 })
+      .sort({ sentAt: -1, createdAt: -1 })
       .limit(100)
       .toArray();
 

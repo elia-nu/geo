@@ -3,7 +3,10 @@ import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../utils/audit.js";
 import { GPSValidation } from "../../../utils/gpsValidation.js";
-import { calculateEffectiveWorkingHours } from "../../../utils/timeUtils.js";
+import {
+  calculateEffectiveWorkingHours,
+  getEthiopianDate,
+} from "../../../utils/timeUtils.js";
 
 // Calculate distance between two coordinates using Haversine formula
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -51,9 +54,9 @@ function parseDistanceToMeters(value) {
   }
 }
 
-// Get today's date in YYYY-MM-DD format
+// Get today's date in YYYY-MM-DD format (Enforcing Ethiopian time for Yegar Linux servers)
 function getTodayDate() {
-  return new Date().toISOString().split("T")[0];
+  return getEthiopianDate(new Date());
 }
 
 // Get daily attendance records
@@ -82,6 +85,38 @@ export async function GET(request) {
     } else if (date) {
       query.date = date;
     }
+    // Auto-close stale unclosed daily attendance records (kill it so it doesn't run forever)
+    const todayStr = getEthiopianDate();
+    const staleThreshold = new Date(Date.now() - 16 * 60 * 60 * 1000);
+    try {
+      await db.collection("daily_attendance").updateMany(
+        {
+          $or: [
+            { status: "checked-in" },
+            { checkOutTime: { $exists: false } },
+            { checkOutTime: null }
+          ],
+          $or: [
+            { date: { $lt: todayStr } },
+            { checkInTime: { $lt: staleThreshold } }
+          ]
+        },
+        {
+          $set: {
+            status: "not-checked-out",
+            workingHours: 0,
+            effectiveWorkingHours: 0,
+            durationFormatted: "Not Checked Out (Admin to Handle)",
+            adminResolutionRequired: true,
+            autoClosedReason: "Employee did not check out. Admin resolution required.",
+            updatedAt: new Date()
+          }
+        }
+      );
+    } catch (cleanupErr) {
+      console.warn("Daily attendance stale session cleanup warning:", cleanupErr.message);
+    }
+
     const attendanceRecords = await db
       .collection("daily_attendance")
       .find(query)
@@ -109,10 +144,25 @@ export async function GET(request) {
     });
 
     // Enhance attendance records with employee details
-    const enhancedRecords = attendanceRecords.map((record) => ({
-      ...record,
-      employee: employeeMap[record.employeeId] || { name: "Unknown Employee" },
-    }));
+    const enhancedRecords = attendanceRecords.map((record) => {
+      const isStale =
+        (record.status === "checked-in" || !record.checkOutTime) &&
+        (record.date < todayStr || (record.checkInTime && new Date(record.checkInTime) < staleThreshold));
+
+      const status = isStale ? "not-checked-out" : record.status;
+      const durationFormatted =
+        status === "not-checked-out"
+          ? "Not Checked Out (Admin to Handle)"
+          : (record.durationFormatted || (status === "checked-in" ? "In Progress" : "0h 0m"));
+
+      return {
+        ...record,
+        status,
+        durationFormatted,
+        adminResolutionRequired: isStale ? true : (record.adminResolutionRequired || false),
+        employee: employeeMap[record.employeeId] || { name: "Unknown Employee" },
+      };
+    });
 
     return NextResponse.json({
       success: true,

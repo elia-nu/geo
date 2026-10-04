@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
+import { formatYearsOfService } from "../../../../utils/timeUtils.js";
 
 // Get real-time leave balance updates
 export async function GET(request) {
@@ -272,6 +273,16 @@ export async function POST(request) {
           adminId
         );
         break;
+      case "set_balance":
+      case "set_starting_balance":
+        updatedBalance = await setStartingBalance(
+          db,
+          leaveBalance,
+          days,
+          reason,
+          adminId
+        );
+        break;
       case "reset":
         updatedBalance = await resetLeaveBalance(db, leaveBalance, adminId);
         break;
@@ -340,21 +351,35 @@ async function calculateRealTimeAccruals(db, leaveBalance) {
     }
   });
 
-  const available = Math.max(0, 16 - usedDays - pendingDays);
+  const fullYears = Math.floor(yearsOfService);
+  const seniorityBonus = fullYears >= 2 ? Math.floor(fullYears / 2) : 0;
+  const hasCustomStarting = typeof leaveBalance.balances?.annual?.adminSetStartingBalance === "number";
+  const baseStarting = hasCustomStarting
+    ? leaveBalance.balances.annual.adminSetStartingBalance
+    : (leaveBalance.balances?.annual?.baseAllowance || 16);
+  const initialBase = hasCustomStarting ? baseStarting : baseStarting + seniorityBonus;
+
+  const totalEntitlement = initialBase;
+  const available = Math.max(0, initialBase - usedDays - pendingDays);
 
   const updatedBalances = {
     annual: {
-      yearlyAllowance: 16,
-      baseAllowance: 16,
-      seniorityBonus: 0,
-      totalEarned: 16,
+      yearlyAllowance: totalEntitlement,
+      baseAllowance: baseStarting,
+      adminSetStartingBalance: leaveBalance.balances?.annual?.adminSetStartingBalance,
+      startingBalanceSetAt: leaveBalance.balances?.annual?.startingBalanceSetAt,
+      startingBalanceSetBy: leaveBalance.balances?.annual?.startingBalanceSetBy,
+      seniorityBonus,
+      totalEarned: totalEntitlement,
       carriedForward: 0,
       expiredDays: 0,
       used: usedDays,
       pending: pendingDays,
       available,
       description: "Annual Leave",
-      formula: "16 Days Standard Annual Leave",
+      formula: typeof leaveBalance.balances?.annual?.adminSetStartingBalance === "number"
+        ? `Custom Starting Allowance (${baseStarting} Days)`
+        : `${totalEntitlement} Days Annual Leave Entitlement`,
       rolloverPolicy: "Rollover with 2-year postponement expiry limit",
       lastCalculated: currentDate,
     },
@@ -367,6 +392,7 @@ async function calculateRealTimeAccruals(db, leaveBalance) {
       $set: {
         balances: updatedBalances,
         yearsOfService: Math.floor(yearsOfService * 100) / 100,
+        yearsOfServiceFormatted: formatYearsOfService(yearsOfService, employmentDate),
         lastCalculated: currentDate,
         realTimeAccrual: true,
       },
@@ -377,6 +403,7 @@ async function calculateRealTimeAccruals(db, leaveBalance) {
     ...leaveBalance,
     balances: updatedBalances,
     yearsOfService: Math.floor(yearsOfService * 100) / 100,
+    yearsOfServiceFormatted: formatYearsOfService(yearsOfService, employmentDate),
     lastCalculated: currentDate,
     realTimeAccrual: true,
   };
@@ -405,19 +432,26 @@ async function adjustLeaveBalance(
     throw new Error("Insufficient leave balance for this adjustment");
   }
 
+  const currentTotal = currentBalance.totalEarned || currentBalance.yearlyAllowance || 16;
+  const newTotal = days > 0 ? Math.max(currentTotal, currentBalance.available + days) : currentTotal;
+
   // Update balance
-  const updateField = `balances.${leaveType}.available`;
   await db.collection("leave_balances").updateOne(
     { _id: leaveBalance._id },
     {
       $set: {
-        [updateField]: newAvailable,
+        [`balances.${leaveType}.available`]: newAvailable,
+        [`balances.${leaveType}.totalEarned`]: newTotal,
+        [`balances.${leaveType}.yearlyAllowance`]: newTotal,
         updatedAt: new Date(),
       },
       $push: {
         adjustments: {
+          type: "adjustment",
           leaveType,
           adjustment: days,
+          previousBalance: currentBalance.available,
+          newBalance: newAvailable,
           reason,
           adminId,
           adjustedAt: new Date(),
@@ -426,8 +460,74 @@ async function adjustLeaveBalance(
     }
   );
 
-  // Recalculate real-time accruals
-  return await calculateRealTimeAccruals(db, leaveBalance);
+  // Recalculate with fresh document
+  const freshDoc = await db.collection("leave_balances").findOne({ _id: leaveBalance._id });
+  return await calculateRealTimeAccruals(db, freshDoc);
+}
+
+// Helper function to set starting balance
+async function setStartingBalance(
+  db,
+  leaveBalance,
+  startingDays,
+  reason,
+  adminId
+) {
+  if (typeof startingDays !== "number" || startingDays < 0) {
+    throw new Error("Starting days must be a number greater than or equal to 0");
+  }
+
+  const currentAvailable = leaveBalance.balances?.annual?.available || 0;
+  const difference = startingDays - currentAvailable;
+
+  await db.collection("leave_balances").updateOne(
+    { _id: leaveBalance._id },
+    {
+      $set: {
+        "balances.annual.available": startingDays,
+        "balances.annual.yearlyAllowance": startingDays,
+        "balances.annual.totalEarned": startingDays,
+        "balances.annual.baseAllowance": startingDays,
+        "balances.annual.adminSetStartingBalance": startingDays,
+        "balances.annual.startingBalanceSetAt": new Date(),
+        "balances.annual.startingBalanceSetBy": adminId,
+        "balances.annual.formula": `${startingDays} Days Annual Leave Entitlement`,
+        updatedAt: new Date(),
+      },
+      $push: {
+        adjustments: {
+          leaveType: "annual",
+          adjustment: difference,
+          balanceSet: startingDays,
+          type: "starting_balance_set",
+          previousBalance: currentAvailable,
+          newBalance: startingDays,
+          reason,
+          adminId,
+          adjustedAt: new Date(),
+        },
+      },
+    }
+  );
+
+  await createAuditLog({
+    action: "SET_STARTING_LEAVE_BALANCE",
+    entityType: "leave_balance",
+    entityId: leaveBalance._id.toString(),
+    userId: adminId,
+    metadata: {
+      type: "starting_balance_set",
+      previousBalance: currentAvailable,
+      newBalance: startingDays,
+      balanceSet: startingDays,
+      difference,
+      reason,
+      adminId
+    },
+  });
+
+  const freshDoc = await db.collection("leave_balances").findOne({ _id: leaveBalance._id });
+  return await calculateRealTimeAccruals(db, freshDoc);
 }
 
 // Helper function to reset leave balance
@@ -670,6 +770,7 @@ async function createInitialLeaveBalance(db, employee) {
     employeeName: employee.personalDetails?.name || employee.name,
     employmentDate,
     yearsOfService: Math.floor(yearsOfService * 100) / 100,
+    yearsOfServiceFormatted: formatYearsOfService(yearsOfService, employmentDate),
     balances,
     adjustments: [],
     createdAt: new Date(),

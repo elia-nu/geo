@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../utils/audit";
+import { formatYearsOfService } from "../../../utils/timeUtils";
 
 // Calculate base + seniority allowance: 16 + floor(Years of Service / 2)
 function getAnnualLeaveAllowance(yearsOfService) {
@@ -275,6 +276,7 @@ async function createInitialLeaveBalance(db, employee) {
     employeeName: employee.personalDetails?.name || employee.name,
     employmentDate,
     yearsOfService: Math.floor(yearsOfService * 100) / 100,
+    yearsOfServiceFormatted: formatYearsOfService(yearsOfService, employmentDate),
     balances,
     adjustments: [],
     createdAt: new Date(),
@@ -378,6 +380,7 @@ async function calculateLeaveBalances(db, employee, leaveBalance) {
       $set: {
         balances: updatedBalances,
         yearsOfService: Math.floor(yearsOfService * 100) / 100,
+        yearsOfServiceFormatted: formatYearsOfService(yearsOfService, employmentDate),
         lastCalculated: currentDate,
         employmentDate,
       },
@@ -388,6 +391,7 @@ async function calculateLeaveBalances(db, employee, leaveBalance) {
     ...leaveBalance,
     balances: updatedBalances,
     yearsOfService: Math.floor(yearsOfService * 100) / 100,
+    yearsOfServiceFormatted: formatYearsOfService(yearsOfService, employmentDate),
     employmentDate,
     lastCalculated: currentDate,
   };

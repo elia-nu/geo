@@ -109,21 +109,21 @@ export default function NotificationManager() {
       setError("");
       setSuccess("");
 
-      const response = await fetch("/api/notifications/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+      const [docRes, contractRes] = await Promise.all([
+        fetch("/api/notifications/email?force=true", { method: "POST" }),
+        fetch("/api/notifications/contract-expiry?force=true", { method: "POST" }),
+      ]);
 
-      if (response.ok) {
-        const result = await response.json();
-        const msg = `${result.message}. Sent: ${result.sent}, Failed: ${result.failed}`;
-        toast.success(msg);
-        setSuccess(msg);
-        await fetchNotifications();
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to send notifications");
-      }
+      const docData = await docRes.json().catch(() => ({}));
+      const contractData = await contractRes.json().catch(() => ({}));
+
+      const totalSent = (docData.sent || 0) + (contractData.sent || 0);
+      const totalFailed = (docData.failed || 0) + (contractData.failed || 0);
+      const msg = `Notifications processed. Total Sent: ${totalSent}, Failed: ${totalFailed} (Documents: ${docData.sent || 0}, Contracts: ${contractData.sent || 0})`;
+
+      toast.success(msg);
+      setSuccess(msg);
+      await fetchNotifications();
     } catch (error) {
       console.error("Error sending notifications:", error);
       toast.error(error.message);

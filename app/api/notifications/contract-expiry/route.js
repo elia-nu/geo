@@ -111,9 +111,7 @@ export async function POST(request) {
         // 3. Contract expires today or within next 7 days (for testing)
         // 4. Force mode enabled (for testing)
         const shouldNotify = force || 
-          (daysUntilExpiry >= 13 && daysUntilExpiry <= 15) ||
-          (daysUntilExpiry <= 0 && daysUntilExpiry >= -7) ||
-          (daysUntilExpiry >= 0 && daysUntilExpiry <= 7);
+          (daysUntilExpiry <= 30 && daysUntilExpiry >= -60);
 
         if (!shouldNotify) {
           console.log(

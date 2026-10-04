@@ -20,12 +20,14 @@ import {
   Search,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
+import ImageWithLoading from "./ImageWithLoading";
 
 export default function AttendanceDocuments({ employeeId, employeeName }) {
   // State management
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [selectedDocDetails, setSelectedDocDetails] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
   const [statusTab, setStatusTab] = useState("all");
@@ -474,8 +476,17 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                         </div>
                       )}
 
-                      <div className="text-[10px] text-slate-400 text-right">
-                        Submitted: {formatDate(doc.submittedAt)}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <span className="text-[10px] text-slate-400">
+                          Submitted: {formatDate(doc.submittedAt)}
+                        </span>
+                        <button
+                          onClick={() => setSelectedDocDetails(doc)}
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View Details</span>
+                        </button>
                       </div>
                     </div>
                   );
@@ -504,6 +515,9 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                       </th>
                       <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                         Submitted
+                      </th>
+                      <th className="px-6 py-3.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -572,6 +586,15 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-slate-500">
                             {formatDate(doc.submittedAt)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <button
+                              onClick={() => setSelectedDocDetails(doc)}
+                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors shadow-xs"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Details</span>
+                            </button>
                           </td>
                         </tr>
                       );
@@ -816,6 +839,210 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Document Details & Uploaded Files Modal */}
+      {selectedDocDetails && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-xs z-10">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                    Request & Document Details
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {getTypeLabel(selectedDocDetails.type)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedDocDetails(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 space-y-5">
+              {/* Status and Type Banner */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                <div className="space-y-0.5">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+                    Status
+                  </span>
+                  {(() => {
+                    const status = getStatusInfo(selectedDocDetails.status);
+                    const StatusIcon = status.icon;
+                    return (
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${status.bgColor} ${status.color}`}
+                      >
+                        <StatusIcon className="w-3.5 h-3.5 mr-1" />
+                        {status.text}
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="text-right space-y-0.5">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+                    Request Date
+                  </span>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-800">
+                    {formatDate(selectedDocDetails.requestDate)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Date Ranges if present */}
+              {(selectedDocDetails.startDate || selectedDocDetails.endDate) && (
+                <div className="grid grid-cols-2 gap-3 p-3 bg-purple-50/50 rounded-xl border border-purple-100 text-xs">
+                  <div>
+                    <span className="text-purple-600 font-semibold block text-[11px]">Start Date:</span>
+                    <span className="text-slate-800 font-medium">{formatDate(selectedDocDetails.startDate)}</span>
+                  </div>
+                  <div>
+                    <span className="text-purple-600 font-semibold block text-[11px]">End Date:</span>
+                    <span className="text-slate-800 font-medium">{formatDate(selectedDocDetails.endDate)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Reason & Description */}
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Reason
+                  </h4>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 font-medium">
+                    {selectedDocDetails.reason || "No reason specified"}
+                  </div>
+                </div>
+
+                {selectedDocDetails.description && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      Additional Details
+                    </h4>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 whitespace-pre-wrap">
+                      {selectedDocDetails.description}
+                    </div>
+                  </div>
+                )}
+
+                {/* Rejection Details if rejected */}
+                {selectedDocDetails.status === "rejected" && (
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
+                    <span className="text-xs font-bold text-rose-900 block">
+                      Rejection Reason / Notes:
+                    </span>
+                    <p className="text-xs text-rose-800">
+                      {selectedDocDetails.rejectionReason ||
+                        selectedDocDetails.comments ||
+                        selectedDocDetails.supervisorNotes ||
+                        selectedDocDetails.notes ||
+                        selectedDocDetails.adminApproval?.rejectionReason ||
+                        "No specific reason provided."}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Uploaded Files Section */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span>Uploaded Documents & Proof ({selectedDocDetails.files?.length || 0})</span>
+                </h4>
+
+                {(!selectedDocDetails.files || selectedDocDetails.files.length === 0) ? (
+                  <div className="p-6 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl text-slate-400 text-xs">
+                    <Paperclip className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                    No files attached to this request
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedDocDetails.files.map((file, idx) => {
+                      const filePath = typeof file === "string" ? file : file.filePath || file.url || file.path;
+                      const fileName = typeof file === "string" ? file.split("/").pop() : file.originalName || file.fileName || "Uploaded File";
+                      const isImage = (typeof file === "object" && file.fileType?.startsWith("image/")) ||
+                        /\.(jpg|jpeg|png|webp|gif)$/i.test(filePath || fileName);
+                      const fileSize = typeof file === "object" && file.fileSize ? `${(file.fileSize / 1024 / 1024).toFixed(2)} MB` : null;
+
+                      return (
+                        <div
+                          key={idx}
+                          className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 hover:bg-slate-50/80 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center space-x-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                                {isImage ? <Eye className="w-4 h-4" /> : <Paperclip className="w-4 h-4" />}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-slate-800 truncate">
+                                  {fileName}
+                                </p>
+                                {fileSize && (
+                                  <p className="text-[10px] text-slate-400">{fileSize}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            {filePath && (
+                              <a
+                                href={filePath}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download={fileName}
+                                className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-700 bg-white border border-purple-200 hover:bg-purple-50 transition-colors shadow-xs flex-shrink-0"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Download</span>
+                              </a>
+                            )}
+                          </div>
+
+                          {/* Image preview with ImageWithLoading */}
+                          {isImage && filePath && (
+                            <div className="mt-2 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 max-h-60 flex items-center justify-center">
+                              <ImageWithLoading
+                                src={filePath}
+                                alt={fileName}
+                                className="w-full max-h-60 object-contain rounded-lg"
+                                skeletonClassName="w-full h-48 bg-slate-200 animate-pulse rounded-lg"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Submission timestamp */}
+              <div className="text-[11px] text-slate-400 text-right pt-2 border-t border-slate-100">
+                Submitted on: {selectedDocDetails.submittedAt ? new Date(selectedDocDetails.submittedAt).toLocaleString() : formatDate(selectedDocDetails.createdAt)}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 flex justify-end bg-slate-50 rounded-b-2xl">
+              <button
+                type="button"
+                onClick={() => setSelectedDocDetails(null)}
+                className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl font-semibold text-xs sm:text-sm transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

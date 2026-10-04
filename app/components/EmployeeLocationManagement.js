@@ -49,10 +49,107 @@ export default function EmployeeLocationManagement() {
     fetchData();
   }, []);
 
+  // Instant in-memory location resolver (Zero extra network requests)
+  const computeEmployeeLocations = (employeesList = [], locationsList = []) => {
+    const locationData = {};
+    if (!employeesList.length) return locationData;
+
+    const locationById = new Map();
+    const locationByName = new Map();
+
+    locationsList.forEach((loc) => {
+      const locIdStr = String(loc._id || loc.id);
+      locationById.set(locIdStr, loc);
+      if (loc.name) locationByName.set(loc.name.trim().toLowerCase(), loc);
+      if (loc.siteName) locationByName.set(loc.siteName.trim().toLowerCase(), loc);
+    });
+
+    employeesList.forEach((employee) => {
+      const empDbId = String(employee._id || employee.id || "");
+      const empCode = String(
+        employee.personalDetails?.employeeId || employee.employeeId || ""
+      );
+      const matched = new Map();
+
+      // 1. Match from location.assignedEmployees array
+      locationsList.forEach((loc) => {
+        const assigned = loc.assignedEmployees || [];
+        const isAssigned = assigned.some((assignedId) => {
+          const idStr = String(assignedId?._id || assignedId);
+          return (empDbId && idStr === empDbId) || (empCode && idStr === empCode);
+        });
+        if (isAssigned) {
+          matched.set(String(loc._id), loc);
+        }
+      });
+
+      // 2. Match from employee.workLocations array
+      const empLocations = [
+        ...(Array.isArray(employee.workLocations) ? employee.workLocations : []),
+        ...(Array.isArray(employee.workLocationsDetails)
+          ? employee.workLocationsDetails
+          : []),
+      ];
+      empLocations.forEach((item) => {
+        if (!item) return;
+        const idStr = String(item?._id || item);
+        if (locationById.has(idStr)) {
+          matched.set(idStr, locationById.get(idStr));
+        } else if (
+          typeof item === "string" &&
+          locationByName.has(item.trim().toLowerCase())
+        ) {
+          const found = locationByName.get(item.trim().toLowerCase());
+          matched.set(String(found._id), found);
+        }
+      });
+
+      // 3. Match from employee.workLocation single value
+      const singleLoc =
+        employee.workLocation || employee.personalDetails?.workLocation;
+      if (singleLoc) {
+        const idStr = String(singleLoc?._id || singleLoc);
+        if (locationById.has(idStr)) {
+          matched.set(idStr, locationById.get(idStr));
+        } else if (
+          typeof singleLoc === "string" &&
+          locationByName.has(singleLoc.trim().toLowerCase())
+        ) {
+          const found = locationByName.get(singleLoc.trim().toLowerCase());
+          matched.set(String(found._id), found);
+        }
+      }
+
+      locationData[employee._id] = Array.from(matched.values());
+    });
+
+    return locationData;
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      await Promise.all([fetchEmployees(), fetchWorkLocations()]);
+      const [empRes, locRes] = await Promise.all([
+        fetch("/api/employee").then((r) => r.json()),
+        fetch("/api/work-locations").then((r) => r.json()),
+      ]);
+
+      const emps = empRes.success
+        ? empRes.employees || []
+        : Array.isArray(empRes)
+        ? empRes
+        : [];
+      const locs = locRes.success
+        ? locRes.locations || []
+        : Array.isArray(locRes)
+        ? locRes
+        : [];
+
+      setEmployees(emps);
+      setWorkLocations(locs);
+
+      const mapping = computeEmployeeLocations(emps, locs);
+      setEmployeeLocations(mapping);
     } catch (error) {
       console.error("Error fetching data:", error);
       showMessage("Failed to load data", "error");
@@ -60,66 +157,6 @@ export default function EmployeeLocationManagement() {
       setLoading(false);
     }
   };
-
-  const fetchEmployees = async () => {
-    try {
-      const response = await fetch("/api/employee");
-      const result = await response.json();
-
-      if (result.success) {
-        setEmployees(result.employees || []);
-      } else {
-        setEmployees(Array.isArray(result) ? result : []);
-      }
-    } catch (error) {
-      console.error("Error fetching employees:", error);
-      showMessage("Failed to load employees", "error");
-    }
-  };
-
-  const fetchWorkLocations = async () => {
-    try {
-      const response = await fetch("/api/work-locations");
-      const result = await response.json();
-
-      if (result.success) {
-        setWorkLocations(result.locations || []);
-      } else {
-        setWorkLocations(Array.isArray(result) ? result : []);
-      }
-    } catch (error) {
-      console.error("Error fetching work locations:", error);
-    }
-  };
-
-  const fetchEmployeeLocations = async () => {
-    const locationData = {};
-
-    for (const employee of employees) {
-      try {
-        const response = await fetch(
-          `/api/employee/${employee._id}/work-location`
-        );
-        const result = await response.json();
-
-        if (result.success && result.workLocations) {
-          locationData[employee._id] = result.workLocations;
-        } else {
-          locationData[employee._id] = [];
-        }
-      } catch (error) {
-        locationData[employee._id] = [];
-      }
-    }
-
-    setEmployeeLocations(locationData);
-  };
-
-  useEffect(() => {
-    if (employees.length > 0) {
-      fetchEmployeeLocations();
-    }
-  }, [employees]);
 
   const showMessage = (msg, type = "info") => {
     setMessage(msg);
@@ -226,7 +263,7 @@ export default function EmployeeLocationManagement() {
       setBulkLocation("");
       setShowBulkAssign(false);
 
-      await fetchEmployeeLocations();
+      await fetchData();
     } catch (error) {
       console.error("Error assigning locations:", error);
       showMessage("Failed to assign locations", "error");
@@ -258,7 +295,7 @@ export default function EmployeeLocationManagement() {
       }
 
       showMessage("Location removed successfully!", "success");
-      await fetchEmployeeLocations();
+      await fetchData();
     } catch (error) {
       console.error("Error removing location:", error);
       showMessage("Failed to remove location", "error");
@@ -312,21 +349,21 @@ export default function EmployeeLocationManagement() {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 p-6 sm:p-8 shadow-xl text-white">
-        <div className="absolute -top-12 -right-12 w-56 h-56 bg-teal-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-emerald-500/10 rounded-full blur-2xl" />
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-6 sm:p-8 shadow-xl text-white">
+        <div className="absolute -top-12 -right-12 w-56 h-56 bg-blue-500/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-indigo-500/10 rounded-full blur-2xl" />
 
         <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 shadow-inner">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300 shadow-inner">
                 <MapPin className="w-6 h-6" />
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                   Employee Location Management
                 </h1>
-                <p className="text-teal-100/80 text-xs sm:text-sm mt-0.5">
+                <p className="text-blue-100/80 text-xs sm:text-sm mt-0.5">
                   Assign GPS geofence zones, multiple work premises, and branch placements.
                 </p>
               </div>
@@ -348,7 +385,7 @@ export default function EmployeeLocationManagement() {
                   <span>{stats.unassigned} Unassigned</span>
                 </div>
               )}
-              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md text-xs font-semibold text-teal-200 flex items-center gap-1.5 border border-white/10">
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md text-xs font-semibold text-blue-200 flex items-center gap-1.5 border border-white/10">
                 <Compass className="w-3.5 h-3.5" />
                 <span>{stats.totalLocations} Active Zones</span>
               </div>
@@ -368,7 +405,7 @@ export default function EmployeeLocationManagement() {
 
             <button
               onClick={() => setShowBulkAssign(!showBulkAssign)}
-              className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs shadow-lg shadow-teal-600/30 transition-all flex items-center gap-2"
+              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-lg shadow-blue-600/30 transition-all flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
               <span>Bulk Assign</span>
@@ -385,7 +422,7 @@ export default function EmployeeLocationManagement() {
               ? "bg-emerald-50 border-emerald-200 text-emerald-800"
               : messageType === "error"
               ? "bg-rose-50 border-rose-200 text-rose-800"
-              : "bg-teal-50 border-teal-200 text-teal-800"
+              : "bg-blue-50 border-blue-200 text-blue-800"
           }`}
         >
           <div className="flex items-center gap-2">
@@ -407,10 +444,10 @@ export default function EmployeeLocationManagement() {
 
       {/* Bulk Assignment Drawer */}
       {showBulkAssign && (
-        <div className="bg-white rounded-2xl shadow-sm border border-teal-200 p-5 space-y-4 animate-in slide-in-from-top-2 duration-200">
+        <div className="bg-white rounded-2xl shadow-sm border border-blue-200 p-5 space-y-4 animate-in slide-in-from-top-2 duration-200">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
                 <UserCheck className="w-4 h-4" />
               </div>
               <h3 className="text-sm font-bold text-slate-800">
@@ -466,7 +503,7 @@ export default function EmployeeLocationManagement() {
               <select
                 value={bulkLocation}
                 onChange={(e) => setBulkLocation(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-all"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
               >
                 <option value="">Choose work location...</option>
                 {workLocations.map((location) => (
@@ -483,7 +520,7 @@ export default function EmployeeLocationManagement() {
                 disabled={
                   loading || selectedEmployees.length === 0 || !bulkLocation
                 }
-                className="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -501,12 +538,12 @@ export default function EmployeeLocationManagement() {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-teal-600" />
+            <Filter className="w-4 h-4 text-blue-600" />
             <h3 className="text-sm font-bold text-slate-800">
               Filter Employees & Assignments
             </h3>
             {(searchTerm || selectedDepartment || filterByLocation !== "all") && (
-              <span className="text-xs text-teal-700 font-semibold bg-teal-50 px-2.5 py-0.5 rounded-full">
+              <span className="text-xs text-blue-700 font-semibold bg-blue-50 px-2.5 py-0.5 rounded-full">
                 {filteredEmployees.length} of {employees.length} shown
               </span>
             )}
@@ -533,7 +570,7 @@ export default function EmployeeLocationManagement() {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-all"
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
             />
           </div>
 
@@ -544,7 +581,7 @@ export default function EmployeeLocationManagement() {
                 setSelectedDepartment(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-all"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
             >
               <option value="">All Departments</option>
               {getUniqueDepartments().map((dept) => (
@@ -562,7 +599,7 @@ export default function EmployeeLocationManagement() {
                 setFilterByLocation(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-all"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
             >
               <option value="all">All Personnel ({employees.length})</option>
               <option value="assigned">Assigned with Locations ({stats.assigned})</option>
@@ -576,7 +613,7 @@ export default function EmployeeLocationManagement() {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-teal-600" />
+            <Users className="w-5 h-5 text-blue-600" />
             <h3 className="font-bold text-sm text-slate-800">
               Personnel Directory ({filteredEmployees.length})
             </h3>
@@ -585,7 +622,7 @@ export default function EmployeeLocationManagement() {
           <div className="flex items-center gap-4 text-xs font-semibold">
             <button
               onClick={handleSelectAll}
-              className="text-teal-600 hover:text-teal-800 transition-colors"
+              className="text-blue-600 hover:text-blue-800 transition-colors"
             >
               {selectedEmployees.length === filteredEmployees.length &&
               filteredEmployees.length > 0
@@ -600,7 +637,7 @@ export default function EmployeeLocationManagement() {
 
         {loading && employees.length === 0 ? (
           <div className="py-20 text-center space-y-3">
-            <RefreshCw className="w-8 h-8 text-teal-600 animate-spin mx-auto" />
+            <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
             <p className="text-sm font-semibold text-slate-700">
               Loading personnel locations...
             </p>
@@ -631,7 +668,7 @@ export default function EmployeeLocationManagement() {
                         filteredEmployees.length > 0
                       }
                       onChange={handleSelectAll}
-                      className="w-4 h-4 rounded text-teal-600 border-slate-300 focus:ring-teal-500"
+                      className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
                     />
                   </th>
                   <th className="px-6 py-3.5">Employee</th>
@@ -656,7 +693,7 @@ export default function EmployeeLocationManagement() {
                     <tr
                       key={employee._id}
                       className={`hover:bg-slate-50/80 transition-colors ${
-                        isSelected ? "bg-teal-50/40" : ""
+                        isSelected ? "bg-blue-50/40" : ""
                       }`}
                     >
                       <td className="px-6 py-4">
@@ -666,13 +703,13 @@ export default function EmployeeLocationManagement() {
                           onChange={() =>
                             handleLocationSelection(employee._id)
                           }
-                          className="w-4 h-4 rounded text-teal-600 border-slate-300 focus:ring-teal-500"
+                          className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
                         />
                       </td>
 
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                          <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
                             {name.charAt(0).toUpperCase()}
                           </div>
                           <div>
@@ -700,9 +737,9 @@ export default function EmployeeLocationManagement() {
                             employeeLocationList.map((location) => (
                               <span
                                 key={location._id}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 text-[11px] font-medium shadow-2xs"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-medium shadow-2xs"
                               >
-                                <MapPin className="w-3 h-3 text-teal-600 flex-shrink-0" />
+                                <MapPin className="w-3 h-3 text-blue-600 flex-shrink-0" />
                                 <span>{location.name}</span>
                                 <button
                                   type="button"
@@ -736,7 +773,7 @@ export default function EmployeeLocationManagement() {
                             setSelectedEmployee(employee);
                             setIsSetupModalOpen(true);
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 font-semibold text-xs transition-all"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs transition-all"
                           title="Configure Geofences & Locations"
                         >
                           <Settings className="w-3.5 h-3.5" />

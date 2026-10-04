@@ -191,6 +191,68 @@ export default function AttendanceReporting() {
     }
   };
 
+  const handleExportToCSV = () => {
+    if (!currentReport || !currentReport.records || currentReport.records.length === 0) {
+      showMessage("No records available to export", "error");
+      return;
+    }
+
+    try {
+      const headers = [
+        "Date",
+        "Employee Name",
+        "Employee ID",
+        "Email",
+        "Department",
+        "Check-In Time",
+        "Lunch-Out Time",
+        "Lunch-In Time",
+        "Check-Out Time",
+        "Effective Hours (Formatted)",
+        "Working Hours (Decimal)",
+        "Work Location",
+        "Face Verified",
+        "Approval Status",
+      ];
+
+      const rows = currentReport.records.map((r) => [
+        `"${r.date || ""}"`,
+        `"${(r.employeeName || "").replace(/"/g, '""')}"`,
+        `"${(r.employeeCode || r.employeeId || "").replace(/"/g, '""')}"`,
+        `"${(r.employeeEmail || "").replace(/"/g, '""')}"`,
+        `"${(r.department || "General").replace(/"/g, '""')}"`,
+        `"${r.checkInTime ? new Date(r.checkInTime).toLocaleTimeString() : "--:--"}"`,
+        `"${r.lunchOutTime ? new Date(r.lunchOutTime).toLocaleTimeString() : "--:--"}"`,
+        `"${r.lunchInTime ? new Date(r.lunchInTime).toLocaleTimeString() : "--:--"}"`,
+        `"${r.checkOutTime ? new Date(r.checkOutTime).toLocaleTimeString() : "--:--"}"`,
+        `"${r.formattedHours || formatWorkingHours(r)}"`,
+        r.workingHours !== undefined && r.workingHours !== null ? r.workingHours : "",
+        `"${(r.workLocationName || "—").replace(/"/g, '""')}"`,
+        `"${r.faceVerified ? "Verified" : "Standard"}"`,
+        `"${(r.approvalStatus || "approved").replace(/"/g, '""')}"`,
+      ]);
+
+      const csvContent =
+        "data:text/csv;charset=utf-8," +
+        [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute(
+        "download",
+        `attendance_report_${currentReport.startDate || "start"}_to_${currentReport.endDate || "end"}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showMessage("Report exported to CSV successfully", "success");
+    } catch (err) {
+      console.error("Error exporting to CSV:", err);
+      showMessage("Failed to export to CSV", "error");
+    }
+  };
+
   const clearCurrentReport = () => {
     setCurrentReport(null);
     setTableSearch("");
@@ -359,7 +421,7 @@ export default function AttendanceReporting() {
               <button
                 onClick={handleExportToExcel}
                 disabled={exporting}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all"
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all"
               >
                 {exporting ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -367,6 +429,14 @@ export default function AttendanceReporting() {
                   <Download className="w-3.5 h-3.5" />
                 )}
                 <span>Export to Excel</span>
+              </button>
+              <button
+                onClick={handleExportToCSV}
+                disabled={exporting}
+                className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
               </button>
               <button
                 onClick={clearCurrentReport}
@@ -412,7 +482,12 @@ export default function AttendanceReporting() {
             <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-100 text-center">
               <div className="text-xs text-amber-600 font-semibold uppercase">Avg Hours</div>
               <div className="text-xl sm:text-2xl font-bold text-amber-700 mt-1">
-                {currentReport.summary?.averageWorkingHours || "0.0"}h
+                {currentReport.summary?.averageWorkingHoursFormatted ||
+                  formatWorkingHours(currentReport.summary?.averageWorkingHours) ||
+                  "0h 0m"}
+              </div>
+              <div className="text-[10px] text-amber-600/80 font-medium mt-0.5">
+                Average across records
               </div>
             </div>
           </div>
@@ -446,58 +521,73 @@ export default function AttendanceReporting() {
               <table className="w-full text-xs text-left">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
-                    <th className="px-5 py-3.5">Date</th>
-                    <th className="px-5 py-3.5">Employee</th>
-                    <th className="px-5 py-3.5">Emp ID</th>
-                    <th className="px-5 py-3.5">Department</th>
-                    <th className="px-5 py-3.5">Check In</th>
-                    <th className="px-5 py-3.5">Check Out</th>
-                    <th className="px-5 py-3.5 text-center">Hours</th>
-                    <th className="px-5 py-3.5">Location</th>
-                    <th className="px-5 py-3.5 text-center">Verified</th>
+                    <th className="px-4 py-3.5">Date</th>
+                    <th className="px-4 py-3.5">Employee</th>
+                    <th className="px-4 py-3.5">Emp ID</th>
+                    <th className="px-4 py-3.5">Department</th>
+                    <th className="px-4 py-3.5">Check In</th>
+                    <th className="px-4 py-3.5">Lunch Out</th>
+                    <th className="px-4 py-3.5">Lunch In</th>
+                    <th className="px-4 py-3.5">Check Out</th>
+                    <th className="px-4 py-3.5 text-center">Hours Worked</th>
+                    <th className="px-4 py-3.5">Location</th>
+                    <th className="px-4 py-3.5 text-center">Verified</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {filteredRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-5 py-10 text-center text-slate-400">
+                      <td colSpan={11} className="px-5 py-10 text-center text-slate-400">
                         No records match the current report search filter.
                       </td>
                     </tr>
                   ) : (
                     paginatedRecords.map((r, i) => (
                       <tr key={r._id || i} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="px-5 py-3.5 whitespace-nowrap font-medium text-slate-900">
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-slate-900">
                           {formatDate(r.date)}
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td className="px-4 py-3.5">
                           <div className="font-bold text-slate-900">{r.employeeName}</div>
                           <div className="text-slate-400 text-[11px]">{r.employeeEmail}</div>
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap">
+                        <td className="px-4 py-3.5 whitespace-nowrap">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                             <IdCard className="w-3 h-3 text-slate-400" />
                             {r.employeeCode || r.employeeId || "EMP—"}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td className="px-4 py-3.5">
                           <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
                             {r.department || "General"}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap font-mono text-emerald-700 font-bold">
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono text-emerald-700 font-bold">
                           {formatTime(r.checkInTime)}
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap font-mono text-slate-600">
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono text-amber-700 font-medium">
+                          {r.lunchOutTime ? formatTime(r.lunchOutTime) : "—"}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono text-indigo-700 font-medium">
+                          {r.lunchInTime ? formatTime(r.lunchInTime) : "—"}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono text-slate-600 font-bold">
                           {formatTime(r.checkOutTime)}
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap text-center font-bold text-indigo-700">
-                          {formatWorkingHours(r)}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-bold text-indigo-700">
+                          <div>
+                            <span>{r.formattedHours || formatWorkingHours(r)}</span>
+                            {r.lunchOutTime && r.lunchInTime && (
+                              <span className="block text-[10px] text-emerald-600 font-normal">
+                                (Lunch deducted)
+                              </span>
+                            )}
+                          </div>
                         </td>
-                        <td className="px-5 py-3.5 text-slate-600">
+                        <td className="px-4 py-3.5 text-slate-600">
                           {r.workLocationName || "—"}
                         </td>
-                        <td className="px-5 py-3.5 text-center">
+                        <td className="px-4 py-3.5 text-center">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
                               r.faceVerified

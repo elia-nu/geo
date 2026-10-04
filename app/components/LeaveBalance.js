@@ -15,6 +15,7 @@ import {
   Users,
   CalendarDays,
 } from "lucide-react";
+import { formatYearsOfService } from "../utils/timeUtils";
 
 export default function LeaveBalance({
   employeeId,
@@ -342,8 +343,11 @@ export default function LeaveBalance({
               <p className="text-sm font-medium text-gray-600">
                 Years of Service
               </p>
-              <p className="text-2xl font-bold text-black">
-                {leaveBalance.yearsOfService || 0}
+              <p className="text-lg sm:text-xl font-bold text-black mt-0.5">
+                {formatYearsOfService(
+                  leaveBalance.yearsOfService,
+                  leaveBalance.employmentDate
+                )}
               </p>
             </div>
             <div className="bg-blue-100 p-3 rounded-lg">
@@ -606,8 +610,11 @@ export default function LeaveBalance({
             <p className="text-sm font-medium text-gray-600">
               Years of Service
             </p>
-            <p className="text-lg text-black">
-              {leaveBalance.yearsOfService || 0} years
+            <p className="text-lg font-semibold text-black">
+              {formatYearsOfService(
+                leaveBalance.yearsOfService,
+                leaveBalance.employmentDate
+              )}
             </p>
           </div>
 

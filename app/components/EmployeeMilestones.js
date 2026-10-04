@@ -10,13 +10,18 @@ import {
   TrendingUp,
   Users,
   Flag,
+  Search,
 } from "lucide-react";
+import Pagination from "./ui/Pagination";
 
 export default function EmployeeMilestones({ employeeId }) {
   const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all"); // all, pending, in_progress, completed, overdue
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   useEffect(() => {
     if (employeeId) {
@@ -135,17 +140,32 @@ export default function EmployeeMilestones({ employeeId }) {
   };
 
   const filteredMilestones = milestones.filter((milestone) => {
-    if (filter === "overdue") {
-      return isOverdue(milestone.dueDate, milestone.status);
+    if (filter === "overdue" && !isOverdue(milestone.dueDate, milestone.status)) {
+      return false;
     }
-    if (filter === "all") return true;
-    return milestone.status === filter;
+    if (filter !== "all" && filter !== "overdue" && milestone.status !== filter) {
+      return false;
+    }
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      const titleMatch = milestone.title?.toLowerCase().includes(q);
+      const descMatch = milestone.description?.toLowerCase().includes(q);
+      const projMatch = milestone.projectName?.toLowerCase().includes(q);
+      if (!titleMatch && !descMatch && !projMatch) return false;
+    }
+    return true;
   });
 
   // Sort milestones by due date
-  const sortedMilestones = filteredMilestones.sort((a, b) => {
+  const sortedMilestones = [...filteredMilestones].sort((a, b) => {
     return new Date(a.dueDate) - new Date(b.dueDate);
   });
+
+  const totalPages = Math.ceil(sortedMilestones.length / itemsPerPage) || 1;
+  const paginatedMilestones = sortedMilestones.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   if (loading) {
     return (
@@ -209,27 +229,46 @@ export default function EmployeeMilestones({ employeeId }) {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        {[
-          { key: "all", label: "All Milestones" },
-          { key: "not_started", label: "Not Started" },
-          { key: "in_progress", label: "In Progress" },
-          { key: "completed", label: "Completed" },
-          { key: "overdue", label: "Overdue" },
-        ].map((filterOption) => (
-          <button
-            key={filterOption.key}
-            onClick={() => setFilter(filterOption.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filter === filterOption.key
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            {filterOption.label}
-          </button>
-        ))}
+      {/* Search and Filters */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search milestones by title, description, or project..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: "all", label: "All Milestones" },
+            { key: "not_started", label: "Not Started" },
+            { key: "in_progress", label: "In Progress" },
+            { key: "completed", label: "Completed" },
+            { key: "overdue", label: "Overdue" },
+          ].map((filterOption) => (
+            <button
+              key={filterOption.key}
+              onClick={() => {
+                setFilter(filterOption.key);
+                setCurrentPage(1);
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                filter === filterOption.key
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              {filterOption.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Milestones List */}
@@ -240,14 +279,14 @@ export default function EmployeeMilestones({ employeeId }) {
             No milestones found
           </h3>
           <p className="text-gray-500">
-            {filter === "all"
+            {filter === "all" && !searchTerm
               ? "You don't have any milestones in your assigned projects."
-              : `No ${filter} milestones found.`}
+              : `No milestones found matching your criteria.`}
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {sortedMilestones.map((milestone) => (
+          {paginatedMilestones.map((milestone) => (
             <div
               key={milestone._id}
               className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
@@ -353,6 +392,22 @@ export default function EmployeeMilestones({ employeeId }) {
                 )}
             </div>
           ))}
+
+          {/* Pagination */}
+          <div className="border border-slate-200 bg-white rounded-2xl p-2 sm:p-3 shadow-sm">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredMilestones.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={(p) => setCurrentPage(p)}
+              onItemsPerPageChange={(sz) => {
+                setItemsPerPage(sz);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[5, 10, 20]}
+            />
+          </div>
         </div>
       )}
     </div>

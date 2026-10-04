@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
+import { formatYearsOfService } from "../../../../utils/timeUtils";
 
 // Export leave balances in various formats
 export async function POST(request) {
@@ -135,7 +136,10 @@ function generateCSV(leaveBalances) {
       balance.employmentDate
         ? new Date(balance.employmentDate).toLocaleDateString()
         : "",
-      balance.yearsOfService || 0,
+      formatYearsOfService(
+        balance.yearsOfService,
+        balance.employmentDate
+      ),
       annual.baseAllowance ?? 16,
       annual.seniorityBonus ?? 0,
       annual.yearlyAllowance ?? 16,

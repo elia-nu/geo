@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Camera, X, Download } from "lucide-react";
+import ImageWithLoading from "./ImageWithLoading";
 
 export default function AttendancePhotoViewer({ photoUrl, title, onClose }) {
   const [imageError, setImageError] = useState(false);
@@ -45,22 +46,14 @@ export default function AttendancePhotoViewer({ photoUrl, title, onClose }) {
           </div>
         </div>
 
-        <div className="p-4">
-          {imageError ? (
-            <div className="flex items-center justify-center h-64 bg-gray-100 rounded-lg">
-              <div className="text-center">
-                <Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500">Photo not available</p>
-              </div>
-            </div>
-          ) : (
-            <img
-              src={photoUrl}
-              alt={`${title} attendance photo`}
-              className="w-full h-auto max-h-[60vh] object-contain rounded-lg"
-              onError={() => setImageError(true)}
-            />
-          )}
+        <div className="p-4 flex items-center justify-center">
+          <ImageWithLoading
+            src={photoUrl}
+            alt={`${title} attendance photo`}
+            className="w-full h-auto max-h-[60vh] object-contain rounded-lg"
+            skeletonHeight="h-72"
+            fallbackText="Attendance photo could not be loaded"
+          />
         </div>
       </div>
     </div>

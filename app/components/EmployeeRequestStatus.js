@@ -18,6 +18,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
+import { formatWorkingHours } from "../utils/timeUtils";
 
 export default function EmployeeRequestStatus({ employeeId, employeeName }) {
   const [requests, setRequests] = useState([]);
@@ -68,8 +69,8 @@ export default function EmployeeRequestStatus({ employeeId, employeeName }) {
           endDate: ot.date,
           reason: ot.reason || "Overtime Work",
           description: ot.project
-            ? `Project: ${ot.project} | ${ot.requestedHours} hrs`
-            : `${ot.requestedHours} hrs`,
+            ? `Project: ${ot.project} | ${formatWorkingHours(ot.requestedHours)}`
+            : formatWorkingHours(ot.requestedHours),
           status: ot.status,
           approvedHours: ot.approvedHours,
           requestedHours: ot.requestedHours,
@@ -608,14 +609,14 @@ export default function EmployeeRequestStatus({ employeeId, employeeName }) {
                             <div className="flex items-center justify-between">
                               <span className="text-slate-500">Requested Hours:</span>
                               <span className="font-bold text-amber-700">
-                                {request.requestedHours || "--"} hrs
+                                {request.requestedHours ? formatWorkingHours(request.requestedHours) : "--"}
                               </span>
                             </div>
                             {request.approvedHours !== undefined && request.status === "approved" && (
                               <div className="flex items-center justify-between">
                                 <span className="text-slate-500">Approved Hours:</span>
                                 <span className="font-bold text-emerald-700">
-                                  {request.approvedHours} hrs
+                                  {formatWorkingHours(request.approvedHours)}
                                 </span>
                               </div>
                             )}

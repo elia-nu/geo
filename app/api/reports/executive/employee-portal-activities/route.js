@@ -70,16 +70,24 @@ export async function GET(request) {
         return "attendance";
       }
 
-      // Leave & Overtime
+      // Overtime (Dedicated Category - Orange)
+      if (
+        a.includes("OVERTIME") ||
+        t === "overtime_request" ||
+        t === "overtime_attendance" ||
+        t.includes("overtime")
+      ) {
+        return "overtime";
+      }
+
+      // Leave
       if (
         a.includes("LEAVE") ||
-        a.includes("OVERTIME") ||
         t === "leave_request" ||
-        t === "overtime_request" ||
         (t === "attendance_document" &&
           (ev.metadata?.leaveType || ev.metadata?.type === "leave"))
       ) {
-        return "leave_overtime";
+        return "leave";
       }
 
       // Documents & Excuses
@@ -159,7 +167,8 @@ export async function GET(request) {
       failedCount: 0,
       byActivity: {
         attendance: 0,
-        leave_overtime: 0,
+        leave: 0,
+        overtime: 0,
         documents: 0,
         security: 0,
         tasks: 0,

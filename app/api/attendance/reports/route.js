@@ -9,6 +9,7 @@ import {
   endOfMonth,
   parseISO,
 } from "date-fns";
+import { calculateEffectiveWorkingHours, formatWorkingHours } from "../../../utils/timeUtils.js";
 
 // Generate attendance reports (data only, no storage)
 export async function POST(request) {
@@ -142,6 +143,20 @@ export async function POST(request) {
         record.employee?.personalDetails?.employeeId ||
         (record.employee?._id ? record.employee._id.toString() : record.employeeId || "—");
 
+      // Calculate effective working hours deducting actual lunch duration
+      const effectiveHours = calculateEffectiveWorkingHours(
+        record.checkInTime,
+        record.checkOutTime,
+        record.lunchOutTime,
+        record.lunchInTime
+      );
+
+      const workingHours = typeof effectiveHours === "number"
+        ? effectiveHours
+        : (typeof record.workingHours === "number" ? record.workingHours : 0);
+
+      const formattedHours = formatWorkingHours(workingHours);
+
       return {
         _id: record._id,
         employeeId: empCode,
@@ -156,20 +171,23 @@ export async function POST(request) {
           record.employee?.department ||
           record.employee?.personalDetails?.department ||
           "",
-      date: record.date,
-      checkInTime: record.checkInTime,
-      checkOutTime: record.checkOutTime,
-      workingHours: record.workingHours,
-      workLocationName: record.workLocation?.name || "Unknown Location",
-      checkInLocation: includeLocationData ? record.checkInLocation : null,
-      checkOutLocation: includeLocationData ? record.checkOutLocation : null,
-      faceVerified: record.faceVerified,
-      checkInPhoto: includePhotos ? record.checkInPhoto : null,
-      checkOutPhoto: includePhotos ? record.checkOutPhoto : null,
-      checkInNotes: record.checkInNotes,
-      checkOutNotes: record.checkOutNotes,
-      adminApproval: record.adminApproval,
-      approvalStatus: record.adminApproval?.status || "pending",
+        date: record.date,
+        checkInTime: record.checkInTime,
+        checkOutTime: record.checkOutTime,
+        lunchOutTime: record.lunchOutTime || null,
+        lunchInTime: record.lunchInTime || null,
+        workingHours: workingHours,
+        formattedHours: formattedHours,
+        workLocationName: record.workLocation?.name || "Unknown Location",
+        checkInLocation: includeLocationData ? record.checkInLocation : null,
+        checkOutLocation: includeLocationData ? record.checkOutLocation : null,
+        faceVerified: record.faceVerified,
+        checkInPhoto: includePhotos ? record.checkInPhoto : null,
+        checkOutPhoto: includePhotos ? record.checkOutPhoto : null,
+        checkInNotes: record.checkInNotes,
+        checkOutNotes: record.checkOutNotes,
+        adminApproval: record.adminApproval,
+        approvalStatus: record.adminApproval?.status || "pending",
       };
     });
 
@@ -267,12 +285,17 @@ function generateDailyReport(records, startDate, endDate) {
       totalCheckIns,
       totalCheckOuts,
       totalWorkingHours: Math.round(totalWorkingHours * 100) / 100,
+      totalWorkingHoursFormatted: formatWorkingHours(totalWorkingHours),
       totalFaceVerified,
       totalLocationVerified,
       averageWorkingHours:
         records.length > 0
           ? Math.round((totalWorkingHours / records.length) * 100) / 100
           : 0,
+      averageWorkingHoursFormatted:
+        records.length > 0
+          ? formatWorkingHours(Math.round((totalWorkingHours / records.length) * 100) / 100)
+          : "0h 0m",
     },
     dailyStats: [
       {
@@ -327,12 +350,17 @@ function generateWeeklyReport(records, startDate, endDate) {
       totalCheckIns,
       totalCheckOuts,
       totalWorkingHours: Math.round(totalWorkingHours * 100) / 100,
+      totalWorkingHoursFormatted: formatWorkingHours(totalWorkingHours),
       totalFaceVerified,
       totalLocationVerified,
       averageWorkingHours:
         records.length > 0
           ? Math.round((totalWorkingHours / records.length) * 100) / 100
           : 0,
+      averageWorkingHoursFormatted:
+        records.length > 0
+          ? formatWorkingHours(Math.round((totalWorkingHours / records.length) * 100) / 100)
+          : "0h 0m",
     },
     weeklyStats: [
       {
@@ -392,12 +420,17 @@ function generateMonthlyReport(records, startDate, endDate) {
       totalCheckIns,
       totalCheckOuts,
       totalWorkingHours: Math.round(totalWorkingHours * 100) / 100,
+      totalWorkingHoursFormatted: formatWorkingHours(totalWorkingHours),
       totalFaceVerified,
       totalLocationVerified,
       averageWorkingHours:
         records.length > 0
           ? Math.round((totalWorkingHours / records.length) * 100) / 100
           : 0,
+      averageWorkingHoursFormatted:
+        records.length > 0
+          ? formatWorkingHours(Math.round((totalWorkingHours / records.length) * 100) / 100)
+          : "0h 0m",
     },
     monthlyStats: [
       {
@@ -458,12 +491,17 @@ function generateRandomReport(records, startDate, endDate) {
       totalCheckIns,
       totalCheckOuts,
       totalWorkingHours: Math.round(totalWorkingHours * 100) / 100,
+      totalWorkingHoursFormatted: formatWorkingHours(totalWorkingHours),
       totalFaceVerified,
       totalLocationVerified,
       averageWorkingHours:
         records.length > 0
           ? Math.round((totalWorkingHours / records.length) * 100) / 100
           : 0,
+      averageWorkingHoursFormatted:
+        records.length > 0
+          ? formatWorkingHours(Math.round((totalWorkingHours / records.length) * 100) / 100)
+          : "0h 0m",
     },
     records,
   };

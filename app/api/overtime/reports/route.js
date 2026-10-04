@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
-import { formatWorkingHours } from "../../../utils/timeUtils";
+import { formatWorkingHours, getEthiopianDate } from "../../../utils/timeUtils";
 
 // GET /api/overtime/reports - Aggregated Overtime Analytics with Detailed Session Logs
 export async function GET(request) {
@@ -73,6 +73,38 @@ export async function GET(request) {
     if (approvalStatus && approvalStatus !== "all") {
       attendanceQuery.adminApprovalStatus = approvalStatus;
       requestQuery.status = approvalStatus;
+    }
+
+    // Auto-close stale unclosed overtime sessions before calculating reports
+    const todayStr = getEthiopianDate();
+    const staleThreshold = new Date(Date.now() - 16 * 60 * 60 * 1000);
+    try {
+      await db.collection("overtime_attendance").updateMany(
+        {
+          status: "in-progress",
+          $or: [
+            { checkOutTime: { $exists: false } },
+            { checkOutTime: null }
+          ],
+          $or: [
+            { date: { $lt: todayStr } },
+            { checkInTime: { $lt: staleThreshold } }
+          ]
+        },
+        {
+          $set: {
+            status: "not-checked-out",
+            durationHours: 0,
+            durationMinutes: 0,
+            durationFormatted: "Not Checked Out (Admin to Handle)",
+            adminApprovalStatus: "admin_resolution_required",
+            autoClosedReason: "Employee did not check out. Admin resolution required.",
+            updatedAt: new Date(),
+          }
+        }
+      );
+    } catch (cleanupErr) {
+      console.warn("Reports overtime stale cleanup warning:", cleanupErr.message);
     }
 
     const [allRequests, allAttendance] = await Promise.all([

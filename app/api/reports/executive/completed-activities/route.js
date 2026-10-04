@@ -65,6 +65,7 @@ export async function GET(request) {
         : new Set([
             "attendance",
             "leave",
+            "overtime",
             "payroll",
             "documents",
             "projects",
@@ -77,6 +78,7 @@ export async function GET(request) {
       byModule: {
         attendance: 0,
         leave: 0,
+        overtime: 0,
         payroll: 0,
         documents: 0,
         projects: 0,
@@ -108,16 +110,23 @@ export async function GET(request) {
         return "attendance";
       }
 
-      // Leave & Overtime
+      // Overtime (Dedicated Category)
+      if (
+        t === "overtime_request" ||
+        t === "overtime_attendance" ||
+        t.includes("overtime") ||
+        action.includes("OVERTIME")
+      ) {
+        return "overtime";
+      }
+
+      // Leave
       if (
         t === "leave_request" ||
         t === "leave_balance" ||
         t === "leave" ||
-        t === "overtime_request" ||
         t.includes("leave") ||
-        t.includes("overtime") ||
         action.includes("LEAVE") ||
-        action.includes("OVERTIME") ||
         (t === "attendance_document" &&
           (ev.metadata?.leaveType ||
             ev.metadata?.documentType === "leave" ||

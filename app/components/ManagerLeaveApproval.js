@@ -19,6 +19,7 @@ import {
   TrendingUp,
   ChevronDown,
   Shield,
+  Loader2,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
 import { toast } from "./ui/toast";
@@ -34,6 +35,7 @@ export default function ManagerLeaveApproval({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -106,7 +108,7 @@ export default function ManagerLeaveApproval({
   };
 
   const submitApproval = async () => {
-    if (!selectedRequest || !approvalAction) return;
+    if (!selectedRequest || !approvalAction || submitting) return;
 
     if (approvalAction === "reject" && !approvalNotes.trim()) {
       showMessage("Please provide a reason for rejection", "error");
@@ -114,6 +116,7 @@ export default function ManagerLeaveApproval({
     }
 
     try {
+      setSubmitting(true);
       const response = await fetch("/api/leave/approval-routing/approve", {
         method: "POST",
         headers: {
@@ -143,6 +146,8 @@ export default function ManagerLeaveApproval({
     } catch (error) {
       console.error("Error submitting approval:", error);
       showMessage(`Failed to ${approvalAction} leave request`, "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -607,13 +612,21 @@ export default function ManagerLeaveApproval({
             <div className="flex items-center space-x-3">
               <button
                 onClick={submitApproval}
+                disabled={submitting}
                 className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 text-white rounded-lg transition-colors ${
-                  approvalAction === "approve"
+                  submitting
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : approvalAction === "approve"
                     ? "bg-green-600 hover:bg-green-700"
                     : "bg-red-600 hover:bg-red-700"
                 }`}
               >
-                {approvalAction === "approve" ? (
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : approvalAction === "approve" ? (
                   <>
                     <CheckCircle className="w-4 h-4" />
                     <span>Approve</span>
@@ -627,7 +640,8 @@ export default function ManagerLeaveApproval({
               </button>
               <button
                 onClick={() => setShowApprovalModal(false)}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                disabled={submitting}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

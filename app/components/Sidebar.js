@@ -270,6 +270,12 @@ const Sidebar = ({
           requiredPermission: "attendance.view",
         },
         {
+          id: "attendance-documents",
+          label: "Attendance Documents",
+          path: "/hrm?section=attendance-documents",
+          requiredPermission: "attendance.view",
+        },
+        {
           id: "attendance-reports",
           label: "Attendance Reports",
           path: "/hrm?section=attendance-reports",

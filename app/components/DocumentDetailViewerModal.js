@@ -25,6 +25,7 @@ import {
   Layers,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import ImageWithLoading from "./ImageWithLoading";
 
 export default function DocumentDetailViewerModal({
   isOpen,
@@ -290,12 +291,12 @@ export default function DocumentDetailViewerModal({
                     }}
                     className="flex items-center justify-center max-w-full max-h-full"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <ImageWithLoading
                       src={previewUrl}
                       alt={title}
                       className="max-h-[70vh] object-contain rounded-xl shadow-lg border border-slate-200 dark:border-slate-800"
-                      onError={() => setPreviewError(true)}
+                      skeletonHeight="h-72"
+                      fallbackText="Document preview could not be loaded"
                     />
                   </div>
                 </div>

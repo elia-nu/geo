@@ -35,7 +35,8 @@ import {
   List,
 } from "lucide-react";
 import AttendancePhotoViewer from "./AttendancePhotoViewer";
-import { formatWorkingHours } from "../utils/timeUtils";
+import ImageWithLoading from "./ImageWithLoading";
+import { formatWorkingHours, getEthiopianDate } from "../utils/timeUtils";
 import usePermissions from "../hooks/usePermissions";
 import Pagination from "./ui/Pagination";
 
@@ -298,8 +299,13 @@ export default function AdminOvertimeManagement() {
   // Open Attendance Review Modal
   const handleOpenAttendanceReview = (attendance, defaultAction = "approved") => {
     setSelectedAttendance(attendance);
-    setAttendanceReviewAction(defaultAction);
-    setApprovedAttendanceHours(attendance.durationHours || attendance.approvedHours || 0);
+    const action = attendance.adminApprovalStatus === "approved" || defaultAction === "view_details" ? "view_details" : defaultAction;
+    setAttendanceReviewAction(action);
+    setApprovedAttendanceHours(
+      attendance.approvedAttendanceHours !== undefined && attendance.approvedAttendanceHours !== null
+        ? attendance.approvedAttendanceHours
+        : (attendance.durationHours || attendance.approvedHours || 0)
+    );
     setAttendanceAdminNotes(attendance.adminNotes || "");
     setShowAttendanceReviewModal(true);
   };
@@ -621,10 +627,10 @@ export default function AdminOvertimeManagement() {
                       </td>
                       <td className="p-3.5 whitespace-nowrap">
                         <div className="text-xs">
-                          <span className="font-bold text-gray-900">{req.requestedHours} hrs</span>
+                          <span className="font-bold text-gray-900">{formatWorkingHours(req.requestedHours)}</span>
                           {req.status === "approved" && (
                             <span className="ml-1 text-green-700 font-bold bg-green-50 px-1.5 py-0.5 rounded text-[11px]">
-                              Appr: {req.approvedHours || req.requestedHours}h
+                              Appr: {formatWorkingHours(req.approvedHours || req.requestedHours)}
                             </span>
                           )}
                         </div>
@@ -664,30 +670,21 @@ export default function AdminOvertimeManagement() {
                             <Eye className="w-3.5 h-3.5" /> Details
                           </button>
 
-                          {canManageOvertime && (
-                            req.status === "pending" ? (
-                              <>
-                                <button
-                                  onClick={() => handleOpenApprovalModal(req, "approved")}
-                                  className="px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1"
-                                >
-                                  <Check className="w-3.5 h-3.5" /> Approve
-                                </button>
-                                <button
-                                  onClick={() => handleOpenApprovalModal(req, "rejected")}
-                                  className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1"
-                                >
-                                  <X className="w-3.5 h-3.5" /> Reject
-                                </button>
-                              </>
-                            ) : (
+                          {canManageOvertime && req.status === "pending" && (
+                            <>
                               <button
-                                onClick={() => handleOpenApprovalModal(req, req.status === "approved" ? "rejected" : "approved")}
-                                className="text-xs text-amber-700 hover:text-amber-900 underline font-semibold"
+                                onClick={() => handleOpenApprovalModal(req, "approved")}
+                                className="px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1"
                               >
-                                Edit Decision
+                                <Check className="w-3.5 h-3.5" /> Approve
                               </button>
-                            )
+                              <button
+                                onClick={() => handleOpenApprovalModal(req, "rejected")}
+                                className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1"
+                              >
+                                <X className="w-3.5 h-3.5" /> Reject
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -837,14 +834,30 @@ export default function AdminOvertimeManagement() {
                         {att.checkInTime ? new Date(att.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
                       </td>
                       <td className="p-3.5 font-mono text-xs text-gray-800 whitespace-nowrap">
-                        {att.checkOutTime ? new Date(att.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+                        {att.checkOutTime ? (
+                          new Date(att.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                        ) : att.status === "not-checked-out" || (att.date && att.date < getEthiopianDate()) ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" /> Missed Checkout
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                            <Timer className="w-3 h-3 animate-spin" /> In Progress
+                          </span>
+                        )}
                       </td>
                       <td className="p-3.5 whitespace-nowrap">
-                        <span className="font-extrabold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg text-xs border border-amber-200">
-                          {att.durationFormatted || `${att.durationHours || 0} hrs`}
-                        </span>
+                        {att.status === "not-checked-out" || (att.durationFormatted && att.durationFormatted.includes("Not Checked Out")) || (!att.checkOutTime && att.date && att.date < getEthiopianDate()) ? (
+                          <span className="font-extrabold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg text-xs border border-amber-300 inline-flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 text-amber-600" /> Not Checked Out
+                          </span>
+                        ) : (
+                          <span className="font-extrabold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg text-xs border border-amber-200">
+                            {att.durationFormatted || formatWorkingHours(att.durationHours || 0)}
+                          </span>
+                        )}
                         <span className="block text-[11px] text-gray-500 font-normal mt-0.5">
-                          Quota: {att.approvedHours || "--"} hrs
+                          Quota: {att.approvedHours ? formatWorkingHours(att.approvedHours) : "--"}
                         </span>
                       </td>
                       <td className="p-3.5 whitespace-nowrap">
@@ -892,7 +905,7 @@ export default function AdminOvertimeManagement() {
                             </span>
                             {att.approvedAttendanceHours !== undefined && (
                               <span className="block text-[11px] text-gray-600 font-bold mt-0.5">
-                                {att.approvedAttendanceHours} hrs credited
+                                {formatWorkingHours(att.approvedAttendanceHours)} credited
                               </span>
                             )}
                           </div>
@@ -914,12 +927,26 @@ export default function AdminOvertimeManagement() {
                         )}
                       </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
-                        {canManageOvertime && (
+                        {att.adminApprovalStatus === "approved" ? (
                           <button
-                            onClick={() => handleOpenAttendanceReview(att, att.adminApprovalStatus === "approved" ? "approved" : "approved")}
-                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all inline-flex items-center gap-1"
+                            onClick={() => handleOpenAttendanceReview(att, "view_details")}
+                            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-bold shadow-sm transition-all inline-flex items-center gap-1.5"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-blue-600" /> View Details
+                          </button>
+                        ) : canManageOvertime ? (
+                          <button
+                            onClick={() => handleOpenAttendanceReview(att, "approved")}
+                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all inline-flex items-center gap-1.5"
                           >
                             <ShieldCheck className="w-3.5 h-3.5" /> Review Attendance
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleOpenAttendanceReview(att, "view_details")}
+                            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-bold shadow-sm transition-all inline-flex items-center gap-1.5"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-blue-600" /> View Details
                           </button>
                         )}
                       </td>
@@ -930,7 +957,7 @@ export default function AdminOvertimeManagement() {
             </div>
           )}
 
-          {!attendanceLoading && (
+          {!loading && (
             <div className="border-t border-gray-100">
               <Pagination
                 currentPage={attendancePage}
@@ -957,10 +984,10 @@ export default function AdminOvertimeManagement() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
               <span className="text-xs font-semibold text-gray-500 uppercase">Total Overtime Hours</span>
               <div className="text-3xl font-extrabold text-amber-600 mt-1">
-                {reportData?.summary?.totalActualWorkedHours || 0} <span className="text-sm font-normal text-gray-500">hrs</span>
+                {reportData?.summary?.formattedTotalDuration || formatWorkingHours(reportData?.summary?.totalActualWorkedHours) || "0h 0m"}
               </div>
               <span className="text-xs text-gray-400 mt-1 block">
-                {reportData?.summary?.formattedTotalDuration || "0h 0m"} total logged
+                Total logged session duration
               </span>
             </div>
 
@@ -987,10 +1014,10 @@ export default function AdminOvertimeManagement() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
               <span className="text-xs font-semibold text-gray-500 uppercase">Approved Quota</span>
               <div className="text-3xl font-extrabold text-green-600 mt-1">
-                {reportData?.summary?.totalApprovedHours || 0} <span className="text-sm font-normal text-gray-500">hrs</span>
+                {formatWorkingHours(reportData?.summary?.totalApprovedHours || 0)}
               </div>
               <span className="text-xs text-gray-500 mt-1 block">
-                vs {reportData?.summary?.totalRequestedHours || 0} hrs requested
+                vs {formatWorkingHours(reportData?.summary?.totalRequestedHours || 0)} requested
               </span>
             </div>
           </div>
@@ -1314,6 +1341,10 @@ export default function AdminOvertimeManagement() {
                                     })}
                                   </span>
                                 </div>
+                              ) : session.status === "not-checked-out" || (session.durationFormatted && session.durationFormatted.includes("Not Checked Out")) || (session.date && session.date < getEthiopianDate()) ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                                  <AlertTriangle className="w-3 h-3 text-amber-600" /> Not Checked Out
+                                </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
                                   <Timer className="w-3 h-3 animate-spin" /> In Progress
@@ -1323,16 +1354,22 @@ export default function AdminOvertimeManagement() {
 
                             {/* Duration (Xh Ym) */}
                             <td className="p-3.5 whitespace-nowrap text-center">
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-xs">
-                                {session.durationFormatted || formatWorkingHours(session.durationHours)}
-                              </span>
+                              {session.status === "not-checked-out" || (session.durationFormatted && session.durationFormatted.includes("Not Checked Out")) || (!session.checkOutTime && session.date && session.date < getEthiopianDate()) ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-50 text-amber-800 font-bold text-xs border border-amber-300">
+                                  <AlertCircle className="w-3 h-3 text-amber-600" /> Not Checked Out
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-xs">
+                                  {session.durationFormatted || formatWorkingHours(session.durationHours)}
+                                </span>
+                              )}
                             </td>
 
                             {/* Approved Overtime Hours */}
                             <td className="p-3.5 whitespace-nowrap text-center">
                               {session.approvedAttendanceHours !== undefined && session.approvedAttendanceHours !== null ? (
                                 <span className="font-extrabold text-amber-700 text-xs">
-                                  {session.approvedAttendanceHours} hrs
+                                  {formatWorkingHours(session.approvedAttendanceHours)}
                                 </span>
                               ) : (
                                 <span className="text-gray-400 text-xs">—</span>
@@ -1383,7 +1420,7 @@ export default function AdminOvertimeManagement() {
                             {/* Action */}
                             <td className="p-3.5 text-right whitespace-nowrap">
                               <button
-                                onClick={() => handleOpenAttendanceReview(session, session.adminApprovalStatus === "approved" ? "approved" : "approved")}
+                                onClick={() => handleOpenAttendanceReview(session, "view_details")}
                                 className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1"
                               >
                                 <Eye className="w-3 h-3" /> Details
@@ -1447,14 +1484,14 @@ export default function AdminOvertimeManagement() {
                             </td>
                             <td className="p-3.5 text-gray-600 text-xs whitespace-nowrap">{emp.department}</td>
                             <td className="p-3.5 font-semibold text-gray-800 text-center">{emp.sessionsCount}</td>
-                            <td className="p-3.5 font-extrabold text-amber-700 text-center">{emp.totalDurationHours} hrs</td>
+                            <td className="p-3.5 font-extrabold text-amber-700 text-center">{emp.durationFormatted || formatWorkingHours(emp.totalDurationHours)}</td>
                             <td className="p-3.5 text-center">
                               <span className="px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-xs">
-                                {emp.durationFormatted}
+                                {emp.durationFormatted || formatWorkingHours(emp.totalDurationHours)}
                               </span>
                             </td>
                             <td className="p-3.5 text-center font-bold text-emerald-700 text-xs">
-                              {emp.approvedHoursTotal > 0 ? `${emp.approvedHoursTotal} hrs` : "—"}
+                              {emp.approvedHoursTotal > 0 ? formatWorkingHours(emp.approvedHoursTotal) : "—"}
                             </td>
                           </tr>
                         ))
@@ -1522,11 +1559,11 @@ export default function AdminOvertimeManagement() {
                 </div>
                 <div>
                   <span className="text-gray-500 block">Requested Hours:</span>
-                  <p className="font-bold text-gray-900">{viewRequestModal.requestedHours} hrs</p>
+                  <p className="font-bold text-gray-900">{formatWorkingHours(viewRequestModal.requestedHours)}</p>
                 </div>
                 <div>
                   <span className="text-gray-500 block">Approved Hours:</span>
-                  <p className="font-bold text-green-700">{viewRequestModal.approvedHours !== null && viewRequestModal.approvedHours !== undefined ? `${viewRequestModal.approvedHours} hrs` : "--"}</p>
+                  <p className="font-bold text-green-700">{viewRequestModal.approvedHours !== null && viewRequestModal.approvedHours !== undefined ? formatWorkingHours(viewRequestModal.approvedHours) : "--"}</p>
                 </div>
               </div>
 
@@ -1596,7 +1633,7 @@ export default function AdminOvertimeManagement() {
                 <strong className="text-gray-700">Date:</strong> {selectedRequest.date} ({selectedRequest.startTime || "Start"} to {selectedRequest.endTime || "End"})
               </p>
               <p>
-                <strong className="text-gray-700">Requested Hours:</strong> {selectedRequest.requestedHours} hrs
+                <strong className="text-gray-700">Requested Hours:</strong> {formatWorkingHours(selectedRequest.requestedHours)}
               </p>
               <p>
                 <strong className="text-gray-700">Reason:</strong> {selectedRequest.reason}
@@ -1668,11 +1705,19 @@ export default function AdminOvertimeManagement() {
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-amber-600" />
-                  Overtime Attendance Review & Verification
+                  {selectedAttendance.adminApprovalStatus === "approved" || attendanceReviewAction === "view_details" ? (
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <ShieldCheck className="w-5 h-5 text-amber-600" />
+                  )}
+                  {selectedAttendance.adminApprovalStatus === "approved" || attendanceReviewAction === "view_details"
+                    ? "Overtime Attendance Details"
+                    : "Overtime Attendance Review & Verification"}
                 </h3>
                 <p className="text-xs text-gray-500">
-                  Inspect time taken, GPS location, and facial photo proofs to approve or reject overtime attendance.
+                  {selectedAttendance.adminApprovalStatus === "approved" || attendanceReviewAction === "view_details"
+                    ? "Verified overtime session proofs, time worked, and approved payroll quota."
+                    : "Inspect time taken, GPS location, and facial photo proofs to approve or reject overtime attendance."}
                 </p>
               </div>
               <button onClick={() => setShowAttendanceReviewModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -1693,7 +1738,7 @@ export default function AdminOvertimeManagement() {
               <div className="text-right">
                 <span className="text-xs text-amber-800 block font-semibold">Total Time Taken / Worked:</span>
                 <span className="text-xl font-extrabold text-amber-900">
-                  {selectedAttendance.durationFormatted || `${selectedAttendance.durationHours || 0} hrs`}
+                  {selectedAttendance.durationFormatted || formatWorkingHours(selectedAttendance.durationHours || 0)}
                 </span>
               </div>
             </div>
@@ -1718,10 +1763,11 @@ export default function AdminOvertimeManagement() {
                       setSelectedPhoto(selectedAttendance.checkInPhoto);
                       setShowPhotoViewer(true);
                     }}>
-                      <img
+                      <ImageWithLoading
                         src={selectedAttendance.checkInPhoto}
                         alt="Check-in Photo"
                         className="w-full h-36 object-cover rounded-lg border border-gray-200 shadow-sm"
+                        skeletonHeight="h-36"
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all rounded-lg flex items-center justify-center text-white text-xs font-bold gap-1">
                         <Eye className="w-4 h-4" /> Click to Enlarge
@@ -1771,10 +1817,11 @@ export default function AdminOvertimeManagement() {
                       setSelectedPhoto(selectedAttendance.checkOutPhoto);
                       setShowPhotoViewer(true);
                     }}>
-                      <img
+                      <ImageWithLoading
                         src={selectedAttendance.checkOutPhoto}
                         alt="Check-out Photo"
                         className="w-full h-36 object-cover rounded-lg border border-gray-200 shadow-sm"
+                        skeletonHeight="h-36"
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all rounded-lg flex items-center justify-center text-white text-xs font-bold gap-1">
                         <Eye className="w-4 h-4" /> Click to Enlarge
@@ -1807,96 +1854,154 @@ export default function AdminOvertimeManagement() {
               </div>
             </div>
 
-            {/* Admin Decision Action Area */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-              <span className="text-xs font-bold text-gray-800 uppercase block">
-                Admin Overtime Attendance Decision
-              </span>
+            {/* If already approved, show verified details summary card instead of decision form */}
+            {selectedAttendance.adminApprovalStatus === "approved" || attendanceReviewAction === "view_details" ? (
+              <div className="bg-emerald-50/80 p-4 rounded-xl border border-emerald-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 bg-emerald-100 rounded-lg text-emerald-700">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </span>
+                    <div>
+                      <span className="text-xs font-bold text-emerald-900 uppercase tracking-wide block">
+                        Attendance Verified &amp; Approved
+                      </span>
+                      <span className="text-[11px] text-emerald-700">
+                        Credited to employee for payroll calculation
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-emerald-800 font-semibold block">Verified Quota Credited:</span>
+                    <span className="text-xl font-extrabold text-emerald-900">
+                      {selectedAttendance.approvedAttendanceHours !== undefined && selectedAttendance.approvedAttendanceHours !== null
+                        ? formatWorkingHours(selectedAttendance.approvedAttendanceHours)
+                        : formatWorkingHours(selectedAttendance.durationHours || 0)}
+                    </span>
+                  </div>
+                </div>
 
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setAttendanceReviewAction("approved")}
-                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
-                    attendanceReviewAction === "approved"
-                      ? "bg-green-600 text-white border-green-600 shadow-md"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                  }`}
-                >
-                  <CheckCircle className="w-4 h-4" /> Approve Attendance
-                </button>
+                {selectedAttendance.adminNotes && (
+                  <div className="bg-white p-3 rounded-lg border border-emerald-200 text-xs text-gray-800">
+                    <strong className="text-emerald-800">Admin Verification Notes: </strong>
+                    {selectedAttendance.adminNotes}
+                  </div>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setAttendanceReviewAction("rejected")}
-                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
-                    attendanceReviewAction === "rejected"
-                      ? "bg-red-600 text-white border-red-600 shadow-md"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                  }`}
-                >
-                  <XCircle className="w-4 h-4" /> Reject Attendance
-                </button>
+                {(selectedAttendance.reviewedAt || selectedAttendance.adminReviewedAt || selectedAttendance.approvedAt) && (
+                  <div className="text-[11px] text-emerald-700 pt-2 border-t border-emerald-200/60 flex items-center justify-between">
+                    <span>
+                      Approved on: {new Date(selectedAttendance.reviewedAt || selectedAttendance.adminReviewedAt || selectedAttendance.approvedAt).toLocaleString()}
+                    </span>
+                    <span>
+                      Reviewed by: {selectedAttendance.reviewedBy || selectedAttendance.adminReviewedBy || selectedAttendance.approvedBy || "Admin"}
+                    </span>
+                  </div>
+                )}
               </div>
+            ) : (
+              /* Admin Decision Action Area (only when reviewing) */
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <span className="text-xs font-bold text-gray-800 uppercase block">
+                  Admin Overtime Attendance Decision
+                </span>
 
-              {attendanceReviewAction === "approved" && (
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceReviewAction("approved")}
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
+                      attendanceReviewAction === "approved"
+                        ? "bg-green-600 text-white border-green-600 shadow-md"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    }`}
+                  >
+                    <CheckCircle className="w-4 h-4" /> Approve Attendance
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceReviewAction("rejected")}
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
+                      attendanceReviewAction === "rejected"
+                        ? "bg-red-600 text-white border-red-600 shadow-md"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    }`}
+                  >
+                    <XCircle className="w-4 h-4" /> Reject Attendance
+                  </button>
+                </div>
+
+                {attendanceReviewAction === "approved" && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Verified Overtime Hours to Credit for Payroll *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="24"
+                      value={approvedAttendanceHours}
+                      onChange={(e) => setApprovedAttendanceHours(parseFloat(e.target.value) || 0)}
+                      className="w-full text-sm border border-gray-300 rounded-lg p-2.5 text-gray-900 focus:ring-2 focus:ring-amber-500 bg-white"
+                    />
+                    <span className="text-[11px] text-gray-500 mt-1 block">
+                      Actual calculated duration worked: <strong>{selectedAttendance.durationFormatted || formatWorkingHours(selectedAttendance.durationHours || 0)}</strong>
+                    </span>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Verified Overtime Hours to Credit for Payroll *
+                    {attendanceReviewAction === "approved" ? "Admin / Supervisor Verification Notes (Optional)" : "Rejection Reason / Discrepancy Notes *"}
                   </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="24"
-                    value={approvedAttendanceHours}
-                    onChange={(e) => setApprovedAttendanceHours(parseFloat(e.target.value) || 0)}
+                  <textarea
+                    rows={2}
+                    placeholder={
+                      attendanceReviewAction === "approved"
+                        ? "e.g. Photo and location verified, approved for payroll calculation."
+                        : "e.g. Invalid photo, or employee was outside geofence during work session."
+                    }
+                    value={attendanceAdminNotes}
+                    onChange={(e) => setAttendanceAdminNotes(e.target.value)}
                     className="w-full text-sm border border-gray-300 rounded-lg p-2.5 text-gray-900 focus:ring-2 focus:ring-amber-500 bg-white"
                   />
-                  <span className="text-[11px] text-gray-500 mt-1 block">
-                    Actual calculated duration worked: <strong>{selectedAttendance.durationFormatted || `${selectedAttendance.durationHours || 0} hrs`}</strong>
-                  </span>
                 </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  {attendanceReviewAction === "approved" ? "Admin / Supervisor Verification Notes (Optional)" : "Rejection Reason / Discrepancy Notes *"}
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder={
-                    attendanceReviewAction === "approved"
-                      ? "e.g. Photo and location verified, approved for payroll calculation."
-                      : "e.g. Invalid photo, or employee was outside geofence during work session."
-                  }
-                  value={attendanceAdminNotes}
-                  onChange={(e) => setAttendanceAdminNotes(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-lg p-2.5 text-gray-900 focus:ring-2 focus:ring-amber-500 bg-white"
-                />
               </div>
-            </div>
+            )}
 
             {/* Modal Actions */}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-              <button
-                onClick={() => setShowAttendanceReviewModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmitAttendanceReview}
-                disabled={actionLoading}
-                className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-md flex items-center gap-1.5 transition-all ${
-                  attendanceReviewAction === "approved"
-                    ? "bg-green-600 hover:bg-green-700 shadow-green-600/20"
-                    : "bg-red-600 hover:bg-red-700 shadow-red-600/20"
-                }`}
-              >
-                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Confirm Attendance {attendanceReviewAction === "approved" ? "Approval" : "Rejection"}
-              </button>
+              {selectedAttendance.adminApprovalStatus === "approved" || attendanceReviewAction === "view_details" ? (
+                <button
+                  onClick={() => setShowAttendanceReviewModal(false)}
+                  className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                >
+                  Close
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowAttendanceReviewModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmitAttendanceReview}
+                    disabled={actionLoading}
+                    className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-md flex items-center gap-1.5 transition-all ${
+                      attendanceReviewAction === "approved"
+                        ? "bg-green-600 hover:bg-green-700 shadow-green-600/20"
+                        : "bg-red-600 hover:bg-red-700 shadow-red-600/20"
+                    }`}
+                  >
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Confirm Attendance {attendanceReviewAction === "approved" ? "Approval" : "Rejection"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

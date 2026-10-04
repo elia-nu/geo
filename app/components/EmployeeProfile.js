@@ -20,6 +20,7 @@ import {
   Loader2,
   CreditCard,
 } from "lucide-react";
+import { formatYearsOfService } from "../utils/timeUtils";
 
 export default function EmployeeProfile({ employeeData, workLocations = [] }) {
   const [passwordForm, setPasswordForm] = useState({
@@ -239,18 +240,28 @@ export default function EmployeeProfile({ employeeData, workLocations = [] }) {
               </div>
 
               {empJoinDate && (
-                <div className="p-3.5 bg-gray-50/80 rounded-xl border border-gray-100 sm:col-span-2">
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-1">
-                    Joining Date
-                  </span>
-                  <p className="font-semibold text-gray-900">
-                    {new Date(empJoinDate).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </p>
-                </div>
+                <>
+                  <div className="p-3.5 bg-gray-50/80 rounded-xl border border-gray-100">
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-1">
+                      Joining Date
+                    </span>
+                    <p className="font-semibold text-gray-900">
+                      {new Date(empJoinDate).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <div className="p-3.5 bg-blue-50/60 rounded-xl border border-blue-100">
+                    <span className="text-xs font-medium text-blue-700 uppercase tracking-wider block mb-1">
+                      Years of Service
+                    </span>
+                    <p className="font-bold text-blue-950">
+                      {formatYearsOfService(empJoinDate)}
+                    </p>
+                  </div>
+                </>
               )}
             </div>
           </div>

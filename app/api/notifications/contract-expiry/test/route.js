@@ -59,10 +59,7 @@ export async function GET(request) {
         (expiryDate - today) / (1000 * 60 * 60 * 24)
       );
 
-      const shouldNotify =
-        (daysUntilExpiry >= 13 && daysUntilExpiry <= 15) ||
-        (daysUntilExpiry <= 0 && daysUntilExpiry >= -7) ||
-        (daysUntilExpiry >= 0 && daysUntilExpiry <= 7);
+      const shouldNotify = (daysUntilExpiry <= 30 && daysUntilExpiry >= -60);
 
       return {
         employeeId: employee._id.toString(),

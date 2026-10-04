@@ -14,6 +14,8 @@ import {
   Eye,
   Edit,
   Save,
+  Settings,
+  History,
   X,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
@@ -30,14 +32,15 @@ export default function AdminLeaveBalanceManagement() {
   const [messageType, setMessageType] = useState("info");
   const [departments, setDepartments] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [showSetBalanceModal, setShowSetBalanceModal] = useState(false);
+  const [setBalanceData, setSetBalanceData] = useState({ days: 16, reason: "" });
+  const [balanceSubmitting, setBalanceSubmitting] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedLeaveType, setSelectedLeaveType] = useState(null);
-  const [adjustmentData, setAdjustmentData] = useState({
-    leaveType: "annual",
-    days: 0,
-    reason: "",
-  });
+  const [showAdjustmentLog, setShowAdjustmentLog] = useState(false);
+  const [adjustmentLogEmployee, setAdjustmentLogEmployee] = useState(null);
+  const [adjustmentHistory, setAdjustmentHistory] = useState([]);
+  const [adjustmentHistoryLoading, setAdjustmentHistoryLoading] = useState(false);
   const [filters, setFilters] = useState({
     department: "",
     lowBalance: false,
@@ -120,45 +123,74 @@ export default function AdminLeaveBalanceManagement() {
     }, 5000);
   };
 
-  const handleAdjustment = async () => {
-    if (
-      !selectedEmployee ||
-      !adjustmentData.reason
-    ) {
-      showMessage("Please fill in all required fields", "error");
+  const handleSetBalance = async () => {
+    if (!selectedEmployee || setBalanceData.days === undefined || setBalanceData.days === "" || !setBalanceData.reason.trim()) {
+      showMessage("Please enter the leave balance days and a reason", "error");
+      return;
+    }
+    const daysNum = Number(setBalanceData.days);
+    if (isNaN(daysNum) || daysNum < 0) {
+      showMessage("Leave balance days must be a number greater than or equal to 0", "error");
       return;
     }
 
+    setBalanceSubmitting(true);
     try {
       const response = await fetch("/api/leave/balances/realtime", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: selectedEmployee.employeeId,
-          action: "adjust",
-          leaveType: "annual",
-          days: adjustmentData.days,
-          reason: adjustmentData.reason,
+          action: "set_starting_balance",
+          days: daysNum,
+          reason: setBalanceData.reason,
           adminId: "admin",
         }),
       });
-
       const result = await response.json();
-
       if (result.success) {
-        showMessage("Annual leave balance adjusted successfully", "success");
-        setShowAdjustmentModal(false);
-        setAdjustmentData({ leaveType: "annual", days: 0, reason: "" });
+        showMessage(`Annual leave balance set to ${daysNum} days for ${selectedEmployee.employee?.name || "Employee"}`, "success");
+        setShowSetBalanceModal(false);
+        setSetBalanceData({ days: 16, reason: "" });
         setSelectedEmployee(null);
         fetchLeaveBalances();
       } else {
-        showMessage(result.error || "Failed to adjust leave balance", "error");
+        showMessage(result.error || "Failed to set leave balance", "error");
       }
     } catch (error) {
-      console.error("Error adjusting leave balance:", error);
-      showMessage("Failed to adjust leave balance", "error");
+      console.error("Error setting leave balance:", error);
+      showMessage("Failed to set leave balance", "error");
+    } finally {
+      setBalanceSubmitting(false);
+    }
+  };
+
+  const fetchAdjustmentHistory = async (employeeId) => {
+    setAdjustmentHistoryLoading(true);
+    try {
+      const response = await fetch(`/api/leave/balances/history?employeeId=${employeeId}`);
+      const result = await response.json();
+      if (result.success && result.data) {
+        const list = Array.isArray(result.data.history)
+          ? result.data.history
+          : Array.isArray(result.data.adjustments)
+          ? result.data.adjustments
+          : Array.isArray(result.data)
+          ? result.data
+          : Array.isArray(result.history)
+          ? result.history
+          : [];
+        setAdjustmentHistory(list);
+      } else if (Array.isArray(result.data)) {
+        setAdjustmentHistory(result.data);
+      } else {
+        setAdjustmentHistory([]);
+      }
+    } catch (error) {
+      console.error("Error fetching adjustment history:", error);
+      setAdjustmentHistory([]);
+    } finally {
+      setAdjustmentHistoryLoading(false);
     }
   };
 
@@ -318,7 +350,7 @@ export default function AdminLeaveBalanceManagement() {
         <div className="mt-4 flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-800 text-xs font-medium">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Live sync enabled • 16 Days Standard Annual Leave</span>
+            <span>Live sync enabled • Annual Leave Entitlements</span>
           </div>
           <div>{totalItems} employees monitored</div>
         </div>
@@ -410,6 +442,7 @@ export default function AdminLeaveBalanceManagement() {
               <p className="text-2xl font-black text-gray-900 mt-1">
                 {totalItems}
               </p>
+              <p className="text-xs text-gray-400 mt-1">Active staff records</p>
             </div>
             <div className="p-2.5 bg-blue-50 rounded-xl">
               <Users className="w-5 h-5 text-blue-600" />
@@ -426,6 +459,7 @@ export default function AdminLeaveBalanceManagement() {
               <p className="text-2xl font-black text-gray-900 mt-1">
                 {lowCount}
               </p>
+              <p className="text-xs text-red-500 font-medium mt-1">≤ 4 days remaining</p>
             </div>
             <div className="p-2.5 bg-red-50 rounded-xl">
               <AlertCircle className="w-5 h-5 text-red-600" />
@@ -442,6 +476,7 @@ export default function AdminLeaveBalanceManagement() {
               <p className="text-2xl font-black text-gray-900 mt-1">
                 {mediumCount}
               </p>
+              <p className="text-xs text-amber-600 font-medium mt-1">5 – 10 days remaining</p>
             </div>
             <div className="p-2.5 bg-amber-50 rounded-xl">
               <TrendingUp className="w-5 h-5 text-amber-600" />
@@ -458,6 +493,7 @@ export default function AdminLeaveBalanceManagement() {
               <p className="text-2xl font-black text-gray-900 mt-1">
                 {totalUsedDays}
               </p>
+              <p className="text-xs text-gray-400 mt-1">Total approved leaves</p>
             </div>
             <div className="p-2.5 bg-slate-100 rounded-xl">
               <TrendingDown className="w-5 h-5 text-slate-600" />
@@ -476,7 +512,7 @@ export default function AdminLeaveBalanceManagement() {
             </h3>
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-100">
-            Standard 16 Days Entitlement
+            Annual Leave Entitlements
           </span>
         </div>
 
@@ -491,7 +527,7 @@ export default function AdminLeaveBalanceManagement() {
                   Department
                 </th>
                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wider min-w-[240px]">
-                  Annual Leave Balance (16 Days)
+                  Annual Leave Balance
                 </th>
                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                   Status
@@ -530,7 +566,16 @@ export default function AdminLeaveBalanceManagement() {
                   const available = annual.available ?? 16;
                   const used = annual.used ?? 0;
                   const pending = annual.pending ?? 0;
-                  const usagePct = Math.round((used / 16) * 100);
+                  const totalEntitlement = Math.max(
+                    annual.yearlyAllowance || 16,
+                    annual.totalEarned || 16,
+                    annual.baseAllowance || 16,
+                    available + used
+                  );
+                  const usagePct =
+                    totalEntitlement > 0
+                      ? Math.round((used / totalEntitlement) * 100)
+                      : 0;
 
                   const status =
                     available <= 4
@@ -563,7 +608,7 @@ export default function AdminLeaveBalanceManagement() {
                             Annual:
                           </span>
                           <span className="bg-white px-2 py-0.5 rounded-lg font-bold text-emerald-700 border border-emerald-200/60 shadow-xs text-xs">
-                            {available} / 16 Days
+                            {available} / {totalEntitlement} Days
                           </span>
                           {used > 0 && (
                             <span className="text-amber-800 text-xs font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/50">
@@ -605,13 +650,30 @@ export default function AdminLeaveBalanceManagement() {
                             <button
                               onClick={() => {
                                 setSelectedEmployee(employee);
-                                setSelectedLeaveType("annual");
-                                setShowAdjustmentModal(true);
+                                const currentAvail = employee.balances?.annual?.available ?? 16;
+                                setSetBalanceData({
+                                  days: currentAvail,
+                                  reason: "",
+                                });
+                                setShowSetBalanceModal(true);
                               }}
-                              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                              title="Adjust Annual Leave"
+                              className="p-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                              title="Set Leave Balance"
                             >
-                              <Edit className="w-4 h-4" />
+                              <Settings className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canManageLeave && (
+                            <button
+                              onClick={() => {
+                                setAdjustmentLogEmployee(employee);
+                                fetchAdjustmentHistory(employee.employeeId || employee._id || employee.id);
+                                setShowAdjustmentLog(true);
+                              }}
+                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                              title="View History Log"
+                            >
+                              <History className="w-4 h-4" />
                             </button>
                           )}
                           {canViewLeave && (
@@ -633,7 +695,7 @@ export default function AdminLeaveBalanceManagement() {
                                 recalculateBalance(employee.employeeId)
                               }
                               className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                              title="Recalculate"
+                              title="Recalculate Accruals"
                             >
                               <RefreshCw className="w-4 h-4" />
                             </button>
@@ -663,111 +725,6 @@ export default function AdminLeaveBalanceManagement() {
         />
       </div>
 
-      {/* Adjustment Modal */}
-      {showAdjustmentModal && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg border border-gray-100">
-            <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <Edit className="w-5 h-5 text-blue-600" />
-                Adjust Annual Leave Balance
-              </h3>
-              <button
-                onClick={() => setShowAdjustmentModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Employee
-                </label>
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="font-medium text-black">
-                    {selectedEmployee.employee?.name || "Unknown"}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {selectedEmployee.employee?.email || ""}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Leave Type
-                </label>
-                <select
-                  value={adjustmentData.leaveType}
-                  onChange={(e) =>
-                    setAdjustmentData({
-                      ...adjustmentData,
-                      leaveType: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="annual">Annual Leave</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Days to Adjust
-                </label>
-                <input
-                  type="number"
-                  value={adjustmentData.days}
-                  onChange={(e) =>
-                    setAdjustmentData({
-                      ...adjustmentData,
-                      days: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter positive or negative number"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason
-                </label>
-                <textarea
-                  value={adjustmentData.reason}
-                  onChange={(e) =>
-                    setAdjustmentData({
-                      ...adjustmentData,
-                      reason: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows="3"
-                  placeholder="Enter reason for adjustment"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 mt-6">
-              <button
-                onClick={() => setShowAdjustmentModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAdjustment}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                Save Adjustment
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* View Balances Modal */}
       {showViewModal && selectedEmployee && (
@@ -849,6 +806,301 @@ export default function AdminLeaveBalanceManagement() {
               <button
                 onClick={() => setShowViewModal(false)}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Set Annual Leave Balance Modal */}
+      {showSetBalanceModal && selectedEmployee && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg border border-gray-100">
+            <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-blue-600" />
+                Set Annual Leave Balance
+              </h3>
+              <button
+                onClick={() => setShowSetBalanceModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Employee
+                </label>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="font-bold text-gray-900 text-sm">
+                    {selectedEmployee.employee?.name || selectedEmployee.employeeName || "Employee"}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
+                    <span>{selectedEmployee.employee?.department || "No Department"}</span>
+                    <span>•</span>
+                    <span>Current Available: <strong>{selectedEmployee.balances?.annual?.available ?? 16} Days</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-1">
+                  Annual Leave Allowance (Days)
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Enter the exact total number of leave days this employee has.
+                </p>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={setBalanceData.days}
+                  onChange={(e) =>
+                    setSetBalanceData({
+                      ...setBalanceData,
+                      days: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. 34"
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl bg-white text-gray-900 font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-xs"
+                />
+              </div>
+
+              {/* Live Preview Card */}
+              {(() => {
+                const currentAvail = selectedEmployee.balances?.annual?.available ?? 16;
+                const newDays = setBalanceData.days === "" ? null : Number(setBalanceData.days);
+                const isValid = newDays !== null && !isNaN(newDays) && newDays >= 0;
+
+                return (
+                  <div className="space-y-3">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+                      <div className="flex justify-between items-center text-xs text-slate-600">
+                        <span className="font-medium">Current Balance:</span>
+                        <span className="font-bold text-slate-800 bg-white px-2.5 py-1 rounded border border-slate-200">
+                          {currentAvail} Days
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-slate-600">
+                        <span className="font-medium">New Total Entitlement:</span>
+                        <span className="font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded">
+                          {isValid ? `${newDays} / ${newDays} Days` : "-"}
+                        </span>
+                      </div>
+                      <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs">
+                        <span className="font-semibold text-slate-800">Resulting Available Balance:</span>
+                        <span className="font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                          {isValid ? `${newDays} Days Available` : "-"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {!isValid && (
+                      <div className="flex items-center gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 font-medium">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                        <span>Please enter a valid number of days (0 or greater).</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-1">
+                  Reason for Setting Balance <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={setBalanceData.reason}
+                  onChange={(e) =>
+                    setSetBalanceData({
+                      ...setBalanceData,
+                      reason: e.target.value,
+                    })
+                  }
+                  className="w-full px-3.5 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-xs text-sm"
+                  rows="3"
+                  placeholder="e.g., Starting balance upon joining / annual entitlement confirmation"
+                />
+                {!setBalanceData.reason.trim() && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    A brief reason is required for administrative audit logs.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowSetBalanceModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors"
+                disabled={balanceSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSetBalance}
+                disabled={
+                  balanceSubmitting ||
+                  setBalanceData.days === "" ||
+                  isNaN(Number(setBalanceData.days)) ||
+                  Number(setBalanceData.days) < 0 ||
+                  !setBalanceData.reason.trim()
+                }
+                className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors shadow-sm"
+              >
+                {balanceSubmitting ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Set Leave Balance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leave Balance History Modal */}
+      {showAdjustmentLog && adjustmentLogEmployee && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col border border-gray-100">
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <History className="w-5 h-5 text-purple-600" />
+                  Leave Balance History
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Audit history for {adjustmentLogEmployee.employee?.name || adjustmentLogEmployee.employeeName || "Employee"}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAdjustmentLog(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto border border-gray-200 rounded-xl flex-grow">
+              <table className="min-w-full relative">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Action</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Balance Set</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Previous &rarr; New</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Reason</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Admin</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {adjustmentHistoryLoading ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto text-purple-600 mb-2" />
+                        Loading history...
+                      </td>
+                    </tr>
+                  ) : !Array.isArray(adjustmentHistory) || adjustmentHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                        No balance history found.
+                      </td>
+                    </tr>
+                  ) : (
+                    adjustmentHistory
+                      .filter((log) => {
+                        const act = (log.action || log.type || "").toLowerCase();
+                        if (act.includes("recalculate")) return false;
+                        const changeVal = log.adjustment ?? log.details?.adjustment ?? 0;
+                        if (
+                          changeVal === 0 &&
+                          log.previousBalance === undefined &&
+                          log.newBalance === undefined &&
+                          log.type !== "starting_balance_set" &&
+                          log.type !== "set_balance"
+                        ) {
+                          return false;
+                        }
+                        return true;
+                      })
+                      .map((log, idx) => {
+                        const changeVal = log.adjustment ?? log.details?.adjustment ?? 0;
+                        let prevVal = log.previousBalance ?? log.details?.previousBalance;
+                        let newVal = log.newBalance ?? log.details?.newBalance ?? log.balanceSet;
+
+                        if (prevVal === undefined && newVal !== undefined) {
+                          prevVal = newVal - changeVal;
+                        } else if (newVal === undefined && prevVal !== undefined) {
+                          newVal = prevVal + changeVal;
+                        }
+
+                        const reasonVal = log.reason || log.details?.reason || log.description || "-";
+                        const adminVal = log.adminId || log.details?.adminId || "admin";
+                        const rawDate = log.adjustedAt || log.date || log.createdAt;
+                        const formattedDate =
+                          rawDate && !isNaN(new Date(rawDate).getTime())
+                            ? new Date(rawDate).toLocaleDateString()
+                            : "-";
+                        const logType = log.type || log.action || "set_balance";
+
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3 text-sm font-medium text-black">
+                              {formattedDate}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex px-2.5 py-0.5 rounded-md text-xs font-semibold ${
+                                logType === "reset" ? "bg-red-50 text-red-700 border border-red-200" :
+                                "bg-blue-50 text-blue-700 border border-blue-200"
+                              }`}>
+                                {logType === "reset" ? "Reset" : "Set Balance"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                              <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-lg text-xs font-black">
+                                {newVal ?? log.balanceSet ?? "-"} Days
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {prevVal !== undefined && newVal !== undefined ? (
+                                <span className="inline-flex items-center gap-1.5 font-medium text-xs">
+                                  <span className="text-gray-500 font-mono">{prevVal}d</span>
+                                  <span className="text-gray-400 font-normal">&rarr;</span>
+                                  <span className="font-bold text-gray-900 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 font-mono">
+                                    {newVal}d
+                                  </span>
+                                </span>
+                              ) : (
+                                `${newVal ?? "-"} Days`
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700 max-w-[200px] truncate" title={reasonVal}>
+                              {reasonVal}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              <span className="bg-gray-100 px-2 py-0.5 rounded text-xs font-medium border border-gray-200">
+                                {adminVal}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end mt-5 pt-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowAdjustmentLog(false)}
+                className="px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors"
               >
                 Close
               </button>

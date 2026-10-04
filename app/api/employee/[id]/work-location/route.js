@@ -98,6 +98,20 @@ export async function GET(request, { params }) {
       queryOr.push({ name: { $in: nameStrings } });
     }
 
+    // Also match if employee is in the location's assignedEmployees array (by ObjectId or string/code)
+    const empIdentifiers = [];
+    if (ObjectId.isValid(employee._id)) empIdentifiers.push(new ObjectId(employee._id));
+    empIdentifiers.push(employee._id.toString());
+    if (employee.employeeId) {
+      empIdentifiers.push(employee.employeeId);
+      if (ObjectId.isValid(employee.employeeId)) empIdentifiers.push(new ObjectId(employee.employeeId));
+    }
+    if (employee.personalDetails?.employeeId) {
+      empIdentifiers.push(employee.personalDetails.employeeId);
+    }
+
+    queryOr.push({ assignedEmployees: { $in: empIdentifiers } });
+
     if (queryOr.length > 0) {
       workLocations = await db
         .collection("work_locations")

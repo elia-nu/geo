@@ -3,6 +3,7 @@ import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../utils/audit.js";
 import { GPSValidation } from "../../../utils/gpsValidation.js";
+import { getEthiopianDate } from "../../../utils/timeUtils.js";
 
 // Haversine distance in meters
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -48,8 +49,9 @@ function parseDistanceToMeters(value) {
   }
 }
 
+// Get today's date in YYYY-MM-DD format (Enforcing Ethiopian time for Yegar Linux servers)
 function getTodayDate() {
-  return new Date().toISOString().split("T")[0];
+  return getEthiopianDate(new Date());
 }
 
 // GET /api/overtime/attendance - Fetch separate overtime attendance records
@@ -122,6 +124,45 @@ export async function GET(request) {
       query.date = { $lte: endDate };
     }
 
+    const today = getTodayDate();
+    const staleThreshold = new Date(Date.now() - 16 * 60 * 60 * 1000);
+
+    // Auto-close stale unclosed overtime sessions (kill it so it doesn't run forever)
+    try {
+      await db.collection("overtime_attendance").updateMany(
+        {
+          status: "in-progress",
+          $and: [
+            {
+              $or: [
+                { checkOutTime: { $exists: false } },
+                { checkOutTime: null },
+              ],
+            },
+            {
+              $or: [
+                { date: { $lt: today } },
+                { checkInTime: { $lt: staleThreshold } },
+              ],
+            },
+          ],
+        },
+        {
+          $set: {
+            status: "not-checked-out",
+            durationHours: 0,
+            durationMinutes: 0,
+            durationFormatted: "Not Checked Out (Admin to Handle)",
+            adminApprovalStatus: "admin_resolution_required",
+            autoClosedReason: "Employee did not check out. Admin resolution required.",
+            updatedAt: new Date(),
+          }
+        }
+      );
+    } catch (cleanupErr) {
+      console.warn("Overtime stale session cleanup warning:", cleanupErr.message);
+    }
+
     const skip = (page - 1) * limit;
 
     const [records, totalCount] = await Promise.all([
@@ -166,14 +207,28 @@ export async function GET(request) {
       if (emp.empId) employeeMap[emp.empId] = empData;
     });
 
-    let enhancedRecords = records.map((record) => ({
-      ...record,
-      adminApprovalStatus: record.adminApprovalStatus || "pending_review",
-      employee: employeeMap[String(record.employeeId)] || {
-        name: record.employeeName || "Unknown Employee",
-        department: record.department || "General",
-      },
-    }));
+    let enhancedRecords = records.map((record) => {
+      const isStale =
+        (record.status === "in-progress" || !record.checkOutTime) &&
+        (record.date < today || (record.checkInTime && new Date(record.checkInTime) < staleThreshold));
+
+      const status = isStale ? "not-checked-out" : record.status;
+      const durationFormatted =
+        status === "not-checked-out"
+          ? "Not Checked Out (Admin to Handle)"
+          : record.durationFormatted || (status === "in-progress" ? "In Progress" : "0h 0m");
+
+      return {
+        ...record,
+        status,
+        durationFormatted,
+        adminApprovalStatus: isStale && record.adminApprovalStatus === "pending_review" ? "admin_resolution_required" : (record.adminApprovalStatus || "pending_review"),
+        employee: employeeMap[String(record.employeeId)] || {
+          name: record.employeeName || "Unknown Employee",
+          department: record.department || "General",
+        },
+      };
+    });
 
     if (department && department !== "all") {
       enhancedRecords = enhancedRecords.filter(

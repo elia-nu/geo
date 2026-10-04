@@ -6,6 +6,7 @@ import {
   Calendar,
   CheckCircle,
   XCircle,
+  X,
   AlertCircle,
   Plus,
   Send,
@@ -28,10 +29,13 @@ import {
   Lock,
   Sparkles,
   Search,
+  Download,
 } from "lucide-react";
 import Webcam from "react-webcam";
 import AttendancePhotoViewer from "./AttendancePhotoViewer";
+import ImageWithLoading from "./ImageWithLoading";
 import Pagination from "./ui/Pagination";
+import { getEthiopianDate, getEthiopianTime, formatWorkingHours } from "../utils/timeUtils";
 
 export default function EmployeeOvertime({ employeeId, employeeName, workLocations = [] }) {
   const [activeTab, setActiveTab] = useState("station"); // 'station' | 'request' | 'requests' | 'history'
@@ -55,10 +59,12 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
   const [historyItemsPerPage, setHistoryItemsPerPage] = useState(10);
   const [historySearch, setHistorySearch] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [serverSkewMs, setServerSkewMs] = useState(0);
+  const [serverDate, setServerDate] = useState(getEthiopianDate());
 
   // Form State for new Request
   const [requestForm, setRequestForm] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: getEthiopianDate(),
     startTime: "18:00",
     endTime: "21:00",
     requestedHours: 3,
@@ -76,16 +82,41 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
   const [stationNotes, setStationNotes] = useState("");
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
+  const [selectedSessionDetails, setSelectedSessionDetails] = useState(null);
 
   const webcamRef = useRef(null);
 
-  // Timer interval for clock
+  // Sync with Yegar Linux server time
+  useEffect(() => {
+    const syncServerTime = async () => {
+      try {
+        const res = await fetch("/api/server-time", { cache: "no-store" });
+        const data = await res.json();
+        if (data.success && data.timestamp) {
+          const skew = data.timestamp - Date.now();
+          setServerSkewMs(skew);
+          if (data.ethiopianDate) {
+            setServerDate(data.ethiopianDate);
+            setRequestForm((prev) => ({
+              ...prev,
+              date: prev.date || data.ethiopianDate,
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn("Overtime server time sync fallback:", err);
+      }
+    };
+    syncServerTime();
+  }, []);
+
+  // Timer interval for clock synchronized to server
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
+      setCurrentTime(new Date(Date.now() + serverSkewMs));
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [serverSkewMs]);
 
   // Initial load
   useEffect(() => {
@@ -95,7 +126,7 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
       fetchOvertimeHistory();
       getCurrentLocation();
     }
-  }, [employeeId]);
+  }, [employeeId, serverDate]);
 
   const showMessage = (msg, type = "info") => {
     setMessage(msg);
@@ -107,11 +138,13 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
   const fetchMyRequests = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/overtime/requests?employeeId=${employeeId}&limit=50`);
+      const res = await fetch(`/api/overtime/requests?employeeId=${employeeId}&limit=50`, {
+        cache: "no-store",
+      });
       const result = await res.json();
       if (result.success) {
         setMyRequests(result.data || []);
-        const today = new Date().toISOString().split("T")[0];
+        const today = serverDate || getEthiopianDate();
         const approvedToday = (result.data || []).find(
           (r) => r.date === today && r.status === "approved"
         );
@@ -127,8 +160,10 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
   // Fetch Today's Overtime Attendance
   const fetchTodayOvertime = async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const res = await fetch(`/api/overtime/attendance?employeeId=${employeeId}&date=${today}`);
+      const today = serverDate || getEthiopianDate();
+      const res = await fetch(`/api/overtime/attendance?employeeId=${employeeId}&date=${today}`, {
+        cache: "no-store",
+      });
       const result = await res.json();
       if (result.success && result.data?.length > 0) {
         setTodayOvertimeRecord(result.data[0]);
@@ -214,6 +249,96 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
     return isValid;
   };
 
+  const exportHistoryCSV = () => {
+    if (!overtimeHistory || overtimeHistory.length === 0) {
+      showMessage("No overtime history records to export", "info");
+      return;
+    }
+
+    const headers = [
+      "Date",
+      "Employee",
+      "Check-In Time",
+      "Check-Out Time",
+      "Duration Worked",
+      "Approved Hours",
+      "Admin Approval Status",
+      "Reason",
+      "Project",
+      "Check-In Location (Lat, Lon)",
+      "Check-Out Location (Lat, Lon)",
+      "Admin Notes",
+    ];
+
+    const rows = overtimeHistory.map((rec) => [
+      `"${rec.date || ""}"`,
+      `"${employeeName || ""}"`,
+      `"${rec.checkInTime ? new Date(rec.checkInTime).toLocaleString() : ""}"`,
+      `"${rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleString() : ""}"`,
+      `"${rec.durationFormatted || (rec.durationHours ? formatWorkingHours(rec.durationHours) : "")}"`,
+      `"${rec.approvedAttendanceHours !== undefined && rec.approvedAttendanceHours !== null ? formatWorkingHours(rec.approvedAttendanceHours) : ""}"`,
+      `"${rec.adminApprovalStatus || "pending_review"}"`,
+      `"${(rec.reason || "").replace(/"/g, '""')}"`,
+      `"${(rec.project || "").replace(/"/g, '""')}"`,
+      `"${rec.checkInLocation ? `${rec.checkInLocation.latitude}, ${rec.checkInLocation.longitude}` : ""}"`,
+      `"${rec.checkOutLocation ? `${rec.checkOutLocation.latitude}, ${rec.checkOutLocation.longitude}` : ""}"`,
+      `"${(rec.adminNotes || "").replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `my_overtime_history_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportRequestsCSV = () => {
+    if (!myRequests || myRequests.length === 0) {
+      showMessage("No overtime requests to export", "info");
+      return;
+    }
+
+    const headers = [
+      "Date",
+      "Start Time",
+      "End Time",
+      "Requested Hours",
+      "Approved Hours",
+      "Status",
+      "Project",
+      "Reason",
+      "Supervisor Notes",
+    ];
+
+    const rows = myRequests.map((req) => [
+      `"${req.date || ""}"`,
+      `"${req.startTime || ""}"`,
+      `"${req.endTime || ""}"`,
+      `"${req.requestedHours || ""}"`,
+      `"${req.approvedHours ?? ""}"`,
+      `"${req.status || ""}"`,
+      `"${(req.project || "").replace(/"/g, '""')}"`,
+      `"${(req.reason || "").replace(/"/g, '""')}"`,
+      `"${(req.supervisorNotes || "").replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `my_overtime_requests_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
       setLocationError("Geolocation is not supported by your browser");
@@ -236,6 +361,25 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
       },
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     );
+  };
+
+  // Helper to compute exact difference in hours between startTime and endTime
+  const calculateDurationBetweenTimes = (startStr, endStr) => {
+    if (!startStr || !endStr) return 0;
+    const [startH, startM] = startStr.split(":").map(Number);
+    const [endH, endM] = endStr.split(":").map(Number);
+    if (isNaN(startH) || isNaN(startM) || isNaN(endH) || isNaN(endM)) return 0;
+
+    let startTotalMin = startH * 60 + startM;
+    let endTotalMin = endH * 60 + endM;
+
+    if (endTotalMin <= startTotalMin) {
+      endTotalMin += 24 * 60;
+    }
+
+    const diffMin = endTotalMin - startTotalMin;
+    const diffHours = Math.round((diffMin / 60) * 10) / 10;
+    return Math.max(0.5, Math.min(24, diffHours));
   };
 
   // Submit Overtime Request
@@ -325,7 +469,7 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
             photo,
             employeeId,
             action: `overtime-${action}`,
-            date: new Date().toISOString().split("T")[0],
+            date: serverDate || getEthiopianDate(),
           }),
         });
         const photoResult = await photoRes.json();
@@ -424,7 +568,7 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
           <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
             <span className="text-xs text-amber-200 block font-medium">Worked This Month</span>
             <span className="text-2xl font-bold text-white mt-0.5 block">
-              {totalWorkedHoursThisMonth.toFixed(1)} <span className="text-sm font-normal text-amber-200">hrs</span>
+              {formatWorkingHours(totalWorkedHoursThisMonth)}
             </span>
           </div>
 
@@ -531,283 +675,199 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
 
       {/* TAB 1: OVERTIME ATTENDANCE STATION */}
       {activeTab === "station" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left / Main Action Station */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* 3-Point Pre-check Verification Status Banner */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-amber-600" />
-                  Pre-Attendance Verification Requirements
-                </h2>
-                <span
-                  className={`text-xs px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1 ${
-                    allChecksPassed
-                      ? "bg-green-100 text-green-800 border border-green-200"
-                      : "bg-amber-100 text-amber-800 border border-amber-200"
-                  }`}
-                >
-                  {allChecksPassed ? <Check className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                  {allChecksPassed ? "All Checks Passed" : "Checks Incomplete"}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* 1. Time Check */}
-                <div
-                  className={`p-3.5 rounded-xl border transition-all ${
-                    isTimeAuthorized
-                      ? "bg-green-50/80 border-green-200 text-green-900"
-                      : "bg-red-50/80 border-red-200 text-red-900"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold flex items-center gap-1.5">
-                      <Clock className="w-4 h-4" /> 1. Time Check
-                    </span>
-                    {isTimeAuthorized ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-500" />
-                    )}
-                  </div>
-                  <p className="text-xs font-semibold">
-                    {isTimeAuthorized ? "Approved for Today" : "No Approved Overtime"}
-                  </p>
-                  <p className="text-[11px] opacity-80 mt-0.5">
-                    {todayApprovedRequest
-                      ? `${todayApprovedRequest.approvedHours || todayApprovedRequest.requestedHours} hrs quota (${todayApprovedRequest.startTime || "Any"} - ${todayApprovedRequest.endTime || "Any"})`
-                      : "Submit request to authorize time"}
-                  </p>
-                </div>
-
-                {/* 2. Location Check */}
-                <div
-                  className={`p-3.5 rounded-xl border transition-all ${
-                    isLocationVerified
-                      ? "bg-green-50/80 border-green-200 text-green-900"
-                      : "bg-red-50/80 border-red-200 text-red-900"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold flex items-center gap-1.5">
-                      <MapPin className="w-4 h-4" /> 2. Location Check
-                    </span>
-                    {isLocationVerified ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-500" />
-                    )}
-                  </div>
-                  <p className="text-xs font-semibold truncate">
-                    {isLocationVerified
-                      ? "Within Work Geofence"
-                      : locationError
-                      ? "GPS Unavailable"
-                      : "Outside Work Radius"}
-                  </p>
-                  <p className="text-[11px] opacity-80 mt-0.5 truncate">
-                    {locationValidation?.nearestLocation?.name
-                      ? `${locationValidation.distance}m from ${locationValidation.nearestLocation.name}`
-                      : "Worksite distance validation"}
-                  </p>
-                </div>
-
-                {/* 3. Camera Check */}
-                <div
-                  className={`p-3.5 rounded-xl border transition-all ${
-                    isCameraVerified
-                      ? "bg-green-50/80 border-green-200 text-green-900"
-                      : "bg-red-50/80 border-red-200 text-red-900"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold flex items-center gap-1.5">
-                      <Camera className="w-4 h-4" /> 3. Camera Check
-                    </span>
-                    {isCameraVerified ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-500" />
-                    )}
-                  </div>
-                  <p className="text-xs font-semibold">
-                    {isCameraVerified ? "Camera Feed Active" : "Camera Required"}
-                  </p>
-                  <p className="text-[11px] opacity-80 mt-0.5">
-                    {isCameraVerified ? "Photo proof ready on action" : "Activate camera feed on right"}
-                  </p>
-                </div>
-              </div>
-
-              {!allChecksPassed && (
-                <div className="text-xs bg-amber-50 p-3 rounded-xl border border-amber-200 text-amber-800 flex items-start gap-2">
-                  <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Required to Check In / Check Out:</span>
-                    <ul className="list-disc list-inside mt-0.5 space-y-0.5 text-[11px]">
-                      {!isTimeAuthorized && <li>An approved overtime request for today is required.</li>}
-                      {!isLocationVerified && <li>You must be within your assigned workplace geofence coordinates.</li>}
-                      {!isCameraVerified && <li>Your device camera must be enabled for facial photo verification.</li>}
-                    </ul>
-                  </div>
-                </div>
-              )}
+        <div className="space-y-6">
+          {/* 3-Point Pre-check Verification Status Banner */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-amber-600" />
+                Pre-Attendance Verification Requirements
+              </h2>
+              <span
+                className={`text-xs px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1 ${
+                  allChecksPassed
+                    ? "bg-green-100 text-green-800 border border-green-200"
+                    : "bg-amber-100 text-amber-800 border border-amber-200"
+                }`}
+              >
+                {allChecksPassed ? <Check className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                {allChecksPassed ? "All Checks Passed" : "Checks Incomplete"}
+              </span>
             </div>
 
-            {/* Today's Overtime Live Record Card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <Timer className="w-5 h-5 text-amber-600" />
-                Active Overtime Session
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
-                    <Clock className="w-4 h-4 text-green-600" /> Check-in Time
-                  </div>
-                  <div className="text-xl font-bold text-gray-900">
-                    {todayOvertimeRecord?.checkInTime
-                      ? new Date(todayOvertimeRecord.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                      : "--:--"}
-                  </div>
-                  {todayOvertimeRecord?.checkInPhoto && (
-                    <button
-                      onClick={() => {
-                        setSelectedPhoto(todayOvertimeRecord.checkInPhoto);
-                        setShowPhotoViewer(true);
-                      }}
-                      className="text-xs text-amber-600 hover:underline mt-1 inline-flex items-center gap-1 font-semibold"
-                    >
-                      <Camera className="w-3 h-3" /> View In Photo
-                    </button>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 1. Time Check */}
+              <div
+                className={`p-3.5 rounded-xl border transition-all ${
+                  isTimeAuthorized
+                    ? "bg-green-50/80 border-green-200 text-green-900"
+                    : "bg-red-50/80 border-red-200 text-red-900"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    <Clock className="w-4 h-4" /> 1. Time Check
+                  </span>
+                  {isTimeAuthorized ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-red-500" />
                   )}
                 </div>
-
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
-                    <Clock className="w-4 h-4 text-red-600" /> Check-out Time
-                  </div>
-                  <div className="text-xl font-bold text-gray-900">
-                    {todayOvertimeRecord?.checkOutTime
-                      ? new Date(todayOvertimeRecord.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                      : "--:--"}
-                  </div>
-                  {todayOvertimeRecord?.checkOutPhoto && (
-                    <button
-                      onClick={() => {
-                        setSelectedPhoto(todayOvertimeRecord.checkOutPhoto);
-                        setShowPhotoViewer(true);
-                      }}
-                      className="text-xs text-amber-600 hover:underline mt-1 inline-flex items-center gap-1 font-semibold"
-                    >
-                      <Camera className="w-3 h-3" /> View Out Photo
-                    </button>
-                  )}
-                </div>
-
-                <div className="bg-amber-50/50 rounded-xl p-4 border border-amber-200">
-                  <div className="flex items-center gap-1.5 text-xs text-amber-800 font-semibold mb-1">
-                    <Award className="w-4 h-4 text-amber-600" /> Total Duration
-                  </div>
-                  <div className="text-2xl font-extrabold text-amber-900">
-                    {todayOvertimeRecord?.durationFormatted || (todayOvertimeRecord?.checkInTime && !todayOvertimeRecord?.checkOutTime ? "Counting..." : "0h 0m")}
-                  </div>
-                  {todayOvertimeRecord?.status === "in-progress" && (
-                    <span className="text-xs text-green-600 font-semibold animate-pulse block mt-1">
-                      ● Overtime session in progress
-                    </span>
-                  )}
-                </div>
+                <p className="text-xs font-semibold">
+                  {isTimeAuthorized ? "Approved for Today" : "No Approved Overtime"}
+                </p>
+                <p className="text-[11px] opacity-80 mt-0.5">
+                  {todayApprovedRequest
+                    ? `${formatWorkingHours(todayApprovedRequest.approvedHours || todayApprovedRequest.requestedHours)} quota (${todayApprovedRequest.startTime || "Any"} - ${todayApprovedRequest.endTime || "Any"})`
+                    : "Submit request to authorize time"}
+                </p>
               </div>
 
-              {/* Notes Input */}
-              <div className="mt-5">
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Overtime Session Notes (Optional):
-                </label>
-                <input
-                  type="text"
-                  value={stationNotes}
-                  onChange={(e) => setStationNotes(e.target.value)}
-                  placeholder="e.g. Completed critical server maintenance or client delivery"
-                  className="w-full text-sm border border-gray-300 rounded-lg p-2.5 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                />
+              {/* 2. Location Check */}
+              <div
+                className={`p-3.5 rounded-xl border transition-all ${
+                  isLocationVerified
+                    ? "bg-green-50/80 border-green-200 text-green-900"
+                    : "bg-red-50/80 border-red-200 text-red-900"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4" /> 2. Location Check
+                  </span>
+                  {isLocationVerified ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-red-500" />
+                  )}
+                </div>
+                <p className="text-xs font-semibold truncate">
+                  {isLocationVerified
+                    ? "Within Work Geofence"
+                    : locationError
+                    ? "GPS Unavailable"
+                    : "Outside Work Radius"}
+                </p>
+                <p className="text-[11px] opacity-80 mt-0.5 truncate">
+                  {locationValidation?.nearestLocation?.name
+                    ? `${locationValidation.distance}m from ${locationValidation.nearestLocation.name}`
+                    : "Worksite distance validation"}
+                </p>
               </div>
 
-              {/* Overtime Action Buttons */}
-              <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                {/* Overtime Check-In Button */}
-                <button
-                  onClick={() => handleAttendanceAction("check-in")}
-                  disabled={
-                    actionLoading ||
-                    !allChecksPassed ||
-                    Boolean(todayOvertimeRecord?.checkInTime)
-                  }
-                  className={`flex-1 py-3.5 px-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow transition-all ${
-                    actionLoading ||
-                    !allChecksPassed ||
-                    Boolean(todayOvertimeRecord?.checkInTime)
-                      ? "bg-gray-300 cursor-not-allowed text-gray-500 shadow-none"
-                      : "bg-green-600 hover:bg-green-700 active:bg-green-800 shadow-green-600/20"
-                  }`}
-                >
-                  {actionLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+              {/* 3. Camera Check */}
+              <div
+                className={`p-3.5 rounded-xl border transition-all ${
+                  isCameraVerified
+                    ? "bg-green-50/80 border-green-200 text-green-900"
+                    : "bg-red-50/80 border-red-200 text-red-900"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    <Camera className="w-4 h-4" /> 3. Camera Check
+                  </span>
+                  {isCameraVerified ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
                   ) : (
-                    <>
-                      <CheckCircle className="w-5 h-5" />
-                      {todayOvertimeRecord?.checkInTime
-                        ? "Overtime Already Checked In"
-                        : !allChecksPassed
-                        ? "Complete Checks to Check In"
-                        : "Check In For Overtime"}
-                    </>
+                    <XCircle className="w-4 h-4 text-red-500" />
                   )}
-                </button>
+                </div>
+                <p className="text-xs font-semibold">
+                  {isCameraVerified ? "Camera Feed Active" : "Camera Required"}
+                </p>
+                <p className="text-[11px] opacity-80 mt-0.5">
+                  {isCameraVerified ? "Photo proof ready on action" : "Activate camera feed below"}
+                </p>
+              </div>
+            </div>
 
-                {/* Overtime Check-Out Button */}
-                <button
-                  onClick={() => handleAttendanceAction("check-out")}
-                  disabled={
-                    actionLoading ||
-                    !todayOvertimeRecord?.checkInTime ||
-                    Boolean(todayOvertimeRecord?.checkOutTime) ||
-                    !isLocationVerified ||
-                    !isCameraVerified
-                  }
-                  className={`flex-1 py-3.5 px-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow transition-all ${
-                    actionLoading ||
-                    !todayOvertimeRecord?.checkInTime ||
-                    Boolean(todayOvertimeRecord?.checkOutTime) ||
-                    !isLocationVerified ||
-                    !isCameraVerified
-                      ? "bg-gray-300 cursor-not-allowed text-gray-500 shadow-none"
-                      : "bg-red-600 hover:bg-red-700 active:bg-red-800 shadow-red-600/20"
-                  }`}
-                >
-                  {actionLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <XCircle className="w-5 h-5" />
-                      {todayOvertimeRecord?.checkOutTime
-                        ? "Overtime Completed Today"
-                        : !isLocationVerified || !isCameraVerified
-                        ? "Verify Location & Camera to Check Out"
-                        : "Check Out From Overtime"}
-                    </>
-                  )}
-                </button>
+            {!allChecksPassed && (
+              <div className="text-xs bg-amber-50 p-3 rounded-xl border border-amber-200 text-amber-800 flex items-start gap-2">
+                <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Required to Check In / Check Out:</span>
+                  <ul className="list-disc list-inside mt-0.5 space-y-0.5 text-[11px]">
+                    {!isTimeAuthorized && <li>An approved overtime request for today is required.</li>}
+                    {!isLocationVerified && <li>You must be within your assigned workplace geofence coordinates.</li>}
+                    {!isCameraVerified && <li>Your device camera must be enabled for facial photo verification.</li>}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Today's Overtime Live Record Card */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Timer className="w-5 h-5 text-amber-600" />
+              Active Overtime Session
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+                  <Clock className="w-4 h-4 text-green-600" /> Check-in Time
+                </div>
+                <div className="text-xl font-bold text-gray-900">
+                  {todayOvertimeRecord?.checkInTime
+                    ? new Date(todayOvertimeRecord.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    : "--:--"}
+                </div>
+                {todayOvertimeRecord?.checkInPhoto && (
+                  <button
+                    onClick={() => {
+                      setSelectedPhoto(todayOvertimeRecord.checkInPhoto);
+                      setShowPhotoViewer(true);
+                    }}
+                    className="text-xs text-amber-600 hover:underline mt-1 inline-flex items-center gap-1 font-semibold"
+                  >
+                    <Camera className="w-3 h-3" /> View In Photo
+                  </button>
+                )}
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+                  <Clock className="w-4 h-4 text-red-600" /> Check-out Time
+                </div>
+                <div className="text-xl font-bold text-gray-900">
+                  {todayOvertimeRecord?.checkOutTime
+                    ? new Date(todayOvertimeRecord.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    : "--:--"}
+                </div>
+                {todayOvertimeRecord?.checkOutPhoto && (
+                  <button
+                    onClick={() => {
+                      setSelectedPhoto(todayOvertimeRecord.checkOutPhoto);
+                      setShowPhotoViewer(true);
+                    }}
+                    className="text-xs text-amber-600 hover:underline mt-1 inline-flex items-center gap-1 font-semibold"
+                  >
+                    <Camera className="w-3 h-3" /> View Out Photo
+                  </button>
+                )}
+              </div>
+
+              <div className="bg-amber-50/50 rounded-xl p-4 border border-amber-200">
+                <div className="flex items-center gap-1.5 text-xs text-amber-800 font-semibold mb-1">
+                  <Award className="w-4 h-4 text-amber-600" /> Total Duration
+                </div>
+                <div className="text-2xl font-extrabold text-amber-900">
+                  {todayOvertimeRecord?.durationFormatted || (todayOvertimeRecord?.checkInTime && !todayOvertimeRecord?.checkOutTime ? "Counting..." : "0h 0m")}
+                </div>
+                {todayOvertimeRecord?.status === "in-progress" && (
+                  <span className="text-xs text-green-600 font-semibold animate-pulse block mt-1">
+                    ● Overtime session in progress
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Right Column: Location & Camera Verification */}
-          <div className="space-y-6">
+          {/* Camera and Location Status Verification Widgets (Directly Above Action Buttons) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Camera Verification Widget */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-3">
               <div className="flex items-center justify-between">
@@ -913,6 +973,95 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
               )}
             </div>
           </div>
+
+          {/* Action Card: Notes Input & Overtime Action Buttons */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-amber-600" />
+              Clock In / Out Action
+            </h3>
+
+            {/* Notes Input */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Overtime Session Notes (Optional):
+              </label>
+              <input
+                type="text"
+                value={stationNotes}
+                onChange={(e) => setStationNotes(e.target.value)}
+                placeholder="e.g. Completed critical server maintenance or client delivery"
+                className="w-full text-sm border border-gray-300 rounded-lg p-2.5 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              />
+            </div>
+
+            {/* Overtime Action Buttons */}
+            <div className="mt-5 flex flex-col sm:flex-row gap-3">
+              {/* Overtime Check-In Button */}
+              <button
+                onClick={() => handleAttendanceAction("check-in")}
+                disabled={
+                  actionLoading ||
+                  !allChecksPassed ||
+                  Boolean(todayOvertimeRecord?.checkInTime)
+                }
+                className={`flex-1 py-3.5 px-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow transition-all ${
+                  actionLoading ||
+                  !allChecksPassed ||
+                  Boolean(todayOvertimeRecord?.checkInTime)
+                    ? "bg-gray-300 cursor-not-allowed text-gray-500 shadow-none"
+                    : "bg-green-600 hover:bg-green-700 active:bg-green-800 shadow-green-600/20"
+                }`}
+              >
+                {actionLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    {todayOvertimeRecord?.checkInTime
+                      ? "Overtime Already Checked In"
+                      : !allChecksPassed
+                      ? "Complete Checks to Check In"
+                      : "Check In For Overtime"}
+                  </>
+                )}
+              </button>
+
+              {/* Overtime Check-Out Button */}
+              <button
+                onClick={() => handleAttendanceAction("check-out")}
+                disabled={
+                  actionLoading ||
+                  !todayOvertimeRecord?.checkInTime ||
+                  Boolean(todayOvertimeRecord?.checkOutTime) ||
+                  !isLocationVerified ||
+                  !isCameraVerified
+                }
+                className={`flex-1 py-3.5 px-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow transition-all ${
+                  actionLoading ||
+                  !todayOvertimeRecord?.checkInTime ||
+                  Boolean(todayOvertimeRecord?.checkOutTime) ||
+                  !isLocationVerified ||
+                  !isCameraVerified
+                    ? "bg-gray-300 cursor-not-allowed text-gray-500 shadow-none"
+                    : "bg-red-600 hover:bg-red-700 active:bg-red-800 shadow-red-600/20"
+                }`}
+              >
+                {actionLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <XCircle className="w-5 h-5" />
+                    {todayOvertimeRecord?.checkOutTime
+                      ? "Overtime Completed Today"
+                      : !isLocationVerified || !isCameraVerified
+                      ? "Verify Location & Camera to Check Out"
+                      : "Check Out From Overtime"}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -951,7 +1100,15 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
                 <input
                   type="time"
                   value={requestForm.startTime}
-                  onChange={(e) => setRequestForm({ ...requestForm, startTime: e.target.value })}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    const autoHours = calculateDurationBetweenTimes(newStart, requestForm.endTime);
+                    setRequestForm({
+                      ...requestForm,
+                      startTime: newStart,
+                      requestedHours: autoHours,
+                    });
+                  }}
                   className="w-full text-sm border border-gray-300 rounded-lg p-2.5 text-gray-900 focus:ring-2 focus:ring-amber-500"
                 />
               </div>
@@ -963,7 +1120,15 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
                 <input
                   type="time"
                   value={requestForm.endTime}
-                  onChange={(e) => setRequestForm({ ...requestForm, endTime: e.target.value })}
+                  onChange={(e) => {
+                    const newEnd = e.target.value;
+                    const autoHours = calculateDurationBetweenTimes(requestForm.startTime, newEnd);
+                    setRequestForm({
+                      ...requestForm,
+                      endTime: newEnd,
+                      requestedHours: autoHours,
+                    });
+                  }}
                   className="w-full text-sm border border-gray-300 rounded-lg p-2.5 text-gray-900 focus:ring-2 focus:ring-amber-500"
                 />
               </div>
@@ -971,19 +1136,30 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Estimated Overtime (Hours) *
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0.5"
-                  max="12"
-                  required
-                  value={requestForm.requestedHours}
-                  onChange={(e) => setRequestForm({ ...requestForm, requestedHours: parseFloat(e.target.value) || 1 })}
-                  className="w-full text-sm border border-gray-300 rounded-lg p-2.5 text-gray-900 focus:ring-2 focus:ring-amber-500"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-gray-700">
+                    Estimated Overtime Duration *
+                  </label>
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                    Auto-calculated
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    readOnly
+                    required
+                    value={requestForm.requestedHours}
+                    className="w-full text-sm border border-gray-300 rounded-lg p-2.5 bg-gray-50 text-gray-900 font-bold cursor-not-allowed pr-14"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">
+                    hours
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Duration between {requestForm.startTime || "--"} and {requestForm.endTime || "--"} is <strong>{formatWorkingHours(requestForm.requestedHours)}</strong>.
+                </p>
               </div>
 
               <div>
@@ -1074,6 +1250,12 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
                     ))}
                   </div>
                   <button
+                    onClick={exportRequestsCSV}
+                    className="text-xs text-amber-700 hover:text-amber-800 flex items-center gap-1 font-semibold bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5 text-amber-600" /> Export CSV
+                  </button>
+                  <button
                     onClick={fetchMyRequests}
                     className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium bg-gray-100 px-3 py-1.5 rounded-lg"
                   >
@@ -1133,10 +1315,10 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
                             {req.startTime && req.endTime ? `${req.startTime} - ${req.endTime}` : "Flexible"}
                           </td>
                           <td className="p-3.5 whitespace-nowrap">
-                            <span className="font-semibold text-gray-800">{req.requestedHours} hrs</span>
+                            <span className="font-semibold text-gray-800">{formatWorkingHours(req.requestedHours)}</span>
                             {req.status === "approved" && (
                               <span className="ml-1.5 text-xs text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded">
-                                Approved: {req.approvedHours || req.requestedHours} hrs
+                                Approved: {formatWorkingHours(req.approvedHours || req.requestedHours)}
                               </span>
                             )}
                           </td>
@@ -1215,12 +1397,20 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
                   <h2 className="text-lg font-bold text-gray-900">Overtime Attendance Sessions & Proof</h2>
                   <p className="text-xs text-gray-500">Separately recorded overtime check-ins and hours worked</p>
                 </div>
-                <button
-                  onClick={fetchOvertimeHistory}
-                  className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium bg-gray-100 px-3 py-1.5 rounded-lg"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={exportHistoryCSV}
+                    className="text-xs text-amber-700 hover:text-amber-800 flex items-center gap-1 font-semibold bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5 text-amber-600" /> Export CSV
+                  </button>
+                  <button
+                    onClick={fetchOvertimeHistory}
+                    className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium bg-gray-100 px-3 py-1.5 rounded-lg"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                  </button>
+                </div>
               </div>
 
               {/* Search input */}
@@ -1258,6 +1448,7 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
                         <th className="p-3.5">Admin Review Status</th>
                         <th className="p-3.5">Verification & Photo</th>
                         <th className="p-3.5">Notes</th>
+                        <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -1274,7 +1465,7 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
                           </td>
                           <td className="p-3.5 whitespace-nowrap">
                             <span className="font-extrabold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg text-xs border border-amber-200">
-                              {rec.durationFormatted || `${rec.durationHours || 0} hrs`}
+                              {rec.durationFormatted || formatWorkingHours(rec.durationHours || 0)}
                             </span>
                           </td>
                           <td className="p-3.5 whitespace-nowrap">
@@ -1285,7 +1476,7 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
                                 </span>
                                 {rec.approvedAttendanceHours !== undefined && (
                                   <span className="block text-[11px] text-gray-500 font-semibold mt-0.5">
-                                    {rec.approvedAttendanceHours} hrs credited
+                                    {formatWorkingHours(rec.approvedAttendanceHours)} credited
                                   </span>
                                 )}
                               </div>
@@ -1340,6 +1531,14 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
                           <td className="p-3.5 text-xs text-gray-500 max-w-xs truncate">
                             {rec.checkInNotes || rec.checkOutNotes || rec.reason || "--"}
                           </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => setSelectedSessionDetails(rec)}
+                              className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold inline-flex items-center gap-1 shadow-sm transition-all"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> Details
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1366,6 +1565,202 @@ export default function EmployeeOvertime({ employeeId, employeeName, workLocatio
           </div>
         );
       })()}
+
+      {/* Overtime Session Details Modal */}
+      {selectedSessionDetails && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-amber-600" /> Overtime Session Details & Proof
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Date: <strong>{selectedSessionDetails.date}</strong> | Status:{" "}
+                  <span className="font-semibold uppercase">{selectedSessionDetails.status}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedSessionDetails(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quota & Worked Duration Summary */}
+            <div className="bg-amber-50/60 rounded-xl p-4 border border-amber-200/80 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-semibold text-amber-800 block">Duration Worked</span>
+                <span className="text-xl font-extrabold text-amber-900">
+                  {selectedSessionDetails.durationFormatted || formatWorkingHours(selectedSessionDetails.durationHours || 0)}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-semibold text-gray-600 block">Approved Hours</span>
+                <span className="text-lg font-bold text-gray-900">
+                  {selectedSessionDetails.approvedAttendanceHours !== undefined && selectedSessionDetails.approvedAttendanceHours !== null
+                    ? formatWorkingHours(selectedSessionDetails.approvedAttendanceHours)
+                    : `${selectedSessionDetails.approvedHours ? formatWorkingHours(selectedSessionDetails.approvedHours) : "--"} (Quota)`}
+                </span>
+              </div>
+            </div>
+
+            {/* Side-by-Side Check-In and Check-Out Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Check-In Block */}
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" /> Check-In
+                  </span>
+                  <span className="text-xs font-mono font-bold text-gray-900">
+                    {selectedSessionDetails.checkInTime
+                      ? new Date(selectedSessionDetails.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                      : "--:--"}
+                  </span>
+                </div>
+
+                {/* Photo */}
+                <div className="text-center">
+                  {selectedSessionDetails.checkInPhoto ? (
+                    <div
+                      className="relative group cursor-pointer"
+                      onClick={() => {
+                        setSelectedPhoto(selectedSessionDetails.checkInPhoto);
+                        setShowPhotoViewer(true);
+                      }}
+                    >
+                      <ImageWithLoading
+                        src={selectedSessionDetails.checkInPhoto}
+                        alt="Check-in Photo"
+                        className="w-full h-40 object-cover rounded-lg border border-gray-200 shadow-sm"
+                        skeletonHeight="h-40"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all rounded-lg flex items-center justify-center text-white text-xs font-bold gap-1">
+                        <Eye className="w-4 h-4" /> Click to Enlarge
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full h-40 bg-gray-200 rounded-lg flex flex-col items-center justify-center text-gray-400 text-xs">
+                      <Camera className="w-6 h-6 mb-1" /> No Photo Captured
+                    </div>
+                  )}
+                </div>
+
+                {/* Location & Notes */}
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div className="flex items-center gap-1 font-semibold text-gray-800">
+                    <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                    {selectedSessionDetails.geofenceValidation?.isValid ? "Within Designated Geofence" : "Location Captured"}
+                  </div>
+                  {selectedSessionDetails.checkInLocation && (
+                    <p className="text-[11px] font-mono text-gray-500 truncate">
+                      Lat: {selectedSessionDetails.checkInLocation.latitude?.toFixed(5)}, Lon: {selectedSessionDetails.checkInLocation.longitude?.toFixed(5)}
+                    </p>
+                  )}
+                  {selectedSessionDetails.checkInNotes && (
+                    <p className="text-[11px] bg-white p-2 rounded border text-gray-700">
+                      <strong>Check-in Notes:</strong> {selectedSessionDetails.checkInNotes}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Check-Out Block */}
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-rose-700 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" /> Check-Out
+                  </span>
+                  <span className="text-xs font-mono font-bold text-gray-900">
+                    {selectedSessionDetails.checkOutTime
+                      ? new Date(selectedSessionDetails.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                      : selectedSessionDetails.status === "not-checked-out" ? "Not Checked Out" : "In Progress"}
+                  </span>
+                </div>
+
+                {/* Photo */}
+                <div className="text-center">
+                  {selectedSessionDetails.checkOutPhoto ? (
+                    <div
+                      className="relative group cursor-pointer"
+                      onClick={() => {
+                        setSelectedPhoto(selectedSessionDetails.checkOutPhoto);
+                        setShowPhotoViewer(true);
+                      }}
+                    >
+                      <ImageWithLoading
+                        src={selectedSessionDetails.checkOutPhoto}
+                        alt="Check-out Photo"
+                        className="w-full h-40 object-cover rounded-lg border border-gray-200 shadow-sm"
+                        skeletonHeight="h-40"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all rounded-lg flex items-center justify-center text-white text-xs font-bold gap-1">
+                        <Eye className="w-4 h-4" /> Click to Enlarge
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full h-40 bg-gray-200 rounded-lg flex flex-col items-center justify-center text-gray-400 text-xs">
+                      <Camera className="w-6 h-6 mb-1" />
+                      {selectedSessionDetails.checkOutTime ? "No Photo Captured" : "Session In Progress"}
+                    </div>
+                  )}
+                </div>
+
+                {/* Location & Notes */}
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div className="flex items-center gap-1 font-semibold text-gray-800">
+                    <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                    {selectedSessionDetails.checkOutLocation ? "Check-Out Location Captured" : "Awaiting check-out"}
+                  </div>
+                  {selectedSessionDetails.checkOutLocation && (
+                    <p className="text-[11px] font-mono text-gray-500 truncate">
+                      Lat: {selectedSessionDetails.checkOutLocation.latitude?.toFixed(5)}, Lon: {selectedSessionDetails.checkOutLocation.longitude?.toFixed(5)}
+                    </p>
+                  )}
+                  {selectedSessionDetails.checkOutNotes && (
+                    <p className="text-[11px] bg-white p-2 rounded border text-gray-700">
+                      <strong>Check-out Notes:</strong> {selectedSessionDetails.checkOutNotes}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Review Info */}
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-gray-700">Admin Review Status:</span>
+                <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
+                  selectedSessionDetails.adminApprovalStatus === "approved"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : selectedSessionDetails.adminApprovalStatus === "rejected"
+                    ? "bg-rose-100 text-rose-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}>
+                  {selectedSessionDetails.adminApprovalStatus || "pending_review"}
+                </span>
+              </div>
+              {selectedSessionDetails.adminNotes && (
+                <p className="text-gray-600 pt-1">
+                  <strong>Admin Notes:</strong> {selectedSessionDetails.adminNotes}
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setSelectedSessionDetails(null)}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-xl text-xs font-bold transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Photo Viewer Modal */}
       {showPhotoViewer && selectedPhoto && (

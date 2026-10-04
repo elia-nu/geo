@@ -22,7 +22,17 @@ export async function GET(request) {
     }
 
     // Build query for leave balance history
-    let query = { employeeId: new ObjectId(employeeId) };
+    let query = {};
+    if (ObjectId.isValid(employeeId)) {
+      query = {
+        $or: [
+          { employeeId: new ObjectId(employeeId) },
+          { employeeId: employeeId },
+        ],
+      };
+    } else {
+      query = { employeeId: employeeId };
+    }
 
     if (leaveType) {
       query["adjustments.leaveType"] = leaveType;
@@ -49,7 +59,11 @@ export async function GET(request) {
     // Get audit logs for leave balance actions
     const auditQuery = {
       entityType: "leave_balance",
-      userId: new ObjectId(employeeId),
+      $or: [
+        ...(ObjectId.isValid(employeeId) ? [{ userId: new ObjectId(employeeId) }] : []),
+        { userId: employeeId },
+        { "metadata.employeeId": employeeId },
+      ],
     };
 
     if (action) {
@@ -74,9 +88,9 @@ export async function GET(request) {
       .toArray();
 
     // Get employee details
-    const employee = await db
-      .collection("employees")
-      .findOne({ _id: new ObjectId(employeeId) });
+    const employee = ObjectId.isValid(employeeId)
+      ? await db.collection("employees").findOne({ _id: new ObjectId(employeeId) })
+      : await db.collection("employees").findOne({ $or: [{ employeeId: employeeId }, { empId: employeeId }] });
 
     // Process history data
     const history = [];
@@ -84,37 +98,123 @@ export async function GET(request) {
     // Add leave balance adjustments
     leaveBalances.forEach((balance) => {
       if (balance.adjustments && balance.adjustments.length > 0) {
+        let runningBalance = balance.balances?.annual?.baseAllowance || 16;
         balance.adjustments.forEach((adjustment) => {
+          const isStartingSet = adjustment.type === "starting_balance_set" || adjustment.type === "set_balance";
+          const adjVal = typeof adjustment.adjustment === "number" ? adjustment.adjustment : 0;
+
+          let prevBal = adjustment.previousBalance;
+          let newBal = adjustment.newBalance;
+
+          if (prevBal === undefined && newBal === undefined) {
+            prevBal = runningBalance;
+            newBal = isStartingSet ? (adjustment.balanceSet ?? adjVal) : runningBalance + adjVal;
+          } else if (prevBal === undefined && newBal !== undefined) {
+            prevBal = isStartingSet ? 0 : newBal - adjVal;
+          } else if (newBal === undefined && prevBal !== undefined) {
+            newBal = isStartingSet ? (adjustment.balanceSet ?? adjVal) : prevBal + adjVal;
+          }
+
+          if (newBal !== undefined) {
+            runningBalance = newBal;
+          }
+
           history.push({
-            type: "adjustment",
-            date: adjustment.adjustedAt,
-            leaveType: adjustment.leaveType,
-            action: "adjustment",
+            type: isStartingSet ? "set_balance" : (adjustment.type || "adjustment"),
+            date: adjustment.adjustedAt || new Date(),
+            adjustedAt: adjustment.adjustedAt || new Date(),
+            leaveType: adjustment.leaveType || "annual",
+            action: isStartingSet ? "Set Balance" : (adjustment.type || "adjustment"),
+            adjustment: adjVal,
+            balanceSet: adjustment.balanceSet ?? newBal,
+            previousBalance: prevBal,
+            newBalance: newBal,
+            reason: adjustment.reason || "-",
+            adminId: adjustment.adminId || "admin",
             details: {
-              adjustment: adjustment.adjustment,
+              adjustment: adjVal,
+              balanceSet: adjustment.balanceSet ?? newBal,
               reason: adjustment.reason,
               adminId: adjustment.adminId,
+              previousBalance: prevBal,
+              newBalance: newBal,
+              type: adjustment.type,
             },
-            description: `${
-              adjustment.adjustment > 0 ? "Added" : "Deducted"
-            } ${Math.abs(adjustment.adjustment)} days of ${
-              adjustment.leaveType
-            } leave`,
+            description: `Annual leave balance set to ${newBal ?? adjVal} days (previous: ${prevBal ?? 0} days)`,
           });
         });
       }
     });
 
-    // Add audit log entries
+    // Add distinct audit log entries that aren't already represented in balance adjustments
     auditLogs.forEach((log) => {
-      history.push({
-        type: "audit",
-        date: log.createdAt,
-        leaveType: log.metadata?.leaveType || "all",
-        action: log.action,
-        details: log.metadata,
-        description: getAuditDescription(log),
+      const act = (log.action || "").toUpperCase();
+      // Skip background recalculations and non-balance adjustments
+      if (
+        act.includes("RECALCULATE") ||
+        act.includes("LOGIN") ||
+        act.includes("PASSWORD") ||
+        act.includes("ROLE") ||
+        act.includes("CREATE")
+      ) {
+        return;
+      }
+
+      const daysVal = log.metadata?.days ?? log.metadata?.adjustment ?? 0;
+      if (daysVal === 0 && !log.metadata?.previousBalance && !log.metadata?.newBalance) {
+        return;
+      }
+
+      const logTime = new Date(log.timestamp || log.createdAt).getTime();
+      const isDuplicate = history.some((h) => {
+        const hTime = new Date(h.date || h.adjustedAt).getTime();
+        const sameAmount = (h.adjustment ?? 0) === daysVal;
+        return (
+          Math.abs(hTime - logTime) < 60000 ||
+          (sameAmount && Math.abs(hTime - logTime) < 300000)
+        );
       });
+
+      if (!isDuplicate) {
+        const prevBal = log.metadata?.previousBalance;
+        const newBal = log.metadata?.newBalance ?? (prevBal !== undefined ? prevBal + daysVal : undefined);
+        history.push({
+          type: log.metadata?.type || "adjustment",
+          date: log.timestamp || log.createdAt || new Date(),
+          adjustedAt: log.timestamp || log.createdAt || new Date(),
+          leaveType: log.metadata?.leaveType || "annual",
+          action: log.action,
+          adjustment: daysVal,
+          previousBalance: prevBal,
+          newBalance: newBal,
+          reason: log.metadata?.reason || log.action || "-",
+          adminId: log.userId || log.metadata?.adminId || "admin",
+          details: log.metadata,
+          description: getAuditDescription(log),
+        });
+      }
+    });
+
+    // Sort oldest to newest to ensure running balances are continuous
+    history.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    let runningBal = leaveBalances[0]?.balances?.annual?.baseAllowance || 16;
+    history.forEach((item) => {
+      const isStarting = item.type === "starting_balance_set";
+      const adj = typeof item.adjustment === "number" ? item.adjustment : 0;
+      if (item.previousBalance === undefined && item.newBalance === undefined) {
+        item.previousBalance = runningBal;
+        item.newBalance = isStarting ? adj : Math.max(0, runningBal + adj);
+      } else if (item.previousBalance === undefined && item.newBalance !== undefined) {
+        item.previousBalance = isStarting ? 0 : Math.max(0, item.newBalance - adj);
+      } else if (item.newBalance === undefined && item.previousBalance !== undefined) {
+        item.newBalance = isStarting ? adj : Math.max(0, item.previousBalance + adj);
+      }
+      if (item.details) {
+        item.details.previousBalance = item.previousBalance;
+        item.details.newBalance = item.newBalance;
+      }
+      runningBal = item.newBalance ?? runningBal;
     });
 
     // Sort by date (newest first)

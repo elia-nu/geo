@@ -20,6 +20,7 @@ import {
   FileText,
   Shield,
   Layers,
+  Flame,
 } from "lucide-react";
 
 export default function CompletedActivitiesMasterAuditReport() {
@@ -188,12 +189,12 @@ export default function CompletedActivitiesMasterAuditReport() {
       ["By Module - Employees & Org", byModule.employee ?? 0],
       ["By Module - Projects & Budgets", byModule.projects ?? 0],
       ["By Module - Attendance", byModule.attendance ?? 0],
-      ["By Module - Leave & Overtime", byModule.leave ?? 0],
+      ["By Module - Leave", byModule.leave ?? 0],
+      ["By Module - Overtime", byModule.overtime ?? 0],
       ["By Module - Payroll", byModule.payroll ?? 0],
       ["By Module - Documents", byModule.documents ?? 0],
       ["By Status - Success", byStatus.success ?? 0],
       ["By Status - Failed", byStatus.failed ?? 0],
-      ["By Status - Other", byStatus.other ?? 0],
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), "Summary");
 
@@ -235,43 +236,24 @@ export default function CompletedActivitiesMasterAuditReport() {
     XLSX.writeFile(wb, fileName);
   };
 
-  const getModuleBadgeColor = (mod) => {
-    switch (mod) {
-      case "employee":
-        return "bg-indigo-100 text-indigo-800 border-indigo-200";
-      case "projects":
-        return "bg-rose-100 text-rose-800 border-rose-200";
-      case "attendance":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "leave":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "payroll":
-        return "bg-amber-100 text-amber-800 border-amber-200";
-      case "documents":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      default:
-        return "bg-slate-100 text-slate-800 border-slate-200";
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+    <div className="space-y-6 bg-white">
+      {/* Header Banner - Fully White with Navy Blue & Blue */}
+      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <ClipboardList className="w-6 h-6 text-indigo-600" />
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5">
+            <ClipboardList className="w-6 h-6 text-blue-600" />
             Completed Activities Report (Master Audit)
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Enterprise-wide audit trail of all transactions: employee &amp; org updates, project &amp; budget adjustments, attendance logs, leave approvals, payroll calculations, and document actions.
+          <p className="text-sm text-slate-600 mt-1">
+            Enterprise-wide audit trail of all transactions: employee &amp; org updates, project &amp; budget adjustments, attendance logs, leave approvals, overtime records, and payroll calculations.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleGenerateReport}
             disabled={loading}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50 flex items-center gap-2 shadow-sm transition"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 flex items-center gap-2 shadow-xs transition"
           >
             <RefreshCw className={loading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
             {loading ? "Generating..." : "Generate Report"}
@@ -280,18 +262,18 @@ export default function CompletedActivitiesMasterAuditReport() {
             <>
               <button
                 onClick={handleExportCSV}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex items-center gap-2 shadow-sm transition"
+                className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-lg font-medium flex items-center gap-2 shadow-xs transition"
                 title="Download CSV file"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-4 h-4 text-blue-400" />
                 Export CSV
               </button>
               <button
                 onClick={handleExportExcel}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 shadow-sm transition"
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 rounded-lg font-medium flex items-center gap-2 shadow-xs transition"
                 title="Download Excel spreadsheet"
               >
-                <FileSpreadsheet className="w-4 h-4" />
+                <FileSpreadsheet className="w-4 h-4 text-blue-600" />
                 Export Excel
               </button>
             </>
@@ -299,32 +281,32 @@ export default function CompletedActivitiesMasterAuditReport() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      {/* Filter Bar - Clean White with Navy Blue Labels */}
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
             Start Date
           </label>
           <input
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
             End Date
           </label>
           <input
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
             Actor (Filter)
           </label>
           <input
@@ -332,35 +314,36 @@ export default function CompletedActivitiesMasterAuditReport() {
             placeholder="Name, email, or user ID"
             value={filters.actor}
             onChange={(e) => setFilters({ ...filters, actor: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
             Module
           </label>
           <select
             value={filters.module}
             onChange={(e) => setFilters({ ...filters, module: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none"
           >
             <option value="all">All Modules</option>
             <option value="employee">Employees &amp; Organization</option>
             <option value="projects">Projects, Budgets &amp; Tasks</option>
             <option value="attendance">Attendance &amp; Geofences</option>
-            <option value="leave">Leave &amp; Overtime</option>
+            <option value="leave">Leave Management</option>
+            <option value="overtime">Overtime (Orange)</option>
             <option value="payroll">Payroll &amp; Compensation</option>
             <option value="documents">Documents Management</option>
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
             Status
           </label>
           <select
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none"
           >
             <option value="all">All Statuses</option>
             <option value="success">Success Only</option>
@@ -371,18 +354,16 @@ export default function CompletedActivitiesMasterAuditReport() {
 
       {message && (
         <div
-          className={`p-3 rounded-xl text-sm font-medium flex items-center gap-2 ${
+          className={`p-3.5 rounded-xl text-sm font-medium flex items-center gap-2.5 ${
             messageType === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-              : messageType === "error"
-              ? "bg-rose-50 text-rose-800 border border-rose-200"
-              : "bg-blue-50 text-blue-800 border border-blue-200"
+              ? "bg-white text-slate-900 border border-slate-300 shadow-xs"
+              : "bg-white text-slate-900 border border-red-300 shadow-xs"
           }`}
         >
           {messageType === "success" ? (
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <CheckCircle className="w-5 h-5 text-blue-600 shrink-0" />
           ) : (
-            <AlertTriangle className="w-4 h-4 text-rose-600" />
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
           )}
           {message}
         </div>
@@ -390,170 +371,175 @@ export default function CompletedActivitiesMasterAuditReport() {
 
       {reportData && (
         <div className="space-y-6">
-          {/* Module Breakdown Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-xl p-4 border border-indigo-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-indigo-900 font-semibold text-xs mb-1">
-                <Layers className="w-4 h-4 text-indigo-600" />
+          {/* Module Breakdown Cards: Fully White with Navy Blue & Blue, and OVERTIME ONLY ORANGE */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            {/* Total Events */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs mb-1">
+                <Layers className="w-4 h-4 text-blue-600" />
                 Total Events
               </div>
-              <p className="text-2xl font-extrabold text-indigo-700">
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {summary.totalEvents ?? 0}
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-violet-50 to-violet-100/50 rounded-xl p-4 border border-violet-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-violet-900 font-semibold text-xs mb-1">
-                <Users className="w-4 h-4 text-violet-600" />
-                Employees &amp; Org
+            {/* Employees & Org */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs mb-1">
+                <Users className="w-4 h-4 text-blue-600" />
+                Employees
               </div>
-              <p className="text-2xl font-extrabold text-violet-700">
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {byModule.employee ?? 0}
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-rose-50 to-rose-100/50 rounded-xl p-4 border border-rose-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-rose-900 font-semibold text-xs mb-1">
-                <Briefcase className="w-4 h-4 text-rose-600" />
-                Projects &amp; Budget
+            {/* Projects & Budget */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs mb-1">
+                <Briefcase className="w-4 h-4 text-blue-600" />
+                Projects
               </div>
-              <p className="text-2xl font-extrabold text-rose-700">
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {byModule.projects ?? 0}
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-4 border border-blue-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-blue-900 font-semibold text-xs mb-1">
+            {/* Attendance */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs mb-1">
                 <Clock className="w-4 h-4 text-blue-600" />
                 Attendance
               </div>
-              <p className="text-2xl font-extrabold text-blue-700">
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {byModule.attendance ?? 0}
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-4 border border-emerald-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-emerald-900 font-semibold text-xs mb-1">
-                <CalendarDays className="w-4 h-4 text-emerald-600" />
-                Leave &amp; Overtime
+            {/* Leave */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs mb-1">
+                <CalendarDays className="w-4 h-4 text-blue-600" />
+                Leave
               </div>
-              <p className="text-2xl font-extrabold text-emerald-700">
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {byModule.leave ?? 0}
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl p-4 border border-amber-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-amber-900 font-semibold text-xs mb-1">
-                <DollarSign className="w-4 h-4 text-amber-600" />
+            {/* OVERTIME: ONLY ORANGE */}
+            <div className="bg-orange-50/80 rounded-xl p-4 border-2 border-orange-300 shadow-xs">
+              <div className="flex items-center gap-1.5 text-orange-950 font-black text-xs mb-1">
+                <Flame className="w-4 h-4 text-orange-600" />
+                Overtime
+              </div>
+              <p className="text-2xl font-black text-orange-600 mt-1">
+                {byModule.overtime ?? 0}
+              </p>
+            </div>
+
+            {/* Payroll */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs mb-1">
+                <DollarSign className="w-4 h-4 text-blue-600" />
                 Payroll
               </div>
-              <p className="text-2xl font-extrabold text-amber-700">
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {byModule.payroll ?? 0}
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl p-4 border border-purple-200/80 shadow-xs">
-              <div className="flex items-center gap-1.5 text-purple-900 font-semibold text-xs mb-1">
-                <FileText className="w-4 h-4 text-purple-600" />
+            {/* Documents */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs hover:border-blue-400 transition">
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs mb-1">
+                <FileText className="w-4 h-4 text-blue-600" />
                 Documents
               </div>
-              <p className="text-2xl font-extrabold text-purple-700">
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {byModule.documents ?? 0}
               </p>
             </div>
           </div>
 
-          {/* Success vs Failed Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
+          {/* Success vs Failed Summary - White & Navy Blue */}
+          <div className="grid grid-cols-2 gap-3.5">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                  <CheckCircle className="w-6 h-6" />
+                </div>
                 <div>
-                  <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">
-                    Success
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Successful Activities
                   </p>
-                  <p className="text-xl font-bold text-emerald-700">
+                  <p className="text-2xl font-black text-slate-900">
                     {byStatus.success ?? 0}
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-medium text-emerald-600 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                Completed
+              <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                Verified
               </span>
             </div>
 
-            <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <XCircle className="w-5 h-5 text-rose-600" />
+            <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-100 text-slate-700 rounded-lg">
+                  <XCircle className="w-6 h-6" />
+                </div>
                 <div>
-                  <p className="text-xs font-semibold text-rose-800 uppercase tracking-wide">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Failed / Denied
                   </p>
-                  <p className="text-xl font-bold text-rose-700">
+                  <p className="text-2xl font-black text-slate-900">
                     {byStatus.failed ?? 0}
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-medium text-rose-600 bg-rose-100/80 px-2 py-0.5 rounded-full">
-                Errors / Denied
-              </span>
-            </div>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between col-span-2 sm:col-span-1">
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-slate-500" />
-                <div>
-                  <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
-                    Other / Neutral
-                  </p>
-                  <p className="text-xl font-bold text-slate-700">
-                    {byStatus.other ?? 0}
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-medium text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full">
-                Audited
+              <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                Flagged
               </span>
             </div>
           </div>
 
-          {/* Detailed Audit Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-slate-500" />
-                <h3 className="text-sm font-bold text-slate-900">
-                  Transaction Audit Trail ({events.length} records)
+          {/* Detailed Audit Table - Clean White & Navy Blue */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-2.5">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">
+                  Master Audit Ledger ({events.length} records)
                 </h3>
               </div>
-              <span className="text-xs text-slate-500">
-                Click any row or &quot;Details&quot; to view complete changes &amp; metadata
+              <span className="text-xs text-slate-500 font-medium">
+                Click any row or &quot;Details&quot; to inspect changes
               </span>
             </div>
 
             <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-100 text-slate-700 sticky top-0 z-10">
+                <thead className="bg-slate-50 text-slate-800 sticky top-0 z-10 border-b border-slate-200">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900">
                       Actor
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900">
                       Timestamp
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900">
                       Module
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900">
                       Action
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider min-w-[200px]">
+                    <th className="px-4 py-3 text-left font-bold text-xs uppercase tracking-wider text-slate-900 min-w-[200px]">
                       Outcome &amp; What Changed
                     </th>
-                    <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right font-bold text-xs uppercase tracking-wider text-slate-900">
                       Details
                     </th>
                   </tr>
@@ -561,7 +547,7 @@ export default function CompletedActivitiesMasterAuditReport() {
                 <tbody className="bg-white divide-y divide-slate-100">
                   {events.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan="7" className="px-4 py-10 text-center text-slate-500 font-medium">
                         No audit activities match the selected criteria.
                       </td>
                     </tr>
@@ -570,24 +556,25 @@ export default function CompletedActivitiesMasterAuditReport() {
                       const isSuccess = e.status === "success";
                       const isFailed = e.status === "failed";
                       const changesText = formatChangesText(e.changes);
+                      const isOvertime = e.module === "overtime" || e.action?.includes("OVERTIME");
 
                       return (
                         <tr
                           key={e.id || idx}
                           onClick={() => setSelectedEvent(e)}
-                          className="hover:bg-slate-50 cursor-pointer transition"
+                          className="hover:bg-slate-50/80 cursor-pointer transition"
                         >
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-slate-900">
+                          <td className="px-4 py-3.5">
+                            <div className="font-bold text-slate-900">
                               {e.actorName || e.actorEmail || e.actor || "System"}
                             </div>
                             {e.actorRole && (
-                              <span className="text-[11px] font-semibold text-slate-500 uppercase bg-slate-100 px-1.5 py-0.5 rounded">
+                              <span className="text-[11px] font-semibold text-slate-600 uppercase bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                                 {e.actorRole}
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap text-xs">
+                          <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap text-xs font-mono">
                             {e.timestamp
                               ? new Date(e.timestamp).toLocaleString(undefined, {
                                   dateStyle: "short",
@@ -595,54 +582,60 @@ export default function CompletedActivitiesMasterAuditReport() {
                                 })
                               : "—"}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span
-                              className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border capitalize ${getModuleBadgeColor(
-                                e.module
-                              )}`}
-                            >
-                              {e.module === "employee"
-                                ? "Employee"
-                                : e.module === "projects"
-                                ? "Projects/Budget"
-                                : e.module}
-                            </span>
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            {/* OVERTIME ONLY IS ORANGE; ALL OTHERS ARE NAVY/BLUE/WHITE */}
+                            {isOvertime ? (
+                              <span className="inline-block px-2.5 py-1 rounded-full text-xs font-extrabold bg-orange-100 text-orange-900 border border-orange-300">
+                                Overtime
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-white text-slate-800 border border-slate-300 capitalize">
+                                {e.module === "employee"
+                                  ? "Employee"
+                                  : e.module === "projects"
+                                  ? "Projects/Budget"
+                                  : e.module}
+                              </span>
+                            )}
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs text-slate-800">
+                          <td className="px-4 py-3.5 font-mono text-xs text-slate-800 font-semibold">
                             {e.action}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-4 py-3.5 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
                                 isSuccess
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                  ? "bg-white text-blue-700 border-blue-300"
                                   : isFailed
-                                  ? "bg-rose-100 text-rose-800 border border-rose-200"
-                                  : "bg-slate-100 text-slate-700 border border-slate-200"
+                                  ? "bg-white text-slate-800 border-slate-300"
+                                  : "bg-white text-slate-700 border-slate-200"
                               }`}
                             >
-                              {isSuccess && <CheckCircle className="w-3.5 h-3.5" />}
-                              {isFailed && <XCircle className="w-3.5 h-3.5" />}
+                              {isSuccess ? (
+                                <CheckCircle className="w-3.5 h-3.5 text-blue-600" />
+                              ) : (
+                                <XCircle className="w-3.5 h-3.5 text-slate-600" />
+                              )}
                               {isSuccess ? "Success" : isFailed ? "Failed" : "Other"}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-700 text-xs">
-                            <div className="font-medium text-slate-900">
+                          <td className="px-4 py-3.5 text-slate-700 text-xs">
+                            <div className="font-semibold text-slate-900">
                               {e.outcome || "Completed"}
                             </div>
                             {changesText !== "—" && (
-                              <div className="text-[11px] text-slate-500 truncate max-w-sm font-mono mt-0.5">
+                              <div className="text-[11px] text-slate-600 truncate max-w-sm font-mono mt-0.5">
                                 {changesText}
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-4 py-3.5 text-right">
                             <button
                               onClick={(ev) => {
                                 ev.stopPropagation();
                                 setSelectedEvent(e);
                               }}
-                              className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition"
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
                               title="Inspect Details"
                             >
                               <Eye className="w-4 h-4" />
@@ -657,11 +650,9 @@ export default function CompletedActivitiesMasterAuditReport() {
             </div>
 
             {events.length > 0 && (
-              <div className="px-5 py-3 border-t border-slate-200 text-xs text-slate-500 bg-slate-50/50 flex justify-between items-center">
-                <span>
-                  Showing {events.length} records.
-                </span>
-                <span>Audit events are cryptographically recorded in MongoDB.</span>
+              <div className="px-5 py-3.5 border-t border-slate-200 text-xs text-slate-500 bg-white flex justify-between items-center font-medium">
+                <span>Showing {events.length} transaction records.</span>
+                <span>Protected by immutable audit ledger.</span>
               </div>
             )}
           </div>
@@ -671,85 +662,85 @@ export default function CompletedActivitiesMasterAuditReport() {
       {/* Detail Modal: Inspect What Was Changed */}
       {selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150 border border-slate-200">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 text-indigo-600" />
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-2.5">
+                <ClipboardList className="w-5 h-5 text-blue-600" />
                 <h3 className="font-bold text-slate-900 text-base">
                   Audit Transaction Details
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/50 transition"
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-4">
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+            <div className="p-6 overflow-y-auto space-y-4 bg-white">
+              <div className="grid grid-cols-2 gap-3.5 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
                 <div>
-                  <span className="text-slate-500 block">Action</span>
+                  <span className="text-slate-500 block font-medium">Action</span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
                     {selectedEvent.action}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Status</span>
+                  <span className="text-slate-500 block font-medium">Status</span>
                   <span
                     className={`inline-flex items-center gap-1 font-bold text-xs mt-0.5 ${
                       selectedEvent.status === "success"
-                        ? "text-emerald-700"
-                        : "text-rose-700"
+                        ? "text-blue-700"
+                        : "text-slate-800"
                     }`}
                   >
                     {selectedEvent.status === "success" ? (
-                      <CheckCircle className="w-3.5 h-3.5" />
+                      <CheckCircle className="w-3.5 h-3.5 text-blue-600" />
                     ) : (
-                      <XCircle className="w-3.5 h-3.5" />
+                      <XCircle className="w-3.5 h-3.5 text-slate-600" />
                     )}
                     {selectedEvent.status?.toUpperCase()}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Actor</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="text-slate-500 block font-medium">Actor</span>
+                  <span className="font-semibold text-slate-900">
                     {selectedEvent.actorName
                       ? `${selectedEvent.actorName} (${selectedEvent.actorEmail || selectedEvent.actorId})`
                       : selectedEvent.actor}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Timestamp</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="text-slate-500 block font-medium">Timestamp</span>
+                  <span className="font-semibold text-slate-900">
                     {selectedEvent.timestamp
                       ? new Date(selectedEvent.timestamp).toLocaleString()
                       : "—"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Module &amp; Entity</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="text-slate-500 block font-medium">Module &amp; Entity</span>
+                  <span className="font-semibold text-slate-900 capitalize">
                     {selectedEvent.module} / {selectedEvent.source || "—"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Entity ID</span>
-                  <span className="font-mono text-slate-900">
+                  <span className="text-slate-500 block font-medium">Entity ID</span>
+                  <span className="font-mono text-slate-900 font-bold">
                     {selectedEvent.entityId || "—"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">IP Address</span>
-                  <span className="font-mono text-slate-900">
+                  <span className="text-slate-500 block font-medium">IP Address</span>
+                  <span className="font-mono text-slate-900 font-bold">
                     {selectedEvent.ipAddress || "—"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Client Device</span>
+                  <span className="text-slate-500 block font-medium">Client Device</span>
                   <span className="font-mono text-slate-900 truncate block max-w-xs">
                     {selectedEvent.userAgent || "—"}
                   </span>
@@ -758,15 +749,15 @@ export default function CompletedActivitiesMasterAuditReport() {
 
               {/* What Was Changed Section */}
               <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
                   What Was Changed (Field Differences)
                 </h4>
                 {selectedEvent.changes ? (
-                  <div className="bg-slate-900 text-slate-100 p-3.5 rounded-xl font-mono text-xs overflow-x-auto max-h-48">
+                  <div className="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-xs overflow-x-auto max-h-48 border border-slate-800">
                     <pre>{JSON.stringify(selectedEvent.changes, null, 2)}</pre>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <p className="text-xs text-slate-500 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                     No field modifications recorded for this activity (read-only or atomic event).
                   </p>
                 )}
@@ -774,15 +765,15 @@ export default function CompletedActivitiesMasterAuditReport() {
 
               {/* Additional Metadata */}
               <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
                   Metadata &amp; Operation Context
                 </h4>
                 {selectedEvent.metadata ? (
-                  <div className="bg-slate-50 text-slate-900 p-3.5 rounded-xl font-mono text-xs border border-slate-200 overflow-x-auto max-h-48">
+                  <div className="bg-slate-50 text-slate-900 p-4 rounded-xl font-mono text-xs border border-slate-200 overflow-x-auto max-h-48">
                     <pre>{JSON.stringify(selectedEvent.metadata, null, 2)}</pre>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <p className="text-xs text-slate-500 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                     No extra metadata logged.
                   </p>
                 )}
@@ -790,10 +781,10 @@ export default function CompletedActivitiesMasterAuditReport() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+            <div className="px-6 py-3.5 border-t border-slate-200 bg-white flex justify-end">
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 text-sm font-medium transition"
+                className="px-5 py-2 bg-slate-900 hover:bg-black text-white rounded-lg text-sm font-bold transition shadow-xs"
               >
                 Close
               </button>

@@ -18,7 +18,12 @@ import {
 } from "lucide-react";
 import Webcam from "react-webcam";
 import AttendancePhotoViewer from "./AttendancePhotoViewer";
-import { formatWorkingHours, calculateEffectiveWorkingHours } from "../utils/timeUtils";
+import {
+  formatWorkingHours,
+  calculateEffectiveWorkingHours,
+  getEthiopianDate,
+  getEthiopianTime,
+} from "../utils/timeUtils";
 
 export default function DailyAttendance({
   employeeId,
@@ -39,6 +44,9 @@ export default function DailyAttendance({
   const [notes, setNotes] = useState("");
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [serverSkewMs, setServerSkewMs] = useState(0);
+  const [serverDate, setServerDate] = useState(getEthiopianDate());
+  const [clockTamperNotice, setClockTamperNotice] = useState(null);
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [todayOvertimeRequest, setTodayOvertimeRequest] = useState(null);
@@ -105,26 +113,55 @@ export default function DailyAttendance({
     }
   };
 
-  // Update current time every second
+  // Synchronize with Yegar Linux server time
+  useEffect(() => {
+    const syncServerTime = async () => {
+      try {
+        const res = await fetch("/api/server-time", { cache: "no-store" });
+        const data = await res.json();
+        if (data.success && data.timestamp) {
+          const skew = data.timestamp - Date.now();
+          setServerSkewMs(skew);
+          if (data.ethiopianDate) {
+            setServerDate(data.ethiopianDate);
+          }
+          if (Math.abs(skew) > 120000) {
+            setClockTamperNotice({
+              minutes: Math.round(Math.abs(skew) / 60000),
+              isAhead: skew < 0,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("DailyAttendance server time sync fallback:", err);
+      }
+    };
+    syncServerTime();
+  }, []);
+
+  // Update current time every second anchored to server time
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
+      setCurrentTime(new Date(Date.now() + serverSkewMs));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [serverSkewMs]);
 
   // Fetch today's attendance record on component mount
   useEffect(() => {
     fetchTodayAttendance();
     fetchTodayOvertimeStatus();
     getCurrentLocation();
-  }, [employeeId]);
+  }, [employeeId, serverDate]);
 
   const fetchTodayOvertimeStatus = async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const res = await fetch(`/api/overtime/requests?employeeId=${employeeId}&date=${today}&status=approved`);
+      const today = serverDate || getEthiopianDate();
+      const res = await fetch(
+        `/api/overtime/requests?employeeId=${employeeId}&date=${today}&status=approved`,
+        { cache: "no-store" }
+      );
       const result = await res.json();
       if (result.success && result.data?.length > 0) {
         setTodayOvertimeRequest(result.data[0]);
@@ -334,9 +371,10 @@ export default function DailyAttendance({
   // Fetch today's attendance record
   const fetchTodayAttendance = async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = serverDate || getEthiopianDate();
       const response = await fetch(
-        `/api/attendance/daily?employeeId=${employeeId}&date=${today}`
+        `/api/attendance/daily?employeeId=${employeeId}&date=${today}`,
+        { cache: "no-store" }
       );
       const result = await response.json();
 
@@ -432,7 +470,7 @@ export default function DailyAttendance({
               photo,
               employeeId,
               action,
-              date: new Date().toISOString().split("T")[0],
+              date: serverDate || getEthiopianDate(),
             }),
           });
 
@@ -515,7 +553,10 @@ export default function DailyAttendance({
 
   // Calculate working hours display (deducting actual lunch break if recorded)
   const getWorkingHoursDisplay = () => {
-    if (!todayRecord?.checkInTime) return "0h 00m";
+    if (!todayRecord?.checkInTime) return "0h 0m";
+    if (todayRecord.status === "not-checked-out" || todayRecord.durationFormatted?.includes("Not Checked Out")) {
+      return "Not Checked Out (Admin to Handle)";
+    }
 
     if (todayRecord.checkOutTime && typeof todayRecord.workingHours === "number") {
       return formatWorkingHours(todayRecord.workingHours);
@@ -544,11 +585,19 @@ export default function DailyAttendance({
       }
     }
 
+    const MAX_SHIFT_MS = 16 * 60 * 60 * 1000;
+    if (!todayRecord.checkOutTime && diffMs > MAX_SHIFT_MS) {
+      return "Not Checked Out (Admin to Handle)";
+    }
+
     const totalMinutes = Math.floor(Math.max(0, diffMs) / (1000 * 60));
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
 
-    return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
+    if (hours === 0 && minutes === 0) return "0h 0m";
+    if (hours > 0 && minutes === 0) return `${hours}h`;
+    if (hours === 0 && minutes > 0) return `${minutes}m`;
+    return `${hours}h ${minutes}m`;
   };
 
   // Format time for display
@@ -567,6 +616,12 @@ export default function DailyAttendance({
         text: "Not Started",
         color: "text-gray-500",
         bgColor: "bg-gray-100",
+      };
+    if (todayRecord.status === "not-checked-out" || todayRecord.durationFormatted?.includes("Not Checked Out"))
+      return {
+        text: "Not Checked Out (Admin Resolution Needed)",
+        color: "text-amber-800",
+        bgColor: "bg-amber-100",
       };
     if (todayRecord.checkOutTime)
       return {
@@ -780,7 +835,7 @@ export default function DailyAttendance({
               </div>
               <div>
                 <h4 className="text-sm font-bold text-amber-900">
-                  Approved Overtime Today ({todayOvertimeRequest.approvedHours || todayOvertimeRequest.requestedHours} hrs)
+                  Approved Overtime Today ({formatWorkingHours(todayOvertimeRequest.approvedHours || todayOvertimeRequest.requestedHours)})
                 </h4>
                 <p className="text-xs text-amber-700">
                   {todayOvertimeRequest.project ? `Project: ${todayOvertimeRequest.project} | ` : ""}
