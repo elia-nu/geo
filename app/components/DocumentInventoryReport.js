@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FileText,
   Download,
@@ -19,6 +19,7 @@ export default function DocumentInventoryReport() {
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [departmentsList, setDepartmentsList] = useState([]);
   const [filters, setFilters] = useState({
     type: "",
     ownerId: "",
@@ -27,6 +28,24 @@ export default function DocumentInventoryReport() {
     startDate: "",
     endDate: "",
   });
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+        const res = await fetch("/api/departments", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.ok) {
+          const d = await res.json();
+          setDepartmentsList(Array.isArray(d) ? d : d.departments || d.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading departments:", err);
+      }
+    };
+    fetchDepartments();
+  }, []);
 
   const handleGenerateReport = async () => {
     setLoading(true);
@@ -222,15 +241,20 @@ export default function DocumentInventoryReport() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Department
               </label>
-              <input
-                type="text"
+              <select
                 value={filters.department}
                 onChange={(e) =>
                   setFilters({ ...filters, department: e.target.value })
                 }
-                placeholder="Department name"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-black text-sm"
-              />
+              >
+                <option value="">All Departments</option>
+                {departmentsList.map((d) => (
+                  <option key={d._id} value={d.name || d.departmentName || d._id}>
+                    {d.name || d.departmentName || "Unnamed Department"}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -415,12 +439,27 @@ export default function DocumentInventoryReport() {
                           {doc.normalizedType || doc.documentType}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap">
-                          <div className="text-black">
-                            {doc.ownerName || "Unknown"}
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-900">
+                              {doc.ownerName || "Unknown"}
+                            </span>
+                            {doc.ownerType && doc.ownerType !== "Unknown" && (
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                  doc.ownerType === "Client"
+                                    ? "bg-purple-100 text-purple-800 border border-purple-200"
+                                    : "bg-blue-100 text-blue-800 border border-blue-200"
+                                }`}
+                              >
+                                {doc.ownerType}
+                              </span>
+                            )}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {doc.ownerEmail}
-                          </div>
+                          {doc.ownerEmail && (
+                            <div className="text-xs text-slate-500">
+                              {doc.ownerEmail}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-black">
                           {doc.ownerDepartment}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { getCurrentUser, checkPermission } from "../../../../middleware/auth";
 import { createAuditLog } from "../../../../../utils/audit";
+import { formatHoursToHrMin } from "../../../../utils/timeUtils";
 
 // Export 5.4 Attendance Trend & Productivity Report
 export async function POST(request) {
@@ -134,13 +135,13 @@ function generateExcelExport(trends, filters) {
         t.year ?? "",
         t.month ?? "",
         t.quarter ?? "",
-        t.totalWorkingHours ?? 0,
-        t.totalOvertimeHours ?? 0,
+        formatHoursToHrMin(t.totalWorkingHours),
+        formatHoursToHrMin(t.totalOvertimeHours),
         t.distinctEmployees ?? 0,
         t.employeeDaysPresent ?? 0,
         t.daysInPeriod ?? 0,
         t.absenteeismRate ?? 0,
-        t.avgOvertimePerEmployee ?? 0,
+        formatHoursToHrMin(t.avgOvertimePerEmployee),
       ]);
     });
 
@@ -235,13 +236,13 @@ function generateCSVExport(trends, filters) {
           escapeCSV(t.year ?? ""),
           escapeCSV(t.month ?? ""),
           escapeCSV(t.quarter ?? ""),
-          escapeCSV(t.totalWorkingHours ?? 0),
-          escapeCSV(t.totalOvertimeHours ?? 0),
+          escapeCSV(formatHoursToHrMin(t.totalWorkingHours)),
+          escapeCSV(formatHoursToHrMin(t.totalOvertimeHours)),
           escapeCSV(t.distinctEmployees ?? 0),
           escapeCSV(t.employeeDaysPresent ?? 0),
           escapeCSV(t.daysInPeriod ?? 0),
           escapeCSV(t.absenteeismRate ?? 0),
-          escapeCSV(t.avgOvertimePerEmployee ?? 0),
+          escapeCSV(formatHoursToHrMin(t.avgOvertimePerEmployee)),
         ].join(",")
       );
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Users,
   Download,
@@ -15,6 +15,9 @@ export default function WorkForceDistributionReport() {
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [departmentsList, setDepartmentsList] = useState([]);
+  const [projectsList, setProjectsList] = useState([]);
+  const [locationsList, setLocationsList] = useState([]);
   const [filters, setFilters] = useState({
     startDate: "",
     endDate: "",
@@ -22,6 +25,35 @@ export default function WorkForceDistributionReport() {
     projectId: "",
     locationId: "",
   });
+
+  useEffect(() => {
+    const fetchDropdowns = async () => {
+      try {
+        const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+        const headers = { Authorization: `Bearer ${authToken}` };
+        const [deptRes, projRes, locRes] = await Promise.all([
+          fetch("/api/departments", { headers }).catch(() => null),
+          fetch("/api/projects", { headers }).catch(() => null),
+          fetch("/api/work-locations", { headers }).catch(() => null),
+        ]);
+        if (deptRes && deptRes.ok) {
+          const d = await deptRes.json();
+          setDepartmentsList(Array.isArray(d) ? d : d.departments || d.data || []);
+        }
+        if (projRes && projRes.ok) {
+          const p = await projRes.json();
+          setProjectsList(Array.isArray(p) ? p : p.projects || p.data || []);
+        }
+        if (locRes && locRes.ok) {
+          const l = await locRes.json();
+          setLocationsList(Array.isArray(l) ? l : l.workLocations || l.locations || l.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading filter dropdowns:", err);
+      }
+    };
+    fetchDropdowns();
+  }, []);
 
   const handleGenerateReport = async () => {
     setLoading(true);
@@ -215,43 +247,58 @@ export default function WorkForceDistributionReport() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Department
               </label>
-              <input
-                type="text"
+              <select
                 value={filters.department}
                 onChange={(e) =>
                   setFilters({ ...filters, department: e.target.value })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-                placeholder="Department (optional)"
-              />
+              >
+                <option value="">All Departments</option>
+                {departmentsList.map((d) => (
+                  <option key={d._id} value={d.name || d.departmentName || d._id}>
+                    {d.name || d.departmentName || "Unnamed Department"}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Project ID
+                Project
               </label>
-              <input
-                type="text"
+              <select
                 value={filters.projectId}
                 onChange={(e) =>
                   setFilters({ ...filters, projectId: e.target.value })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-                placeholder="Project ID (optional)"
-              />
+              >
+                <option value="">All Projects</option>
+                {projectsList.map((p) => (
+                  <option key={p._id} value={p._id}>
+                    {p.name || p.projectName || "Unnamed Project"}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location ID
+                Work Location
               </label>
-              <input
-                type="text"
+              <select
                 value={filters.locationId}
                 onChange={(e) =>
                   setFilters({ ...filters, locationId: e.target.value })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-                placeholder="Work location ID (optional)"
-              />
+              >
+                <option value="">All Locations</option>
+                {locationsList.map((loc) => (
+                  <option key={loc._id} value={loc._id}>
+                    {loc.name || loc.locationName || "Unnamed Location"}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

@@ -46,17 +46,85 @@ export async function GET(request) {
         ? locationIdFilter
         : null;
 
-    // Load employees (filtering by department / employeeId first)
-    const empQuery = {};
-    if (employeeIdFilter && ObjectId.isValid(employeeIdFilter)) {
-      empQuery._id = new ObjectId(employeeIdFilter);
-    }
-    if (departmentFilter) {
-      empQuery.$or = [
-        { department: departmentFilter },
-        { "personalDetails.department": departmentFilter },
+    // Load employees with robust multi-field filtering
+    const empConditions = [];
+
+    if (employeeIdFilter) {
+      const orEmp = [
+        { employeeId: employeeIdFilter },
+        { "personalDetails.employeeId": employeeIdFilter },
+        { employeeId: String(employeeIdFilter) },
       ];
+      if (ObjectId.isValid(employeeIdFilter)) {
+        orEmp.push({ _id: new ObjectId(employeeIdFilter) });
+      }
+      empConditions.push({ $or: orEmp });
     }
+
+    if (departmentFilter) {
+      const deptDoc = await db.collection("departments").findOne({
+        $or: [
+          ...(ObjectId.isValid(departmentFilter) ? [{ _id: new ObjectId(departmentFilter) }] : []),
+          { name: departmentFilter },
+          { name: { $regex: new RegExp(`^${departmentFilter}$`, "i") } },
+        ],
+      });
+      const deptNames = [departmentFilter];
+      if (deptDoc?.name) deptNames.push(deptDoc.name);
+
+      empConditions.push({
+        $or: [
+          { department: { $in: deptNames } },
+          { "personalDetails.department": { $in: deptNames } },
+          ...(deptDoc ? [{ departmentId: deptDoc._id.toString() }, { "personalDetails.departmentId": deptDoc._id.toString() }] : []),
+        ],
+      });
+    }
+
+    if (projectIdFilter) {
+      const projDoc = await db.collection("projects").findOne({
+        $or: [
+          ...(ObjectId.isValid(projectIdFilter) ? [{ _id: new ObjectId(projectIdFilter) }] : []),
+          { name: projectIdFilter },
+        ],
+      });
+      if (projDoc && Array.isArray(projDoc.assignedEmployees) && projDoc.assignedEmployees.length > 0) {
+        const assignedObjIds = projDoc.assignedEmployees
+          .map((id) => (typeof id === "string" && ObjectId.isValid(id) ? new ObjectId(id) : id));
+        const assignedStrIds = projDoc.assignedEmployees.map((id) => id.toString());
+        empConditions.push({
+          $or: [
+            { _id: { $in: assignedObjIds } },
+            { employeeId: { $in: assignedStrIds } },
+          ],
+        });
+      }
+    }
+
+    if (locationIdFilter) {
+      const locDoc = await db.collection("work_locations").findOne({
+        $or: [
+          ...(ObjectId.isValid(locationIdFilter) ? [{ _id: new ObjectId(locationIdFilter) }] : []),
+          { name: locationIdFilter },
+        ],
+      });
+      const targetLocId = locDoc?._id?.toString() || locationIdFilter;
+      const targetLocName = locDoc?.name || locationIdFilter;
+
+      empConditions.push({
+        $or: [
+          { workLocation: targetLocId },
+          { workLocation: targetLocName },
+          { workLocations: targetLocId },
+          { workLocations: targetLocName },
+          ...(ObjectId.isValid(targetLocId)
+            ? [{ workLocation: new ObjectId(targetLocId) }, { workLocations: new ObjectId(targetLocId) }]
+            : []),
+        ],
+      });
+    }
+
+    const empQuery = empConditions.length > 0 ? { $and: empConditions } : {};
     const employees = await db.collection("employees").find(empQuery).toArray();
     const employeesById = new Map(
       employees.map((e) => [e._id.toString(), e])

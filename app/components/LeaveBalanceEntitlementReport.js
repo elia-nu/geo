@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Download,
   RefreshCw,
@@ -16,11 +16,30 @@ export default function LeaveBalanceEntitlementReport() {
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [departmentsList, setDepartmentsList] = useState([]);
   const [filters, setFilters] = useState({
     department: "",
     overusedOnly: false,
     underutilizedOnly: false,
   });
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+        const res = await fetch("/api/departments", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.ok) {
+          const d = await res.json();
+          setDepartmentsList(Array.isArray(d) ? d : d.departments || d.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading departments:", err);
+      }
+    };
+    fetchDepartments();
+  }, []);
 
   const handleGenerateReport = async () => {
     setLoading(true);
@@ -152,13 +171,18 @@ export default function LeaveBalanceEntitlementReport() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-          <input
-            type="text"
+          <select
             value={filters.department}
             onChange={(e) => setFilters({ ...filters, department: e.target.value })}
-            placeholder="Optional filter"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-          />
+          >
+            <option value="">All Departments</option>
+            {departmentsList.map((d) => (
+              <option key={d._id} value={d.name || d.departmentName || d._id}>
+                {d.name || d.departmentName || "Unnamed Department"}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex items-center gap-4 pt-7">
           <label className="flex items-center gap-2 cursor-pointer">

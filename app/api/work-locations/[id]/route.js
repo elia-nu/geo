@@ -167,14 +167,24 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    if (
-      workLocation.assignedEmployees &&
-      workLocation.assignedEmployees.length > 0
-    ) {
+    // Block deletion if employees are assigned to this location
+    const employeeCount = await db.collection("employees").countDocuments({
+      $or: [
+        { workLocationId: new ObjectId(id) },
+        { workLocationId: id },
+        { workLocation: workLocation.name },
+        { workLocationName: workLocation.name },
+      ],
+    });
+    const assignedCount = Array.isArray(workLocation.assignedEmployees)
+      ? workLocation.assignedEmployees.length
+      : 0;
+    const totalAssigned = Math.max(employeeCount, assignedCount);
+
+    if (totalAssigned > 0) {
       return NextResponse.json(
         {
-          error:
-            "Cannot delete location with assigned employees. Please reassign employees first.",
+          error: `Cannot delete location "${workLocation.name}". It has ${totalAssigned} assigned employee(s). Please reassign employees first before deleting.`,
         },
         { status: 400 }
       );

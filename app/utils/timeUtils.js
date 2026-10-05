@@ -29,6 +29,13 @@ export function calculateEffectiveWorkingHours(checkIn, checkOut, lunchOut, lunc
       const lunchDurationMs = lunchEnd - lunchStart;
       totalMs = Math.max(0, totalMs - lunchDurationMs);
     }
+  } else if (lunchOut && !lunchIn) {
+    // If lunch-out was logged but employee never logged lunch-in before checkout
+    const lunchStart = new Date(lunchOut).getTime();
+    if (!isNaN(lunchStart) && end > lunchStart) {
+      const lunchDurationMs = end - lunchStart;
+      totalMs = Math.max(0, totalMs - lunchDurationMs);
+    }
   }
 
   const hours = totalMs / (1000 * 60 * 60);
@@ -90,24 +97,37 @@ export function formatWorkingHours(input) {
         }
         decimalHours = diffMs / (1000 * 60 * 60);
       } else {
-        return "0h 0m";
+        return "00hr 00m";
       }
     } else {
-      return "0h 0m";
+      return "00hr 00m";
     }
   } else {
     decimalHours = parseFloat(input);
-    if (isNaN(decimalHours) || decimalHours < 0) return "0h 0m";
+    if (isNaN(decimalHours) || decimalHours < 0) return "00hr 00m";
   }
 
   const totalMinutes = Math.round(decimalHours * 60);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
-  if (hours === 0 && minutes === 0) return "0h 0m";
-  if (hours > 0 && minutes === 0) return `${hours}h`;
-  if (hours === 0 && minutes > 0) return `${minutes}m`;
-  return `${hours}h ${minutes}m`;
+  return `${hours.toString().padStart(2, "0")}hr ${minutes.toString().padStart(2, "0")}m`;
+}
+
+/**
+ * Formats decimal hours or string numbers (e.g. 0.7, 7.5, 8) into standard "00hr 00m" format (e.g. "00hr 42m", "07hr 30m").
+ *
+ * @param {number|string|null|undefined} val Decimal hours
+ * @returns {string} Human-readable time string "00hr 00m"
+ */
+export function formatHoursToHrMin(val) {
+  if (val === null || val === undefined || val === "") return "00hr 00m";
+  const num = typeof val === "number" ? val : parseFloat(val);
+  if (isNaN(num) || num < 0) return "00hr 00m";
+  const totalMin = Math.round(num * 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h.toString().padStart(2, "0")}hr ${m.toString().padStart(2, "0")}m`;
 }
 
 /**

@@ -83,14 +83,72 @@ export async function GET(request) {
           : "";
       const owner = empKey ? employeeMap[empKey] : null;
 
+      // Resolve client or employee owner
+      const clientName =
+        doc.clientName ||
+        doc.client ||
+        doc.contractorName ||
+        "";
+      const clientEmail = doc.contractorEmail || doc.clientEmail || "";
+
+      let empName = "";
+      let empEmail = "";
+      let empDept = "";
+
+      if (owner) {
+        empName =
+          owner?.personalDetails?.name ||
+          owner?.name ||
+          (owner?.firstName
+            ? `${owner.firstName} ${owner.lastName || ""}`.trim()
+            : "");
+        empEmail = owner?.personalDetails?.email || owner?.email || "";
+        empDept =
+          owner?.personalDetails?.department || owner?.department || "";
+      }
+
+      if (!empName && empKey) {
+        const matchedEmp = employees.find(
+          (e) =>
+            e._id?.toString() === empKey ||
+            e.employeeId === empKey ||
+            e.personalDetails?.employeeId === empKey
+        );
+        if (matchedEmp) {
+          empName =
+            matchedEmp?.personalDetails?.name ||
+            matchedEmp?.name ||
+            (matchedEmp?.firstName
+              ? `${matchedEmp.firstName} ${matchedEmp.lastName || ""}`.trim()
+              : "");
+          empEmail =
+            matchedEmp?.personalDetails?.email || matchedEmp?.email || "";
+          empDept =
+            matchedEmp?.personalDetails?.department ||
+            matchedEmp?.department ||
+            "";
+        }
+      }
+
       const ownerName =
-        owner?.personalDetails?.name || owner?.name || "";
-      const ownerEmail =
-        owner?.personalDetails?.email || owner?.email || "";
-      const ownerDepartment =
-        owner?.personalDetails?.department ||
-        owner?.department ||
-        "Unassigned";
+        clientName ||
+        empName ||
+        doc.owner ||
+        doc.ownerName ||
+        doc.uploadedByName ||
+        doc.uploadedBy ||
+        "Unknown";
+
+      const ownerType = clientName
+        ? "Client"
+        : empName || empKey
+        ? "Employee"
+        : "Unknown";
+
+      const ownerEmail = clientEmail || empEmail || "";
+      const ownerDepartment = clientName
+        ? (doc.department || "External Client")
+        : (empDept || doc.department || "Unassigned");
 
       const typeRaw = (doc.documentType || doc.type || "other").toString();
       const tLower = typeRaw.toLowerCase();

@@ -49,7 +49,6 @@ export default function ExecutivePerformanceDashboardReport() {
     { key: "payrollEfficiency", icon: DollarSign, bg: "bg-emerald-50", border: "border-emerald-100", text: "text-emerald-600", label: "Payroll Efficiency" },
     { key: "projectCompletionRate", icon: Briefcase, bg: "bg-indigo-50", border: "border-indigo-100", text: "text-indigo-600", label: "Project Completion Rate" },
     { key: "workforceUtilization", icon: Users, bg: "bg-amber-50", border: "border-amber-100", text: "text-amber-600", label: "Workforce Utilization" },
-    { key: "costVariance", icon: TrendingUp, bg: "bg-rose-50", border: "border-rose-100", text: "text-rose-600", label: "Cost Variance" },
   ];
 
   return (
@@ -61,7 +60,7 @@ export default function ExecutivePerformanceDashboardReport() {
             Executive Performance Dashboard Report
           </h2>
           <p className="text-sm text-gray-600 mt-0.5">
-            Company-wide KPIs: Attendance accuracy, Payroll efficiency, Project completion rate, Workforce utilization, Cost variance.
+            Company-wide KPIs: Attendance accuracy, Payroll efficiency, Project completion rate, Workforce utilization.
           </p>
         </div>
         <button
@@ -108,7 +107,7 @@ export default function ExecutivePerformanceDashboardReport() {
 
       {reportData && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {kpiList.map(({ key, icon: Icon, bg, border, text, label }) => {
               const kpi = kpis[key] || {};
               const value = summary[key] ?? kpi.value ?? 0;

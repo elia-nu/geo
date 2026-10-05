@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   MapPin,
   Download,
@@ -15,12 +15,38 @@ export default function SiteAttendanceComplianceReport() {
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [departmentsList, setDepartmentsList] = useState([]);
+  const [locationsList, setLocationsList] = useState([]);
   const [filters, setFilters] = useState({
     startDate: "",
     endDate: "",
     locationId: "",
     department: "",
   });
+
+  useEffect(() => {
+    const fetchDropdowns = async () => {
+      try {
+        const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+        const headers = { Authorization: `Bearer ${authToken}` };
+        const [deptRes, locRes] = await Promise.all([
+          fetch("/api/departments", { headers }).catch(() => null),
+          fetch("/api/work-locations", { headers }).catch(() => null),
+        ]);
+        if (deptRes && deptRes.ok) {
+          const d = await deptRes.json();
+          setDepartmentsList(Array.isArray(d) ? d : d.departments || d.data || []);
+        }
+        if (locRes && locRes.ok) {
+          const l = await locRes.json();
+          setLocationsList(Array.isArray(l) ? l : l.workLocations || l.locations || l.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading filter dropdowns:", err);
+      }
+    };
+    fetchDropdowns();
+  }, []);
 
   const handleGenerateReport = async () => {
     // If no dates selected, default to full current year
@@ -229,31 +255,41 @@ export default function SiteAttendanceComplianceReport() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location ID
+                Work Location
               </label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg.white text.black"
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
                 value={filters.locationId}
                 onChange={(e) =>
                   setFilters({ ...filters, locationId: e.target.value })
                 }
-                placeholder="Work location ID (optional)"
-              />
+              >
+                <option value="">All Locations</option>
+                {locationsList.map((loc) => (
+                  <option key={loc._id} value={loc._id}>
+                    {loc.name || loc.locationName || "Unnamed Location"}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Department
               </label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg.white text.black"
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
                 value={filters.department}
                 onChange={(e) =>
                   setFilters({ ...filters, department: e.target.value })
                 }
-                placeholder="Department (optional)"
-              />
+              >
+                <option value="">All Departments</option>
+                {departmentsList.map((d) => (
+                  <option key={d._id} value={d.name || d.departmentName || d._id}>
+                    {d.name || d.departmentName || "Unnamed Department"}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

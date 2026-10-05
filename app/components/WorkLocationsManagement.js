@@ -1338,18 +1338,18 @@ export default function WorkLocationsManagement() {
               {/* Assigned Employees Check */}
               {(locationToDelete.employeeCount > 0 ||
                 (locationToDelete.assignedEmployees && locationToDelete.assignedEmployees.length > 0)) ? (
-                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 space-y-2">
-                  <div className="flex items-center gap-2 font-semibold text-amber-900">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>Assigned Personnel Detected</span>
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 space-y-2">
+                  <div className="flex items-center gap-2 font-semibold text-rose-900">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Deletion Blocked</span>
                   </div>
-                  <p className="text-[11px] leading-relaxed opacity-90">
+                  <p className="text-[11px] leading-relaxed text-rose-800">
                     This location currently has{" "}
                     <strong>
                       {locationToDelete.employeeCount ||
                         locationToDelete.assignedEmployees.length}
                     </strong>{" "}
-                    assigned employee(s). The system requires reassigning or removing employees before this location can be deleted.
+                    assigned employee(s). Locations with assigned employees cannot be deleted. Please reassign or remove employees first.
                   </p>
                   <button
                     type="button"
@@ -1358,7 +1358,7 @@ export default function WorkLocationsManagement() {
                       closeDeleteModal();
                       openAssignModal(loc);
                     }}
-                    className="mt-1 text-xs font-bold text-amber-900 underline hover:text-amber-950 inline-flex items-center gap-1"
+                    className="mt-1 text-xs font-bold text-rose-900 underline hover:text-rose-950 inline-flex items-center gap-1"
                   >
                     <Users className="w-3.5 h-3.5" /> Manage & Reassign Employees
                   </button>

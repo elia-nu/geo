@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Search,
   Download,
@@ -16,6 +16,7 @@ export default function DocumentAccessAuditReport() {
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [departmentsList, setDepartmentsList] = useState([]);
   const [filters, setFilters] = useState({
     documentId: "",
     actorId: "",
@@ -26,6 +27,24 @@ export default function DocumentAccessAuditReport() {
     startDate: "",
     endDate: "",
   });
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+        const res = await fetch("/api/departments", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.ok) {
+          const d = await res.json();
+          setDepartmentsList(Array.isArray(d) ? d : d.departments || d.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading departments:", err);
+      }
+    };
+    fetchDepartments();
+  }, []);
 
   const handleGenerateReport = async () => {
     setLoading(true);
@@ -248,14 +267,20 @@ export default function DocumentAccessAuditReport() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Department
               </label>
-              <input
+              <select
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
                 value={filters.department}
                 onChange={(e) =>
                   setFilters({ ...filters, department: e.target.value })
                 }
-                placeholder="Department name"
-              />
+              >
+                <option value="">All Departments</option>
+                {departmentsList.map((d) => (
+                  <option key={d._id} value={d.name || d.departmentName || d._id}>
+                    {d.name || d.departmentName || "Unnamed Department"}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

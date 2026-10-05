@@ -1,13 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
   Download,
   RefreshCw,
   Clock,
   Users,
+  MapPin,
+  Building,
+  Briefcase,
+  User,
 } from "lucide-react";
+import Pagination from "./ui/Pagination";
 
 export default function AttendanceExceptionViolationReport() {
   const [loading, setLoading] = useState(false);
@@ -15,6 +20,26 @@ export default function AttendanceExceptionViolationReport() {
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+
+  // Dropdown options
+  const [departmentsList, setDepartmentsList] = useState([]);
+  const [projectsList, setProjectsList] = useState([]);
+  const [locationsList, setLocationsList] = useState([]);
+  const [employeesList, setEmployeesList] = useState([]);
+
+  // Pagination states for each exception section
+  const [latePage, setLatePage] = useState(1);
+  const [latePerPage, setLatePerPage] = useState(10);
+
+  const [earlyPage, setEarlyPage] = useState(1);
+  const [earlyPerPage, setEarlyPerPage] = useState(10);
+
+  const [outsidePage, setOutsidePage] = useState(1);
+  const [outsidePerPage, setOutsidePerPage] = useState(10);
+
+  const [missedPage, setMissedPage] = useState(1);
+  const [missedPerPage, setMissedPerPage] = useState(10);
+
   const [filters, setFilters] = useState({
     startDate: "",
     endDate: "",
@@ -24,9 +49,43 @@ export default function AttendanceExceptionViolationReport() {
     locationId: "",
   });
 
+  useEffect(() => {
+    fetch("/api/departments")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setDepartmentsList(d.departments || []);
+      })
+      .catch(() => {});
+
+    fetch("/api/projects")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setProjectsList(d.projects || []);
+      })
+      .catch(() => {});
+
+    fetch("/api/work-locations")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setLocationsList(d.locations || d.workLocations || []);
+      })
+      .catch(() => {});
+
+    fetch("/api/employee")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setEmployeesList(d.employees || []);
+      })
+      .catch(() => {});
+  }, []);
+
   const handleGenerateReport = async () => {
     setLoading(true);
     setMessage("");
+    setLatePage(1);
+    setEarlyPage(1);
+    setOutsidePage(1);
+    setMissedPage(1);
     try {
       const authToken = localStorage.getItem("authToken");
       const params = new URLSearchParams();
@@ -218,59 +277,90 @@ export default function AttendanceExceptionViolationReport() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Employee ID
+                Employee
               </label>
-              <input
-                type="text"
+              <select
                 value={filters.employeeId}
                 onChange={(e) =>
                   setFilters({ ...filters, employeeId: e.target.value })
                 }
-                placeholder="Filter by employee"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-              />
+              >
+                <option value="">All Employees</option>
+                {employeesList.map((emp) => {
+                  const name =
+                    emp.personalDetails?.name ||
+                    emp.name ||
+                    `${emp.firstName || ""} ${emp.lastName || ""}`.trim() ||
+                    "Employee";
+                  const code =
+                    emp.employeeId ||
+                    emp.personalDetails?.employeeId ||
+                    (emp._id ? emp._id.slice(-6) : "");
+                  return (
+                    <option key={emp._id} value={emp.employeeId || emp._id}>
+                      {name} ({code})
+                    </option>
+                  );
+                })}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Department
               </label>
-              <input
-                type="text"
+              <select
                 value={filters.department}
                 onChange={(e) =>
                   setFilters({ ...filters, department: e.target.value })
                 }
-                placeholder="Department"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-              />
+              >
+                <option value="">All Departments</option>
+                {departmentsList.map((dept) => (
+                  <option key={dept._id || dept.name} value={dept.name}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Project ID
+                Project
               </label>
-              <input
-                type="text"
+              <select
                 value={filters.projectId}
                 onChange={(e) =>
                   setFilters({ ...filters, projectId: e.target.value })
                 }
-                placeholder="Project ID"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-              />
+              >
+                <option value="">All Projects</option>
+                {projectsList.map((proj) => (
+                  <option key={proj._id} value={proj._id}>
+                    {proj.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location ID
+                Work Location
               </label>
-              <input
-                type="text"
+              <select
                 value={filters.locationId}
                 onChange={(e) =>
                   setFilters({ ...filters, locationId: e.target.value })
                 }
-                placeholder="Work location ID"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-              />
+              >
+                <option value="">All Locations</option>
+                {locationsList.map((loc) => (
+                  <option key={loc._id} value={loc._id}>
+                    {loc.name || loc.locationName}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -343,147 +433,302 @@ export default function AttendanceExceptionViolationReport() {
 
             {/* Late Arrivals */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-black mb-4">
-                Late Arrivals
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Employee
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Department
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Shift
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Check-in Time
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {reportData.lateArrivals?.map((r, idx) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.employeeName}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.department}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.shift}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.date}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.checkInTime
-                            ? new Date(r.checkInTime).toLocaleTimeString()
-                            : ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-black flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-amber-600" />
+                  <span>Late Arrivals</span>
+                  <span className="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+                    {reportData.lateArrivals?.length || 0}
+                  </span>
+                </h2>
               </div>
+              {reportData.lateArrivals && reportData.lateArrivals.length > 0 ? (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Employee
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Department
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Shift
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Check-in Time
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {reportData.lateArrivals
+                          .slice((latePage - 1) * latePerPage, latePage * latePerPage)
+                          .map((r, idx) => (
+                            <tr key={idx}>
+                              <td className="px-4 py-2 whitespace-nowrap text-black font-medium">
+                                {r.employeeName}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-black">
+                                {r.department}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-black">
+                                {r.shift}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-black">
+                                {r.date}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-amber-700 font-semibold">
+                                {r.checkInTime
+                                  ? new Date(r.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {reportData.lateArrivals.length > latePerPage && (
+                    <Pagination
+                      currentPage={latePage}
+                      totalPages={Math.ceil(reportData.lateArrivals.length / latePerPage) || 1}
+                      totalItems={reportData.lateArrivals.length}
+                      itemsPerPage={latePerPage}
+                      onPageChange={setLatePage}
+                      onItemsPerPageChange={(sz) => {
+                        setLatePerPage(sz);
+                        setLatePage(1);
+                      }}
+                    />
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 py-3">No late arrivals recorded.</p>
+              )}
             </div>
 
             {/* Early Departures */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-black mb-4">
-                Early Departures
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Employee
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Department
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Shift
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Check-out Time
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {reportData.earlyDepartures?.map((r, idx) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.employeeName}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.department}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.shift}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.date}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.checkOutTime
-                            ? new Date(r.checkOutTime).toLocaleTimeString()
-                            : ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-black flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-purple-600" />
+                  <span>Early Departures</span>
+                  <span className="text-xs bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded-full">
+                    {reportData.earlyDepartures?.length || 0}
+                  </span>
+                </h2>
               </div>
+              {reportData.earlyDepartures && reportData.earlyDepartures.length > 0 ? (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Employee
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Department
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Shift
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Check-out Time
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {reportData.earlyDepartures
+                          .slice((earlyPage - 1) * earlyPerPage, earlyPage * earlyPerPage)
+                          .map((r, idx) => (
+                            <tr key={idx}>
+                              <td className="px-4 py-2 whitespace-nowrap text-black font-medium">
+                                {r.employeeName}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-black">
+                                {r.department}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-black">
+                                {r.shift}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-black">
+                                {r.date}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-purple-700 font-semibold">
+                                {r.checkOutTime
+                                  ? new Date(r.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {reportData.earlyDepartures.length > earlyPerPage && (
+                    <Pagination
+                      currentPage={earlyPage}
+                      totalPages={Math.ceil(reportData.earlyDepartures.length / earlyPerPage) || 1}
+                      totalItems={reportData.earlyDepartures.length}
+                      itemsPerPage={earlyPerPage}
+                      onPageChange={setEarlyPage}
+                      onItemsPerPageChange={(sz) => {
+                        setEarlyPerPage(sz);
+                        setEarlyPage(1);
+                      }}
+                    />
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 py-3">No early departures recorded.</p>
+              )}
             </div>
+
+            {/* Outside Geofence Attempts */}
+            {reportData.outsideGeofenceAttempts && reportData.outsideGeofenceAttempts.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-black flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-red-600" />
+                    <span>Outside Geofence Attempts</span>
+                    <span className="text-xs bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded-full">
+                      {reportData.outsideGeofenceAttempts.length}
+                    </span>
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                          Employee
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                          Department
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                          Attempt Action
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                          Assigned Location
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {reportData.outsideGeofenceAttempts
+                        .slice((outsidePage - 1) * outsidePerPage, outsidePage * outsidePerPage)
+                        .map((r, idx) => (
+                          <tr key={idx}>
+                            <td className="px-4 py-2 whitespace-nowrap text-black font-medium">
+                              {r.employeeName}
+                            </td>
+                            <td className="px-4 py-2 whitespace-nowrap text-black">
+                              {r.department}
+                            </td>
+                            <td className="px-4 py-2 whitespace-nowrap text-black">
+                              {r.date}
+                            </td>
+                            <td className="px-4 py-2 whitespace-nowrap text-red-700 font-semibold">
+                              {r.action || "Outside Geofence"}
+                            </td>
+                            <td className="px-4 py-2 whitespace-nowrap text-slate-600">
+                              {r.workLocationName || "Unknown Worksite"}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+                {reportData.outsideGeofenceAttempts.length > outsidePerPage && (
+                  <Pagination
+                    currentPage={outsidePage}
+                    totalPages={Math.ceil(reportData.outsideGeofenceAttempts.length / outsidePerPage) || 1}
+                    totalItems={reportData.outsideGeofenceAttempts.length}
+                    itemsPerPage={outsidePerPage}
+                    onPageChange={setOutsidePage}
+                    onItemsPerPageChange={(sz) => {
+                      setOutsidePerPage(sz);
+                      setOutsidePage(1);
+                    }}
+                  />
+                )}
+              </div>
+            )}
 
             {/* Missed Check-ins */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-black mb-4">
-                Missed Check-ins
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Employee
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Department
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {reportData.missedCheckIns?.map((r, idx) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.employeeName}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.department}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-black">
-                          {r.date}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-black flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-orange-600" />
+                  <span>Missed Check-ins</span>
+                  <span className="text-xs bg-orange-100 text-orange-800 font-bold px-2 py-0.5 rounded-full">
+                    {reportData.missedCheckIns?.length || 0}
+                  </span>
+                </h2>
               </div>
+              {reportData.missedCheckIns && reportData.missedCheckIns.length > 0 ? (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Employee
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Department
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {reportData.missedCheckIns
+                          .slice((missedPage - 1) * missedPerPage, missedPage * missedPerPage)
+                          .map((r, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-2 whitespace-nowrap text-black font-medium">
+                                {r.employeeName}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-black">
+                                {r.department}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-black">
+                                {r.date}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {reportData.missedCheckIns.length > missedPerPage && (
+                    <Pagination
+                      currentPage={missedPage}
+                      totalPages={Math.ceil(reportData.missedCheckIns.length / missedPerPage) || 1}
+                      totalItems={reportData.missedCheckIns.length}
+                      itemsPerPage={missedPerPage}
+                      onPageChange={setMissedPage}
+                      onItemsPerPageChange={(sz) => {
+                        setMissedPerPage(sz);
+                        setMissedPage(1);
+                      }}
+                    />
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 py-3">No missed check-ins recorded for this selection.</p>
+              )}
             </div>
           </div>
         ) : (

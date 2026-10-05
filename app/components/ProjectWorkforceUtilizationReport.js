@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Download,
   RefreshCw,
@@ -10,16 +10,36 @@ import {
   UserCircle,
   Milestone,
 } from "lucide-react";
+import { formatHoursToHrMin } from "../utils/timeUtils";
 
 export default function ProjectWorkforceUtilizationReport() {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [projectsList, setProjectsList] = useState([]);
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
   const [filters, setFilters] = useState({ projectId: "", startDate: startOfMonth, endDate: endOfMonth });
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+        const res = await fetch("/api/projects", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.ok) {
+          const p = await res.json();
+          setProjectsList(Array.isArray(p) ? p : p.projects || p.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading projects:", err);
+      }
+    };
+    fetchProjects();
+  }, []);
 
   const handleGenerateReport = async () => {
     setLoading(true);
@@ -105,14 +125,19 @@ export default function ProjectWorkforceUtilizationReport() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Project ID</label>
-          <input
-            type="text"
+          <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+          <select
             value={filters.projectId}
             onChange={(e) => setFilters({ ...filters, projectId: e.target.value })}
-            placeholder="Optional"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-          />
+          >
+            <option value="">All Projects</option>
+            {projectsList.map((p) => (
+              <option key={p._id} value={p._id}>
+                {p.name || p.projectName || "Unnamed Project"}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
@@ -147,7 +172,7 @@ export default function ProjectWorkforceUtilizationReport() {
               <Users className="w-5 h-5 text-indigo-600" />
               <span className="font-medium text-indigo-900">Total Employee-Hours</span>
             </div>
-            <p className="text-2xl font-bold text-indigo-600">{summary.totalEmployeeHours ?? 0}</p>
+            <p className="text-2xl font-bold text-indigo-600">{formatHoursToHrMin(summary.totalEmployeeHours)}</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -169,7 +194,7 @@ export default function ProjectWorkforceUtilizationReport() {
                     {byProject.map((r) => (
                       <tr key={r.projectId}>
                         <td className="px-3 py-2 text-black">{r.projectName}</td>
-                        <td className="px-3 py-2 text-right text-black">{r.employeeHours}</td>
+                        <td className="px-3 py-2 text-right text-black">{formatHoursToHrMin(r.employeeHours)}</td>
                         <td className="px-3 py-2 text-right text-black">{r.taskCount}</td>
                       </tr>
                     ))}
@@ -195,7 +220,7 @@ export default function ProjectWorkforceUtilizationReport() {
                     {bySite.map((r) => (
                       <tr key={r.siteId}>
                         <td className="px-3 py-2 text-black">{r.siteName}</td>
-                        <td className="px-3 py-2 text-right text-black">{r.employeeHours}</td>
+                        <td className="px-3 py-2 text-right text-black">{formatHoursToHrMin(r.employeeHours)}</td>
                         <td className="px-3 py-2 text-right text-black">{r.taskCount}</td>
                       </tr>
                     ))}
@@ -228,7 +253,7 @@ export default function ProjectWorkforceUtilizationReport() {
                       <tr key={r.role}>
                         <td className="px-3 py-2 text-black">{r.role}</td>
                         <td className="px-3 py-2 text-right text-black">
-                          {r.employeeHours}
+                          {formatHoursToHrMin(r.employeeHours)}
                         </td>
                         <td className="px-3 py-2 text-right text-black">
                           {r.taskCount}
@@ -266,7 +291,7 @@ export default function ProjectWorkforceUtilizationReport() {
                           {r.phaseName}
                         </td>
                         <td className="px-3 py-2 text-right text-black">
-                          {r.employeeHours}
+                          {formatHoursToHrMin(r.employeeHours)}
                         </td>
                         <td className="px-3 py-2 text-right text-black">
                           {r.taskCount}

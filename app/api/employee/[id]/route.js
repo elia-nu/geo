@@ -320,20 +320,6 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Check if employee has associated documents
-    const documentCount = await db.collection("documents").countDocuments({
-      employeeId: params.id,
-    });
-
-    if (documentCount > 0) {
-      return NextResponse.json(
-        {
-          error: `Cannot delete employee with ${documentCount} associated documents. Please delete or reassign documents first.`,
-        },
-        { status: 400 }
-      );
-    }
-
     // Delete from main employees collection
     const result = await db
       .collection("employees")
@@ -343,6 +329,7 @@ export async function DELETE(request, { params }) {
     console.log(`Deleting related data for employee ${params.id}...`);
 
     await Promise.all([
+      db.collection("documents").deleteMany({ employeeId: params.id }),
       db.collection("employment_history").deleteMany({ employeeId: params.id }),
       db.collection("certifications").deleteMany({ employeeId: params.id }),
       db.collection("employee_skills").deleteMany({ employeeId: params.id }),

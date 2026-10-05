@@ -257,6 +257,8 @@ export async function PUT(request, { params }) {
       progress,
       assignedEmployees,
       milestones,
+      imageUrl,
+      image,
     } = data;
 
     const updateData = {};
@@ -300,6 +302,8 @@ export async function PUT(request, { params }) {
     if (endDate !== undefined) updateData.endDate = new Date(endDate);
     if (status !== undefined) updateData.status = status;
     if (progress !== undefined) updateData.progress = progress;
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+    else if (image !== undefined) updateData.imageUrl = image;
 
     // Handle assigned employees
     if (assignedEmployees !== undefined) {

@@ -12,6 +12,7 @@ import {
   FileText,
   AlertCircle,
 } from "lucide-react";
+import { formatHoursToHrMin } from "../utils/timeUtils";
 
 export default function DepartmentPerformanceReport() {
   const [loading, setLoading] = useState(false);
@@ -378,7 +379,7 @@ export default function DepartmentPerformanceReport() {
                           {(dept.workforceUtilization || 0).toFixed(2)}%
                         </span>
                         <div className="text-xs text-gray-500 mt-1">
-                          {(dept.averageWorkingHours || 0).toFixed(1)} hrs/emp avg
+                          {formatHoursToHrMin(dept.averageWorkingHours)} /emp avg
                         </div>
                       </td>
                     </tr>

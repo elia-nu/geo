@@ -29,6 +29,8 @@ import {
   RefreshCw,
   Sliders,
   Wallet,
+  Camera,
+  Image as ImageIcon,
 } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
 import Link from "next/link";
@@ -124,6 +126,12 @@ export default function ProjectsManagement() {
   const [deleting, setDeleting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [updatingProgress, setUpdatingProgress] = useState(false);
+
+  // Project photo upload states
+  const [projectImageFile, setProjectImageFile] = useState(null);
+  const [projectImagePreview, setProjectImagePreview] = useState(null);
+  const [removeImageFlag, setRemoveImageFlag] = useState(false);
+  const modalFileInputRef = useRef(null);
 
   const menuRef = useRef(null);
 
@@ -227,10 +235,14 @@ export default function ProjectsManagement() {
           ? new Date(project.endDate).toISOString().split("T")[0]
           : "",
       });
+      setProjectImagePreview(project.imageUrl || null);
     } else {
       setCurrentProject(null);
       setFormData(initialFormData);
+      setProjectImagePreview(null);
     }
+    setProjectImageFile(null);
+    setRemoveImageFlag(false);
     setOpenDialog(true);
     handleCloseMenu();
   }
@@ -240,6 +252,9 @@ export default function ProjectsManagement() {
     setOpenDialog(false);
     setCurrentProject(null);
     setFormData(initialFormData);
+    setProjectImageFile(null);
+    setProjectImagePreview(null);
+    setRemoveImageFlag(false);
   }
 
   function handleInputChange(e) {
@@ -289,6 +304,33 @@ export default function ProjectsManagement() {
       });
       const data = await res.json();
       if (data.success) {
+        const savedProjectId = currentProject
+          ? currentProject._id
+          : data.project?._id || data.projectId || data._id;
+
+        if (projectImageFile && savedProjectId) {
+          try {
+            const imgFormData = new FormData();
+            imgFormData.append("image", projectImageFile);
+            await fetch(`/api/projects/${savedProjectId}/photo`, {
+              method: "POST",
+              headers: { ...getAuthHeaders() },
+              body: imgFormData,
+            });
+          } catch (imgErr) {
+            console.warn("Failed to upload project photo:", imgErr);
+          }
+        } else if (removeImageFlag && savedProjectId) {
+          try {
+            await fetch(`/api/projects/${savedProjectId}/photo`, {
+              method: "DELETE",
+              headers: { ...getAuthHeaders() },
+            });
+          } catch (imgErr) {
+            console.warn("Failed to delete project photo:", imgErr);
+          }
+        }
+
         if (currentProject) {
           projectToasts.projectUpdated();
         } else {
@@ -298,6 +340,9 @@ export default function ProjectsManagement() {
         setOpenDialog(false);
         setCurrentProject(null);
         setFormData(initialFormData);
+        setProjectImageFile(null);
+        setProjectImagePreview(null);
+        setRemoveImageFlag(false);
       } else {
         projectToasts.projectError(data.error || "Failed to save project");
       }
@@ -935,6 +980,19 @@ export default function ProjectsManagement() {
                   key={project._id}
                   className="group overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs transition-all duration-300 hover:shadow-lg hover:border-slate-300 flex flex-col justify-between"
                 >
+                  {project.imageUrl && (
+                    <Link
+                      href={`/projects/${project._id}`}
+                      className="block relative h-40 w-full overflow-hidden bg-slate-100 group/img"
+                    >
+                      <img
+                        src={project.imageUrl}
+                        alt={project.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover/img:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 via-slate-900/10 to-transparent" />
+                    </Link>
+                  )}
                   <div className="p-5 flex-1">
                     {/* Header: Name, code, menu */}
                     <div className="mb-3 flex items-start justify-between gap-3">
@@ -1161,15 +1219,32 @@ export default function ProjectsManagement() {
                   return (
                     <tr key={project._id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="p-4">
-                        <Link
-                          href={`/projects/${project._id}`}
-                          className="font-bold text-slate-900 hover:text-blue-900 block"
-                        >
-                          {project.name}
-                        </Link>
-                        <span className="text-[11px] font-mono text-slate-400">
-                          #{project._id.slice(-6)}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <Link href={`/projects/${project._id}`} className="shrink-0">
+                            {project.imageUrl ? (
+                              <img
+                                src={project.imageUrl}
+                                alt={project.name}
+                                className="h-10 w-10 rounded-xl object-cover border border-slate-200"
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-900 border border-blue-100 flex items-center justify-center font-bold text-xs">
+                                {project.name.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                          </Link>
+                          <div className="min-w-0">
+                            <Link
+                              href={`/projects/${project._id}`}
+                              className="font-bold text-slate-900 hover:text-blue-900 block truncate max-w-xs"
+                            >
+                              {project.name}
+                            </Link>
+                            <span className="text-[11px] font-mono text-slate-400">
+                              #{project._id.slice(-6)}
+                            </span>
+                          </div>
+                        </div>
                       </td>
 
                       <td className="p-4">
@@ -1401,6 +1476,67 @@ export default function ProjectsManagement() {
               autoComplete="off"
             >
               <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+                {/* Project Cover Photo */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Cover Photo (Optional)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="relative h-20 w-28 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
+                      {projectImagePreview ? (
+                        <img
+                          src={projectImagePreview}
+                          alt="Cover preview"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Camera className="h-6 w-6 text-slate-400" />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <input
+                        type="file"
+                        ref={modalFileInputRef}
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setProjectImageFile(file);
+                            setRemoveImageFlag(false);
+                            const reader = new FileReader();
+                            reader.onload = () => setProjectImagePreview(reader.result);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => modalFileInputRef.current?.click()}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Camera className="h-3.5 w-3.5 text-slate-500" />
+                        {projectImagePreview ? "Change Photo" : "Upload Photo"}
+                      </button>
+                      {projectImagePreview && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProjectImageFile(null);
+                            setProjectImagePreview(null);
+                            setRemoveImageFlag(true);
+                            if (modalFileInputRef.current) modalFileInputRef.current.value = "";
+                          }}
+                          className="text-xs text-red-600 hover:underline block cursor-pointer"
+                        >
+                          Remove photo
+                        </button>
+                      )}
+                      <p className="text-[11px] text-slate-400">JPG, PNG, WebP up to 10MB</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label
                     className="mb-1.5 block text-sm font-medium text-slate-700"

@@ -15,7 +15,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
-import { formatWorkingHours } from "../utils/timeUtils";
+import { formatWorkingHours, formatHoursToHrMin } from "../utils/timeUtils";
 
 export default function EmployeeAttendanceHistoryReport() {
   const [loading, setLoading] = useState(false);
@@ -338,11 +338,11 @@ export default function EmployeeAttendanceHistoryReport() {
             </div>
             <div className="bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100 text-center">
               <div className="text-xs text-indigo-600 font-semibold uppercase">Total Hours</div>
-              <div className="text-xl font-bold text-indigo-700 mt-1">{summaryMetrics.totalHours}h</div>
+              <div className="text-xl font-bold text-indigo-700 mt-1">{formatHoursToHrMin(summaryMetrics.totalHours)}</div>
             </div>
             <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-100 text-center">
               <div className="text-xs text-emerald-600 font-semibold uppercase">Avg Hours/Day</div>
-              <div className="text-xl font-bold text-emerald-700 mt-1">{summaryMetrics.avgHours}h</div>
+              <div className="text-xl font-bold text-emerald-700 mt-1">{formatHoursToHrMin(summaryMetrics.avgHours)}</div>
             </div>
             <div className="bg-purple-50/60 p-4 rounded-2xl border border-purple-100 text-center">
               <div className="text-xs text-purple-600 font-semibold uppercase">Geofence Compliance</div>

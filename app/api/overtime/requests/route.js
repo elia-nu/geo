@@ -14,6 +14,8 @@ export async function GET(request) {
     const startDate = url.searchParams.get("startDate");
     const endDate = url.searchParams.get("endDate");
     const department = url.searchParams.get("department");
+    const project = url.searchParams.get("project");
+    const location = url.searchParams.get("location");
     const search = url.searchParams.get("search");
     const page = parseInt(url.searchParams.get("page")) || 1;
     const limit = parseInt(url.searchParams.get("limit")) || 50;
@@ -98,26 +100,49 @@ export async function GET(request) {
         department: emp.department || emp.personalDetails?.department || "General",
         designation: emp.designation || emp.personalDetails?.designation || "",
         employeeId: emp.employeeId || emp.empId || emp._id.toString(),
+        workLocation: emp.workLocation || emp.personalDetails?.workLocation || emp.location || "",
       };
       employeeMap[emp._id.toString()] = empData;
       if (emp.employeeId) employeeMap[emp.employeeId] = empData;
       if (emp.empId) employeeMap[emp.empId] = empData;
     });
 
-    let enhancedRequests = requests.map((req) => ({
-      ...req,
-      employee: employeeMap[String(req.employeeId)] || {
+    let enhancedRequests = requests.map((req) => {
+      const empInfo = employeeMap[String(req.employeeId)] || {
         name: req.employeeName || "Unknown Employee",
         department: req.department || "General",
-      },
-    }));
+        workLocation: "",
+      };
+      return {
+        ...req,
+        employee: empInfo,
+        location: req.location || req.workLocation || empInfo.workLocation || "",
+      };
+    });
 
-    // Filter by department or search term if specified
+    // Filter by department if specified
     if (department && department !== "all") {
       enhancedRequests = enhancedRequests.filter(
         (r) =>
           r.employee?.department?.toLowerCase() === department.toLowerCase() ||
           r.department?.toLowerCase() === department.toLowerCase()
+      );
+    }
+
+    // Filter by project if specified
+    if (project && project !== "all") {
+      const projLower = project.toLowerCase();
+      enhancedRequests = enhancedRequests.filter(
+        (r) => (r.project || "").toLowerCase() === projLower
+      );
+    }
+
+    // Filter by location if specified
+    if (location && location !== "all") {
+      const locLower = location.toLowerCase();
+      enhancedRequests = enhancedRequests.filter(
+        (r) =>
+          (r.location || r.workLocation || r.employee?.workLocation || "").toLowerCase() === locLower
       );
     }
 
@@ -128,7 +153,8 @@ export async function GET(request) {
           r.employee?.name?.toLowerCase().includes(searchLower) ||
           r.employeeName?.toLowerCase().includes(searchLower) ||
           r.reason?.toLowerCase().includes(searchLower) ||
-          r.project?.toLowerCase().includes(searchLower)
+          r.project?.toLowerCase().includes(searchLower) ||
+          (r.location || "").toLowerCase().includes(searchLower)
       );
     }
 

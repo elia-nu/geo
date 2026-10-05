@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { RefreshCw, AlertTriangle, Calendar, Briefcase, DollarSign, Download } from "lucide-react";
 import * as XLSX from "xlsx";
+import { formatHoursToHrMin } from "../utils/timeUtils";
 
 export default function WorkflowBottleneckSLAReport() {
   const [loading, setLoading] = useState(false);
@@ -172,7 +173,7 @@ export default function WorkflowBottleneckSLAReport() {
               <p className="text-sm text-emerald-700">Approved/Rejected: {leaveSummary.approvedOrRejected ?? 0} • Pending: {leaveSummary.pending ?? 0}</p>
               <p className="text-sm text-amber-700 font-medium">SLA breaches: {leaveSummary.breaches ?? 0} (SLA: {leaveSummary.slaHours ?? 48}h)</p>
               {leaveSummary.avgHoursToDecision != null && (
-                <p className="text-xs text-gray-600">Avg time to decision: {leaveSummary.avgHoursToDecision}h</p>
+                <p className="text-xs text-gray-600">Avg time to decision: {formatHoursToHrMin(leaveSummary.avgHoursToDecision)}</p>
               )}
             </div>
             <div className="bg-amber-50 rounded-lg p-4">
@@ -192,7 +193,7 @@ export default function WorkflowBottleneckSLAReport() {
               <p className="text-2xl font-bold text-indigo-600">{tasksSummary.totalTasks ?? 0}</p>
               <p className="text-sm text-indigo-700">Completed: {tasksSummary.completed ?? 0} • Overdue: {tasksSummary.overdue ?? 0}</p>
               {tasksSummary.avgHoursOpen != null && (
-                <p className="text-xs text-gray-600">Avg hours open: {tasksSummary.avgHoursOpen}h</p>
+                <p className="text-xs text-gray-600">Avg hours open: {formatHoursToHrMin(tasksSummary.avgHoursOpen)}</p>
               )}
             </div>
           </div>
@@ -241,7 +242,7 @@ export default function WorkflowBottleneckSLAReport() {
                         <td className="px-3 py-2 capitalize text-black">{d.status ?? "—"}</td>
                         <td className="px-3 py-2 text-gray-700">{d.submittedAt ? new Date(d.submittedAt).toLocaleString() : "—"}</td>
                         <td className="px-3 py-2 text-gray-700">{d.processedAt ? new Date(d.processedAt).toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2 text-right text-black">{d.hoursToDecision != null ? d.hoursToDecision.toFixed(1) : "—"}</td>
+                        <td className="px-3 py-2 text-right text-black">{d.hoursToDecision != null ? formatHoursToHrMin(d.hoursToDecision) : "—"}</td>
                         <td className="px-3 py-2 text-center">
                           {d.breached ? <span className="text-amber-600 font-medium">Yes</span> : "No"}
                         </td>
@@ -273,7 +274,7 @@ export default function WorkflowBottleneckSLAReport() {
                         <td className="px-3 py-2 text-black truncate max-w-[200px]" title={d.title}>{d.title ?? "—"}</td>
                         <td className="px-3 py-2 capitalize text-black">{d.status ?? "—"}</td>
                         <td className="px-3 py-2 text-gray-700">{d.dueDate ? new Date(d.dueDate).toLocaleDateString() : "—"}</td>
-                        <td className="px-3 py-2 text-right text-black">{d.hoursOpen != null ? d.hoursOpen.toFixed(0) : "—"}</td>
+                        <td className="px-3 py-2 text-right text-black">{d.hoursOpen != null ? formatHoursToHrMin(d.hoursOpen) : "—"}</td>
                         <td className="px-3 py-2 text-center">
                           {d.overdue ? <span className="text-amber-600 font-medium">Yes</span> : "No"}
                         </td>

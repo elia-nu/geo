@@ -266,19 +266,8 @@ async function bulkDeleteEmployees(db, employeeIds, request) {
         continue;
       }
 
-      // Check if employee has associated documents
-      const documentCount = await db.collection("documents").countDocuments({
-        employeeId: id,
-      });
-
-      if (documentCount > 0) {
-        results.failed++;
-        results.errors.push({
-          employeeId: id,
-          error: `Cannot delete employee with ${documentCount} associated documents`,
-        });
-        continue;
-      }
+      // Delete associated documents
+      await db.collection("documents").deleteMany({ employeeId: id });
 
       const result = await db.collection("employees").deleteOne({
         _id: new ObjectId(id),

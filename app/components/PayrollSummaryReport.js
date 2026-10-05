@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Download, RefreshCw, FileText, DollarSign, Building2, Briefcase, Users } from "lucide-react";
 import { formatCurrency, currencyTitle } from "../utils/currency";
 
@@ -9,6 +9,8 @@ export default function PayrollSummaryReport() {
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [departmentsList, setDepartmentsList] = useState([]);
+  const [projectsList, setProjectsList] = useState([]);
   const now = new Date();
   const [filters, setFilters] = useState({
     month: String(now.getMonth() + 1),
@@ -16,6 +18,30 @@ export default function PayrollSummaryReport() {
     department: "",
     projectId: "",
   });
+
+  useEffect(() => {
+    const fetchDropdowns = async () => {
+      try {
+        const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+        const headers = { Authorization: `Bearer ${authToken}` };
+        const [deptRes, projRes] = await Promise.all([
+          fetch("/api/departments", { headers }).catch(() => null),
+          fetch("/api/projects", { headers }).catch(() => null),
+        ]);
+        if (deptRes && deptRes.ok) {
+          const d = await deptRes.json();
+          setDepartmentsList(Array.isArray(d) ? d : d.departments || d.data || []);
+        }
+        if (projRes && projRes.ok) {
+          const p = await projRes.json();
+          setProjectsList(Array.isArray(p) ? p : p.projects || p.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading filter dropdowns:", err);
+      }
+    };
+    fetchDropdowns();
+  }, []);
 
   const handleGenerateReport = async () => {
     setLoading(true);
@@ -133,23 +159,33 @@ export default function PayrollSummaryReport() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-          <input
-            type="text"
+          <select
             value={filters.department}
             onChange={(e) => setFilters({ ...filters, department: e.target.value })}
-            placeholder="Optional"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-          />
+          >
+            <option value="">All Departments</option>
+            {departmentsList.map((d) => (
+              <option key={d._id} value={d.name || d.departmentName || d._id}>
+                {d.name || d.departmentName || "Unnamed Department"}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Project ID</label>
-          <input
-            type="text"
+          <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+          <select
             value={filters.projectId}
             onChange={(e) => setFilters({ ...filters, projectId: e.target.value })}
-            placeholder="Optional"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-          />
+          >
+            <option value="">All Projects</option>
+            {projectsList.map((p) => (
+              <option key={p._id} value={p._id}>
+                {p.name || p.projectName || "Unnamed Project"}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

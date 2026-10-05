@@ -92,9 +92,11 @@ export async function DELETE(request, { params }) {
     if (!dept)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    // Block deletion if employees are still assigned to this department
     const employeeCount = await db.collection("employees").countDocuments({
       $or: [
         { departmentId: new ObjectId(params.id) },
+        { departmentId: params.id },
         { "personalDetails.department": dept.name },
         { department: dept.name },
       ],
@@ -103,11 +105,22 @@ export async function DELETE(request, { params }) {
     if (employeeCount > 0) {
       return NextResponse.json(
         {
-          error: `Cannot delete department with ${employeeCount} assigned employee(s)`,
+          error: `Cannot delete department "${dept.name}". It has ${employeeCount} assigned employee(s). Please reassign or remove employees before deleting this department.`,
         },
         { status: 400 }
       );
     }
+
+    // Unassign department from designations
+    await db.collection("designations").updateMany(
+      {},
+      {
+        $pull: {
+          departmentIds: params.id,
+          departments: dept.name,
+        },
+      }
+    );
 
     const result = await db
       .collection("departments")

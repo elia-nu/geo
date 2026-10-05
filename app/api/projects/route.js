@@ -35,6 +35,8 @@ export async function POST(request) {
       status = "not_started",
       assignedEmployees = [],
       milestones = [],
+      imageUrl,
+      image,
     } = data;
 
     // Validation
@@ -96,6 +98,7 @@ export async function POST(request) {
       endDate: new Date(endDate),
       status,
       progress: 0,
+      imageUrl: imageUrl || image || null,
       assignedEmployees: employeeObjectIds,
       createdBy: ObjectId.isValid(user.userId) ? new ObjectId(user.userId) : user.userId,
       milestones: milestones.map((milestone) => ({

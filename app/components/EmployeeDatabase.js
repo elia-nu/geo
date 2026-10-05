@@ -1288,11 +1288,16 @@ export default function EmployeeDatabase() {
                         }`}
                       >
                         <option value="">Select Designation</option>
-                        {designations.map((des) => (
-                          <option key={`des-${des}`} value={des}>
-                            {des}
-                          </option>
-                        ))}
+                        {designations.map((des) => {
+                          const name = typeof des === "string" ? des : des?.name || des?.title || "";
+                          const key = typeof des === "string" ? `des-${des}` : des?._id || des?.id || `des-${name}`;
+                          if (!name) return null;
+                          return (
+                            <option key={key} value={name}>
+                              {name}
+                            </option>
+                          );
+                        })}
                       </select>
                       {formErrors.designation && (
                         <p className="text-red-500 text-sm mt-1">

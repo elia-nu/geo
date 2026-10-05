@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Download, RefreshCw, DollarSign, TrendingUp, AlertTriangle } from "lucide-react";
 import { formatCurrency, currencyTitle } from "../utils/currency";
 
@@ -9,7 +9,26 @@ export default function ProjectCostBudgetPerformanceReport() {
   const [reportData, setReportData] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [projectsList, setProjectsList] = useState([]);
   const [filters, setFilters] = useState({ projectId: "" });
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+        const res = await fetch("/api/projects", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.ok) {
+          const p = await res.json();
+          setProjectsList(Array.isArray(p) ? p : p.projects || p.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading projects:", err);
+      }
+    };
+    fetchProjects();
+  }, []);
 
   const handleGenerateReport = async () => {
     setLoading(true);
@@ -96,14 +115,19 @@ export default function ProjectCostBudgetPerformanceReport() {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Project ID</label>
-        <input
-          type="text"
+        <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+        <select
           value={filters.projectId}
           onChange={(e) => setFilters({ ...filters, projectId: e.target.value })}
-          placeholder="Optional"
           className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-black"
-        />
+        >
+          <option value="">All Projects</option>
+          {projectsList.map((p) => (
+            <option key={p._id} value={p._id}>
+              {p.name || p.projectName || "Unnamed Project"}
+            </option>
+          ))}
+        </select>
       </div>
 
       {message && (

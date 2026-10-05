@@ -318,12 +318,27 @@ export default function DocumentExpiryComplianceReport() {
                             {item.title}
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap">
-                            <div className="text-black">
-                              {item.ownerName}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-slate-900">
+                                {item.ownerName || "Unknown"}
+                              </span>
+                              {item.ownerType && item.ownerType !== "Unknown" && (
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                    item.ownerType === "Client"
+                                      ? "bg-purple-100 text-purple-800 border border-purple-200"
+                                      : "bg-blue-100 text-blue-800 border border-blue-200"
+                                  }`}
+                                >
+                                  {item.ownerType}
+                                </span>
+                              )}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {item.ownerEmail}
-                            </div>
+                            {item.ownerEmail && (
+                              <div className="text-xs text-slate-500">
+                                {item.ownerEmail}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap text-black">
                             {item.ownerDepartment}
@@ -392,12 +407,27 @@ export default function DocumentExpiryComplianceReport() {
                             {item.title}
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap">
-                            <div className="text-black">
-                              {item.ownerName}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-slate-900">
+                                {item.ownerName || "Unknown"}
+                              </span>
+                              {item.ownerType && item.ownerType !== "Unknown" && (
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                    item.ownerType === "Client"
+                                      ? "bg-purple-100 text-purple-800 border border-purple-200"
+                                      : "bg-blue-100 text-blue-800 border border-blue-200"
+                                  }`}
+                                >
+                                  {item.ownerType}
+                                </span>
+                              )}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {item.ownerEmail}
-                            </div>
+                            {item.ownerEmail && (
+                              <div className="text-xs text-slate-500">
+                                {item.ownerEmail}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap text-black">
                             {item.ownerDepartment}

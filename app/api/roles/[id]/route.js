@@ -209,9 +209,9 @@ export async function DELETE(request, { params }) {
     if (assignedCount > 0) {
       return NextResponse.json(
         {
-          error: `Cannot delete role '${role.displayName}'. ${assignedCount} user(s) are still assigned. Reassign them first.`,
+          error: `Cannot delete role '${role.displayName || role.name}'. ${assignedCount} user(s) are still assigned. Please reassign users before deleting this role.`,
         },
-        { status: 409 }
+        { status: 400 }
       );
     }
 

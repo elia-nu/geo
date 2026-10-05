@@ -17,6 +17,7 @@ import {
   Download as DownloadIcon,
   Refresh as RefreshIcon,
 } from "@mui/icons-material";
+import { formatHoursToHrMin } from "../utils/timeUtils";
 
 const TaskReporting = ({ projectId = null }) => {
   const [reportData, setReportData] = useState(null);
@@ -429,13 +430,13 @@ const TaskReporting = ({ projectId = null }) => {
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <p className="text-2xl font-bold text-blue-600">
-                  {reportData.totalHoursLogged || 0}h
+                  {formatHoursToHrMin(reportData.totalHoursLogged)}
                 </p>
                 <p className="text-sm text-gray-600">Total Logged</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-green-600">
-                  {reportData.totalHoursEstimated || 0}h
+                  {formatHoursToHrMin(reportData.totalHoursEstimated)}
                 </p>
                 <p className="text-sm text-gray-600">Total Estimated</p>
               </div>

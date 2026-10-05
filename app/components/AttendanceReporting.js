@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
-import { formatWorkingHours } from "../utils/timeUtils";
+import { formatWorkingHours, formatHoursToHrMin } from "../utils/timeUtils";
 
 export default function AttendanceReporting() {
   const [currentReport, setCurrentReport] = useState(null);
@@ -39,6 +39,7 @@ export default function AttendanceReporting() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Report generation form state
+  const [departmentsList, setDepartmentsList] = useState([]);
   const [reportForm, setReportForm] = useState({
     reportType: "daily",
     startDate: "",
@@ -48,6 +49,24 @@ export default function AttendanceReporting() {
     includePhotos: false,
     includeLocationData: true,
   });
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+        const res = await fetch("/api/departments", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.ok) {
+          const d = await res.json();
+          setDepartmentsList(Array.isArray(d) ? d : d.departments || d.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading departments:", err);
+      }
+    };
+    fetchDepartments();
+  }, []);
 
   const showMessage = (msg, type = "info") => {
     setMessage(msg);
@@ -482,9 +501,9 @@ export default function AttendanceReporting() {
             <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-100 text-center">
               <div className="text-xs text-amber-600 font-semibold uppercase">Avg Hours</div>
               <div className="text-xl sm:text-2xl font-bold text-amber-700 mt-1">
-                {currentReport.summary?.averageWorkingHoursFormatted ||
-                  formatWorkingHours(currentReport.summary?.averageWorkingHours) ||
-                  "0h 0m"}
+                {currentReport.summary?.averageWorkingHours !== undefined && currentReport.summary?.averageWorkingHours !== null
+                  ? formatHoursToHrMin(currentReport.summary.averageWorkingHours)
+                  : currentReport.summary?.averageWorkingHoursFormatted || "00hr 00m"}
               </div>
               <div className="text-[10px] text-amber-600/80 font-medium mt-0.5">
                 Average across records
@@ -726,9 +745,7 @@ export default function AttendanceReporting() {
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                   Department (Optional)
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Engineering, HR, Operations"
+                <select
                   value={reportForm.department}
                   onChange={(e) =>
                     setReportForm((prev) => ({
@@ -736,8 +753,15 @@ export default function AttendanceReporting() {
                       department: e.target.value,
                     }))
                   }
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl bg-slate-50/70 focus:bg-white text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500"
-                />
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl bg-slate-50/70 focus:bg-white text-slate-900 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">All Departments</option>
+                  {departmentsList.map((d) => (
+                    <option key={d._id} value={d.name || d.departmentName || d._id}>
+                      {d.name || d.departmentName || "Unnamed Department"}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center gap-6 pt-1">

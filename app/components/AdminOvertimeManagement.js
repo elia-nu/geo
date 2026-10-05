@@ -55,6 +55,8 @@ export default function AdminOvertimeManagement() {
   const [requestFilters, setRequestFilters] = useState({
     status: "all",
     department: "all",
+    project: "all",
+    location: "all",
     startDate: "",
     endDate: "",
     search: "",
@@ -72,6 +74,8 @@ export default function AdminOvertimeManagement() {
     status: "all",
     adminApprovalStatus: "all",
     department: "all",
+    project: "all",
+    location: "all",
     date: "",
     startDate: "",
     endDate: "",
@@ -117,8 +121,10 @@ export default function AdminOvertimeManagement() {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
 
-  // Departments list for dropdown
+  // Departments, Projects, and Work Locations lists
   const [departments, setDepartments] = useState([]);
+  const [projectsList, setProjectsList] = useState([]);
+  const [locationsList, setLocationsList] = useState([]);
 
   // Pagination calculations for Tab 2 and Tab 3
   const totalAttendancePages = Math.ceil(attendanceLogs.length / attendancePerPage) || 1;
@@ -143,6 +149,7 @@ export default function AdminOvertimeManagement() {
 
   useEffect(() => {
     fetchDepartments();
+    fetchProjectsAndLocations();
   }, []);
 
   useEffect(() => {
@@ -173,6 +180,61 @@ export default function AdminOvertimeManagement() {
     }
   };
 
+  const fetchProjectsAndLocations = async () => {
+    try {
+      const [projRes, locRes] = await Promise.all([
+        fetch("/api/projects"),
+        fetch("/api/work-locations"),
+      ]);
+      if (projRes.ok) {
+        const pData = await projRes.json();
+        const pList = Array.isArray(pData?.projects) ? pData.projects : Array.isArray(pData) ? pData : [];
+        setProjectsList(pList);
+      }
+      if (locRes.ok) {
+        const lData = await locRes.json();
+        const lList = Array.isArray(lData?.workLocations) ? lData.workLocations : Array.isArray(lData) ? lData : [];
+        setLocationsList(lList);
+      }
+    } catch (err) {
+      console.error("Error fetching projects or locations:", err);
+    }
+  };
+
+  // Extract combined unique project options
+  const allProjectOptions = React.useMemo(() => {
+    const set = new Set();
+    projectsList.forEach((p) => {
+      const name = p.name || p.projectName;
+      if (name) set.add(name.trim());
+    });
+    requests.forEach((r) => {
+      if (r.project?.trim()) set.add(r.project.trim());
+    });
+    attendanceLogs.forEach((a) => {
+      if (a.project?.trim()) set.add(a.project.trim());
+    });
+    return Array.from(set).sort();
+  }, [projectsList, requests, attendanceLogs]);
+
+  // Extract combined unique location options
+  const allLocationOptions = React.useMemo(() => {
+    const set = new Set();
+    locationsList.forEach((l) => {
+      const name = l.name || l.locationName || l.siteName;
+      if (name) set.add(name.trim());
+    });
+    requests.forEach((r) => {
+      const loc = r.location || r.workLocation || r.employee?.workLocation;
+      if (loc?.trim()) set.add(loc.trim());
+    });
+    attendanceLogs.forEach((a) => {
+      const loc = a.location || a.geofenceValidation?.workLocationName || a.employee?.workLocation;
+      if (loc?.trim()) set.add(loc.trim());
+    });
+    return Array.from(set).sort();
+  }, [locationsList, requests, attendanceLogs]);
+
   // Fetch Requests
   const fetchRequests = async () => {
     try {
@@ -183,6 +245,8 @@ export default function AdminOvertimeManagement() {
         ...(requestFilters.employeeId && { employeeId: requestFilters.employeeId.trim() }),
         ...(requestFilters.status !== "all" && { status: requestFilters.status }),
         ...(requestFilters.department !== "all" && { department: requestFilters.department }),
+        ...(requestFilters.project !== "all" && { project: requestFilters.project }),
+        ...(requestFilters.location !== "all" && { location: requestFilters.location }),
         ...(requestFilters.startDate && { startDate: requestFilters.startDate }),
         ...(requestFilters.endDate && { endDate: requestFilters.endDate }),
         ...(requestFilters.search && { search: requestFilters.search }),
@@ -211,6 +275,8 @@ export default function AdminOvertimeManagement() {
         ...(attendanceFilters.status !== "all" && { status: attendanceFilters.status }),
         ...(attendanceFilters.adminApprovalStatus !== "all" && { adminApprovalStatus: attendanceFilters.adminApprovalStatus }),
         ...(attendanceFilters.department !== "all" && { department: attendanceFilters.department }),
+        ...(attendanceFilters.project !== "all" && { project: attendanceFilters.project }),
+        ...(attendanceFilters.location !== "all" && { location: attendanceFilters.location }),
         ...(attendanceFilters.date && { date: attendanceFilters.date }),
         ...(attendanceFilters.startDate && { startDate: attendanceFilters.startDate }),
         ...(attendanceFilters.endDate && { endDate: attendanceFilters.endDate }),
@@ -228,6 +294,145 @@ export default function AdminOvertimeManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Export Overtime Requests to CSV
+  const handleExportRequestsCSV = async () => {
+    try {
+      // Fetch full matching dataset for export
+      const params = new URLSearchParams({
+        page: "1",
+        limit: "1000",
+        ...(requestFilters.employeeId && { employeeId: requestFilters.employeeId.trim() }),
+        ...(requestFilters.status !== "all" && { status: requestFilters.status }),
+        ...(requestFilters.department !== "all" && { department: requestFilters.department }),
+        ...(requestFilters.project !== "all" && { project: requestFilters.project }),
+        ...(requestFilters.location !== "all" && { location: requestFilters.location }),
+        ...(requestFilters.startDate && { startDate: requestFilters.startDate }),
+        ...(requestFilters.endDate && { endDate: requestFilters.endDate }),
+        ...(requestFilters.search && { search: requestFilters.search }),
+      });
+
+      const res = await fetch(`/api/overtime/requests?${params.toString()}`);
+      const result = await res.json();
+      const exportData = result.success && Array.isArray(result.data) ? result.data : requests;
+
+      if (!exportData || exportData.length === 0) {
+        showMessage("No overtime requests matching filters to export", "error");
+        return;
+      }
+
+      const headers = [
+        "Employee Name",
+        "Employee ID",
+        "Email",
+        "Department",
+        "Work Location",
+        "Target Date",
+        "Start Time",
+        "End Time",
+        "Requested Hours",
+        "Approved Hours",
+        "Project",
+        "Reason",
+        "Status",
+        "Supervisor Notes",
+        "Reviewed At",
+      ];
+
+      const rows = exportData.map((req) => [
+        `"${(req.employee?.name || req.employeeName || "").replace(/"/g, '""')}"`,
+        `"${req.employee?.employeeId || req.employeeId || ""}"`,
+        `"${(req.employee?.email || "").replace(/"/g, '""')}"`,
+        `"${(req.employee?.department || req.department || "General").replace(/"/g, '""')}"`,
+        `"${(req.location || req.workLocation || req.employee?.workLocation || "N/A").replace(/"/g, '""')}"`,
+        `"${req.date || ""}"`,
+        `"${req.startTime || ""}"`,
+        `"${req.endTime || ""}"`,
+        `"${formatWorkingHours(req.requestedHours || 0)}"`,
+        `"${req.status === "approved" ? formatWorkingHours(req.approvedHours || req.requestedHours) : "00hr 00m"}"`,
+        `"${(req.project || "").replace(/"/g, '""')}"`,
+        `"${(req.reason || "").replace(/"/g, '""')}"`,
+        `"${(req.status || "pending").toUpperCase()}"`,
+        `"${(req.supervisorNotes || "").replace(/"/g, '""')}"`,
+        `"${req.reviewedAt ? new Date(req.reviewedAt).toLocaleString() : ""}"`,
+      ]);
+
+      const csvContent =
+        "data:text/csv;charset=utf-8,\uFEFF" +
+        [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute(
+        "download",
+        `overtime_requests_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showMessage(`Exported ${exportData.length} overtime requests to CSV!`, "success");
+    } catch (err) {
+      console.error("Error exporting overtime requests to CSV:", err);
+      showMessage("Failed to export overtime requests", "error");
+    }
+  };
+
+  // Export Overtime Attendance Logs to CSV
+  const handleExportAttendanceCSV = () => {
+    if (!attendanceLogs || attendanceLogs.length === 0) {
+      showMessage("No attendance records to export", "error");
+      return;
+    }
+
+    const headers = [
+      "Employee Name",
+      "Employee ID",
+      "Department",
+      "Work Location",
+      "Date",
+      "Check-In Time",
+      "Check-Out Time",
+      "Duration",
+      "Approved Hours",
+      "Project",
+      "Reason",
+      "Clock Status",
+      "Admin Approval Status",
+      "Admin Notes",
+    ];
+
+    const rows = attendanceLogs.map((log) => [
+      `"${(log.employee?.name || log.employeeName || "").replace(/"/g, '""')}"`,
+      `"${log.employee?.employeeId || log.employeeId || ""}"`,
+      `"${(log.employee?.department || log.department || "General").replace(/"/g, '""')}"`,
+      `"${(log.location || log.geofenceValidation?.workLocationName || log.employee?.workLocation || "N/A").replace(/"/g, '""')}"`,
+      `"${log.date || ""}"`,
+      `"${log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString() : ""}"`,
+      `"${log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString() : ""}"`,
+      `"${log.durationFormatted || ""}"`,
+      `"${log.approvedAttendanceHours !== undefined && log.approvedAttendanceHours !== null ? formatWorkingHours(log.approvedAttendanceHours) : "00hr 00m"}"`,
+      `"${(log.project || "").replace(/"/g, '""')}"`,
+      `"${(log.reason || "").replace(/"/g, '""')}"`,
+      `"${log.status || ""}"`,
+      `"${log.adminApprovalStatus || "pending_review"}"`,
+      `"${(log.adminNotes || "").replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent =
+      "data:text/csv;charset=utf-8,\uFEFF" +
+      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `overtime_attendance_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showMessage(`Exported ${attendanceLogs.length} attendance records to CSV!`, "success");
   };
 
   // Fetch Reports
@@ -519,7 +724,7 @@ export default function AdminOvertimeManagement() {
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search employee name, reason, project..."
+                placeholder="Search employee name, reason, project, location..."
                 value={requestFilters.search}
                 onChange={(e) => setRequestFilters({ ...requestFilters, search: e.target.value })}
                 className="w-full text-xs pl-9 pr-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500"
@@ -527,7 +732,7 @@ export default function AdminOvertimeManagement() {
             </div>
 
             {/* Dedicated Employee ID Filter */}
-            <div className="w-36 relative">
+            <div className="w-32 relative">
               <IdCard className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -542,7 +747,7 @@ export default function AdminOvertimeManagement() {
             <select
               value={requestFilters.status}
               onChange={(e) => setRequestFilters({ ...requestFilters, status: e.target.value })}
-              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium"
+              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium cursor-pointer"
             >
               <option value="all">All Request Statuses</option>
               <option value="pending">🟡 Pending Approvals</option>
@@ -554,7 +759,7 @@ export default function AdminOvertimeManagement() {
             <select
               value={requestFilters.department}
               onChange={(e) => setRequestFilters({ ...requestFilters, department: e.target.value })}
-              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium"
+              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium cursor-pointer"
             >
               <option value="all">All Departments</option>
               {departments.map((d) => (
@@ -564,20 +769,93 @@ export default function AdminOvertimeManagement() {
               ))}
             </select>
 
+            {/* Project Filter */}
+            <select
+              value={requestFilters.project || "all"}
+              onChange={(e) => setRequestFilters({ ...requestFilters, project: e.target.value })}
+              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium cursor-pointer"
+            >
+              <option value="all">All Projects</option>
+              {allProjectOptions.map((p) => (
+                <option key={p} value={p}>
+                  📁 {p}
+                </option>
+              ))}
+            </select>
+
+            {/* Work Location Filter */}
+            <select
+              value={requestFilters.location || "all"}
+              onChange={(e) => setRequestFilters({ ...requestFilters, location: e.target.value })}
+              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium cursor-pointer"
+            >
+              <option value="all">All Locations</option>
+              {allLocationOptions.map((l) => (
+                <option key={l} value={l}>
+                  📍 {l}
+                </option>
+              ))}
+            </select>
+
             {/* Date Filters */}
-            <input
-              type="date"
-              value={requestFilters.startDate}
-              onChange={(e) => setRequestFilters({ ...requestFilters, startDate: e.target.value })}
-              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700"
-            />
-            <span className="text-xs text-gray-400">to</span>
-            <input
-              type="date"
-              value={requestFilters.endDate}
-              onChange={(e) => setRequestFilters({ ...requestFilters, endDate: e.target.value })}
-              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700"
-            />
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={requestFilters.startDate}
+                onChange={(e) => setRequestFilters({ ...requestFilters, startDate: e.target.value })}
+                className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700"
+                title="Start Date"
+              />
+              <span className="text-xs text-gray-400">to</span>
+              <input
+                type="date"
+                value={requestFilters.endDate}
+                onChange={(e) => setRequestFilters({ ...requestFilters, endDate: e.target.value })}
+                className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700"
+                title="End Date"
+              />
+            </div>
+
+            {/* Export CSV Button */}
+            <button
+              type="button"
+              onClick={handleExportRequestsCSV}
+              className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 shrink-0 active:scale-95"
+              title="Export current filtered requests to CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+
+            {/* Clear Filters */}
+            {(requestFilters.search ||
+              requestFilters.employeeId ||
+              requestFilters.status !== "all" ||
+              requestFilters.department !== "all" ||
+              requestFilters.project !== "all" ||
+              requestFilters.location !== "all" ||
+              requestFilters.startDate ||
+              requestFilters.endDate) && (
+              <button
+                type="button"
+                onClick={() =>
+                  setRequestFilters({
+                    status: "all",
+                    department: "all",
+                    project: "all",
+                    location: "all",
+                    startDate: "",
+                    endDate: "",
+                    search: "",
+                    employeeId: "",
+                  })
+                }
+                className="px-2.5 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 rounded-lg transition-colors shrink-0"
+                title="Reset all filters"
+              >
+                Clear
+              </button>
+            )}
           </div>
 
           {/* Table */}
@@ -615,7 +893,13 @@ export default function AdminOvertimeManagement() {
                         </span>
                       </td>
                       <td className="p-3.5 text-gray-600 text-xs whitespace-nowrap">
-                        {req.employee?.department || req.department || "General"}
+                        <div className="font-semibold text-slate-800">{req.employee?.department || req.department || "General"}</div>
+                        {(req.location || req.workLocation || req.employee?.workLocation) && (
+                          <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-0.5">
+                            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{req.location || req.workLocation || req.employee?.workLocation}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="p-3.5 font-semibold text-gray-800 whitespace-nowrap">
                         {req.date}
@@ -768,7 +1052,7 @@ export default function AdminOvertimeManagement() {
             <select
               value={attendanceFilters.department}
               onChange={(e) => setAttendanceFilters({ ...attendanceFilters, department: e.target.value })}
-              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium"
+              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium cursor-pointer"
             >
               <option value="all">All Departments</option>
               {departments.map((d) => (
@@ -778,15 +1062,54 @@ export default function AdminOvertimeManagement() {
               ))}
             </select>
 
+            {/* Project Filter */}
+            <select
+              value={attendanceFilters.project || "all"}
+              onChange={(e) => setAttendanceFilters({ ...attendanceFilters, project: e.target.value })}
+              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium cursor-pointer"
+            >
+              <option value="all">All Projects</option>
+              {allProjectOptions.map((p) => (
+                <option key={p} value={p}>
+                  📁 {p}
+                </option>
+              ))}
+            </select>
+
+            {/* Work Location Filter */}
+            <select
+              value={attendanceFilters.location || "all"}
+              onChange={(e) => setAttendanceFilters({ ...attendanceFilters, location: e.target.value })}
+              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium cursor-pointer"
+            >
+              <option value="all">All Locations</option>
+              {allLocationOptions.map((l) => (
+                <option key={l} value={l}>
+                  📍 {l}
+                </option>
+              ))}
+            </select>
+
             <select
               value={attendanceFilters.status}
               onChange={(e) => setAttendanceFilters({ ...attendanceFilters, status: e.target.value })}
-              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium"
+              className="text-xs border border-gray-300 rounded-lg p-2 bg-white text-gray-700 font-medium cursor-pointer"
             >
               <option value="all">All Clock States</option>
               <option value="in-progress">Active / Clocked In</option>
               <option value="completed">Completed Sessions</option>
             </select>
+
+            {/* Export CSV Button */}
+            <button
+              type="button"
+              onClick={handleExportAttendanceCSV}
+              className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 shrink-0 active:scale-95"
+              title="Export attendance records to CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
           </div>
 
           {loading ? (

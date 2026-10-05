@@ -83,8 +83,10 @@ export default function IntegratedPayrollSystem() {
 
   // Format time
   const formatTime = (timeString) => {
-    if (!timeString) return "N/A";
-    return new Date(timeString).toLocaleTimeString("en-US", {
+    if (!timeString) return "—";
+    const d = new Date(timeString);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -122,40 +124,116 @@ export default function IntegratedPayrollSystem() {
 
     if (record.leaveInfo) {
       return {
-        text: `On Leave (${record.leaveInfo.leaveType || "Unknown"})`,
-        color: "text-purple-600",
+        text: `On Leave (${record.leaveInfo.leaveType || "Leave"})`,
+        color: "text-purple-700",
         bgColor: "bg-purple-100",
         icon: Calendar,
       };
-    } else if (record.payrollStatus === "absent") {
+    }
+
+    const rawStatus = (
+      record.payrollStatus ||
+      record.attendanceStatus ||
+      record.status ||
+      ""
+    ).toLowerCase();
+
+    if (rawStatus === "absent") {
       return {
         text: "Absent",
-        color: "text-red-600",
+        color: "text-red-700",
         bgColor: "bg-red-100",
         icon: AlertCircle,
       };
-    } else if (record.payrollStatus === "complete") {
+    }
+
+    if (rawStatus === "on_leave" || rawStatus === "leave") {
+      return {
+        text: "On Leave",
+        color: "text-purple-700",
+        bgColor: "bg-purple-100",
+        icon: Calendar,
+      };
+    }
+
+    // Check if employee has completed check-in and check-out
+    if (
+      rawStatus === "complete" ||
+      rawStatus === "present" ||
+      rawStatus === "checked-out" ||
+      (record.checkInTime && record.checkOutTime)
+    ) {
       return {
         text: "Complete",
-        color: "text-green-600",
+        color: "text-green-700",
         bgColor: "bg-green-100",
         icon: CheckCircle,
       };
-    } else if (record.payrollStatus === "working") {
+    }
+
+    // Check if currently on lunch break
+    if (record.lunchOutTime && !record.lunchInTime) {
+      return {
+        text: "On Lunch",
+        color: "text-amber-700",
+        bgColor: "bg-amber-100",
+        icon: Clock,
+      };
+    }
+
+    // Currently checked in and working
+    if (
+      rawStatus === "working" ||
+      rawStatus === "checked-in" ||
+      rawStatus === "lunch-in" ||
+      (record.checkInTime && !record.checkOutTime)
+    ) {
       return {
         text: "Working",
-        color: "text-blue-600",
+        color: "text-blue-700",
         bgColor: "bg-blue-100",
         icon: Clock,
       };
-    } else {
+    }
+
+    if (rawStatus === "holiday" || record.isHoliday) {
       return {
-        text: "Unknown",
-        color: "text-gray-600",
+        text: "Holiday",
+        color: "text-indigo-700",
+        bgColor: "bg-indigo-100",
+        icon: Calendar,
+      };
+    }
+
+    if (
+      rawStatus === "weekend" ||
+      (!record.isWorkingDay && record.isWorkingDay !== undefined)
+    ) {
+      return {
+        text: "Weekend",
+        color: "text-gray-700",
         bgColor: "bg-gray-100",
+        icon: Calendar,
+      };
+    }
+
+    if (rawStatus === "partial" || rawStatus === "incomplete") {
+      return {
+        text: "Partial",
+        color: "text-amber-700",
+        bgColor: "bg-amber-100",
         icon: AlertCircle,
       };
     }
+
+    return {
+      text: rawStatus
+        ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1)
+        : "Unknown",
+      color: "text-gray-600",
+      bgColor: "bg-gray-100",
+      icon: AlertCircle,
+    };
   };
 
   // Calculate payroll
@@ -406,11 +484,38 @@ export default function IntegratedPayrollSystem() {
     ? attendanceData.filter((record) => {
         if (!record) return false;
 
-        if (
-          attendanceFilters.status !== "all" &&
-          record.payrollStatus !== attendanceFilters.status
-        ) {
-          return false;
+        if (attendanceFilters.status !== "all") {
+          const s = (
+            record.payrollStatus ||
+            record.attendanceStatus ||
+            record.status ||
+            (record.checkInTime && record.checkOutTime ? "complete" : "")
+          ).toLowerCase();
+
+          if (attendanceFilters.status === "complete") {
+            if (s !== "complete" && s !== "present" && s !== "checked-out") {
+              return false;
+            }
+          } else if (attendanceFilters.status === "working") {
+            if (
+              s !== "working" &&
+              s !== "checked-in" &&
+              s !== "lunch-in" &&
+              s !== "lunch-out"
+            ) {
+              return false;
+            }
+          } else if (attendanceFilters.status === "on_leave") {
+            if (!record.leaveInfo && s !== "on_leave" && s !== "leave") {
+              return false;
+            }
+          } else if (attendanceFilters.status === "absent") {
+            if (s !== "absent") {
+              return false;
+            }
+          } else if (s !== attendanceFilters.status.toLowerCase()) {
+            return false;
+          }
         }
         if (
           attendanceFilters.department !== "all" &&
@@ -586,6 +691,8 @@ export default function IntegratedPayrollSystem() {
       "Employee Name",
       "Department",
       "Check In",
+      "Lunch Out",
+      "Lunch In",
       "Check Out",
       "Working Hours",
       "Status",
@@ -593,23 +700,30 @@ export default function IntegratedPayrollSystem() {
       "Absence Reason",
     ];
 
-    const csvRows = filteredAttendanceData.map((record) => [
-      record?.date || "",
-      record?.employeeName || "",
-      record?.department || "",
-      formatTime(record?.checkInTime),
-      formatTime(record?.checkOutTime),
-      formatWorkingHours(record),
-      record?.payrollStatus || "",
-      record?.leaveInfo?.leaveType || "",
-      record?.absenceReason || "",
-    ]);
+    const csvRows = filteredAttendanceData.map((record) => {
+      const statusInfo = getStatusInfo(record);
+      return [
+        record?.date || "",
+        record?.employeeName || "",
+        record?.department || "",
+        formatTime(record?.checkInTime),
+        formatTime(record?.lunchOutTime),
+        formatTime(record?.lunchInTime),
+        formatTime(record?.checkOutTime),
+        formatWorkingHours(record),
+        statusInfo.text || "",
+        record?.leaveInfo?.leaveType || "",
+        record?.absenceReason || "",
+      ];
+    });
 
     const csvContent = [csvHeaders, ...csvRows]
       .map((row) => row.map((field) => `"${field}"`).join(","))
       .join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
@@ -1019,6 +1133,12 @@ export default function IntegratedPayrollSystem() {
                         Check In
                       </th>
                       <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-700">
+                        Lunch Out
+                      </th>
+                      <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-700">
+                        Lunch In
+                      </th>
+                      <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-700">
                         Check Out
                       </th>
                       <th className="border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-700">
@@ -1054,10 +1174,16 @@ export default function IntegratedPayrollSystem() {
                           <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700">
                             {record.department || "N/A"}
                           </td>
-                          <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700 text-center">
+                          <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700 text-center font-mono">
                             {formatTime(record.checkInTime)}
                           </td>
-                          <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700 text-center">
+                          <td className="border border-gray-200 px-4 py-3 text-sm text-amber-700 text-center font-mono">
+                            {formatTime(record.lunchOutTime)}
+                          </td>
+                          <td className="border border-gray-200 px-4 py-3 text-sm text-amber-700 text-center font-mono">
+                            {formatTime(record.lunchInTime)}
+                          </td>
+                          <td className="border border-gray-200 px-4 py-3 text-sm text-gray-700 text-center font-mono">
                             {formatTime(record.checkOutTime)}
                           </td>
                           <td className="border border-gray-200 px-4 py-3 text-sm font-semibold text-indigo-700 text-center">
@@ -1065,9 +1191,9 @@ export default function IntegratedPayrollSystem() {
                           </td>
                           <td className="border border-gray-200 px-4 py-3 text-center">
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}
                             >
-                              <StatusIcon className="w-3 h-3" />
+                              <StatusIcon className="w-3.5 h-3.5" />
                               {statusInfo.text}
                             </span>
                           </td>

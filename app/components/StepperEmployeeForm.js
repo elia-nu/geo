@@ -205,58 +205,48 @@ export default function StepperEmployeeForm({
     };
   }, [isOpen]);
 
-  // Filter designations based on selected department
+  // Designations are independent of department and selectable in any combination
   useEffect(() => {
-    if (personalDetails.department && departments.length > 0) {
-      const selectedDept = departments.find(
-        (d) =>
-          d.name?.toLowerCase() === personalDetails.department?.toLowerCase() ||
-          d.shortName?.toLowerCase() === personalDetails.department?.toLowerCase() ||
-          d.aliases?.some(
-            (a) => a.toLowerCase() === personalDetails.department?.toLowerCase()
-          )
-      );
+    setFilteredDesignations(designations);
+  }, [designations]);
 
-      if (selectedDept && selectedDept._id) {
-        const fetchDeptDesignations = async () => {
-          try {
-            const res = await fetch(
-              `/api/departments/${selectedDept._id}/designations`
-            );
-            if (res.ok) {
-              const data = await res.json();
-              const deptDesignations = Array.isArray(data?.designations)
-                ? data.designations
-                : [];
-              setFilteredDesignations(
-                deptDesignations.length > 0 ? deptDesignations : designations
-              );
-            } else {
-              setFilteredDesignations(designations);
-            }
-          } catch (error) {
-            setFilteredDesignations(designations);
-          }
-        };
-
-        fetchDeptDesignations();
-      } else {
-        setFilteredDesignations(designations);
+  const updatePersonalDetails = (patch) => {
+    setPersonalDetails((prev) => ({ ...prev, ...patch }));
+    const keys = Object.keys(patch);
+    setFormErrors((prev) => {
+      const copy = { ...prev };
+      let changed = false;
+      keys.forEach((k) => {
+        if (copy[k]) {
+          delete copy[k];
+          changed = true;
+        }
+      });
+      if (changed && Object.keys(copy).length === 0) {
+        setError("");
       }
-    } else {
-      setFilteredDesignations(designations);
-    }
-  }, [personalDetails.department, departments, designations]);
+      return changed ? copy : prev;
+    });
+  };
 
   const canNavigateToStep = (targetStepIndex) => {
-    if (targetStepIndex <= currentStep) return true;
-    if (targetStepIndex === currentStep + 1) {
-      const stepId = visibleSteps[currentStep - 1]?.id;
-      const errors = stepId ? validateStep(stepId) : {};
-      setFormErrors(errors);
-      return Object.keys(errors).length === 0;
+    if (targetStepIndex === currentStep) return true;
+    if (targetStepIndex < currentStep) {
+      setError("");
+      setFormErrors({});
+      return true;
     }
-    return false;
+    const stepId = visibleSteps[currentStep - 1]?.id;
+    const errors = stepId ? validateStep(stepId) : {};
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      const count = Object.keys(errors).length;
+      const summary = Object.values(errors).join(" • ");
+      setError(`Please fix the ${count} validation error(s): ${summary}`);
+      return false;
+    }
+    setError("");
+    return true;
   };
 
   // Keyboard navigation
@@ -298,42 +288,49 @@ export default function StepperEmployeeForm({
 
     switch (stepId) {
       case "personal":
-        if (!personalDetails.name.trim()) errors.name = "Name is required";
+        if (!personalDetails.name || !personalDetails.name.trim()) {
+          errors.name = "Full Name is required";
+        }
         if (
           personalDetails.email &&
           personalDetails.email.trim() &&
-          !/\S+@\S+\.\S+/.test(personalDetails.email)
+          !/\S+@\S+\.\S+/.test(personalDetails.email.trim())
         ) {
-          errors.email = "Please enter a valid email";
+          errors.email = "Please enter a valid email address (e.g. name@domain.com)";
         }
-        if (!personalDetails.department)
+        if (!personalDetails.department || !personalDetails.department.trim()) {
           errors.department = "Department is required";
-        if (!personalDetails.designation)
+        }
+        if (!personalDetails.designation || !personalDetails.designation.trim()) {
           errors.designation = "Designation is required";
-        if (!personalDetails.joiningDate)
-          errors.joiningDate = "Joining date is required";
-        if (!personalDetails.employeeType)
-          errors.employeeType = "Employee type is required";
+        }
+        if (!personalDetails.joiningDate || !personalDetails.joiningDate.trim()) {
+          errors.joiningDate = "Joining Date is required (Please select a valid date)";
+        }
+        if (!personalDetails.employeeType || !personalDetails.employeeType.trim()) {
+          errors.employeeType = "Employment Type is required";
+        }
         if (
           personalDetails.employeeType === "Contractual" &&
-          !personalDetails.contractExpiryDate
-        )
+          (!personalDetails.contractExpiryDate || !personalDetails.contractExpiryDate.trim())
+        ) {
           errors.contractExpiryDate =
             "Contract expiry date is required for contractual employees";
+        }
         break;
 
       case "employment":
         if (employmentHistoryPdfFile) break;
         employmentHistory.forEach((job, index) => {
           if (job.company || job.position || job.startDate) {
-            if (!job.company)
+            if (!job.company?.trim())
               errors[`employment_${index}_company`] =
-                "Company name is required";
-            if (!job.position)
-              errors[`employment_${index}_position`] = "Position is required";
-            if (!job.startDate)
+                `Experience #${index + 1}: Company name is required`;
+            if (!job.position?.trim())
+              errors[`employment_${index}_position`] = `Experience #${index + 1}: Position is required`;
+            if (!job.startDate?.trim())
               errors[`employment_${index}_startDate`] =
-                "Start date is required";
+                `Experience #${index + 1}: Start date is required`;
           }
         });
         break;
@@ -341,12 +338,12 @@ export default function StepperEmployeeForm({
       case "certifications":
         certifications.forEach((cert, index) => {
           if (cert.title || cert.issuer || cert.issueDate) {
-            if (!cert.title)
-              errors[`cert_${index}_title`] = "Certification title is required";
-            if (!cert.issuer)
-              errors[`cert_${index}_issuer`] = "Institution is required";
-            if (!cert.issueDate)
-              errors[`cert_${index}_issueDate`] = "Date obtained is required";
+            if (!cert.title?.trim())
+              errors[`cert_${index}_title`] = `Certification #${index + 1}: Certification title is required`;
+            if (!cert.issuer?.trim())
+              errors[`cert_${index}_issuer`] = `Certification #${index + 1}: Institution is required`;
+            if (!cert.issueDate?.trim())
+              errors[`cert_${index}_issueDate`] = `Certification #${index + 1}: Date obtained is required`;
           }
         });
         break;
@@ -358,8 +355,8 @@ export default function StepperEmployeeForm({
             skill.proficiencyLevel ||
             skill.yearsOfExperience
           ) {
-            if (!skill.skillName)
-              errors[`skill_${index}_skillName`] = "Skill name is required";
+            if (!skill.skillName?.trim())
+              errors[`skill_${index}_skillName`] = `Skill #${index + 1}: Skill name is required`;
           }
         });
         break;
@@ -379,11 +376,18 @@ export default function StepperEmployeeForm({
 
     if (Object.keys(errors).length === 0) {
       setCurrentStep((prev) => Math.min(prev + 1, visibleSteps.length));
+      setError("");
+    } else {
+      const count = Object.keys(errors).length;
+      const summary = Object.values(errors).join(" • ");
+      setError(`Please fix the ${count} validation error(s): ${summary}`);
     }
   };
 
   const handlePrevious = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
+    setError("");
+    setFormErrors({});
   };
 
   // Handle adding documents to attachment queue
@@ -417,7 +421,12 @@ export default function StepperEmployeeForm({
     const errors = stepId ? validateStep(stepId) : {};
     setFormErrors(errors);
 
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      const count = Object.keys(errors).length;
+      const summary = Object.values(errors).join(" • ");
+      setError(`Please fix the ${count} validation error(s) before submitting: ${summary}`);
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -630,7 +639,7 @@ export default function StepperEmployeeForm({
                   type="text"
                   value={personalDetails.name}
                   onChange={(e) =>
-                    setPersonalDetails({ ...personalDetails, name: e.target.value })
+                    updatePersonalDetails({ name: e.target.value })
                   }
                   className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all text-slate-900 bg-white shadow-sm ${
                     formErrors.name
@@ -655,7 +664,7 @@ export default function StepperEmployeeForm({
                   type="email"
                   value={personalDetails.email}
                   onChange={(e) =>
-                    setPersonalDetails({ ...personalDetails, email: e.target.value })
+                    updatePersonalDetails({ email: e.target.value })
                   }
                   className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all text-slate-900 bg-white shadow-sm ${
                     formErrors.email
@@ -691,7 +700,7 @@ export default function StepperEmployeeForm({
                   type="tel"
                   value={personalDetails.contactNumber}
                   onChange={(e) =>
-                    setPersonalDetails({ ...personalDetails, contactNumber: e.target.value })
+                    updatePersonalDetails({ contactNumber: e.target.value })
                   }
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
                   placeholder="+251 9..."
@@ -705,11 +714,7 @@ export default function StepperEmployeeForm({
                 <select
                   value={personalDetails.department}
                   onChange={(e) =>
-                    setPersonalDetails({
-                      ...personalDetails,
-                      department: e.target.value,
-                      designation: "",
-                    })
+                    updatePersonalDetails({ department: e.target.value })
                   }
                   className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all text-slate-900 bg-white shadow-sm ${
                     formErrors.department
@@ -740,7 +745,7 @@ export default function StepperEmployeeForm({
                 <select
                   value={personalDetails.designation}
                   onChange={(e) =>
-                    setPersonalDetails({ ...personalDetails, designation: e.target.value })
+                    updatePersonalDetails({ designation: e.target.value })
                   }
                   className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all text-slate-900 bg-white shadow-sm ${
                     formErrors.designation
@@ -792,15 +797,23 @@ export default function StepperEmployeeForm({
                 <select
                   value={personalDetails.employeeType}
                   onChange={(e) =>
-                    setPersonalDetails({ ...personalDetails, employeeType: e.target.value })
+                    updatePersonalDetails({ employeeType: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all text-slate-900 bg-white shadow-sm ${
+                    formErrors.employeeType
+                      ? "border-red-400 focus:ring-2 focus:ring-red-200"
+                      : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  }`}
                 >
+                  <option value="" className="text-slate-900 bg-white">Select Employment Type</option>
                   <option value="Full Time" className="text-slate-900 bg-white">Full Time</option>
                   <option value="Part Time" className="text-slate-900 bg-white">Part Time</option>
                   <option value="Contractual" className="text-slate-900 bg-white">Contractual</option>
                   <option value="Intern" className="text-slate-900 bg-white">Intern</option>
                 </select>
+                {formErrors.employeeType && (
+                  <p className="text-red-500 text-xs mt-1">{formErrors.employeeType}</p>
+                )}
               </div>
 
               <div>
@@ -811,9 +824,13 @@ export default function StepperEmployeeForm({
                   type="date"
                   value={personalDetails.joiningDate}
                   onChange={(e) =>
-                    setPersonalDetails({ ...personalDetails, joiningDate: e.target.value })
+                    updatePersonalDetails({ joiningDate: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm text-slate-900 bg-white shadow-sm"
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all text-slate-900 bg-white shadow-sm ${
+                    formErrors.joiningDate
+                      ? "border-red-400 focus:ring-2 focus:ring-red-200"
+                      : "border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  }`}
                 />
                 {formErrors.joiningDate && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.joiningDate}</p>
@@ -829,8 +846,7 @@ export default function StepperEmployeeForm({
                     type="date"
                     value={personalDetails.contractExpiryDate}
                     onChange={(e) =>
-                      setPersonalDetails({
-                        ...personalDetails,
+                      updatePersonalDetails({
                         contractExpiryDate: e.target.value,
                       })
                     }
@@ -1716,9 +1732,45 @@ export default function StepperEmployeeForm({
 
           {/* Alert Banners */}
           {error && (
-            <div className="mx-6 mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
+            <div className="mx-6 mt-4 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertCircle className="w-4 h-4" />
+                </div>
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <div className="font-bold text-sm text-rose-900 flex items-center gap-2">
+                    <span>Validation Required</span>
+                    {Object.keys(formErrors).length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-200/80 text-rose-800 text-[11px] font-bold">
+                        {Object.keys(formErrors).length} error{Object.keys(formErrors).length === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-rose-700 font-medium">
+                    Please correct the following field(s) to continue:
+                  </p>
+                  {Object.keys(formErrors).length > 0 ? (
+                    <div className="pt-1.5 border-t border-rose-200/70 space-y-1">
+                      {Object.entries(formErrors).map(([key, msg]) => (
+                        <div key={key} className="flex items-center gap-1.5 text-xs font-semibold text-rose-800">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                          <span>{msg}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-rose-800 font-semibold">{error}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setError("")}
+                  className="text-rose-400 hover:text-rose-600 p-1 rounded-lg transition-colors"
+                  title="Dismiss error"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
 

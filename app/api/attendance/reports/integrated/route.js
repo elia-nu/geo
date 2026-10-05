@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { isHoliday, isWorkingDay } from "../../../../utils/ethiopianCalendar";
+import {
+  calculateEffectiveWorkingHours,
+  getEthiopianDate,
+} from "../../../../utils/timeUtils";
 
 // Get integrated attendance reports with leave data
 export async function GET(request) {
@@ -239,20 +243,69 @@ async function processIntegratedAttendance(
         payrollDeduction = 1; // Full day deduction for absence
         absenceReason = "No check-in recorded";
       } else if (record.checkInTime && !record.checkOutTime) {
-        attendanceStatus = "partial";
-        // Calculate partial hours based on check-in time
-        const checkInTime = new Date(record.checkInTime);
-        const endOfDay = new Date(checkInTime);
-        endOfDay.setHours(18, 0, 0, 0); // Assume 6 PM end time
-        workingHours = Math.max(0, (endOfDay - checkInTime) / (1000 * 60 * 60));
-        payrollDeduction = 0.5; // Half day deduction for partial attendance
+        const todayStr = getEthiopianDate();
+        const isToday = record.date === todayStr;
+        if (isToday) {
+          attendanceStatus = "working";
+          payrollDeduction = 0;
+          const start = new Date(record.checkInTime).getTime();
+          const now = Date.now();
+          if (!isNaN(start) && now > start) {
+            let diffMs = now - start;
+            if (record.lunchOutTime && record.lunchInTime) {
+              const lOut = new Date(record.lunchOutTime).getTime();
+              const lIn = new Date(record.lunchInTime).getTime();
+              if (!isNaN(lOut) && !isNaN(lIn) && lIn > lOut) {
+                diffMs = Math.max(0, diffMs - (lIn - lOut));
+              }
+            } else if (record.lunchOutTime && !record.lunchInTime) {
+              const lOut = new Date(record.lunchOutTime).getTime();
+              if (!isNaN(lOut) && now > lOut) {
+                diffMs = Math.max(0, diffMs - (now - lOut));
+              }
+            }
+            workingHours = diffMs / (1000 * 60 * 60);
+          }
+        } else {
+          attendanceStatus = "partial";
+          // Calculate partial hours based on check-in time
+          const checkInTime = new Date(record.checkInTime);
+          const endOfDay = new Date(checkInTime);
+          endOfDay.setHours(18, 0, 0, 0); // Assume 6 PM end time
+          workingHours = Math.max(0, (endOfDay - checkInTime) / (1000 * 60 * 60));
+          payrollDeduction = 0.5; // Half day deduction for partial attendance
+        }
       } else {
-        // Calculate actual working hours
-        const checkIn = new Date(record.checkInTime);
-        const checkOut = new Date(record.checkOutTime);
-        workingHours = (checkOut - checkIn) / (1000 * 60 * 60);
+        // Calculate actual working hours deducting actual lunch duration
+        const calculatedHours = calculateEffectiveWorkingHours(
+          record.checkInTime,
+          record.checkOutTime,
+          record.lunchOutTime,
+          record.lunchInTime
+        );
+        workingHours =
+          calculatedHours !== null
+            ? calculatedHours
+            : typeof record.workingHours === "number"
+            ? record.workingHours
+            : 0;
         payrollDeduction = 0; // No deduction for full attendance
+        attendanceStatus = "complete";
       }
+
+      // Determine payrollStatus for filtering & UI display
+      const payrollStatus =
+        isOnLeave
+          ? "on_leave"
+          : holidayInfo
+          ? "holiday"
+          : !isWorkingDayDate
+          ? "weekend"
+          : attendanceStatus === "absent"
+          ? "absent"
+          : attendanceStatus === "working"
+          ? "working"
+          : "complete";
 
       return {
         _id: record._id,
@@ -266,10 +319,14 @@ async function processIntegratedAttendance(
         designation:
           employee?.designation || employee?.personalDetails?.designation || "",
         date: record.date,
-        checkInTime: record.checkInTime,
-        checkOutTime: record.checkOutTime,
+        checkInTime: record.checkInTime || null,
+        lunchOutTime: record.lunchOutTime || null,
+        lunchInTime: record.lunchInTime || null,
+        checkOutTime: record.checkOutTime || null,
         workingHours: Math.round(workingHours * 100) / 100,
+        status: record.status || attendanceStatus,
         attendanceStatus,
+        payrollStatus,
         absenceReason,
         leaveInfo: includeLeaveDetails ? leaveInfo : null,
         payrollDeduction,

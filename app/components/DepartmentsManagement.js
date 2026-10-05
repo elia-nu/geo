@@ -796,9 +796,23 @@ export default function DepartmentsManagement() {
                 </h3>
                 <p className="text-xs text-slate-500">
                   Are you sure you want to remove <strong className="text-slate-800">{deleteDept.name}</strong>?
-                  {((deleteDept.employees?.length ?? deleteDept.employeeCount ?? 0) > 0) && (
-                    <span className="block text-rose-600 font-semibold mt-1">
-                      Warning: This department has {deleteDept.employees?.length ?? deleteDept.employeeCount} assigned employees.
+                  {((deleteDept.employees?.length ?? deleteDept.employeeCount ?? 0) > 0) ? (
+                    <span className="block text-rose-700 bg-rose-50 p-3 rounded-xl border border-rose-200 text-xs font-medium mt-2 text-left space-y-1">
+                      <span className="font-bold flex items-center gap-1 text-rose-800">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        Deletion Blocked
+                      </span>
+                      <span>
+                        This department has{" "}
+                        <strong>
+                          {deleteDept.employees?.length ?? deleteDept.employeeCount}
+                        </strong>{" "}
+                        assigned employee(s). Departments with assigned employees cannot be deleted. Please reassign all employees before deleting.
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="block text-emerald-700 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 text-xs font-medium mt-2">
+                      This department has no assigned employees and can be safely deleted.
                     </span>
                   )}
                 </p>
@@ -815,8 +829,11 @@ export default function DepartmentsManagement() {
                 <button
                   type="button"
                   onClick={handleDelete}
-                  disabled={deleting}
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
+                  disabled={
+                    deleting ||
+                    ((deleteDept.employees?.length ?? deleteDept.employeeCount ?? 0) > 0)
+                  }
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                 >
                   {deleting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
                   Confirm Delete
