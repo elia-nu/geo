@@ -1,39 +1,47 @@
 import fs from "fs";
 import path from "path";
 
-/**
- * Resolves the MongoDB connection string for local Linux VPS or remote environment.
- * Order of priority:
- * 1. process.env.MONGODB_URI
- * 2. .env.local, .env.production, or .env files in project root
- * 3. Default local MongoDB on Linux VPS: mongodb://127.0.0.1:27017/geo
- */
-export function getMongoUri() {
-  if (process.env.MONGODB_URI) {
-    return process.env.MONGODB_URI;
-  }
+function parseEnvValue(raw) {
+  return raw.trim().replace(/^["']|["']$/g, "");
+}
 
-  const envFiles = [".env.local", ".env.production", ".env"];
+/**
+ * Loads KEY=VALUE pairs from .env files into process.env without overwriting
+ * variables that are already set in the environment.
+ */
+export function loadEnv() {
+  const envFiles = [".env", ".env.local", ".env.development", ".env.production"];
   for (const envFile of envFiles) {
     const filePath = path.resolve(process.cwd(), envFile);
-    if (fs.existsSync(filePath)) {
-      try {
-        const content = fs.readFileSync(filePath, "utf8");
-        for (const line of content.split(/\r?\n/)) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith("MONGODB_URI=")) {
-            const val = trimmed.slice("MONGODB_URI=".length).trim().replace(/^["']|["']$/g, "");
-            if (val) {
-              return val;
-            }
-          }
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      const content = fs.readFileSync(filePath, "utf8");
+      for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const eq = trimmed.indexOf("=");
+        if (eq <= 0) continue;
+        const key = trimmed.slice(0, eq).trim();
+        const val = parseEnvValue(trimmed.slice(eq + 1));
+        if (key && process.env[key] === undefined) {
+          process.env[key] = val;
         }
-      } catch (_) {}
-    }
+      }
+    } catch (_) {}
   }
+}
 
-  // Standard local MongoDB instance running on Linux VPS (127.0.0.1 ensures IPv4 binding)
-  return "mongodb://127.0.0.1:27017/geo";
+loadEnv();
+
+/**
+ * Resolves the MongoDB connection string.
+ * Order of priority:
+ * 1. process.env.MONGODB_URI (including values loaded from .env)
+ * 2. Default local MongoDB: mongodb://127.0.0.1:27017/geo
+ */
+export function getMongoUri() {
+  loadEnv();
+  return process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/geo";
 }
 
 export default getMongoUri;

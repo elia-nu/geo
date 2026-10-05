@@ -1,8 +1,8 @@
 import { MongoClient } from "mongodb";
 import employees from "./employees.data.js";
+import { getMongoUri } from "../getMongoUri.js";
 
-const uri = process.env.MONGODB_URI;
-if (!uri) throw new Error("MONGODB_URI is required");
+const uri = getMongoUri();
 
 export async function seedEmployees(db) {
   const departments = await db.collection("departments").find({}).toArray();

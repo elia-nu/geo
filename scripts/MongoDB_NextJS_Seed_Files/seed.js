@@ -2,9 +2,9 @@ import { MongoClient } from "mongodb";
 import { seedDepartments } from "./seedDepartments.js";
 import { seedDesignations } from "./seedDesignations.js";
 import { seedEmployees } from "./seedEmployees.js";
+import { getMongoUri } from "../getMongoUri.js";
 
-const uri = process.env.MONGODB_URI;
-if (!uri) throw new Error("MONGODB_URI is required");
+const uri = getMongoUri();
 
 const client = new MongoClient(uri);
 try {
