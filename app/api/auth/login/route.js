@@ -143,23 +143,31 @@ export async function POST(request) {
 
     // Get user role
     const userRole = await db.collection("user_roles").findOne({
-      userId: employee._id.toString(),
+      $or: [
+        { userId: employee._id.toString() },
+        { userId: employee._id },
+      ],
       isActive: true,
     });
 
     console.log("userRole", userRole);
 
     // Get role definition for fresh permissions and display name
-    const roleName = userRole ? (userRole.roleName || userRole.role) : "EMPLOYEE";
+    const rawRoleName = userRole
+      ? (userRole.roleName || userRole.role)
+      : (employee.role || employee.personalDetails?.role || "EMPLOYEE");
+
     const roleDef = await db.collection("roles").findOne({
-      name: roleName,
+      name: { $regex: new RegExp(`^${escapeRegExp(rawRoleName)}$`, "i") },
       isActive: true,
     });
 
+    const roleName = roleDef ? roleDef.name : rawRoleName;
+
     // Use permissions from the role definition (fresh), falling back to user_roles
     const permissions = roleDef
-      ? roleDef.permissions
-      : (userRole ? userRole.permissions : []);
+      ? (roleDef.permissions || [])
+      : (userRole ? (userRole.permissions || []) : []);
 
     // Create JWT token
     const token = jwt.sign(
@@ -174,7 +182,7 @@ export async function POST(request) {
         workLocation: hasOldLocation || null, // Keep for backward compatibility
         role: roleName,
         permissions: permissions,
-        roleLevel: roleDef?.level || 10,
+        roleLevel: roleDef?.level || (roleName === "ADMIN" ? 100 : roleName === "EMPLOYEE" ? 10 : 30),
         roleDisplayName: roleDef?.displayName || roleName,
       },
       JWT_SECRET,
@@ -211,6 +219,8 @@ export async function POST(request) {
           workLocations: hasWorkLocations ? employee.workLocations : [],
           workLocation: hasOldLocation || null, // Keep for backward compatibility
           role: roleName,
+          roleLevel: roleDef?.level || (roleName === "ADMIN" ? 100 : roleName === "EMPLOYEE" ? 10 : 30),
+          roleDisplayName: roleDef?.displayName || roleName,
           permissions: permissions,
         },
       },

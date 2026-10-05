@@ -215,6 +215,24 @@ export async function POST(request) {
 
     await db.collection("user_roles").insertOne(newAssignment);
 
+    // Sync role to employee record
+    try {
+      if (ObjectId.isValid(userId)) {
+        await db.collection("employees").updateOne(
+          { _id: new ObjectId(userId) },
+          {
+            $set: {
+              role: roleDef.name,
+              "personalDetails.role": roleDef.name,
+              updatedAt: new Date(),
+            },
+          }
+        );
+      }
+    } catch (empSyncErr) {
+      console.error("Error syncing role to employee:", empSyncErr);
+    }
+
     // Record in role history
     try {
       await db.collection("role_history").insertOne({

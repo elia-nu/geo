@@ -138,6 +138,24 @@ export async function DELETE(request, { params }) {
       });
     }
 
+    // Sync role to employee record
+    try {
+      if (ObjectId.isValid(userId)) {
+        await db.collection("employees").updateOne(
+          { _id: new ObjectId(userId) },
+          {
+            $set: {
+              role: "EMPLOYEE",
+              "personalDetails.role": "EMPLOYEE",
+              updatedAt: new Date(),
+            },
+          }
+        );
+      }
+    } catch (empRevokeErr) {
+      console.error("Error syncing revoked role to employee:", empRevokeErr);
+    }
+
     // Record in role history
     try {
       await db.collection("role_history").insertOne({

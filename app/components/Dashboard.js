@@ -32,6 +32,35 @@ import RoleAllowanceModal from "./RoleAllowanceModal";
 export default function Dashboard({ onSectionChange = () => {} }) {
   const { user, role, permissions, isAdmin, hasPermission } = usePermissions();
   const [isAllowanceModalOpen, setIsAllowanceModalOpen] = useState(false);
+
+  // Guard routing from dashboard so users cannot trigger navigation to sections they cannot access
+  const SECTION_REQUIRED_PERMS = {
+    "employee-add": "employee.create",
+    "employees": "employee.read",
+    "departments": "department.read",
+    "designations": "designation.read",
+    "contracts": "contract.read",
+    "documents": "document.read",
+    "document-expiry": "document.read",
+    "admin-attendance": "attendance.view",
+    "overtime-management": "overtime.view",
+    "leave-approval": "leave.approve",
+    "leave-balances": "leave.manage",
+    "payroll": "payroll.view",
+    "projects": "project.read",
+    "work-locations": "location.read",
+    "role-management": "role.manage",
+    "universal-system-reports": "reports.read",
+  };
+
+  const handleSafeNavigate = (section) => {
+    const req = SECTION_REQUIRED_PERMS[section];
+    if (req && !hasPermission(req)) {
+      return;
+    }
+    onSectionChange(section);
+  };
+
   const [stats, setStats] = useState({
     totalEmployees: 0,
     activeEmployees: 0,
@@ -242,16 +271,55 @@ export default function Dashboard({ onSectionChange = () => {} }) {
           <div className="flex flex-wrap items-center gap-2.5">
             {hasPermission("employee.create") && (
               <Button
-                onClick={() => onSectionChange("employee-add")}
+                onClick={() => handleSafeNavigate("employee-add")}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all transform active:scale-95 text-xs sm:text-sm"
               >
                 <Users className="w-4 h-4 mr-2" />
                 Add Employee
               </Button>
             )}
+            {hasPermission("employee.read") && !hasPermission("employee.create") && (
+              <Button
+                onClick={() => handleSafeNavigate("employees")}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow transition-all text-xs sm:text-sm"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Staff Directory
+              </Button>
+            )}
+            {(hasPermission("department.manage") || hasPermission("department.read")) && (
+              <Button
+                onClick={() => handleSafeNavigate("departments")}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur font-medium transition-all text-xs sm:text-sm"
+              >
+                <Building className="w-4 h-4 mr-2" />
+                Departments
+              </Button>
+            )}
+            {hasPermission("attendance.view") && (
+              <Button
+                onClick={() => handleSafeNavigate("admin-attendance")}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur font-medium transition-all text-xs sm:text-sm"
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Attendance
+              </Button>
+            )}
+            {hasPermission("leave.approve") && (
+              <Button
+                onClick={() => handleSafeNavigate("leave-approval")}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur font-medium transition-all text-xs sm:text-sm"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Leave Approvals
+              </Button>
+            )}
             {hasPermission("payroll.view") && (
               <Button
-                onClick={() => onSectionChange("payroll")}
+                onClick={() => handleSafeNavigate("payroll")}
                 variant="outline"
                 className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur font-medium transition-all text-xs sm:text-sm"
               >
@@ -259,9 +327,29 @@ export default function Dashboard({ onSectionChange = () => {} }) {
                 Payroll Hub
               </Button>
             )}
+            {hasPermission("project.read") && (
+              <Button
+                onClick={() => handleSafeNavigate("projects")}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur font-medium transition-all text-xs sm:text-sm"
+              >
+                <Briefcase className="w-4 h-4 mr-2" />
+                Projects Hub
+              </Button>
+            )}
+            {hasPermission("location.read") && (
+              <Button
+                onClick={() => handleSafeNavigate("work-locations")}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur font-medium transition-all text-xs sm:text-sm"
+              >
+                <MapPin className="w-4 h-4 mr-2" />
+                Work Sites
+              </Button>
+            )}
             {hasPermission("role.manage") && (
               <Button
-                onClick={() => onSectionChange("role-management")}
+                onClick={() => handleSafeNavigate("role-management")}
                 variant="outline"
                 className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border-purple-400/30 backdrop-blur font-medium transition-all text-xs sm:text-sm"
               >
@@ -321,6 +409,7 @@ export default function Dashboard({ onSectionChange = () => {} }) {
 
       {/* Primary KPI Cards (Dynamically filtered by user permissions) */}
       {(() => {
+        const totalDepts = Object.keys(stats.departments || {}).length;
         const kpiCards = [
           hasPermission("employee.read") && {
             id: "employees",
@@ -335,6 +424,20 @@ export default function Dashboard({ onSectionChange = () => {} }) {
             iconBg: "bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white",
             hoverBorder: "hover:border-blue-200",
             section: "employees",
+          },
+          hasPermission("department.read") && {
+            id: "departments",
+            title: "Departments",
+            value: totalDepts,
+            valueClass: "text-indigo-600",
+            badge: `${totalDepts} Operational units`,
+            badgeIcon: Building,
+            badgeClass: "text-indigo-600",
+            icon: Building,
+            gradient: "from-indigo-500 to-purple-600",
+            iconBg: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white",
+            hoverBorder: "hover:border-indigo-200",
+            section: "departments",
           },
           hasPermission("document.read") && {
             id: "documents",
@@ -392,7 +495,21 @@ export default function Dashboard({ onSectionChange = () => {} }) {
             hoverBorder: "hover:border-purple-200",
             section: "work-locations",
           },
-          hasPermission("payroll.view") && !hasPermission("document.read") && {
+          hasPermission("attendance.view") && {
+            id: "attendance",
+            title: "Today's Attendance",
+            value: stats.attendanceToday?.present || 0,
+            valueClass: "text-emerald-600",
+            badge: "Checked in today",
+            badgeIcon: CheckCircle2,
+            badgeClass: "text-emerald-600",
+            icon: Calendar,
+            gradient: "from-emerald-500 to-teal-600",
+            iconBg: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white",
+            hoverBorder: "hover:border-emerald-200",
+            section: "admin-attendance",
+          },
+          hasPermission("payroll.view") && {
             id: "payroll",
             title: "Payroll System",
             value: "Active",
@@ -406,7 +523,7 @@ export default function Dashboard({ onSectionChange = () => {} }) {
             hoverBorder: "hover:border-indigo-200",
             section: "payroll",
           },
-          hasPermission("project.read") && !hasPermission("document.read") && {
+          hasPermission("project.read") && {
             id: "projects",
             title: "Projects Hub",
             value: stats.projectsCount || "Active",
@@ -419,6 +536,20 @@ export default function Dashboard({ onSectionChange = () => {} }) {
             iconBg: "bg-violet-50 text-violet-600 group-hover:bg-violet-600 group-hover:text-white",
             hoverBorder: "hover:border-violet-200",
             section: "projects",
+          },
+          (hasPermission("leave.approve") || hasPermission("leave.manage")) && {
+            id: "leave-approval",
+            title: "Leave Management",
+            value: "Active",
+            valueClass: "text-teal-600",
+            badge: "Approvals & Balances",
+            badgeIcon: CheckCircle2,
+            badgeClass: "text-teal-600",
+            icon: CheckCircle2,
+            gradient: "from-teal-500 to-emerald-600",
+            iconBg: "bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white",
+            hoverBorder: "hover:border-teal-200",
+            section: "leave-approval",
           },
         ].filter(Boolean);
 
@@ -433,7 +564,7 @@ export default function Dashboard({ onSectionChange = () => {} }) {
                 <Card
                   key={card.id}
                   className={`bg-white hover:shadow-lg transition-all duration-200 cursor-pointer border border-slate-100 ${card.hoverBorder} group relative overflow-hidden`}
-                  onClick={() => onSectionChange(card.section)}
+                  onClick={() => handleSafeNavigate(card.section)}
                 >
                   <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${card.gradient}`} />
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -460,144 +591,163 @@ export default function Dashboard({ onSectionChange = () => {} }) {
         );
       })()}
 
-      {/* Analytics Breakdown: Departments & Work Locations */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Department Distribution */}
-        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
-          <CardHeader className="border-b border-slate-50 pb-4 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                <Building className="w-4 h-4" />
-              </div>
-              <div>
-                <CardTitle className="text-base font-bold text-slate-900">
-                  Department Distribution
-                </CardTitle>
-                <p className="text-xs text-slate-400">Workforce breakdown by division</p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onSectionChange("departments")}
-              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-            >
-              Manage <ArrowRight className="w-3 h-3" />
-            </Button>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              {getTopDepartments().map(([dept, count]) => {
-                const percentage = stats.totalEmployees
-                  ? Math.round((count / stats.totalEmployees) * 100)
-                  : 0;
-                return (
-                  <div key={dept} className="space-y-1.5">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="font-medium text-slate-700">{dept}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-slate-400">
-                          {percentage}%
-                        </span>
-                        <Badge variant="secondary" className="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-slate-700">
-                          {count} {count === 1 ? "staff" : "staff"}
-                        </Badge>
-                      </div>
+      {/* Analytics Breakdown: Departments & Work Locations (Permission-guarded) */}
+      {(() => {
+        const canViewDepartments = hasPermission("department.read");
+        const canViewLocations = hasPermission("location.read");
+
+        if (!canViewDepartments && !canViewLocations) return null;
+
+        const isBoth = canViewDepartments && canViewLocations;
+
+        return (
+          <div className={`grid grid-cols-1 ${isBoth ? "lg:grid-cols-2" : ""} gap-6`}>
+            {/* Department Distribution */}
+            {canViewDepartments && (
+              <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+                <CardHeader className="border-b border-slate-50 pb-4 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                      <Building className="w-4 h-4" />
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${percentage}%` }}
-                      />
+                    <div>
+                      <CardTitle className="text-base font-bold text-slate-900">
+                        Department Distribution
+                      </CardTitle>
+                      <p className="text-xs text-slate-400">Workforce breakdown by division</p>
                     </div>
                   </div>
-                );
-              })}
+                  {(hasPermission("department.manage") || hasPermission("department.read")) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleSafeNavigate("departments")}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                    >
+                      Manage <ArrowRight className="w-3 h-3" />
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    {getTopDepartments().map(([dept, count]) => {
+                      const percentage = stats.totalEmployees
+                        ? Math.round((count / stats.totalEmployees) * 100)
+                        : 0;
+                      return (
+                        <div key={dept} className="space-y-1.5">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium text-slate-700">{dept}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-slate-400">
+                                {percentage}%
+                              </span>
+                              <Badge variant="secondary" className="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-slate-700">
+                                {count} {count === 1 ? "staff" : "staff"}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
 
-              {Object.keys(stats.departments || {}).length === 0 && (
-                <div className="text-center py-10 text-slate-400 space-y-2">
-                  <Building className="w-8 h-8 mx-auto text-slate-300" />
-                  <p className="text-sm font-medium">No department data recorded yet</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Work Location Geofence Deployments */}
-        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
-          <CardHeader className="border-b border-slate-50 pb-4 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                <MapPin className="w-4 h-4" />
-              </div>
-              <div>
-                <CardTitle className="text-base font-bold text-slate-900">
-                  Geofenced Work Locations
-                </CardTitle>
-                <p className="text-xs text-slate-400">Staff assignment by physical sites</p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onSectionChange("work-locations")}
-              className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
-            >
-              View Sites <ArrowRight className="w-3 h-3" />
-            </Button>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              {getTopLocations().map(([location, count]) => {
-                const totalAssigned =
-                  stats.workLocationStats?.totalEmployeesAssigned || stats.totalEmployees || 1;
-                const percentage = Math.round(((count || 0) / totalAssigned) * 100);
-                return (
-                  <div key={location} className="space-y-1.5">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="font-medium text-slate-700">{location}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-slate-400">
-                          {percentage}%
-                        </span>
-                        <Badge variant="outline" className="text-xs font-semibold border-purple-200 text-purple-700 bg-purple-50/50">
-                          {count || 0} assigned
-                        </Badge>
+                    {Object.keys(stats.departments || {}).length === 0 && (
+                      <div className="text-center py-10 text-slate-400 space-y-2">
+                        <Building className="w-8 h-8 mx-auto text-slate-300" />
+                        <p className="text-sm font-medium">No department data recorded yet</p>
                       </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Work Location Geofence Deployments */}
+            {canViewLocations && (
+              <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+                <CardHeader className="border-b border-slate-50 pb-4 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                      <MapPin className="w-4 h-4" />
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-purple-500 to-indigo-600 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(percentage, 100)}%` }}
-                      />
+                    <div>
+                      <CardTitle className="text-base font-bold text-slate-900">
+                        Geofenced Work Locations
+                      </CardTitle>
+                      <p className="text-xs text-slate-400">Staff assignment by physical sites</p>
                     </div>
                   </div>
-                );
-              })}
+                  {(hasPermission("location.manage") || hasPermission("location.read")) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleSafeNavigate("work-locations")}
+                      className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                    >
+                      View Sites <ArrowRight className="w-3 h-3" />
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    {getTopLocations().map(([location, count]) => {
+                      const totalAssigned =
+                        stats.workLocationStats?.totalEmployeesAssigned || stats.totalEmployees || 1;
+                      const percentage = Math.round(((count || 0) / totalAssigned) * 100);
+                      return (
+                        <div key={location} className="space-y-1.5">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium text-slate-700">{location}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-slate-400">
+                                {percentage}%
+                              </span>
+                              <Badge variant="outline" className="text-xs font-semibold border-purple-200 text-purple-700 bg-purple-50/50">
+                                {count || 0} assigned
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-gradient-to-r from-purple-500 to-indigo-600 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(percentage, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
 
-              {stats.workLocationStats?.employeesWithoutLocation > 0 && (
-                <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                  <span className="text-sm font-medium text-amber-700 flex items-center gap-1.5">
-                    <AlertCircle className="w-4 h-4 text-amber-500" />
-                    Unassigned Employees
-                  </span>
-                  <Badge variant="destructive" className="text-xs">
-                    {stats.workLocationStats.employeesWithoutLocation} pending
-                  </Badge>
-                </div>
-              )}
+                    {stats.workLocationStats?.employeesWithoutLocation > 0 && (
+                      <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                        <span className="text-sm font-medium text-amber-700 flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                          Unassigned Employees
+                        </span>
+                        <Badge variant="destructive" className="text-xs">
+                          {stats.workLocationStats.employeesWithoutLocation} pending
+                        </Badge>
+                      </div>
+                    )}
 
-              {getTopLocations().length === 0 && (
-                <div className="text-center py-10 text-slate-400 space-y-2">
-                  <MapPin className="w-8 h-8 mx-auto text-slate-300" />
-                  <p className="text-sm font-medium">No work locations registered yet</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                    {getTopLocations().length === 0 && (
+                      <div className="text-center py-10 text-slate-400 space-y-2">
+                        <MapPin className="w-8 h-8 mx-auto text-slate-300" />
+                        <p className="text-sm font-medium">No work locations registered yet</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Direct Actions & Permitted Module Hubs */}
       {(() => {
@@ -621,13 +771,40 @@ export default function Dashboard({ onSectionChange = () => {} }) {
             border: "hover:border-cyan-300",
           },
           {
+            id: "departments",
+            permission: "department.read",
+            title: "Departments & Units",
+            description: "Organize organizational structure and department divisions",
+            icon: Building,
+            iconClass: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white",
+            border: "hover:border-indigo-300",
+          },
+          {
+            id: "designations",
+            permission: "designation.read",
+            title: "Job Designations",
+            description: "Manage company roles, job titles and designations",
+            icon: Layers,
+            iconClass: "bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white",
+            border: "hover:border-purple-300",
+          },
+          {
+            id: "contracts",
+            permission: "contract.read",
+            title: "Employee Contracts",
+            description: "Monitor contract terms, renewals and validity dates",
+            icon: FileText,
+            iconClass: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white",
+            border: "hover:border-emerald-300",
+          },
+          {
             id: "documents",
             permission: "document.read",
             title: "Document Vault",
             description: "Upload & audit employee compliance files",
             icon: FileText,
-            iconClass: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white",
-            border: "hover:border-emerald-300",
+            iconClass: "bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white",
+            border: "hover:border-teal-300",
           },
           {
             id: "admin-attendance",
@@ -639,13 +816,22 @@ export default function Dashboard({ onSectionChange = () => {} }) {
             border: "hover:border-amber-300",
           },
           {
+            id: "overtime-management",
+            permission: "overtime.view",
+            title: "Overtime Management",
+            description: "Track overtime requests, hours and approvals",
+            icon: Clock,
+            iconClass: "bg-orange-50 text-orange-600 group-hover:bg-orange-600 group-hover:text-white",
+            border: "hover:border-orange-300",
+          },
+          {
             id: "leave-approval",
             permission: "leave.approve",
             title: "Leave Approvals",
             description: "Review pending employee vacation & sick leaves",
             icon: CheckCircle2,
-            iconClass: "bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white",
-            border: "hover:border-teal-300",
+            iconClass: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white",
+            border: "hover:border-emerald-300",
           },
           {
             id: "payroll",
@@ -667,7 +853,7 @@ export default function Dashboard({ onSectionChange = () => {} }) {
           },
           {
             id: "work-locations",
-            permission: "location.manage",
+            permission: "location.read",
             title: "Work Locations & GPS",
             description: "Manage geofence sites and site personnel",
             icon: MapPin,
@@ -725,7 +911,7 @@ export default function Dashboard({ onSectionChange = () => {} }) {
                   <button
                     key={hub.id}
                     type="button"
-                    onClick={() => onSectionChange(hub.id)}
+                    onClick={() => handleSafeNavigate(hub.id)}
                     className={`flex items-start gap-4 p-5 rounded-2xl bg-white border border-slate-100 ${hub.border} hover:shadow-md transition-all duration-200 text-left group`}
                   >
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-all ${hub.iconClass}`}>

@@ -15,7 +15,7 @@ import EmployeeTasks from "../components/EmployeeTasks";
 import EmployeeMilestones from "../components/EmployeeMilestones";
 import EmployeeProfile from "../components/EmployeeProfile";
 import EmployeeOvertime from "../components/EmployeeOvertime";
-import { MapPin, Navigation, CheckCircle, Menu, X, Bell, AlertCircle, AlertTriangle } from "lucide-react";
+import { MapPin, Navigation, CheckCircle, Menu, X, Bell, AlertCircle, AlertTriangle, ShieldCheck } from "lucide-react";
 import { getEthiopianDate, getEthiopianTime, formatEthiopianDateTime } from "../utils/timeUtils";
 
 export default function EmployeePortal() {
@@ -23,6 +23,24 @@ export default function EmployeePortal() {
   const [employeeData, setEmployeeData] = useState(null);
   const [workLocations, setWorkLocations] = useState([]);
   const [activeSection, setActiveSection] = useState("dashboard");
+
+  const isHrmAuthorized = React.useMemo(() => {
+    if (!employeeData) return false;
+    const role = (employeeData.role || "").toString().trim().toUpperCase();
+    if (role && role !== "EMPLOYEE") return true;
+    const perms = employeeData.permissions || [];
+    const selfPerms = new Set([
+      "employee.read.own",
+      "employee.update.own",
+      "document.read.own",
+      "document.create.own",
+      "attendance.checkin",
+      "leave.request",
+      "task.read.own",
+      "project.read.assigned",
+    ]);
+    return perms.some((p) => p === "*" || !selfPerms.has(p));
+  }, [employeeData]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -494,6 +512,18 @@ export default function EmployeePortal() {
                 <div className="hidden lg:block px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300">
                   {employeeData.department}
                 </div>
+              )}
+
+              {/* HRM Portal Link for authorized roles */}
+              {isHrmAuthorized && (
+                <a
+                  href="/hrm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-semibold shadow-sm transition-all hover:shadow hover:scale-[1.02]"
+                  title="Switch to HRM Admin Dashboard"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>HRM Dashboard</span>
+                </a>
               )}
 
               {/* Notification Bell */}

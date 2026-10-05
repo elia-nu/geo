@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HRM System &mdash; Detailed Reports Catalog & Documentation</title>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #3b82f6;
+      --secondary: #0f172a;
+      --accent: #6366f1;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --tag-bg: #eff6ff;
+      --tag-text: #1d4ed8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding-bottom: 60px;
+    }
+
+    header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #312e81 100%);
+      color: #ffffff;
+      padding: 48px 24px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      position: relative;
+    }
+
+    header h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: #cbd5e1;
+      font-size: 1.05rem;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .badge-company {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #93c5fd;
+      padding: 4px 14px;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: -24px auto 0;
+      padding: 0 20px;
+    }
+
+    .toc {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+      border: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+
+    .toc h2 {
+      font-size: 1.1rem;
+      color: var(--secondary);
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .toc-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      color: #334155;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .toc-link:hover {
+      background: #e0e7ff;
+      color: var(--primary);
+      transform: translateY(-1px);
+    }
+
+    .toc-link span.count {
+      background: #ffffff;
+      color: #64748b;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      border: 1px solid #cbd5e1;
+    }
+
+    .suite-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      margin-bottom: 36px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .suite-header {
+      padding: 20px 24px;
+      background: linear-gradient(to right, #f8fafc, #f1f5f9);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .suite-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--secondary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .perm-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      color: #4338ca;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 6px;
+      font-family: monospace;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475569;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background-color: #fafbfc;
+    }
+
+    .report-name {
+      font-weight: 700;
+      color: #0f172a;
+      font-size: 0.98rem;
+      margin-bottom: 4px;
+    }
+
+    .component-file {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.75rem;
+      color: #64748b;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .desc-text {
+      color: #334155;
+      margin-bottom: 8px;
+    }
+
+    .metrics-list {
+      margin-top: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .metric-pill {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .target-role {
+      font-size: 0.8rem;
+      color: #1e3a8a;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 48px;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    @media (max-width: 768px) {
+      header {
+        padding: 32px 16px;
+      }
+      header h1 {
+        font-size: 1.6rem;
+      }
+      th, td {
+        padding: 12px 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="badge-company">EF Architects & Engineers Consulting PLC</div>
+    <h1>HRM System &mdash; Master Reports Catalog</h1>
+    <p>Comprehensive reference guide detailing all 10 reporting suites, 34 specialized reports, data metrics, and role access permissions.</p>
+  </header>
+
+  <div class="container">
+    <!-- Table of Contents -->
+    <div class="toc">
+      <h2>&#128202; Report Suites Index</h2>
+      <div class="toc-grid">
+        <a href="#suite-attendance" class="toc-link">1. Attendance Management <span class="count">4 Reports</span></a>
+        <a href="#suite-employee" class="toc-link">2. Employee Management <span class="count">4 Reports</span></a>
+        <a href="#suite-organization" class="toc-link">3. Organization Management <span class="count">4 Reports</span></a>
+        <a href="#suite-document" class="toc-link">4. Document Management <span class="count">3 Reports</span></a>
+        <a href="#suite-location" class="toc-link">5. Work Locations & Sites <span class="count">2 Reports</span></a>
+        <a href="#suite-leave" class="toc-link">6. Leave Management <span class="count">3 Reports</span></a>
+        <a href="#suite-payroll" class="toc-link">7. Payroll Management <span class="count">3 Reports</span></a>
+        <a href="#suite-project" class="toc-link">8. Project Management <span class="count">5 Reports</span></a>
+        <a href="#suite-executive" class="toc-link">9. Executive & Cross-System <span class="count">4 Reports</span></a>
+        <a href="#suite-universal" class="toc-link">10. Universal System Audits <span class="count">4 Reports</span></a>
+      </div>
+    </div>
+
+    <!-- 1. Attendance Management Reports -->
+    <section class="suite-card" id="suite-attendance">
+      <div class="suite-header">
+        <div class="suite-title">
+          &#128197; 1. Attendance Management Reports
+        </div>
+        <span class="perm-badge">&#128274; reports.attendance</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%;">Report Name & File</th>
+            <th style="width: 54%;">Description & Key Tracked Metrics</th>
+            <th style="width: 18%;">Primary Audience</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="report-name">Daily Attendance Summary</div>
+              <span class="component-file">DailyAttendanceSummaryReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Tracks daily employee check-in and check-out events, punctuality status, verified GPS work locations, total recorded hours, and daily overtime.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Present / Absent / Late Status</span>
+                <span class="metric-pill">Clock-In & Out Timestamps</span>
+                <span class="metric-pill">Hours Worked</span>
+                <span class="metric-pill">Lunch Duration</span>
+              </div>
+            </td>
+            <td><span class="target-role">HR, Operations, Supervisors</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Attendance Exceptions & Violations</div>
+              <span class="component-file">AttendanceExceptionViolationReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Flags workforce non-compliance: unauthorized absences, chronic late arrivals, unexcused early departures, missing punch-outs, and geofence perimeter violations.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Late Arrival Minutes</span>
+                <span class="metric-pill">Early Departure Minutes</span>
+                <span class="metric-pill">Missing Punches</span>
+                <span class="metric-pill">Out-of-Bounds GPS Attempts</span>
+              </div>
+            </td>
+            <td><span class="target-role">HR Managers, Department Heads</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Attendance Trend & Productivity</div>
+              <span class="component-file">AttendanceTrendProductivityReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Long-term attendance analysis aggregating weekly, monthly, and quarterly punctuality percentages, effective hours delivered vs scheduled hours, and departmental trends.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Punctuality Rate %</span>
+                <span class="metric-pill">Total Billable Hours</span>
+                <span class="metric-pill">Overtime Hours</span>
+                <span class="metric-pill">Absence Frequency Rate</span>
+              </div>
+            </td>
+            <td><span class="target-role">Executive Team, HR Directors</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Site Attendance Compliance</div>
+              <span class="component-file">SiteAttendanceComplianceReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Audits physical attendance at assigned project/branch geofenced sites to verify whether staff are physically working where scheduled versus off-site.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Geofence Compliance %</span>
+                <span class="metric-pill">Site ID</span>
+                <span class="metric-pill">Distance to Boundary</span>
+                <span class="metric-pill">Device Verification</span>
+              </div>
+            </td>
+            <td><span class="target-role">Project Managers, Site Engineers</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 2. Employee Management Reports -->
+    <section class="suite-card" id="suite-employee">
+      <div class="suite-header">
+        <div class="suite-title">
+          &#128101; 2. Employee Management Reports
+        </div>
+        <span class="perm-badge">&#128274; reports.employee</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%;">Report Name & File</th>
+            <th style="width: 54%;">Description & Key Tracked Metrics</th>
+            <th style="width: 18%;">Primary Audience</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="report-name">Employee Master Report</div>
+              <span class="component-file">EmployeeMasterReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">The definitive central workforce directory containing complete personal records, employee ID codes, job designations, departments, join dates, contact info, and status.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Employee ID</span>
+                <span class="metric-pill">Full Name</span>
+                <span class="metric-pill">Designation & Level</span>
+                <span class="metric-pill">Department</span>
+                <span class="metric-pill">Join Date</span>
+                <span class="metric-pill">Employment Status</span>
+              </div>
+            </td>
+            <td><span class="target-role">HR Officers, System Admins</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Employee Allocation Report</div>
+              <span class="component-file">EmployeeAllocationReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Maps staff distribution across active engineering projects, departments, supervisors, and client contracts, highlighting over-allocated or idle personnel.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Assigned Project</span>
+                <span class="metric-pill">Allocation Percentage</span>
+                <span class="metric-pill">Assigned Work Location</span>
+                <span class="metric-pill">Supervisor</span>
+              </div>
+            </td>
+            <td><span class="target-role">Project Managers, Resource Planners</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Employee Lifecycle Report</div>
+              <span class="component-file">EmployeeLifecycleReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Tracks employee progression milestones: probation end dates, contract renewals, internal promotions, department transfers, tenure achievements, and separations.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Probation Status</span>
+                <span class="metric-pill">Tenure (Years/Months)</span>
+                <span class="metric-pill">Contract End Date</span>
+                <span class="metric-pill">Turnover / Exit Reason</span>
+              </div>
+            </td>
+            <td><span class="target-role">HR Management</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Employee Attendance History</div>
+              <span class="component-file">EmployeeAttendanceHistoryReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Comprehensive chronological attendance log for an individual employee or group across custom date ranges, detailing exact punch times, hours, and status.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Daily In / Out Times</span>
+                <span class="metric-pill">Calculated Working Hours</span>
+                <span class="metric-pill">Leave Days Deducted</span>
+                <span class="metric-pill">Overtime Earned</span>
+              </div>
+            </td>
+            <td><span class="target-role">Supervisors, Individual Employees</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 3. Organization Management Reports -->
+    <section class="suite-card" id="suite-organization">
+      <div class="suite-header">
+        <div class="suite-title">
+          &#127970; 3. Organization Management Reports
+        </div>
+        <span class="perm-badge">&#128274; reports.organization</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%;">Report Name & File</th>
+            <th style="width: 54%;">Description & Key Tracked Metrics</th>
+            <th style="width: 18%;">Primary Audience</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="report-name">Organizational Structure</div>
+              <span class="component-file">OrganizationalStructureReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Visualizes company hierarchy, reporting channels, department divisions, managerial responsibilities, and total headcount per division.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Division Hierarchy</span>
+                <span class="metric-pill">Department Head</span>
+                <span class="metric-pill">Total Headcount</span>
+                <span class="metric-pill">Span of Control</span>
+              </div>
+            </td>
+            <td><span class="target-role">Executive Team, HR Planning</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Department Performance</div>
+              <span class="component-file">DepartmentPerformanceReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Aggregates high-level departmental KPIs: attendance compliance rates, cumulative overtime costs, leave utilization rates, and staffing stability.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Attendance Rate %</span>
+                <span class="metric-pill">Overtime Hours</span>
+                <span class="metric-pill">Absence Rate</span>
+                <span class="metric-pill">Budget Utilization %</span>
+              </div>
+            </td>
+            <td><span class="target-role">Department Managers, Executive</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Workforce Distribution</div>
+              <span class="component-file">WorkforceDistributionReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Demographic analytics breaking down staff by job designation, contract type (permanent, contract, casual), gender, seniority, and education level.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Permanent vs Contract %</span>
+                <span class="metric-pill">Designation Counts</span>
+                <span class="metric-pill">Gender Distribution</span>
+                <span class="metric-pill">Seniority Tiers</span>
+              </div>
+            </td>
+            <td><span class="target-role">HR Strategic Planning</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Role & Permission Audit</div>
+              <span class="component-file">RolePermissionAuditReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Security and governance audit report displaying all assigned user roles, privilege levels, system permissions, and recent role assignment history to detect privilege creep.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Active Roles</span>
+                <span class="metric-pill">Assigned Permissions Count</span>
+                <span class="metric-pill">Hierarchy Level</span>
+                <span class="metric-pill">Assignment History</span>
+              </div>
+            </td>
+            <td><span class="target-role">Security Admins, Internal Auditors</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 4. Document Management Reports -->
+    <section class="suite-card" id="suite-document">
+      <div class="suite-header">
+        <div class="suite-title">
+          &#128196; 4. Document Management Reports
+        </div>
+        <span class="perm-badge">&#128274; reports.document</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%;">Report Name & File</th>
+            <th style="width: 54%;">Description & Key Tracked Metrics</th>
+            <th style="width: 18%;">Primary Audience</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="report-name">Document Inventory</div>
+              <span class="component-file">DocumentInventoryReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Complete catalog of all files stored across employee profiles: employment contracts, national IDs, medical certificates, certifications, and licenses.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Document Category</span>
+                <span class="metric-pill">Total Files</span>
+                <span class="metric-pill">File Size</span>
+                <span class="metric-pill">Upload Date</span>
+                <span class="metric-pill">Attached Employee</span>
+              </div>
+            </td>
+            <td><span class="target-role">HR Records, Compliance</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Document Expiry & Compliance</div>
+              <span class="component-file">DocumentExpiryComplianceReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Early-warning compliance report highlighting documents expiring within 30, 60, or 90 days (work permits, certifications, licenses, contracts) and already expired files.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Days Until Expiry</span>
+                <span class="metric-pill">Expired Count</span>
+                <span class="metric-pill">Document Type</span>
+                <span class="metric-pill">Employee Name</span>
+              </div>
+            </td>
+            <td><span class="target-role">HR Compliance, Legal</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Document Access Audit</div>
+              <span class="component-file">DocumentAccessAuditReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Security audit trail recording who viewed, uploaded, modified, or downloaded confidential personnel documents and when.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Action (View/Download/Edit)</span>
+                <span class="metric-pill">User ID</span>
+                <span class="metric-pill">Target Document</span>
+                <span class="metric-pill">Timestamp & IP</span>
+              </div>
+            </td>
+            <td><span class="target-role">Security Officers, Auditors</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 5. Work Location Management Reports -->
+    <section class="suite-card" id="suite-location">
+      <div class="suite-header">
+        <div class="suite-title">
+          &#128205; 5. Work Location Management Reports
+        </div>
+        <span class="perm-badge">&#128274; reports.location</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%;">Report Name & File</th>
+            <th style="width: 54%;">Description & Key Tracked Metrics</th>
+            <th style="width: 18%;">Primary Audience</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="report-name">Site Location Master Report</div>
+              <span class="component-file">SiteLocationMasterReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Registry of all registered branch offices and project sites: GPS coordinates (latitude, longitude), geofence radius in meters, active status, and site supervisors.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Site Name & Code</span>
+                <span class="metric-pill">Coordinates (Lat/Lng)</span>
+                <span class="metric-pill">Radius (m)</span>
+                <span class="metric-pill">Assigned Employees</span>
+                <span class="metric-pill">Status</span>
+              </div>
+            </td>
+            <td><span class="target-role">Operations, Project Managers</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Workforce Distribution by Site</div>
+              <span class="component-file">WorkforceDistributionReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Shows exact headcount and staffing allocation per geofenced work site, identifying unassigned personnel and site capacity utilization.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Total Assigned Staff</span>
+                <span class="metric-pill">Unassigned Staff Count</span>
+                <span class="metric-pill">Site Capacity %</span>
+                <span class="metric-pill">Department Mix per Site</span>
+              </div>
+            </td>
+            <td><span class="target-role">Field Supervisors, HR Officers</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 6. Leave Management Reports -->
+    <section class="suite-card" id="suite-leave">
+      <div class="suite-header">
+        <div class="suite-title">
+          &#9971; 6. Leave Management Reports
+        </div>
+        <span class="perm-badge">&#128274; reports.leave</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%;">Report Name & File</th>
+            <th style="width: 54%;">Description & Key Tracked Metrics</th>
+            <th style="width: 18%;">Primary Audience</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="report-name">Leave Request Summary</div>
+              <span class="component-file">LeaveRequestSummaryReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Summary of all leave applications across the company by status (Approved, Pending, Rejected, Cancelled) and leave type (Annual, Sick, Maternity, Compassionate, Unpaid).</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Leave Type</span>
+                <span class="metric-pill">Start & End Date</span>
+                <span class="metric-pill">Total Working Days</span>
+                <span class="metric-pill">Approval Status</span>
+                <span class="metric-pill">Approver Name</span>
+              </div>
+            </td>
+            <td><span class="target-role">Department Managers, HR</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Leave Balance & Entitlement</div>
+              <span class="component-file">LeaveBalanceEntitlementReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Real-time ledger of employee leave balances: initial allowance, accrued days, taken days, pending approvals, and remaining available balances.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Annual Entitlement</span>
+                <span class="metric-pill">Carried Forward Days</span>
+                <span class="metric-pill">Days Taken</span>
+                <span class="metric-pill">Available Balance</span>
+              </div>
+            </td>
+            <td><span class="target-role">HR Officers, Line Managers</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Leave Workforce Impact</div>
+              <span class="component-file">LeaveWorkforceImpactReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Analyzes workforce availability impact caused by leaves, forecasting potential staff shortages on specific dates or departments.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Available Workforce %</span>
+                <span class="metric-pill">Overlapping Leaves</span>
+                <span class="metric-pill">Department Impact Tier</span>
+                <span class="metric-pill">Peak Leave Seasons</span>
+              </div>
+            </td>
+            <td><span class="target-role">Resource Planners, Directors</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 7. Payroll Management Reports -->
+    <section class="suite-card" id="suite-payroll">
+      <div class="suite-header">
+        <div class="suite-title">
+          &#128176; 7. Payroll Management Reports
+        </div>
+        <span class="perm-badge">&#128274; reports.payroll</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%;">Report Name & File</th>
+            <th style="width: 54%;">Description & Key Tracked Metrics</th>
+            <th style="width: 18%;">Primary Audience</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="report-name">Payroll Summary Report</div>
+              <span class="component-file">PayrollSummaryReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Comprehensive monthly/period payroll register showing base salaries, allowances (housing, transport), overtime pay, gross pay, deductions (pension, income tax, advances), and net pay.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Base Salary</span>
+                <span class="metric-pill">Allowances</span>
+                <span class="metric-pill">Overtime Pay</span>
+                <span class="metric-pill">Tax & Pension Deductions</span>
+                <span class="metric-pill">Net Payable</span>
+              </div>
+            </td>
+            <td><span class="target-role">Finance, Payroll Accountants</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Payroll Variance Report</div>
+              <span class="component-file">PayrollVarianceReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Compares payroll between consecutive pay periods (Month A vs Month B), tracking salary increments, new hires, terminations, and overtime variance.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Net Change ($/ETB)</span>
+                <span class="metric-pill">Salary Hikes</span>
+                <span class="metric-pill">New Joiners Cost</span>
+                <span class="metric-pill">Departures Deduction</span>
+                <span class="metric-pill">Overtime Variance</span>
+              </div>
+            </td>
+            <td><span class="target-role">CFO, Finance Director</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Payroll Reconciliation Report</div>
+              <span class="component-file">PayrollReconciliationReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Auditing tool to reconcile payroll calculations against general ledger accounts, tax withholdings, pension remittances, and bank disbursement totals.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Bank Transfer Sum</span>
+                <span class="metric-pill">Tax Authority Payable</span>
+                <span class="metric-pill">Pension Fund Payable</span>
+                <span class="metric-pill">Discrepancy Checks</span>
+              </div>
+            </td>
+            <td><span class="target-role">Auditors, Chief Accountant</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 8. Project Management Reports -->
+    <section class="suite-card" id="suite-project">
+      <div class="suite-header">
+        <div class="suite-title">
+          &#128188; 8. Project Management Reports
+        </div>
+        <span class="perm-badge">&#128274; reports.project</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%;">Report Name & File</th>
+            <th style="width: 54%;">Description & Key Tracked Metrics</th>
+            <th style="width: 18%;">Primary Audience</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="report-name">Project Master Summary</div>
+              <span class="component-file">ProjectMasterSummaryReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">High-level overview of all active, planned, and completed architectural and engineering projects, client names, project managers, start/end dates, and overall status.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Project Name & Code</span>
+                <span class="metric-pill">Client Name</span>
+                <span class="metric-pill">Lead Architect / PM</span>
+                <span class="metric-pill">Status (Active/On Hold/Done)</span>
+                <span class="metric-pill">Contract Value</span>
+              </div>
+            </td>
+            <td><span class="target-role">Directors, PMO, Clients</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Project Payment & Expected Income</div>
+              <span class="component-file">ProjectCostBudgetPerformanceReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Tracks expected client contract income vs actual payments collected to date, pending outstanding receivables, and collection rates with installment schedules.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Expected Contract Income</span>
+                <span class="metric-pill">Payments Received to Date</span>
+                <span class="metric-pill">Outstanding Balance</span>
+                <span class="metric-pill">Overdue Receivables</span>
+                <span class="metric-pill">Collection Rate %</span>
+              </div>
+            </td>
+            <td><span class="target-role">Finance, Managing Director, PMs</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Project Milestone Progress</div>
+              <span class="component-file">ProjectMilestoneProgressReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Tracks deliverable milestone completion percentages, upcoming deadlines, overdue milestones, and critical path items.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Milestone Title</span>
+                <span class="metric-pill">Planned vs Actual Date</span>
+                <span class="metric-pill">Completion %</span>
+                <span class="metric-pill">Overdue Days</span>
+              </div>
+            </td>
+            <td><span class="target-role">Engineering Leads, Clients</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Project Workforce Utilization</div>
+              <span class="component-file">ProjectWorkforceUtilizationReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Measures hours committed by engineers, architects, and staff to each project versus billable budget hours.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Budgeted Work Hours</span>
+                <span class="metric-pill">Actual Logged Hours</span>
+                <span class="metric-pill">Billable Ratio</span>
+                <span class="metric-pill">Staff Loading %</span>
+              </div>
+            </td>
+            <td><span class="target-role">PMO, Resource Directors</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Project Risk & Issue Tracking</div>
+              <span class="component-file">ProjectRiskIssueTrackingReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Logs active project risks, delays, schedule slips, budget overruns, and ongoing mitigation action items.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Risk Severity (High/Med/Low)</span>
+                <span class="metric-pill">Impact Description</span>
+                <span class="metric-pill">Mitigation Strategy</span>
+                <span class="metric-pill">Owner</span>
+              </div>
+            </td>
+            <td><span class="target-role">Project Managers, Quality Teams</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Project Budget & Payment</div>
+              <span class="component-file">ProjectBudgetPaymentReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Tracks client billing, invoice submissions, payment collections, and outstanding receivable balances per project.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Invoiced Total</span>
+                <span class="metric-pill">Collected Payments</span>
+                <span class="metric-pill">Outstanding Balance</span>
+                <span class="metric-pill">Aging Days</span>
+              </div>
+            </td>
+            <td><span class="target-role">Finance, Billing Specialist</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 9. Cross-System & Executive Reports -->
+    <section class="suite-card" id="suite-executive">
+      <div class="suite-header">
+        <div class="suite-title">
+          &#128200; 9. Cross-System & Executive Reports
+        </div>
+        <span class="perm-badge">&#128274; reports.executive</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%;">Report Name & File</th>
+            <th style="width: 54%;">Description & Key Tracked Metrics</th>
+            <th style="width: 18%;">Primary Audience</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="report-name">Executive Performance Dashboard</div>
+              <span class="component-file">ExecutivePerformanceDashboardReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">C-suite summary dashboard integrating headcount, total payroll run, active project volume, overall company attendance rate, and key organizational KPIs into a single high-level view.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Active Workforce Headcount</span>
+                <span class="metric-pill">Monthly Payroll Expenditure</span>
+                <span class="metric-pill">Company-wide Attendance Rate</span>
+                <span class="metric-pill">Live Projects Count</span>
+              </div>
+            </td>
+            <td><span class="target-role">CEO, General Manager, Board</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">System Operational Health</div>
+              <span class="component-file">SystemOperationalHealthReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Monitors database health, synchronization status, mobile app GPS check-in success rates, geofence accuracy, and system error rates.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">API Response Latency</span>
+                <span class="metric-pill">GPS Verification Success Rate</span>
+                <span class="metric-pill">Sync Status</span>
+                <span class="metric-pill">Error Log Volume</span>
+              </div>
+            </td>
+            <td><span class="target-role">System Administrators, IT</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Compliance Audit & Readiness</div>
+              <span class="component-file">ComplianceAuditReadinessReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Evaluates organizational compliance readiness for labor regulations: statutory deductions, expired work permits, mandatory contract documentation, and minimum rest intervals.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Statutory Compliance %</span>
+                <span class="metric-pill">Missing Contract Documents</span>
+                <span class="metric-pill">Work Permit Expiries</span>
+                <span class="metric-pill">Audit Score</span>
+              </div>
+            </td>
+            <td><span class="target-role">Legal Counsel, Internal Audit</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Workforce Productivity & ROI</div>
+              <span class="component-file">WorkforceProductivityROIReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Analyzes workforce return on investment by comparing total personnel expenditure against project revenue generated and hours delivered.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Revenue Generated per Employee</span>
+                <span class="metric-pill">Labor Cost Ratio</span>
+                <span class="metric-pill">Productive Hours %</span>
+                <span class="metric-pill">Department ROI Factor</span>
+              </div>
+            </td>
+            <td><span class="target-role">Managing Director, CFO</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 10. Universal System Reports -->
+    <section class="suite-card" id="suite-universal">
+      <div class="suite-header">
+        <div class="suite-title">
+          &#128737; 10. Universal System Reports
+        </div>
+        <span class="perm-badge">&#128274; reports.read</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%;">Report Name & File</th>
+            <th style="width: 54%;">Description & Key Tracked Metrics</th>
+            <th style="width: 18%;">Primary Audience</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="report-name">Completed Activities Master Audit</div>
+              <span class="component-file">CompletedActivitiesMasterAuditReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Chronological master log of all completed tasks, project deliverables, and operational sign-offs across all units.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Activity Type</span>
+                <span class="metric-pill">Completed By User</span>
+                <span class="metric-pill">Completion Timestamp</span>
+                <span class="metric-pill">Verification Notes</span>
+              </div>
+            </td>
+            <td><span class="target-role">Supervisors, Operations</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Workflow Bottlenecks & SLA</div>
+              <span class="component-file">WorkflowBottleneckSLAReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Analyzes approval turnaround times (leave requests, document approvals, overtime sign-offs), pinpointing approval delays and SLA violations.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Average Approval Hours</span>
+                <span class="metric-pill">SLA Breach Count</span>
+                <span class="metric-pill">Manager Delay Rank</span>
+                <span class="metric-pill">Pending Ticket Age</span>
+              </div>
+            </td>
+            <td><span class="target-role">Operations, HR Leadership</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">User Activity & Security Audit</div>
+              <span class="component-file">UserActivitySecurityAuditReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">System security audit trail detailing logins, failed attempts, permission alterations, record edits, and IP address locations.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Login / Logout Events</span>
+                <span class="metric-pill">Failed Password Attempts</span>
+                <span class="metric-pill">IP Address & Device</span>
+                <span class="metric-pill">CRUD Audit Trail</span>
+              </div>
+            </td>
+            <td><span class="target-role">System Admins, Security Lead</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="report-name">Employee Portal Audit</div>
+              <span class="component-file">EmployeePortalAuditReport.js</span>
+            </td>
+            <td>
+              <div class="desc-text">Audits employee engagement on the self-service portal: frequency of self-check-ins, mobile vs web usage, and document download activities.</div>
+              <div class="metrics-list">
+                <span class="metric-pill">Portal Login Frequency</span>
+                <span class="metric-pill">Mobile vs Desktop %</span>
+                <span class="metric-pill">Self-Service Requests Placed</span>
+                <span class="metric-pill">Inactive Accounts</span>
+              </div>
+            </td>
+            <td><span class="target-role">HR Operations, Support</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      &copy; 2026 EF Architects & Engineers Consulting PLC &mdash; Human Resource Management System. All rights reserved.
+    </footer>
+  </div>
+
+</body>
+</html>

@@ -209,6 +209,95 @@ const UserRoleAssignment = dynamic(() => import("../components/UserRoleAssignmen
   ssr: false,
 });
 
+// Master mapping of HRM sections to required permissions
+const SECTION_PERMISSIONS = {
+  // Employee Management
+  "employee-database": "employee.read",
+  "employees": "employee.read",
+  "employee-search": "employee.read",
+  "employee-add": "employee.create",
+  "employee-location": "location.read",
+  "contracts": "contract.read",
+
+  // Document Management
+  "document-list": "document.read",
+  "documents": "document.read",
+  "document-upload": "document.create",
+  "document-expiry": "document.read",
+
+  // Attendance & Overtime
+  "admin-attendance": "attendance.view",
+  "attendance-all": "attendance.view",
+  "attendance-daily": "attendance.view",
+  "attendance-documents": "attendance.view",
+  "attendance-legacy": "attendance.view",
+  "overtime-management": "overtime.view",
+  "admin-overtime": "overtime.view",
+
+  // Leave Management
+  "leave-approval": "leave.approve",
+  "leave-balances": "leave.manage",
+  "leave-history": "leave.view.all",
+
+  // Payroll & Budgets
+  "payroll": "payroll.view",
+  "payroll-integration": "payroll.view",
+  "budget-management": "project.budget",
+
+  // Project Management
+  "projects": "project.read",
+  "project-categories": "project.read",
+
+  // Organization
+  "departments": "department.read",
+  "designations": "designation.read",
+  "work-locations": "location.read",
+  "locations": "location.read",
+
+  // Access Control
+  "role-management": "role.manage",
+  "user-role-assignment": "role.manage",
+
+  // Reports
+  "attendance-management-reports": "reports.attendance",
+  "attendance-reports": "reports.attendance",
+  "site-attendance-compliance-report": "reports.attendance",
+  "employee-management-reports": "reports.employee",
+  "employee-master-report": "reports.employee",
+  "employee-reports": "reports.employee",
+  "employee-allocation-report": "reports.employee",
+  "employee-lifecycle-report": "reports.employee",
+  "employee-stats": "reports.employee",
+  "organization-management-reports": "reports.organization",
+  "organizational-structure-report": "reports.organization",
+  "department-performance-report": "reports.organization",
+  "department-stats": "reports.organization",
+  "workforce-distribution-report": "reports.organization",
+  "workforce-distribution-site-report": "reports.organization",
+  "document-management-reports": "reports.document",
+  "document-reports": "reports.document",
+  "document-inventory-report": "reports.document",
+  "document-expiry-compliance-report": "reports.document",
+  "document-access-audit-report": "reports.document",
+  "document-stats": "reports.document",
+  "work-location-management-reports": "reports.location",
+  "site-location-master-report": "reports.location",
+  "leave-reports": "reports.leave",
+  "payroll-reports": "reports.payroll",
+  "project-reports": "reports.project",
+  "role-permission-audit-report": "role.manage",
+  "executive-reports": "reports.executive",
+  "system-health": "reports.executive",
+  "compliance-audit": "reports.executive",
+  "workforce-productivity-roi": "reports.executive",
+  "executive-dashboard": "reports.executive",
+  "universal-system-reports": "reports.read",
+  "completed-activities": "reports.read",
+  "workflow-bottlenecks": "reports.read",
+  "user-activity-security": "audit.read",
+  "employee-portal-audit": "reports.read",
+};
+
 export default function HRMDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -218,6 +307,91 @@ export default function HRMDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const userRole = user?.role || "GUEST";
+  const userPermissions = user?.permissions || [];
+  const isUserAdmin = userRole === "ADMIN" || isAdmin;
+
+  const hasSectionPermission = (perm) => {
+    if (!perm) return true;
+    if (isUserAdmin) return true;
+    if (userPermissions.includes("*")) return true;
+    if (userPermissions.includes(perm)) return true;
+
+    const parts = perm.split(".");
+    // Domain manage grants actions in that domain (e.g. employee.manage grants employee.read)
+    if (parts.length > 1 && userPermissions.includes(parts[0] + ".manage")) {
+      return true;
+    }
+
+    // Cross-compatibility aliases for reports
+    if (perm === "reports.payroll" || perm === "payroll.reports") {
+      if (
+        userPermissions.includes("reports.payroll") ||
+        userPermissions.includes("payroll.reports") ||
+        userPermissions.includes("payroll.manage")
+      ) {
+        return true;
+      }
+    }
+
+    if (perm === "reports.attendance" || perm === "attendance.reports") {
+      if (
+        userPermissions.includes("reports.attendance") ||
+        userPermissions.includes("attendance.reports") ||
+        userPermissions.includes("attendance.manage")
+      ) {
+        return true;
+      }
+    }
+
+    if (perm === "reports.project" || perm === "project.reports") {
+      if (
+        userPermissions.includes("reports.project") ||
+        userPermissions.includes("project.reports") ||
+        userPermissions.includes("project.read")
+      ) {
+        return true;
+      }
+    }
+
+    if (perm === "reports.leave" || perm === "leave.reports" || perm === "leave.manage") {
+      if (
+        userPermissions.includes("reports.leave") ||
+        userPermissions.includes("leave.reports") ||
+        userPermissions.includes("leave.manage")
+      ) {
+        return true;
+      }
+    }
+
+    if (perm === "project.read") {
+      if (
+        userPermissions.includes("project.read") ||
+        userPermissions.includes("project.read.assigned") ||
+        userPermissions.includes("project.read.own") ||
+        userPermissions.includes("project.manage")
+      ) {
+        return true;
+      }
+    }
+
+    // Generic reports.read is satisfied if user has reports.read OR any specific reports.* permission
+    if (perm === "reports.read") {
+      if (userPermissions.includes("reports.read")) return true;
+      if (userPermissions.some((p) => typeof p === "string" && p.startsWith("reports."))) return true;
+    }
+
+    // Domain read grants broad read access (e.g. employee.read grants employee.read.own)
+    // BUT domain !== "reports" so reports.read never grants specific category reports
+    if (parts.length > 1 && parts[0] !== "reports" && userPermissions.includes(parts[0] + ".read")) {
+      if (parts[1] === "read" || (parts[1] === "read" && parts[2] === "own")) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   useEffect(() => {
     checkAuthentication();
   }, []);
@@ -226,12 +400,21 @@ export default function HRMDashboard() {
   useEffect(() => {
     const section = searchParams?.get("section");
     const tab = searchParams?.get("tab");
+    let target = section;
     if ((section === "executive-reports" || section === "universal-system-reports") && tab) {
-      setActiveSection(tab);
-    } else if (section) {
-      setActiveSection(section);
+      target = tab;
     }
-  }, [searchParams]);
+    if (target && target !== "dashboard") {
+      const requiredPerm = SECTION_PERMISSIONS[target];
+      if (requiredPerm && user && !hasSectionPermission(requiredPerm)) {
+        setActiveSection("dashboard");
+        return;
+      }
+      setActiveSection(target);
+    } else if (target) {
+      setActiveSection(target);
+    }
+  }, [searchParams, user]);
 
   const checkAuthentication = () => {
     try {
@@ -256,10 +439,26 @@ export default function HRMDashboard() {
         return;
       }
 
-      // Allow any user with a valid token and a recognized HRM role
-      // Non-admin roles (e.g. EMPLOYEE) are gracefully redirected to the employee portal
-      const hrmRoles = ["ADMIN", "HR_MANAGER", "HR_STAFF", "MANAGER", "PROJECT_MANAGER", "FINANCE"];
-      if (!hrmRoles.includes(payload.role) && !payload.permissions?.length) {
+      // Allow any user with a valid token and an admin, management, custom role, or elevated permissions
+      // Standard employees with only self-service permissions are gracefully redirected to the employee portal
+      const userRole = (payload.role || "EMPLOYEE").toString().trim().toUpperCase();
+      const perms = Array.isArray(payload.permissions) ? payload.permissions : [];
+      const employeeSelfServicePerms = new Set([
+        "employee.read.own",
+        "employee.update.own",
+        "document.read.own",
+        "document.create.own",
+        "attendance.checkin",
+        "leave.request",
+        "task.read.own",
+        "project.read.assigned",
+      ]);
+      const hasElevatedPermissions = perms.some(
+        (p) => p === "*" || !employeeSelfServicePerms.has(p)
+      );
+      const isHrmUser = userRole !== "EMPLOYEE" || hasElevatedPermissions;
+
+      if (!isHrmUser) {
         router.replace("/employee-portal");
         return;
       }
@@ -282,6 +481,12 @@ export default function HRMDashboard() {
   };
 
   const handleSectionChange = (section) => {
+    if (section && section !== "dashboard") {
+      const requiredPerm = SECTION_PERMISSIONS[section];
+      if (requiredPerm && !hasSectionPermission(requiredPerm)) {
+        return; // Prevent routing to unauthorized section
+      }
+    }
     setActiveSection(section);
   };
 
@@ -301,182 +506,7 @@ export default function HRMDashboard() {
     return null;
   }
 
-  // Master mapping of HRM sections to required permissions
-  const SECTION_PERMISSIONS = {
-    // Employee Management
-    "employee-database": "employee.read",
-    "employees": "employee.read",
-    "employee-search": "employee.read",
-    "employee-add": "employee.create",
-    "employee-location": "location.read",
-    "contracts": "contract.read",
-
-    // Document Management
-    "document-list": "document.read",
-    "documents": "document.read",
-    "document-upload": "document.create",
-    "document-expiry": "document.read",
-
-    // Attendance & Overtime
-    "admin-attendance": "attendance.view",
-    "attendance-all": "attendance.view",
-    "attendance-daily": "attendance.view",
-    "attendance-documents": "attendance.view",
-    "attendance-legacy": "attendance.view",
-    "overtime-management": "overtime.view",
-    "admin-overtime": "overtime.view",
-
-    // Leave Management
-    "leave-approval": "leave.approve",
-    "leave-balances": "leave.manage",
-    "leave-history": "leave.view.all",
-
-    // Payroll & Budgets
-    "payroll": "payroll.view",
-    "payroll-integration": "payroll.view",
-    "budget-management": "project.budget",
-
-    // Project Management
-    "projects": "project.read",
-    "project-categories": "project.read",
-
-    // Organization
-    "departments": "department.read",
-    "designations": "designation.read",
-    "work-locations": "location.read",
-    "locations": "location.read",
-
-    // Access Control
-    "role-management": "role.manage",
-    "user-role-assignment": "role.manage",
-
-    // Reports
-    "attendance-management-reports": "reports.attendance",
-    "attendance-reports": "reports.attendance",
-    "site-attendance-compliance-report": "reports.attendance",
-    "employee-management-reports": "reports.employee",
-    "employee-master-report": "reports.employee",
-    "employee-reports": "reports.employee",
-    "employee-allocation-report": "reports.employee",
-    "employee-lifecycle-report": "reports.employee",
-    "employee-stats": "reports.employee",
-    "organization-management-reports": "reports.organization",
-    "organizational-structure-report": "reports.organization",
-    "department-performance-report": "reports.organization",
-    "department-stats": "reports.organization",
-    "workforce-distribution-report": "reports.organization",
-    "workforce-distribution-site-report": "reports.organization",
-    "document-management-reports": "reports.document",
-    "document-reports": "reports.document",
-    "document-inventory-report": "reports.document",
-    "document-expiry-compliance-report": "reports.document",
-    "document-access-audit-report": "reports.document",
-    "document-stats": "reports.document",
-    "work-location-management-reports": "reports.location",
-    "site-location-master-report": "reports.location",
-    "leave-reports": "reports.leave",
-    "payroll-reports": "reports.payroll",
-    "project-reports": "reports.project",
-    "role-permission-audit-report": "role.manage",
-    "executive-reports": "reports.executive",
-    "system-health": "reports.executive",
-    "compliance-audit": "reports.executive",
-    "workforce-productivity-roi": "reports.executive",
-    "executive-dashboard": "reports.executive",
-    "universal-system-reports": "reports.read",
-    "completed-activities": "reports.read",
-    "workflow-bottlenecks": "reports.read",
-    "user-activity-security": "audit.read",
-    "employee-portal-audit": "reports.read",
-  };
-
   const renderContent = () => {
-    // Check permission for current section
-    const userRole = user?.role || "GUEST";
-    const userPermissions = user?.permissions || [];
-    const isUserAdmin = userRole === "ADMIN" || isAdmin;
-
-    const hasSectionPermission = (perm) => {
-      if (!perm) return true;
-      if (isUserAdmin) return true;
-      if (userPermissions.includes("*")) return true;
-      if (userPermissions.includes(perm)) return true;
-
-      const parts = perm.split(".");
-      // Domain manage grants actions in that domain (e.g. employee.manage grants employee.read)
-      if (parts.length > 1 && userPermissions.includes(parts[0] + ".manage")) {
-        return true;
-      }
-
-      // Cross-compatibility aliases for reports
-      if (perm === "reports.payroll" || perm === "payroll.reports") {
-        if (
-          userPermissions.includes("reports.payroll") ||
-          userPermissions.includes("payroll.reports") ||
-          userPermissions.includes("payroll.manage")
-        ) {
-          return true;
-        }
-      }
-
-      if (perm === "reports.attendance" || perm === "attendance.reports") {
-        if (
-          userPermissions.includes("reports.attendance") ||
-          userPermissions.includes("attendance.reports") ||
-          userPermissions.includes("attendance.manage")
-        ) {
-          return true;
-        }
-      }
-
-      if (perm === "reports.project" || perm === "project.reports") {
-        if (
-          userPermissions.includes("reports.project") ||
-          userPermissions.includes("project.reports") ||
-          userPermissions.includes("project.read")
-        ) {
-          return true;
-        }
-      }
-
-      if (perm === "reports.leave" || perm === "leave.reports" || perm === "leave.manage") {
-        if (
-          userPermissions.includes("reports.leave") ||
-          userPermissions.includes("leave.reports") ||
-          userPermissions.includes("leave.manage")
-        ) {
-          return true;
-        }
-      }
-
-      if (perm === "project.read") {
-        if (
-          userPermissions.includes("project.read") ||
-          userPermissions.includes("project.read.assigned") ||
-          userPermissions.includes("project.read.own") ||
-          userPermissions.includes("project.manage")
-        ) {
-          return true;
-        }
-      }
-
-      // Generic reports.read is satisfied if user has reports.read OR any specific reports.* permission
-      if (perm === "reports.read") {
-        if (userPermissions.includes("reports.read")) return true;
-        if (userPermissions.some((p) => typeof p === "string" && p.startsWith("reports."))) return true;
-      }
-
-      // Domain read grants broad read access (e.g. employee.read grants employee.read.own)
-      // BUT domain !== "reports" so reports.read never grants specific category reports
-      if (parts.length > 1 && parts[0] !== "reports" && userPermissions.includes(parts[0] + ".read")) {
-        if (parts[1] === "read" || (parts[1] === "read" && parts[2] === "own")) {
-          return true;
-        }
-      }
-
-      return false;
-    };
-
     const requiredPerm = SECTION_PERMISSIONS[activeSection];
     if (requiredPerm && !hasSectionPermission(requiredPerm)) {
       return (

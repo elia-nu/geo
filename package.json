@@ -9,10 +9,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed:admin": "node seed-admin.js",
-    "seed:departments": "node seed-departments-designations.js",
-    "seed:locations": "node seed-work-locations.js",
-    "seed:employees": "node seed-employees.js"
+    "seed": "node scripts/seed.js",
+    "seed:roles": "node scripts/seedRolesAndPermissions.js",
+    "seed:admin": "node scripts/seedAdmin.js",
+    "seed:departments": "node scripts/seedDepartments.js",
+    "seed:designations": "node scripts/seedDesignations.js",
+    "seed:employees": "node scripts/seedEmployees.js",
+    "seed:locations": "node seed-work-locations.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

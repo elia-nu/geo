@@ -51,19 +51,46 @@ export default function LoginPage() {
         if (typeof document !== "undefined") {
           document.cookie = `authToken=${result.data.token}; path=/; max-age=86400; SameSite=Lax`;
         }
-        const role = result.data.employee?.role;
+        const role = (result.data.employee?.role || "EMPLOYEE").toString().trim().toUpperCase();
+        const permissions = Array.isArray(result.data.employee?.permissions)
+          ? result.data.employee.permissions
+          : [];
 
-        // Roles allowed to access HRM dashboard
-        const hrmRoles = ["ADMIN", "HR_MANAGER", "HR_STAFF", "MANAGER", "PROJECT_MANAGER", "FINANCE"];
+        // Known default HRM roles
+        const defaultHrmRoles = ["ADMIN", "HR_MANAGER", "HR_STAFF", "MANAGER", "PROJECT_MANAGER", "FINANCE"];
 
-        if (hrmRoles.includes(role)) {
-          showSuccessToast("Welcome back!", "Signing you in…");
+        // Pure employee self-service permissions that do not grant HRM administrative dashboard access
+        const employeeSelfServicePerms = new Set([
+          "employee.read.own",
+          "employee.update.own",
+          "document.read.own",
+          "document.create.own",
+          "attendance.checkin",
+          "leave.request",
+          "task.read.own",
+          "project.read.assigned",
+        ]);
+
+        // Any non-EMPLOYEE role (including all custom roles created in Role Management)
+        // OR any user who has administrative / management permissions
+        const hasAdminOrCustomRole = role !== "EMPLOYEE" && role !== "";
+        const hasElevatedPermissions = permissions.some(
+          (p) => p === "*" || !employeeSelfServicePerms.has(p)
+        );
+
+        const canAccessHrm =
+          defaultHrmRoles.includes(role) ||
+          hasAdminOrCustomRole ||
+          hasElevatedPermissions;
+
+        if (canAccessHrm) {
+          showSuccessToast("Welcome back!", "Signing you into HRM…");
           await new Promise((resolve) => setTimeout(resolve, 400));
           router.push("/hrm");
           return;
         }
 
-        // EMPLOYEE and other roles go to the employee portal
+        // Standard employees go to the employee portal
         showSuccessToast("Welcome!", "Redirecting to your portal…");
         await new Promise((resolve) => setTimeout(resolve, 400));
         router.push("/employee-portal");

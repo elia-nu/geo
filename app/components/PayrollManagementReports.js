@@ -1,17 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileText, Link2, AlertTriangle, DollarSign } from "lucide-react";
+import { FileText, Link2, AlertTriangle } from "lucide-react";
 import PayrollSummaryReport from "./PayrollSummaryReport";
 import PayrollReconciliationReport from "./PayrollReconciliationReport";
 import PayrollVarianceReport from "./PayrollVarianceReport";
-import PayrollCostByProjectReport from "./PayrollCostByProjectReport";
 
 const TABS = [
   { id: "summary", label: "Payroll Summary", icon: FileText, component: PayrollSummaryReport },
   { id: "reconciliation", label: "Attendance-to-Payroll Reconciliation", icon: Link2, component: PayrollReconciliationReport },
   { id: "variance", label: "Payroll Variance & Anomaly", icon: AlertTriangle, component: PayrollVarianceReport },
-  { id: "cost-by-project", label: "Payroll Cost by Project", icon: DollarSign, component: PayrollCostByProjectReport },
 ];
 
 export default function PayrollManagementReports() {
@@ -26,7 +24,7 @@ export default function PayrollManagementReports() {
             Payroll Management Reports
           </h1>
           <p className="text-gray-600 mb-6">
-            7.1 Payroll Summary • 7.2 Attendance-to-Payroll Reconciliation • 7.3 Variance & Anomaly • 7.4 Cost by Project
+            7.1 Payroll Summary • 7.2 Attendance-to-Payroll Reconciliation • 7.3 Variance & Anomaly
           </p>
 
           <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-6">

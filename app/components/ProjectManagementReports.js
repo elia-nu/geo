@@ -11,7 +11,7 @@ import ProjectBudgetPaymentReport from "./ProjectBudgetPaymentReport";
 const TABS = [
   { id: "master-summary", label: "Project Master Summary", icon: Briefcase, component: ProjectMasterSummaryReport },
   { id: "budget-payment", label: "Budget & Payment Detailed Report", icon: Receipt, component: ProjectBudgetPaymentReport },
-  { id: "cost-budget", label: "Cost & Budget Performance", icon: DollarSign, component: ProjectCostBudgetPerformanceReport },
+  { id: "cost-budget", label: "Payment & Expected Income", icon: DollarSign, component: ProjectCostBudgetPerformanceReport },
   { id: "milestone-progress", label: "Milestone Progress", icon: Milestone, component: ProjectMilestoneProgressReport },
   { id: "workforce-utilization", label: "Workforce Utilization", icon: Users, component: ProjectWorkforceUtilizationReport },
 ];
@@ -28,7 +28,7 @@ export default function ProjectManagementReports() {
             Project Management Reports
           </h1>
           <p className="text-gray-600 mb-6">
-            8.1 Master Summary • 8.2 Budget &amp; Payment Detailed • 8.3 Cost &amp; Budget • 8.4 Milestone Progress • 8.5 Workforce Utilization
+            8.1 Master Summary • 8.2 Budget &amp; Payment Detailed • 8.3 Payment &amp; Expected Income • 8.4 Milestone Progress • 8.5 Workforce Utilization
           </p>
 
           <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-6">
