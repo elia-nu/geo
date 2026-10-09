@@ -245,9 +245,12 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="text-center mt-8">
+        <div className="text-center mt-8 space-y-2">
           <p className="text-sm text-gray-500">
             Need help? Contact your system administrator
+          </p>
+          <p className="text-sm text-gray-700">
+            Powered by <span className="font-semibold">GenShifter Technologies</span>
           </p>
         </div>
       </div>

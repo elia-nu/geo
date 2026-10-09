@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import EmployeeSidebar from "../components/EmployeeSidebar";
 import { useSidebarStore } from "../components/useSidebarStore";
 import EmployeeDashboard from "../components/EmployeeDashboard";
@@ -468,7 +468,7 @@ export default function EmployeePortal() {
 
       {/* Main Content - offset for fixed sidebar on md+ screens */}
       <div
-        className={`flex-1 overflow-auto transition-all duration-300 ${
+        className={`flex-1 overflow-auto flex flex-col min-h-screen transition-all duration-300 ${
           isCollapsed ? "md:ml-20" : "md:ml-72"
         }`}
       >
@@ -618,7 +618,14 @@ export default function EmployeePortal() {
         </header>
 
         {/* Content Body */}
-        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">{renderActiveSection()}</main>
+        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto flex-1">{renderActiveSection()}</main>
+
+        <footer className="border-t border-slate-200 bg-white px-4 sm:px-6 py-3 text-center">
+          <p className="text-xs sm:text-sm text-gray-500">
+            Powered by{" "}
+            <span className="font-semibold text-gray-700">GenShifter Technologies</span>
+          </p>
+        </footer>
       </div>
 
       {/* Mobile slide-over menu */}
@@ -1170,7 +1177,7 @@ function EnhancedDailyAttendance({
 // Enhanced Map Component using Leaflet (Free alternative with satellite imagery)
 function LocationMap({ currentLocation, workLocations }) {
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [map, setMap] = useState(null);
+  const containerRef = useRef(null);
 
   // Filter out locations without coordinates
   const validWorkLocations = workLocations.filter(
@@ -1181,82 +1188,73 @@ function LocationMap({ currentLocation, workLocations }) {
       !isNaN(parseFloat(loc.longitude))
   );
 
-  // If no valid locations, show message
-  if (validWorkLocations.length === 0) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-white">
-        <div className="text-center p-4">
-          <Navigation className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 mb-2">
-            No Work Locations with Coordinates
-          </p>
-          <p className="text-sm text-gray-500">
-            Your work locations need latitude and longitude coordinates to
-            display on the map.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // If no current location, show work locations only
-  if (!currentLocation) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-white">
-        <div className="text-center p-4">
-          <Navigation className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 mb-2">Location Access Required</p>
-          <p className="text-sm text-gray-500">
-            Please allow location access to see your position relative to work
-            locations.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Load Leaflet CSS and JS (Free alternative to Google Maps)
+  // Load Leaflet once. Leave the tags in place so Strict Mode remounts
+  // do not tear the library down mid-load.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      // Load Leaflet CSS
-      const cssLink = document.createElement("link");
+    if (typeof window === "undefined") return;
+
+    if (window.L) {
+      setMapLoaded(true);
+      return;
+    }
+
+    let cssLink = document.querySelector('link[data-leaflet-css="true"]');
+    if (!cssLink) {
+      cssLink = document.createElement("link");
       cssLink.rel = "stylesheet";
       cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
       cssLink.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
       cssLink.crossOrigin = "";
+      cssLink.dataset.leafletCss = "true";
       document.head.appendChild(cssLink);
-
-      // Load Leaflet JS
-      const script = document.createElement("script");
-      script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-      script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
-      script.crossOrigin = "";
-      script.onload = () => setMapLoaded(true);
-      document.head.appendChild(script);
-
-      return () => {
-        try {
-          document.head.removeChild(cssLink);
-          document.head.removeChild(script);
-        } catch (e) {
-          // Elements might already be removed
-        }
-      };
     }
+
+    const markLoaded = () => {
+      if (window.L) setMapLoaded(true);
+    };
+
+    let script = document.querySelector('script[data-leaflet-js="true"]');
+    if (script) {
+      script.addEventListener("load", markLoaded);
+      markLoaded();
+      return () => script.removeEventListener("load", markLoaded);
+    }
+
+    script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
+    script.crossOrigin = "";
+    script.dataset.leafletJs = "true";
+    script.addEventListener("load", markLoaded);
+    document.head.appendChild(script);
+
+    return () => script.removeEventListener("load", markLoaded);
   }, []);
 
-  // Initialize map when Leaflet is loaded
+  // Initialize map when Leaflet is loaded.
+  // Strict Mode runs this effect twice; always remove the previous map first.
   useEffect(() => {
-    if (mapLoaded && currentLocation && validWorkLocations.length > 0 && !map) {
-      initializeMap();
-    }
-  }, [mapLoaded, currentLocation, validWorkLocations, map]);
+    if (!mapLoaded || !currentLocation || validWorkLocations.length === 0) return;
+
+    const leafletMap = initializeMap();
+    if (!leafletMap) return;
+
+    return () => {
+      try {
+        leafletMap.remove();
+      } catch (e) {
+        // Container may already be gone during unmount
+      }
+    };
+    // validWorkLocations is a new array every render; workLocations is the stable source.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapLoaded, currentLocation, workLocations]);
 
   const initializeMap = () => {
-    if (typeof window === "undefined" || !window.L) return;
+    if (typeof window === "undefined" || !window.L) return null;
 
-    const mapElement = document.getElementById("leaflet-map-portal");
-    if (!mapElement) return;
+    const mapElement = containerRef.current;
+    if (!mapElement || mapElement._leaflet_id) return null;
 
     // Calculate center point
     const allLatitudes = [
@@ -1274,7 +1272,7 @@ function LocationMap({ currentLocation, workLocations }) {
       allLongitudes.reduce((a, b) => a + b) / allLongitudes.length;
 
     // Create Leaflet Map with satellite imagery
-    const leafletMap = window.L.map("leaflet-map-portal").setView(
+    const leafletMap = window.L.map(mapElement).setView(
       [centerLat, centerLng],
       16
     );
@@ -1308,15 +1306,18 @@ function LocationMap({ currentLocation, workLocations }) {
     window.L.control.layers(baseLayers).addTo(leafletMap);
 
     // Add CSS for pulsing animation
-    const style = document.createElement("style");
-    style.textContent = `
+    if (!document.getElementById("leaflet-pulse-style")) {
+      const style = document.createElement("style");
+      style.id = "leaflet-pulse-style";
+      style.textContent = `
       @keyframes pulse {
         0% { box-shadow: 0 2px 6px rgba(59, 130, 246, 0.5), 0 0 0 0 rgba(59, 130, 246, 0.7); }
         70% { box-shadow: 0 2px 6px rgba(59, 130, 246, 0.5), 0 0 0 10px rgba(59, 130, 246, 0); }
         100% { box-shadow: 0 2px 6px rgba(59, 130, 246, 0.5), 0 0 0 0 rgba(59, 130, 246, 0); }
       }
     `;
-    document.head.appendChild(style);
+      document.head.appendChild(style);
+    }
 
     // Add current location marker with custom icon
     const currentLocationMarker = window.L.marker(
@@ -1412,15 +1413,36 @@ function LocationMap({ currentLocation, workLocations }) {
     ]);
     leafletMap.fitBounds(group.getBounds().pad(0.05));
 
-    setMap(leafletMap);
+    return leafletMap;
   };
 
-  if (!mapLoaded) {
+  if (validWorkLocations.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-          <p className="text-gray-500 text-sm">Loading interactive map...</p>
+        <div className="text-center p-4">
+          <Navigation className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600 mb-2">
+            No Work Locations with Coordinates
+          </p>
+          <p className="text-sm text-gray-500">
+            Your work locations need latitude and longitude coordinates to
+            display on the map.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentLocation) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-white">
+        <div className="text-center p-4">
+          <Navigation className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600 mb-2">Location Access Required</p>
+          <p className="text-sm text-gray-500">
+            Please allow location access to see your position relative to work
+            locations.
+          </p>
         </div>
       </div>
     );
@@ -1428,8 +1450,16 @@ function LocationMap({ currentLocation, workLocations }) {
 
   return (
     <div className="w-full h-full bg-white rounded-lg overflow-hidden relative">
+      {!mapLoaded && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <p className="text-gray-500 text-sm">Loading interactive map...</p>
+          </div>
+        </div>
+      )}
       <div
-        id="leaflet-map-portal"
+        ref={containerRef}
         className="w-full h-full"
         style={{ minHeight: "400px" }}
       ></div>

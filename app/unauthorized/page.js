@@ -76,6 +76,9 @@ export default function UnauthorizedPage() {
           <p className="text-sm text-gray-500">
             Need assistance? Contact your IT department
           </p>
+          <p className="text-sm text-gray-500 mt-3">
+            Powered by <span className="font-semibold text-gray-700">GenShifter Technologies</span>
+          </p>
         </div>
       </div>
     </div>

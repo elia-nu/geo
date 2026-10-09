@@ -259,32 +259,38 @@ const Layout = ({
 
         {/* Footer */}
         <footer className="bg-white border-t border-gray-200 px-3 sm:px-6 py-3 sm:py-4 mt-6 sm:mt-12">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0">
-            <div className="flex items-center space-x-4">
-              <p className="text-xs sm:text-sm text-gray-500">
-                © 2024 HRM System. All rights reserved.
-              </p>
+          <div className="max-w-7xl mx-auto flex flex-col items-center gap-3">
+            <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0">
+              <div className="flex items-center space-x-4">
+                <p className="text-xs sm:text-sm text-gray-500">
+                  © 2026 HRM System. All rights reserved.
+                </p>
+              </div>
+              <div className="flex items-center space-x-3 sm:space-x-6">
+                <a
+                  href="#"
+                  className="text-xs sm:text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Privacy Policy
+                </a>
+                <a
+                  href="#"
+                  className="text-xs sm:text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Terms of Service
+                </a>
+                <a
+                  href="#"
+                  className="text-xs sm:text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Support
+                </a>
+              </div>
             </div>
-            <div className="flex items-center space-x-3 sm:space-x-6">
-              <a
-                href="#"
-                className="text-xs sm:text-sm text-gray-500 hover:text-gray-700"
-              >
-                Privacy Policy
-              </a>
-              <a
-                href="#"
-                className="text-xs sm:text-sm text-gray-500 hover:text-gray-700"
-              >
-                Terms of Service
-              </a>
-              <a
-                href="#"
-                className="text-xs sm:text-sm text-gray-500 hover:text-gray-700"
-              >
-                Support
-              </a>
-            </div>
+            <p className="text-xs sm:text-sm text-gray-500">
+              Powered by{" "}
+              <span className="font-semibold text-gray-700">GenShifter Technologies</span>
+            </p>
           </div>
         </footer>
       </div>

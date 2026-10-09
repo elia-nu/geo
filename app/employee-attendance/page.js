@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DailyAttendance from "../components/DailyAttendance";
 import {
   User,
@@ -380,7 +380,7 @@ export default function EmployeeAttendancePage() {
 // Enhanced Map Component using Leaflet (Free alternative with satellite imagery)
 function LocationMap({ currentLocation, workLocations }) {
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [map, setMap] = useState(null);
+  const containerRef = useRef(null);
 
   // Debug logging
   console.log("LocationMap props:", { currentLocation, workLocations });
@@ -466,18 +466,30 @@ function LocationMap({ currentLocation, workLocations }) {
     }
   }, []);
 
-  // Initialize map when Leaflet is loaded
+  // Initialize map when Leaflet is loaded.
+  // Strict Mode runs this effect twice; always remove the previous map first.
   useEffect(() => {
-    if (mapLoaded && currentLocation && validWorkLocations.length > 0 && !map) {
-      initializeMap();
-    }
-  }, [mapLoaded, currentLocation, validWorkLocations, map]);
+    if (!mapLoaded || !currentLocation || validWorkLocations.length === 0) return;
+
+    const leafletMap = initializeMap();
+    if (!leafletMap) return;
+
+    return () => {
+      try {
+        leafletMap.remove();
+      } catch (e) {
+        // Container may already be gone during unmount
+      }
+    };
+    // validWorkLocations is a new array every render; workLocations is the stable source.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapLoaded, currentLocation, workLocations]);
 
   const initializeMap = () => {
-    if (typeof window === "undefined" || !window.L) return;
+    if (typeof window === "undefined" || !window.L) return null;
 
-    const mapElement = document.getElementById("leaflet-map");
-    if (!mapElement) return;
+    const mapElement = containerRef.current;
+    if (!mapElement || mapElement._leaflet_id) return null;
 
     // Calculate center point
     const allLatitudes = [
@@ -495,7 +507,7 @@ function LocationMap({ currentLocation, workLocations }) {
       allLongitudes.reduce((a, b) => a + b) / allLongitudes.length;
 
     // Create Leaflet Map with satellite imagery
-    const leafletMap = window.L.map("leaflet-map").setView(
+    const leafletMap = window.L.map(mapElement).setView(
       [centerLat, centerLng],
       16
     );
@@ -633,24 +645,21 @@ function LocationMap({ currentLocation, workLocations }) {
     ]);
     leafletMap.fitBounds(group.getBounds().pad(0.05));
 
-    setMap(leafletMap);
+    return leafletMap;
   };
-
-  if (!mapLoaded) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-          <p className="text-gray-500 text-sm">Loading interactive map...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full h-full bg-white rounded-lg overflow-hidden relative">
+      {!mapLoaded && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <p className="text-gray-500 text-sm">Loading interactive map...</p>
+          </div>
+        </div>
+      )}
       <div
-        id="leaflet-map"
+        ref={containerRef}
         className="w-full h-full"
         style={{ minHeight: "400px" }}
       ></div>

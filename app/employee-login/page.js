@@ -208,9 +208,12 @@ export default function EmployeeLoginPage() {
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-8">
+        <div className="text-center mt-8 space-y-2">
           <p className="text-sm text-gray-500">
-            © 2024 HRM System. Secure employee portal.
+            © 2026 HRM System. Secure employee portal.
+          </p>
+          <p className="text-sm text-gray-700">
+            Powered by <span className="font-semibold">GenShifter Technologies</span>
           </p>
         </div>
       </div>
