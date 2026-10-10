@@ -5,14 +5,15 @@ import { createAuditLog } from "../../../utils/audit.js";
 
 export async function GET(_request, { params }) {
   try {
+    const { id } = await params;
     const db = await getDb();
-    if (!ObjectId.isValid(params.id)) {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
 
     const department = await db
       .collection("departments")
-      .findOne({ _id: new ObjectId(params.id) });
+      .findOne({ _id: new ObjectId(id) });
 
     if (!department) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -27,9 +28,10 @@ export async function GET(_request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
+    const { id } = await params;
     const db = await getDb();
 
-    if (!ObjectId.isValid(params.id)) {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
 
@@ -47,7 +49,7 @@ export async function PUT(request, { params }) {
     // First check if the department exists
     const existingDept = await db
       .collection("departments")
-      .findOne({ _id: new ObjectId(params.id) });
+      .findOne({ _id: new ObjectId(id) });
 
     if (!existingDept) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -56,17 +58,17 @@ export async function PUT(request, { params }) {
     // Update the department
     await db
       .collection("departments")
-      .updateOne({ _id: new ObjectId(params.id) }, { $set: update });
+      .updateOne({ _id: new ObjectId(id) }, { $set: update });
 
     // Get the updated department
     const updatedDept = await db
       .collection("departments")
-      .findOne({ _id: new ObjectId(params.id) });
+      .findOne({ _id: new ObjectId(id) });
 
     await createAuditLog({
       action: "UPDATE_DEPARTMENT",
       entityType: "department",
-      entityId: params.id,
+      entityId: id,
       request,
       metadata: { update },
     });
@@ -80,23 +82,24 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
+    const { id } = await params;
     const db = await getDb();
-    if (!ObjectId.isValid(params.id)) {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
 
     // Prevent deleting if employees still reference this department
     const dept = await db
       .collection("departments")
-      .findOne({ _id: new ObjectId(params.id) });
+      .findOne({ _id: new ObjectId(id) });
     if (!dept)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // Block deletion if employees are still assigned to this department
     const employeeCount = await db.collection("employees").countDocuments({
       $or: [
-        { departmentId: new ObjectId(params.id) },
-        { departmentId: params.id },
+        { departmentId: new ObjectId(id) },
+        { departmentId: id },
         { "personalDetails.department": dept.name },
         { department: dept.name },
       ],
@@ -116,7 +119,7 @@ export async function DELETE(request, { params }) {
       {},
       {
         $pull: {
-          departmentIds: params.id,
+          departmentIds: id,
           departments: dept.name,
         },
       }
@@ -124,12 +127,12 @@ export async function DELETE(request, { params }) {
 
     const result = await db
       .collection("departments")
-      .deleteOne({ _id: new ObjectId(params.id) });
+      .deleteOne({ _id: new ObjectId(id) });
 
     await createAuditLog({
       action: "DELETE_DEPARTMENT",
       entityType: "department",
-      entityId: params.id,
+      entityId: id,
       request,
       metadata: { name: dept.name },
     });

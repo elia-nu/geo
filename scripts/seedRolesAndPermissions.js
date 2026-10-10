@@ -144,6 +144,8 @@ export const DEFAULT_ROLES = [
       "attendance.checkin",
       "leave.request",
       "task.read.own",
+      "project.read.assigned",
+      "project.read.own",
     ],
     isSystem: true,
     isActive: true,

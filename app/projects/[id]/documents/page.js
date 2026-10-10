@@ -11,6 +11,11 @@ import {
   Edit as EditIcon,
   Visibility as VisibilityIcon,
   Notifications as NotificationsIcon,
+  CloudUpload as CloudUploadIcon,
+  InsertDriveFile as InsertDriveFileIcon,
+  PictureAsPdf as PictureAsPdfIcon,
+  Close as CloseIcon,
+  FileDownload as FileDownloadIcon,
 } from "@mui/icons-material";
 import {
   closeDialog,
@@ -41,7 +46,46 @@ export default function ProjectDocumentsPage({ params }) {
     expiryDate: "",
   });
   const [file, setFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  function formatFileSize(bytes) {
+    if (!bytes && bytes !== 0) return "";
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  function handleSelectFile(selectedFile) {
+    if (!selectedFile) return;
+    if (selectedFile.size > 25 * 1024 * 1024) {
+      setError("File size exceeds 25MB limit. Please choose a smaller file.");
+      return;
+    }
+    setError(null);
+    setFile(selectedFile);
+    if (selectedFile.type?.startsWith("image/")) {
+      try {
+        const url = URL.createObjectURL(selectedFile);
+        setFilePreview(url);
+      } catch {
+        setFilePreview(null);
+      }
+    } else {
+      setFilePreview(null);
+    }
+  }
+
+  function handleClearFile() {
+    setFile(null);
+    if (filePreview) {
+      try {
+        URL.revokeObjectURL(filePreview);
+      } catch {}
+      setFilePreview(null);
+    }
+  }
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -103,7 +147,7 @@ export default function ProjectDocumentsPage({ params }) {
       contractorEmail: "",
       expiryDate: "",
     });
-    setFile(null);
+    handleClearFile();
     setOpenDialog(true);
   }
 
@@ -118,7 +162,7 @@ export default function ProjectDocumentsPage({ params }) {
         ? new Date(doc.expiryDate).toISOString().split("T")[0]
         : "",
     });
-    setFile(null);
+    handleClearFile();
     setOpenDialog(true);
   }
 
@@ -126,6 +170,7 @@ export default function ProjectDocumentsPage({ params }) {
     setOpenDialog(false);
     setEditing(null);
     setSaving(false);
+    handleClearFile();
   }
 
   async function saveDocument() {
@@ -138,19 +183,36 @@ export default function ProjectDocumentsPage({ params }) {
       }
 
       if (editing) {
-        const res = await fetch(`/api/projects/${projectId}/documents/${editing._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: form.title,
-            description: form.description,
-            contractorName: form.contractorName,
-            contractorEmail: form.contractorEmail,
-            expiryDate: form.expiryDate,
-          }),
-        });
+        let res;
+        if (file) {
+          const fd = new FormData();
+          fd.append("file", file);
+          fd.append("title", form.title);
+          fd.append("description", form.description);
+          fd.append("contractorName", form.contractorName);
+          fd.append("contractorEmail", form.contractorEmail);
+          fd.append("expiryDate", form.expiryDate);
+
+          res = await fetch(`/api/projects/${projectId}/documents/${editing._id}`, {
+            method: "PUT",
+            body: fd,
+          });
+        } else {
+          res = await fetch(`/api/projects/${projectId}/documents/${editing._id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: form.title,
+              description: form.description,
+              contractorName: form.contractorName,
+              contractorEmail: form.contractorEmail,
+              expiryDate: form.expiryDate,
+            }),
+          });
+        }
         const data = await res.json();
         if (!data.success) throw new Error(data.error || "Failed to update document");
+        showSuccessToast("Document Updated", "Project document updated successfully.");
       } else {
         if (!file) throw new Error("Please attach a document file.");
         const fd = new FormData();
@@ -167,6 +229,7 @@ export default function ProjectDocumentsPage({ params }) {
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.error || "Failed to add document");
+        showSuccessToast("Document Added", "Project document attached successfully.");
       }
 
       await fetchAll();
@@ -319,13 +382,29 @@ export default function ProjectDocumentsPage({ params }) {
                 {paginatedDocuments.map((d) => (
                   <tr key={d._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-black">{d.title}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {d.originalName}
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0 mt-0.5">
+                          {d.originalName?.toLowerCase().endsWith(".pdf") ? (
+                            <PictureAsPdfIcon className="h-5 w-5 text-red-500" />
+                          ) : d.originalName?.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif)$/) ? (
+                            <VisibilityIcon className="h-5 w-5 text-emerald-600" />
+                          ) : (
+                            <InsertDriveFileIcon className="h-5 w-5 text-blue-600" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-black">{d.title || "Untitled Document"}</div>
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                            <span className="truncate max-w-[200px]" title={d.originalName}>
+                              {d.originalName || "Attached file"}
+                            </span>
+                            {d.size ? <span>• {formatFileSize(d.size)}</span> : null}
+                          </div>
+                          {d.description ? (
+                            <div className="text-xs text-gray-600 mt-1 line-clamp-2">{d.description}</div>
+                          ) : null}
+                        </div>
                       </div>
-                      {d.description ? (
-                        <div className="text-sm text-gray-500 mt-1">{d.description}</div>
-                      ) : null}
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-black">{d.contractorName}</div>
@@ -348,9 +427,17 @@ export default function ProjectDocumentsPage({ params }) {
                           href={`/api/projects/${projectId}/documents/${d._id}/download?inline=true`}
                           target="_blank"
                           rel="noreferrer"
-                          title="View"
+                          title="View inline"
                         >
                           <VisibilityIcon className="h-4 w-4" />
+                        </a>
+                        <a
+                          className="text-gray-700 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                          href={`/api/projects/${projectId}/documents/${d._id}/download`}
+                          download={d.originalName || "document"}
+                          title="Download file"
+                        >
+                          <FileDownloadIcon className="h-4 w-4" />
                         </a>
                         {hasPermission("project.update") && (
                           <button
@@ -516,22 +603,136 @@ export default function ProjectDocumentsPage({ params }) {
                       />
                     </div>
 
-                    {!editing && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Attach Document *
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-sm font-semibold text-gray-800">
+                          {editing ? "Attached Document File" : "Attach Document *"}
                         </label>
-                        <input
-                          type="file"
-                          onChange={(e) => setFile(e.target.files?.[0] || null)}
-                          className="block w-full text-sm text-gray-700"
-                          required
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Supported: PDF, DOC/DOCX, JPG/PNG (as configured in your system).
-                        </p>
+                        <span className="text-xs text-gray-500 font-normal">
+                          PDF, Word, Excel, Images (Max 25MB)
+                        </span>
                       </div>
-                    )}
+
+                      {/* If editing and has existing file and no replacement file selected */}
+                      {editing && editing.originalName && !file && (
+                        <div className="mb-3 p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+                              <InsertDriveFileIcon className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-gray-800 truncate" title={editing.originalName}>
+                                {editing.originalName}
+                              </p>
+                              <p className="text-[11px] text-gray-500">
+                                Currently attached {editing.size ? `• ${formatFileSize(editing.size)}` : ""}
+                              </p>
+                            </div>
+                          </div>
+                          <a
+                            href={`/api/projects/${projectId}/documents/${editing._id}/download?inline=true`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline shrink-0"
+                          >
+                            View File
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Selected file preview */}
+                      {file ? (
+                        <div className="p-3.5 bg-emerald-50/70 border-2 border-emerald-300 rounded-xl flex items-center justify-between gap-3 transition-all animate-in fade-in duration-200">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {filePreview ? (
+                              <img
+                                src={filePreview}
+                                alt="Preview"
+                                className="w-10 h-10 object-cover rounded-lg border border-emerald-200 shadow-sm shrink-0"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                {file.name.toLowerCase().endsWith(".pdf") ? (
+                                  <PictureAsPdfIcon className="h-5 w-5" />
+                                ) : (
+                                  <InsertDriveFileIcon className="h-5 w-5" />
+                                )}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-gray-900 truncate" title={file.name}>
+                                {file.name}
+                              </p>
+                              <div className="flex items-center gap-2 text-[11px] text-emerald-700 font-medium">
+                                <span>{formatFileSize(file.size)}</span>
+                                <span>•</span>
+                                <span className="flex items-center gap-0.5 text-emerald-600 font-semibold">
+                                  ✓ Ready {editing ? "to replace" : "to upload"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleClearFile}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                            title="Remove file"
+                          >
+                            <CloseIcon className="h-5 w-5" />
+                          </button>
+                        </div>
+                      ) : (
+                        /* Dropzone */
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsDragging(true);
+                          }}
+                          onDragLeave={() => setIsDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDragging(false);
+                            if (e.dataTransfer.files?.[0]) {
+                              handleSelectFile(e.dataTransfer.files[0]);
+                            }
+                          }}
+                          className={`border-2 border-dashed rounded-xl p-5 text-center transition-all cursor-pointer ${
+                            isDragging
+                              ? "border-blue-500 bg-blue-50/60 scale-[1.01]"
+                              : "border-gray-300 hover:border-blue-400 hover:bg-gray-50/50"
+                          }`}
+                          onClick={() => {
+                            const input = document.getElementById("project-doc-file-input");
+                            if (input) input.click();
+                          }}
+                        >
+                          <input
+                            type="file"
+                            id="project-doc-file-input"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handleSelectFile(e.target.files[0]);
+                            }}
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.webp"
+                          />
+                          <div className="flex flex-col items-center justify-center space-y-2">
+                            <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                              <CloudUploadIcon className="h-6 w-6" />
+                            </div>
+                            <div>
+                              <p className="text-xs sm:text-sm font-semibold text-gray-800">
+                                {editing
+                                  ? "Click to upload a replacement document file"
+                                  : "Click to upload or drag & drop document file"}
+                              </p>
+                              <p className="text-[11px] text-gray-500 mt-0.5">
+                                PDF, Word (.docx/.doc), Excel, or Image formats up to 25MB
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse mt-6 -mx-4 -mb-4 sm:-mx-6 sm:-mb-4">
                       <button

@@ -23,6 +23,12 @@ import EmployeeSetupModal from "./EmployeeSetupModal";
 import Pagination from "./ui/Pagination";
 import { toast } from "./ui/toast";
 
+const getAuthHeaders = () => {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("authToken") || localStorage.getItem("employeeToken");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export default function EmployeeLocationManagement() {
   const [employees, setEmployees] = useState([]);
   const [workLocations, setWorkLocations] = useState([]);
@@ -129,9 +135,10 @@ export default function EmployeeLocationManagement() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const authHeaders = getAuthHeaders();
       const [empRes, locRes] = await Promise.all([
-        fetch("/api/employee").then((r) => r.json()),
-        fetch("/api/work-locations").then((r) => r.json()),
+        fetch("/api/employee", { headers: authHeaders }).then((r) => r.json()),
+        fetch("/api/work-locations", { headers: authHeaders }).then((r) => r.json()),
       ]);
 
       const emps = empRes.success
@@ -243,6 +250,7 @@ export default function EmployeeLocationManagement() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify({ employeeIds: selectedEmployees }),
         }
@@ -282,6 +290,7 @@ export default function EmployeeLocationManagement() {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify({ employeeIds: [employeeId] }),
         }

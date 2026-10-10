@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Shield,
   Loader2,
+  Paperclip,
 } from "lucide-react";
 import Pagination from "./ui/Pagination";
 import { toast } from "./ui/toast";
@@ -479,6 +480,31 @@ export default function ManagerLeaveApproval({
                               "{request.reason}"
                             </p>
                           )}
+
+                          {/* Attached documents */}
+                          {request.files && request.files.length > 0 && (
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                              <span className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
+                                <Paperclip className="w-3 h-3 text-blue-600" />
+                                Docs:
+                              </span>
+                              {request.files.map((file, fileIdx) => (
+                                <a
+                                  key={fileIdx}
+                                  href={file.filePath || file.url || "#"}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-medium rounded border border-blue-200 transition-colors"
+                                  title={`Download ${file.originalName || file.fileName}`}
+                                >
+                                  <Download className="w-2.5 h-2.5 text-blue-600" />
+                                  <span className="truncate max-w-[140px]">
+                                    {file.originalName || file.fileName || `Attachment ${fileIdx + 1}`}
+                                  </span>
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -590,6 +616,38 @@ export default function ManagerLeaveApproval({
                   {formatDate(selectedRequest.endDate)}
                 </span>
               </p>
+              {selectedRequest.reason && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Reason:{" "}
+                  <span className="font-medium italic">
+                    "{selectedRequest.reason}"
+                  </span>
+                </p>
+              )}
+              {selectedRequest.files && selectedRequest.files.length > 0 && (
+                <div className="mt-3 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
+                    <Paperclip className="w-3.5 h-3.5 text-blue-600" />
+                    Attached Supporting Documents ({selectedRequest.files.length}):
+                  </p>
+                  <div className="space-y-1">
+                    {selectedRequest.files.map((file, idx) => (
+                      <a
+                        key={idx}
+                        href={file.filePath || file.url || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between text-xs text-blue-600 hover:text-blue-800 p-1.5 rounded hover:bg-blue-50 transition-colors"
+                      >
+                        <span className="truncate max-w-[220px]">
+                          {file.originalName || file.fileName || `Attachment ${idx + 1}`}
+                        </span>
+                        <Download className="w-3.5 h-3.5 text-blue-500 shrink-0 ml-1" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mb-4">

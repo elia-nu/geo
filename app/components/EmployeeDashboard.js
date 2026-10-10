@@ -285,12 +285,18 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
 
               {/* Notifications Dropdown */}
               {showNotifications && (
-                <div className="notification-dropdown absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 z-50 max-h-96 overflow-hidden flex flex-col text-slate-800 dark:text-slate-200">
-                  <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <h3 className="font-bold text-sm">Notifications</h3>
-                    </div>
+                <>
+                  <div
+                    className="fixed inset-0 z-40 sm:hidden"
+                    onClick={() => setShowNotifications(false)}
+                    aria-hidden="true"
+                  />
+                  <div className="notification-dropdown fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-20 sm:top-auto sm:mt-3 sm:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 z-50 max-h-[80vh] sm:max-h-96 overflow-hidden flex flex-col text-slate-800 dark:text-slate-200">
+                    <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <h3 className="font-bold text-sm">Notifications</h3>
+                      </div>
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllAsRead}
@@ -351,8 +357,9 @@ export default function EmployeeDashboard({ employeeId, employeeName }) {
                     )}
                   </div>
                 </div>
-              )}
-            </div>
+              </>
+            )}
+          </div>
 
             {/* Real-time Clock */}
             <div className="text-right border-l border-white/20 pl-4">

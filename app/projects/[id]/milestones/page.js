@@ -72,6 +72,12 @@ const toDateInputValue = (dateValue) => {
   }
 };
 
+const getAuthHeaders = () => {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("authToken") || localStorage.getItem("employeeToken");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 const ProjectMilestonesPage = ({ params }) => {
   const { id: projectId } = use(params);
   const { hasPermission } = usePermissions();
@@ -104,7 +110,9 @@ const ProjectMilestonesPage = ({ params }) => {
     try {
       setLoading(true);
 
-      const projectResponse = await fetch(`/api/projects/${projectId}`);
+      const projectResponse = await fetch(`/api/projects/${projectId}`, {
+        headers: getAuthHeaders(),
+      });
       const projectData = await projectResponse.json();
 
       if (projectData.success) {
@@ -201,6 +209,7 @@ const ProjectMilestonesPage = ({ params }) => {
         method,
         headers: {
           "Content-Type": "application/json",
+          ...getAuthHeaders(),
         },
         body: JSON.stringify(payload),
       });
@@ -241,6 +250,7 @@ const ProjectMilestonesPage = ({ params }) => {
         `/api/projects/${projectId}/milestones/${milestone._id}`,
         {
           method: "DELETE",
+          headers: getAuthHeaders(),
         }
       );
 

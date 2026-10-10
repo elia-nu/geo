@@ -201,11 +201,13 @@ export default function DailyAttendance({
 
     let nearestLocation = null;
     let shortestDistance = Infinity;
+    let nearestValidLocation = null;
+    let shortestValidDistance = Infinity;
     let isValid = false;
 
     // Check distance to each work location
     for (const workLocation of workLocations) {
-      if (!workLocation.latitude || !workLocation.longitude) continue;
+      if (!workLocation || workLocation.latitude == null || workLocation.longitude == null) continue;
 
       const distance = calculateDistance(
         currentLocation.latitude,
@@ -216,33 +218,38 @@ export default function DailyAttendance({
 
       const radius = parseDistanceToMeters(workLocation.radius); // normalize to meters
 
+      // Check if inside this site's geofence
       if (distance <= radius) {
         isValid = true;
-        nearestLocation = workLocation;
-        shortestDistance = distance;
-        break; // Found a valid location, no need to check others
+        if (distance < shortestValidDistance) {
+          shortestValidDistance = distance;
+          nearestValidLocation = workLocation;
+        }
       }
 
-      // Keep track of the nearest location for error messages
+      // Track nearest location overall for feedback/error messages
       if (distance < shortestDistance) {
         shortestDistance = distance;
         nearestLocation = workLocation;
       }
     }
 
+    // If within a valid location, lock to the closest valid site
+    const verifiedLocation = isValid ? nearestValidLocation : nearestLocation;
+    const finalDistance = isValid ? shortestValidDistance : shortestDistance;
+    const targetRadius = parseDistanceToMeters(verifiedLocation?.radius || 100);
+
     setLocationValidation({
       isValid,
       message: isValid
-        ? `Location verified! You are ${Math.round(shortestDistance)}m from ${
-            nearestLocation.name
+        ? `Location verified! You are ${Math.round(finalDistance)}m from ${
+            verifiedLocation?.name || "work location"
           }.`
-        : `You are ${Math.round(shortestDistance)}m from ${
-            nearestLocation.name
-          }. Must be within ${Math.round(
-            parseDistanceToMeters(nearestLocation.radius || 100)
-          )}m.`,
-      distance: Math.round(shortestDistance),
-      nearestLocation,
+        : `You are ${Math.round(finalDistance)}m from ${
+            verifiedLocation?.name || "work location"
+          }. Must be within ${Math.round(targetRadius)}m.`,
+      distance: Math.round(finalDistance),
+      nearestLocation: verifiedLocation,
     });
 
     return isValid;

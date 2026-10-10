@@ -8,7 +8,7 @@ import { join } from "path";
 export async function GET(request, { params }) {
   try {
     const db = await getDb();
-    const { id, attachmentId } = params;
+    const { id, attachmentId } = await params;
 
     // Validate ObjectIds
     if (!ObjectId.isValid(id) || !ObjectId.isValid(attachmentId)) {

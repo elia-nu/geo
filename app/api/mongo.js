@@ -29,15 +29,20 @@ if (!global._mongoClientPromise) {
 }
 clientPromise = global._mongoClientPromise;
 
+function getDefaultDb(client) {
+  const dbName = process.env.MONGODB_DB || "geo";
+  return client.db(dbName);
+}
+
 export async function getDb() {
   try {
     const client = await clientPromise;
-    return client.db("geo");
+    return getDefaultDb(client);
   } catch (err) {
     global._mongoClientPromise = createClientPromise();
     clientPromise = global._mongoClientPromise;
     const client = await clientPromise;
-    return client.db("geo");
+    return getDefaultDb(client);
   }
 }
 

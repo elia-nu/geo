@@ -8,16 +8,20 @@ import { getCurrentUser, checkPermission } from "../../middleware/auth.js";
 export async function GET(request, { params }) {
   try {
     const user = await getCurrentUser(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (user && user.userId !== "guest" && user.authenticated) {
+      const hasPerm =
+        user.role === "ADMIN" ||
+        user.role === "EMPLOYEE" ||
+        (await checkPermission(user.userId, "location.read", user.role)) ||
+        (await checkPermission(user.userId, "attendance.checkin", user.role)) ||
+        (await checkPermission(user.userId, "employee.read.own", user.role));
 
-    const hasPerm = await checkPermission(user.userId, "location.read", user.role);
-    if (!hasPerm) {
-      return NextResponse.json(
-        { error: "Access denied. 'location.read' permission required." },
-        { status: 403 }
-      );
+      if (!hasPerm) {
+        return NextResponse.json(
+          { error: "Access denied. 'location.read' or employee access required." },
+          { status: 403 }
+        );
+      }
     }
 
     const db = await getDb();
@@ -167,32 +171,95 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Block deletion if employees are assigned to this location
-    const employeeCount = await db.collection("employees").countDocuments({
-      $or: [
-        { workLocationId: new ObjectId(id) },
-        { workLocationId: id },
-        { workLocation: workLocation.name },
-        { workLocationName: workLocation.name },
-      ],
-    });
-    const assignedCount = Array.isArray(workLocation.assignedEmployees)
-      ? workLocation.assignedEmployees.length
-      : 0;
-    const totalAssigned = Math.max(employeeCount, assignedCount);
+    const locationObjectId = new ObjectId(id);
+    const assignedIds = Array.isArray(workLocation.assignedEmployees)
+      ? workLocation.assignedEmployees
+          .map((emp) => (ObjectId.isValid(emp) ? new ObjectId(emp) : null))
+          .filter(Boolean)
+      : [];
 
-    if (totalAssigned > 0) {
+    // Check how many actual active employees exist referencing this location
+    const activeAssignedEmployees = await db
+      .collection("employees")
+      .find({
+        $or: [
+          { _id: { $in: assignedIds } },
+          { workLocations: locationObjectId },
+          { workLocations: id },
+          { workLocationId: locationObjectId },
+          { workLocationId: id },
+          { workLocation: workLocation.name },
+          { workLocationName: workLocation.name },
+          { "personalDetails.workLocation": workLocation.name },
+          { "workLocationsDetails._id": locationObjectId },
+        ],
+      })
+      .toArray();
+
+    const activeCount = activeAssignedEmployees.length;
+    const url = new URL(request.url);
+    const force = url.searchParams.get("force") === "true";
+
+    if (activeCount > 0 && !force) {
       return NextResponse.json(
         {
-          error: `Cannot delete location "${workLocation.name}". It has ${totalAssigned} assigned employee(s). Please reassign employees first before deleting.`,
+          error: `Cannot delete location "${workLocation.name}". It is currently assigned to ${activeCount} active employee(s). Please unassign them first or delete with force.`,
+          assignedCount: activeCount,
         },
         { status: 400 }
       );
     }
 
+    // Clean up all references from employees collection
+    await db.collection("employees").updateMany(
+      {
+        $or: [
+          { workLocations: locationObjectId },
+          { workLocations: id },
+          { workLocationId: locationObjectId },
+          { workLocationId: id },
+          { workLocation: workLocation.name },
+          { workLocationName: workLocation.name },
+          { "personalDetails.workLocation": workLocation.name },
+          { "workLocationsDetails._id": locationObjectId },
+        ],
+      },
+      {
+        $pull: {
+          workLocations: { $in: [locationObjectId, id] },
+          workLocationsDetails: { _id: locationObjectId },
+        },
+        $unset: {
+          workLocationId: "",
+        },
+        $set: {
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    await db.collection("employees").updateMany(
+      {
+        $or: [
+          { workLocation: id },
+          { workLocation: workLocation.name },
+          { workLocationName: workLocation.name },
+          { "personalDetails.workLocation": id },
+          { "personalDetails.workLocation": workLocation.name },
+        ],
+      },
+      {
+        $unset: {
+          workLocation: "",
+          workLocationName: "",
+          "personalDetails.workLocation": "",
+        },
+      }
+    );
+
     const result = await db
       .collection("work_locations")
-      .deleteOne({ _id: new ObjectId(id) });
+      .deleteOne({ _id: locationObjectId });
 
     if (result.deletedCount === 0) {
       return NextResponse.json(
@@ -210,6 +277,8 @@ export async function DELETE(request, { params }) {
       userEmail: user.email || "user@company.com",
       metadata: {
         locationName: workLocation.name,
+        forced: force,
+        unassignedCount: activeCount,
       },
     });
 

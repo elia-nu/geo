@@ -114,15 +114,36 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
 
+    // Get user role first
+    const userRole = await db.collection("user_roles").findOne({
+      $or: [
+        { userId: employee._id.toString() },
+        { userId: employee._id },
+      ],
+      isActive: true,
+    });
+
+    const userRoleName = userRole
+      ? (userRole.roleName || userRole.role)
+      : (employee.role || employee.personalDetails?.role || "EMPLOYEE");
+
+    const isAdminOrManager =
+      userRoleName === "ADMIN" ||
+      userRoleName === "SUPER_ADMIN" ||
+      userRoleName === "HR_MANAGER" ||
+      userRoleName === "admin";
+
     // Check if employee has designated locations (new system supports multiple locations)
     const hasWorkLocations =
       employee.workLocations &&
       Array.isArray(employee.workLocations) &&
       employee.workLocations.length > 0;
     const hasOldLocation =
-      employee.workLocation || employee.personalDetails?.workLocation;
+      employee.workLocation ||
+      employee.personalDetails?.workLocation ||
+      employee.workLocationName;
 
-    if (!hasWorkLocations && !hasOldLocation) {
+    if (!isAdminOrManager && !hasWorkLocations && !hasOldLocation) {
       await createAuditLog({
         action: "LOGIN_FAILURE",
         entityType: "auth",
@@ -138,17 +159,6 @@ export async function POST(request) {
         { status: 403 }
       );
     }
-
-    console.log("employee._id", employee._id.toString());
-
-    // Get user role
-    const userRole = await db.collection("user_roles").findOne({
-      $or: [
-        { userId: employee._id.toString() },
-        { userId: employee._id },
-      ],
-      isActive: true,
-    });
 
     console.log("userRole", userRole);
 

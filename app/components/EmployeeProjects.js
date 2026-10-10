@@ -33,7 +33,9 @@ export default function EmployeeProjects({ employeeId }) {
       setLoading(true);
       setError("");
 
-      const token = localStorage.getItem("employeeToken");
+      const token =
+        localStorage.getItem("employeeToken") ||
+        localStorage.getItem("authToken");
       if (!token) {
         setError("Authentication required");
         return;
@@ -250,8 +252,17 @@ export default function EmployeeProjects({ employeeId }) {
             {paginatedProjects.map((project) => (
             <div
               key={project._id}
-              className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow overflow-hidden flex flex-col"
             >
+              {project.imageUrl && (
+                <div className="mb-4 -mx-6 -mt-6 h-40 overflow-hidden bg-slate-100">
+                  <img
+                    src={project.imageUrl}
+                    alt={project.name}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
               {/* Project Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">

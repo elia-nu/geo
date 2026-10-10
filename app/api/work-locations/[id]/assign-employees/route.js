@@ -91,8 +91,32 @@ export async function PUT(request, { params }) {
       await db.collection("employees").updateMany(
         { _id: { $in: toRemove } },
         {
-          $pull: { workLocations: locationObjectId },
+          $pull: {
+            workLocations: { $in: [locationObjectId, id] },
+            workLocationsDetails: { _id: { $in: [locationObjectId, id] } },
+          },
           $set: { updatedAt: new Date() },
+        }
+      );
+
+      await db.collection("employees").updateMany(
+        {
+          _id: { $in: toRemove },
+          $or: [
+            { workLocation: id },
+            { workLocation: workLocation.name },
+            { workLocationName: workLocation.name },
+            { "personalDetails.workLocation": id },
+            { "personalDetails.workLocation": workLocation.name },
+          ],
+        },
+        {
+          $unset: {
+            workLocation: "",
+            workLocationName: "",
+            workLocationId: "",
+            "personalDetails.workLocation": "",
+          },
         }
       );
     }
@@ -276,13 +300,19 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const employeeObjectIds = employeeIds.map((id) => new ObjectId(id));
+    const employeeObjectIds = employeeIds
+      .filter((eid) => ObjectId.isValid(eid))
+      .map((eid) => new ObjectId(eid));
+    const employeeIdStrings = employeeIds.map(String);
+    const locationObjectId = new ObjectId(id);
 
-    // Remove employees from the work location
+    // Remove employees from the work location (pull both ObjectId and String forms)
     const result = await db.collection("work_locations").updateOne(
-      { _id: new ObjectId(id) },
+      { _id: locationObjectId },
       {
-        $pull: { assignedEmployees: { $in: employeeObjectIds } },
+        $pull: {
+          assignedEmployees: { $in: [...employeeObjectIds, ...employeeIdStrings] },
+        },
         $set: { updatedAt: new Date() },
       }
     );
@@ -295,12 +325,36 @@ export async function DELETE(request, { params }) {
     }
 
     // Remove work location from employee records
-    for (const employeeId of employeeObjectIds) {
-      await db.collection("employees").updateOne(
-        { _id: employeeId },
+    if (employeeObjectIds.length > 0) {
+      await db.collection("employees").updateMany(
+        { _id: { $in: employeeObjectIds } },
         {
-          $pull: { workLocations: new ObjectId(id) },
+          $pull: {
+            workLocations: { $in: [locationObjectId, id] },
+            workLocationsDetails: { _id: { $in: [locationObjectId, id] } },
+          },
           $set: { updatedAt: new Date() },
+        }
+      );
+
+      await db.collection("employees").updateMany(
+        {
+          _id: { $in: employeeObjectIds },
+          $or: [
+            { workLocation: id },
+            { workLocation: workLocation.name },
+            { workLocationName: workLocation.name },
+            { "personalDetails.workLocation": id },
+            { "personalDetails.workLocation": workLocation.name },
+          ],
+        },
+        {
+          $unset: {
+            workLocation: "",
+            workLocationName: "",
+            workLocationId: "",
+            "personalDetails.workLocation": "",
+          },
         }
       );
     }

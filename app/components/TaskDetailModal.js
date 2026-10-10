@@ -20,6 +20,7 @@ import {
   Download,
   Eye,
   Folder,
+  RefreshCw,
 } from "lucide-react";
 
 export default function TaskDetailModal({
@@ -70,12 +71,28 @@ export default function TaskDetailModal({
     return result;
   };
 
+  const [isPolling, setIsPolling] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+
   useEffect(() => {
     if (isOpen && task?._id) {
       fetchTaskDetails({ isInitial: true });
       setProgress(task.progress || 0);
+
+      // Web polling for live task chat & comments every 5 seconds
+      const pollInterval = setInterval(() => {
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+        if (submittingComment || uploadingFile) return;
+        setIsPolling(true);
+        fetchTaskDetails({ isInitial: false }).finally(() => {
+          setIsPolling(false);
+          setLastSyncedAt(new Date());
+        });
+      }, 5000);
+
+      return () => clearInterval(pollInterval);
     }
-  }, [isOpen, task?._id]);
+  }, [isOpen, task?._id, submittingComment, uploadingFile]);
 
   const fetchTaskDetails = async ({ isInitial = false } = {}) => {
     try {
@@ -84,7 +101,9 @@ export default function TaskDetailModal({
       }
       setError("");
 
-      const token = localStorage.getItem("employeeToken");
+      const token =
+        localStorage.getItem("employeeToken") ||
+        localStorage.getItem("authToken");
       if (!token) {
         setError("Authentication required");
         return;
@@ -124,7 +143,9 @@ export default function TaskDetailModal({
 
     try {
       setSubmittingComment(true);
-      const token = localStorage.getItem("employeeToken");
+      const token =
+        localStorage.getItem("employeeToken") ||
+        localStorage.getItem("authToken");
       if (!token) {
         setError("Authentication required");
         return;
@@ -180,7 +201,9 @@ export default function TaskDetailModal({
       setUploadingFile(true);
       setError("");
 
-      const token = localStorage.getItem("employeeToken");
+      const token =
+        localStorage.getItem("employeeToken") ||
+        localStorage.getItem("authToken");
       if (!token) {
         setError("Authentication required");
         return;
@@ -223,7 +246,9 @@ export default function TaskDetailModal({
 
   const handleDownloadAttachment = async (attachment) => {
     try {
-      const token = localStorage.getItem("employeeToken");
+      const token =
+        localStorage.getItem("employeeToken") ||
+        localStorage.getItem("authToken");
       if (!token) {
         setError("Authentication required");
         return;
@@ -335,7 +360,9 @@ export default function TaskDetailModal({
     // Debounce: Only update after user stops dragging (500ms delay)
     const timeout = setTimeout(async () => {
       try {
-        const token = localStorage.getItem("employeeToken");
+        const token =
+          localStorage.getItem("employeeToken") ||
+          localStorage.getItem("authToken");
         if (!token) {
           setError("Authentication required");
           return;
@@ -528,9 +555,23 @@ export default function TaskDetailModal({
 
                 {/* Comments - show first with See more/less */}
                 <div>
-                  <h4 className="text-sm font-semibold text-black mb-3">
-                    Comments
-                  </h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-semibold text-black">
+                        Task Discussion & Chat
+                      </h4>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Live
+                      </span>
+                    </div>
+                    {isPolling && (
+                      <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />
+                        Syncing...
+                      </span>
+                    )}
+                  </div>
                   <div className="space-y-3 mb-4">
                     {deduplicateCommentsList(comments).length === 0 ? (
                       <p className="text-sm text-gray-500">No comments yet</p>

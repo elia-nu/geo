@@ -91,15 +91,21 @@ export async function GET(request) {
     try {
       await db.collection("daily_attendance").updateMany(
         {
-          $or: [
-            { status: "checked-in" },
-            { checkOutTime: { $exists: false } },
-            { checkOutTime: null }
+          $and: [
+            {
+              $or: [
+                { status: "checked-in" },
+                { checkOutTime: { $exists: false } },
+                { checkOutTime: null },
+              ],
+            },
+            {
+              $or: [
+                { date: { $lt: todayStr } },
+                { checkInTime: { $lt: staleThreshold } },
+              ],
+            },
           ],
-          $or: [
-            { date: { $lt: todayStr } },
-            { checkInTime: { $lt: staleThreshold } }
-          ]
         },
         {
           $set: {
@@ -109,8 +115,8 @@ export async function GET(request) {
             durationFormatted: "Not Checked Out (Admin to Handle)",
             adminResolutionRequired: true,
             autoClosedReason: "Employee did not check out. Admin resolution required.",
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         }
       );
     } catch (cleanupErr) {
@@ -127,9 +133,12 @@ export async function GET(request) {
     const employeeIds = [
       ...new Set(attendanceRecords.map((record) => record.employeeId)),
     ];
+    const validEmployeeObjectIds = employeeIds
+      .filter((id) => ObjectId.isValid(id))
+      .map((id) => new ObjectId(id));
     const employees = await db
       .collection("employees")
-      .find({ _id: { $in: employeeIds.map((id) => new ObjectId(id)) } })
+      .find({ _id: { $in: validEmployeeObjectIds } })
       .toArray();
 
     // Create employee lookup map
@@ -264,6 +273,8 @@ export async function POST(request) {
       // Evaluate all locations: valid if ANY location is within its own radius
       let shortestDistance = Infinity;
       let nearestLocation = null;
+      let shortestValidDistance = Infinity;
+      let nearestValidLocation = null;
       let foundValid = false;
 
       for (const workLocation of workLocations) {
@@ -282,34 +293,42 @@ export async function POST(request) {
           workLocation.longitude
         );
 
+        const radiusMeters = parseDistanceToMeters(workLocation.radius);
+        if (distance <= radiusMeters) {
+          foundValid = true;
+          if (distance < shortestValidDistance) {
+            shortestValidDistance = distance;
+            nearestValidLocation = workLocation;
+          }
+        }
+
         if (distance < shortestDistance) {
           shortestDistance = distance;
           nearestLocation = workLocation;
         }
-
-        const radiusMeters = parseDistanceToMeters(workLocation.radius);
-        if (distance <= radiusMeters) {
-          foundValid = true;
-        }
       }
 
-      const nearestRadius = parseDistanceToMeters(
-        (nearestLocation && nearestLocation.radius) || 500
+      // If valid at one or more locations, choose the closest valid site
+      const selectedLocation = foundValid ? nearestValidLocation : nearestLocation;
+      const finalDistance = foundValid ? shortestValidDistance : shortestDistance;
+      const targetRadius = parseDistanceToMeters(
+        (selectedLocation && selectedLocation.radius) || 500
       );
 
       geofenceValidation = {
         isValid: foundValid,
-        distance: Math.round(shortestDistance),
+        distance: Math.round(finalDistance),
         message: foundValid
-          ? `Location verified! You are ${Math.round(shortestDistance)}m from ${
-              nearestLocation?.name || "work location"
+          ? `Location verified! You are ${Math.round(finalDistance)}m from ${
+              selectedLocation?.name || "work location"
             }.`
-          : `You are ${Math.round(shortestDistance)}m from ${
-              nearestLocation?.name || "work location"
-            }. Must be within ${Math.round(nearestRadius)}m.`,
+          : `You are ${Math.round(finalDistance)}m from ${
+              selectedLocation?.name || "work location"
+            }. Must be within ${Math.round(targetRadius)}m.`,
         workLocationName:
-          (nearestLocation && nearestLocation.name) || "Work Location",
-        nearestLocation: nearestLocation,
+          (selectedLocation && selectedLocation.name) || "Work Location",
+        workLocationId: selectedLocation?._id || selectedLocation?.id || null,
+        nearestLocation: selectedLocation,
       };
 
       // Reject if not at any work location, but also record a violation event
@@ -410,6 +429,8 @@ export async function POST(request) {
         faceVerified,
         geofenceValidation,
         gpsValidation,
+        workLocationId: geofenceValidation?.workLocationId || data.workLocationId || null,
+        workLocationName: geofenceValidation?.workLocationName || "Work Location",
         status: "checked-in",
         workingHours: 0,
         createdAt: currentTime,
@@ -575,6 +596,15 @@ export async function POST(request) {
         geofenceValidation,
         gpsValidation,
         status: "checked-out",
+        workLocationId:
+          attendanceRecord.workLocationId ||
+          geofenceValidation?.workLocationId ||
+          data.workLocationId ||
+          null,
+        workLocationName:
+          attendanceRecord.workLocationName ||
+          geofenceValidation?.workLocationName ||
+          "Work Location",
         lunchOutTime: attendanceRecord.lunchOutTime || null,
         lunchInTime: attendanceRecord.lunchInTime || null,
         workingHours: workingHours, // Decimal hours (e.g. 1.23)

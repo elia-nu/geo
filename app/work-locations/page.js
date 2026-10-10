@@ -15,6 +15,7 @@ import {
   Search,
   Filter,
   X,
+  Radio,
 } from "lucide-react";
 
 export default function WorkLocationsPage() {
@@ -61,6 +62,7 @@ export default function WorkLocationsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [locationToDelete, setLocationToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [forceDelete, setForceDelete] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -232,6 +234,7 @@ export default function WorkLocationsPage() {
     setShowDeleteModal(false);
     setLocationToDelete(null);
     setDeleteLoading(false);
+    setForceDelete(false);
   };
 
   const confirmDeleteLocation = async () => {
@@ -240,15 +243,15 @@ export default function WorkLocationsPage() {
     setDeleteLoading(true);
 
     try {
-      const response = await fetch(
-        `/api/work-locations/${locationToDelete._id}`,
-        {
-          method: "DELETE",
-          headers: {
-            ...getAuthHeaders(),
-          },
-        }
-      );
+      const url = `/api/work-locations/${locationToDelete._id}${
+        forceDelete ? "?force=true" : ""
+      }`;
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
 
       const result = await response.json();
 
@@ -330,7 +333,14 @@ export default function WorkLocationsPage() {
 
   const openAssignModal = (location) => {
     setSelectedLocation(location);
-    setAssignForm({ employeeIds: [] });
+    const existingIds = (location.assignedEmployees || [])
+      .map((emp) =>
+        typeof emp === "object" && emp !== null
+          ? String(emp._id || emp.id)
+          : String(emp)
+      )
+      .filter(Boolean);
+    setAssignForm({ employeeIds: existingIds });
     setAssignSearchTerm("");
     setShowAssignModal(true);
   };
@@ -1166,8 +1176,7 @@ export default function WorkLocationsPage() {
                 </div>
 
                 {/* Assigned Employees Check */}
-                {(locationToDelete.employeeCount > 0 ||
-                  (locationToDelete.assignedEmployees && locationToDelete.assignedEmployees.length > 0)) ? (
+                {locationToDelete.employeeCount > 0 ? (
                   <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 space-y-2">
                     <div className="flex items-center gap-2 font-semibold text-amber-900">
                       <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -1175,23 +1184,33 @@ export default function WorkLocationsPage() {
                     </div>
                     <p className="text-[11px] leading-relaxed opacity-90">
                       This location currently has{" "}
-                      <strong>
-                        {locationToDelete.employeeCount ||
-                          locationToDelete.assignedEmployees.length}
-                      </strong>{" "}
-                      assigned employee(s). The system requires reassigning or removing employees before this location can be deleted.
+                      <strong>{locationToDelete.employeeCount}</strong>{" "}
+                      assigned employee(s). You can manage them below or force unassign all employees to proceed with deletion.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const loc = locationToDelete;
-                        closeDeleteModal();
-                        openAssignModal(loc);
-                      }}
-                      className="mt-1 text-xs font-bold text-amber-900 underline hover:text-amber-950 inline-flex items-center gap-1"
-                    >
-                      <Users className="w-3.5 h-3.5" /> Manage & Reassign Employees
-                    </button>
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const loc = locationToDelete;
+                          closeDeleteModal();
+                          openAssignModal(loc);
+                        }}
+                        className="text-xs font-bold text-amber-900 underline hover:text-amber-950 inline-flex items-center gap-1"
+                      >
+                        <Users className="w-3.5 h-3.5" /> Reassign Employees
+                      </button>
+                    </div>
+                    <label className="flex items-start gap-2 pt-2 border-t border-amber-200/60 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={forceDelete}
+                        onChange={(e) => setForceDelete(e.target.checked)}
+                        className="mt-0.5 rounded border-amber-300 text-rose-600 focus:ring-rose-500"
+                      />
+                      <span className="text-[11px] font-medium text-amber-950">
+                        Automatically unassign all employees and delete this location
+                      </span>
+                    </label>
                   </div>
                 ) : (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-center gap-2">
@@ -1215,9 +1234,7 @@ export default function WorkLocationsPage() {
                     onClick={confirmDeleteLocation}
                     disabled={
                       deleteLoading ||
-                      locationToDelete.employeeCount > 0 ||
-                      (locationToDelete.assignedEmployees &&
-                        locationToDelete.assignedEmployees.length > 0)
+                      (locationToDelete.employeeCount > 0 && !forceDelete)
                     }
                     className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-md shadow-rose-500/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >

@@ -34,7 +34,9 @@ export default function EmployeeMilestones({ employeeId }) {
       setLoading(true);
       setError("");
 
-      const token = localStorage.getItem("employeeToken");
+      const token =
+        localStorage.getItem("employeeToken") ||
+        localStorage.getItem("authToken");
       if (!token) {
         setError("Authentication required");
         return;

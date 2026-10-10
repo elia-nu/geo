@@ -35,6 +35,14 @@ export default function EmployeeTasks({ employeeId }) {
   useEffect(() => {
     if (employeeId) {
       fetchTasks();
+
+      // Background web polling to detect newly assigned tasks or status updates every 15s
+      const taskPollInterval = setInterval(() => {
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+        fetchTasks({ silent: true });
+      }, 15000);
+
+      return () => clearInterval(taskPollInterval);
     }
   }, [employeeId, filter, sortBy]);
 

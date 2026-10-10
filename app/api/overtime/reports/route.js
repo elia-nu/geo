@@ -82,14 +82,20 @@ export async function GET(request) {
       await db.collection("overtime_attendance").updateMany(
         {
           status: "in-progress",
-          $or: [
-            { checkOutTime: { $exists: false } },
-            { checkOutTime: null }
+          $and: [
+            {
+              $or: [
+                { checkOutTime: { $exists: false } },
+                { checkOutTime: null },
+              ],
+            },
+            {
+              $or: [
+                { date: { $lt: todayStr } },
+                { checkInTime: { $lt: staleThreshold } },
+              ],
+            },
           ],
-          $or: [
-            { date: { $lt: todayStr } },
-            { checkInTime: { $lt: staleThreshold } }
-          ]
         },
         {
           $set: {

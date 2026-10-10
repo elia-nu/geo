@@ -36,6 +36,12 @@ const DOCUMENT_CATEGORIES = [
   "Other Attachment",
 ];
 
+const getAuthHeaders = () => {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("authToken") || localStorage.getItem("employeeToken");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export default function EmployeeSetupModal({
   employee,
   onClose,
@@ -152,7 +158,9 @@ export default function EmployeeSetupModal({
 
   const fetchWorkLocations = async () => {
     try {
-      const response = await fetch("/api/work-locations");
+      const response = await fetch("/api/work-locations", {
+        headers: getAuthHeaders(),
+      });
       const data = await response.json();
       if (data.success) {
         setWorkLocations(data.locations || []);
@@ -165,7 +173,8 @@ export default function EmployeeSetupModal({
   const fetchEmployeeWorkLocations = async () => {
     try {
       const response = await fetch(
-        `/api/employee/${employee._id}/work-location`
+        `/api/employee/${employee._id}/work-location`,
+        { headers: getAuthHeaders() }
       );
       const data = await response.json();
       if (data.success && data.workLocations) {
@@ -257,30 +266,53 @@ export default function EmployeeSetupModal({
 
     setLoading(true);
     try {
-      const assignmentPromises = selectedWorkLocations.map((locationId) =>
+      const authHeaders = getAuthHeaders();
+      const currentLocIds = (employeeWorkLocations || [])
+        .map((loc) => {
+          const id = loc._id || loc.id;
+          return id ? String(id) : null;
+        })
+        .filter(Boolean);
+
+      const toAdd = selectedWorkLocations.filter((id) => !currentLocIds.includes(id));
+      const toRemove = currentLocIds.filter((id) => !selectedWorkLocations.includes(id));
+
+      const addPromises = toAdd.map((locationId) =>
         fetch(`/api/work-locations/${locationId}/assign-employees`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...authHeaders,
           },
           body: JSON.stringify({ employeeIds: [employee._id] }),
         })
       );
 
-      const responses = await Promise.all(assignmentPromises);
+      const removePromises = toRemove.map((locationId) =>
+        fetch(`/api/work-locations/${locationId}/assign-employees`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify({ employeeIds: [employee._id] }),
+        })
+      );
+
+      const responses = await Promise.all([...addPromises, ...removePromises]);
       const results = await Promise.all(responses.map((res) => res.json()));
 
       const failedAssignments = results.filter((result) => !result.success);
 
       if (failedAssignments.length > 0) {
         onError(
-          `Failed to assign ${failedAssignments.length} location(s). Please try again.`
+          `Failed to update ${failedAssignments.length} location(s). Please try again.`
         );
         return;
       }
 
       onSuccess(
-        `${selectedWorkLocations.length} work location(s) assigned successfully!`
+        `${selectedWorkLocations.length} work location(s) updated successfully!`
       );
       await fetchEmployeeWorkLocations();
     } catch (error) {

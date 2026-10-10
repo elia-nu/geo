@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import { unlink } from "fs/promises";
+import { join } from "path";
+import { mkdir, writeFile, unlink } from "fs/promises";
 import { getDb } from "../../../../mongo";
 import { getCurrentUser, checkPermission } from "../../../../middleware/auth";
 import { createAuditLog } from "../../../../../utils/audit";
+
+function safeFilename(name) {
+  return (name || "file").replace(/[^a-zA-Z0-9.-]/g, "_");
+}
 
 function toISODateOnly(d) {
   if (!d) return null;
@@ -36,15 +41,30 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const body = await request.json();
-    const {
-      title,
-      description,
-      contractorName,
-      contractorEmail,
-      expiryDate,
-      status,
-    } = body || {};
+    let title, description, contractorName, contractorEmail, expiryDate, status, newFile = null;
+
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      title = formData.get("title");
+      description = formData.get("description");
+      contractorName = formData.get("contractorName");
+      contractorEmail = formData.get("contractorEmail");
+      expiryDate = formData.get("expiryDate");
+      status = formData.get("status");
+      const fileCandidate = formData.get("file");
+      if (fileCandidate && typeof fileCandidate === "object" && fileCandidate.name) {
+        newFile = fileCandidate;
+      }
+    } else {
+      const body = await request.json();
+      title = body?.title;
+      description = body?.description;
+      contractorName = body?.contractorName;
+      contractorEmail = body?.contractorEmail;
+      expiryDate = body?.expiryDate;
+      status = body?.status;
+    }
 
     const update = {
       updatedAt: new Date(),
@@ -81,6 +101,36 @@ export async function PUT(request, { params }) {
         { success: false, error: "Document not found" },
         { status: 404 }
       );
+    }
+
+    if (newFile) {
+      const uploadsDir = join(
+        process.cwd(),
+        "uploads",
+        "project-documents",
+        projectId
+      );
+      await mkdir(uploadsDir, { recursive: true });
+
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      const safeName = safeFilename(newFile.name);
+      const storedFileName = `${uniqueSuffix}-${safeName}`;
+      const filePath = join(uploadsDir, storedFileName);
+
+      const buffer = Buffer.from(await newFile.arrayBuffer());
+      await writeFile(filePath, buffer);
+
+      if (existing.filePath) {
+        try {
+          await unlink(existing.filePath);
+        } catch {}
+      }
+
+      update.originalName = newFile.name;
+      update.storedFileName = storedFileName;
+      update.filePath = filePath;
+      update.size = newFile.size;
+      update.mimeType = newFile.type || "application/octet-stream";
     }
 
     await db.collection("project_documents").updateOne(

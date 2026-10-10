@@ -122,6 +122,7 @@ export async function checkPermission(userId, permission, userRoleFromToken = nu
         "employee.read.own", "employee.update.own",
         "document.read.own", "document.create.own",
         "attendance.checkin", "leave.request", "task.read.own",
+        "project.read.assigned", "project.read.own",
       ];
       return defaultPerms.includes(permission);
     }
@@ -132,6 +133,14 @@ export async function checkPermission(userId, permission, userRoleFromToken = nu
     }
 
     if (effectivePerms.includes("*")) {
+      return true;
+    }
+
+    // Standard employee read access to assigned projects
+    if (
+      roleName === "EMPLOYEE" &&
+      (permission === "project.read.assigned" || permission === "project.read.own")
+    ) {
       return true;
     }
 

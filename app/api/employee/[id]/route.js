@@ -7,14 +7,39 @@ import bcrypt from "bcryptjs";
 // Get a specific employee by ID
 export async function GET(request, { params }) {
   try {
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Missing employee ID" },
+        { status: 400 }
+      );
+    }
     const db = await getDb();
 
-    console.log("Fetching employee with ID:", params.id);
+    console.log("Fetching employee with ID:", id);
+
+    let query;
+    if (ObjectId.isValid(id)) {
+      query = {
+        $or: [
+          { _id: new ObjectId(id) },
+          { employeeId: id },
+          { empId: id },
+          { "personalDetails.employeeId": id },
+        ],
+      };
+    } else {
+      query = {
+        $or: [
+          { employeeId: id },
+          { empId: id },
+          { "personalDetails.employeeId": id },
+        ],
+      };
+    }
 
     // Find the employee
-    const employee = await db.collection("employees").findOne({
-      _id: new ObjectId(params.id),
-    });
+    const employee = await db.collection("employees").findOne(query);
 
     if (!employee) {
       return NextResponse.json(
@@ -29,6 +54,7 @@ export async function GET(request, { params }) {
     const serializedEmployee = {
       ...employee,
       _id: employee._id.toString(),
+      id: employee._id.toString(),
     };
 
     return NextResponse.json({
@@ -47,13 +73,38 @@ export async function GET(request, { params }) {
 // Update an employee
 export async function PUT(request, { params }) {
   try {
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json(
+        { error: "Missing employee ID" },
+        { status: 400 }
+      );
+    }
     const body = await request.json();
     const db = await getDb();
 
+    let query;
+    if (ObjectId.isValid(id)) {
+      query = {
+        $or: [
+          { _id: new ObjectId(id) },
+          { employeeId: id },
+          { empId: id },
+          { "personalDetails.employeeId": id },
+        ],
+      };
+    } else {
+      query = {
+        $or: [
+          { employeeId: id },
+          { empId: id },
+          { "personalDetails.employeeId": id },
+        ],
+      };
+    }
+
     // Get the current employee data for audit trail
-    const currentEmployee = await db.collection("employees").findOne({
-      _id: new ObjectId(params.id),
-    });
+    const currentEmployee = await db.collection("employees").findOne(query);
 
     if (!currentEmployee) {
       return NextResponse.json(
@@ -150,10 +201,10 @@ export async function PUT(request, { params }) {
 
     const result = await db
       .collection("employees")
-      .updateOne({ _id: new ObjectId(params.id) }, { $set: updateData });
+      .updateOne({ _id: currentEmployee._id }, { $set: updateData });
 
     // After updating employee, check if they need user role/password
-    const employeeId = params.id;
+    const employeeId = currentEmployee._id.toString();
     const employeeEmail =
       body.personalDetails?.email ||
       body.email ||
@@ -306,12 +357,37 @@ export async function PUT(request, { params }) {
 // Delete an employee
 export async function DELETE(request, { params }) {
   try {
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json(
+        { error: "Missing employee ID" },
+        { status: 400 }
+      );
+    }
     const db = await getDb();
 
+    let query;
+    if (ObjectId.isValid(id)) {
+      query = {
+        $or: [
+          { _id: new ObjectId(id) },
+          { employeeId: id },
+          { empId: id },
+          { "personalDetails.employeeId": id },
+        ],
+      };
+    } else {
+      query = {
+        $or: [
+          { employeeId: id },
+          { empId: id },
+          { "personalDetails.employeeId": id },
+        ],
+      };
+    }
+
     // Get the employee data before deletion for audit trail
-    const employee = await db.collection("employees").findOne({
-      _id: new ObjectId(params.id),
-    });
+    const employee = await db.collection("employees").findOne(query);
 
     if (!employee) {
       return NextResponse.json(
@@ -323,18 +399,26 @@ export async function DELETE(request, { params }) {
     // Delete from main employees collection
     const result = await db
       .collection("employees")
-      .deleteOne({ _id: new ObjectId(params.id) });
+      .deleteOne({ _id: employee._id });
 
-    // Delete all related data from other collections
-    console.log(`Deleting related data for employee ${params.id}...`);
+    // Delete all related data from other collections and unassign from locations & projects
+    console.log(`Deleting related data for employee ${id}...`);
 
     await Promise.all([
-      db.collection("documents").deleteMany({ employeeId: params.id }),
-      db.collection("employment_history").deleteMany({ employeeId: params.id }),
-      db.collection("certifications").deleteMany({ employeeId: params.id }),
-      db.collection("employee_skills").deleteMany({ employeeId: params.id }),
-      db.collection("health_records").deleteMany({ employeeId: params.id }),
-      db.collection("user_roles").deleteMany({ userId: params.id }),
+      db.collection("documents").deleteMany({ employeeId: id }),
+      db.collection("employment_history").deleteMany({ employeeId: id }),
+      db.collection("certifications").deleteMany({ employeeId: id }),
+      db.collection("employee_skills").deleteMany({ employeeId: id }),
+      db.collection("health_records").deleteMany({ employeeId: id }),
+      db.collection("user_roles").deleteMany({ userId: id }),
+      db.collection("work_locations").updateMany(
+        {},
+        { $pull: { assignedEmployees: { $in: [new ObjectId(id), id] } } }
+      ),
+      db.collection("projects").updateMany(
+        {},
+        { $pull: { assignedEmployees: { $in: [new ObjectId(id), id] } } }
+      ),
     ]);
 
     console.log(`✅ Successfully deleted employee and all related data`);

@@ -76,8 +76,16 @@ import {
   showValidationErrors,
   showErrorToast,
   showSuccessToast,
+  showLoadingToast,
+  closeDialog,
 } from "../../utils/sweetAlert";
 import { usePermissions } from "../../hooks/usePermissions";
+
+const getAuthHeaders = () => {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("authToken") || localStorage.getItem("employeeToken");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 const ProjectDetailPage = ({ params }) => {
   const { id: projectId } = use(params);
@@ -251,13 +259,14 @@ const ProjectDetailPage = ({ params }) => {
       setError(null);
 
       // Fetch core data in parallel for better performance (alerts loaded separately)
+      const authHeaders = getAuthHeaders();
       const [projectResponse, teamResponse, tasksResponse, financialResponse, docsResponse] =
         await Promise.all([
-          fetch(`/api/projects/${projectId}`),
-          fetch(`/api/projects/${projectId}/assign-employees`),
-          fetch(`/api/tasks?projectId=${projectId}`),
-          fetch(`/api/projects/${projectId}/financial-summary`),
-          fetch(`/api/projects/${projectId}/documents`),
+          fetch(`/api/projects/${projectId}`, { headers: authHeaders }),
+          fetch(`/api/projects/${projectId}/assign-employees`, { headers: authHeaders }),
+          fetch(`/api/tasks?projectId=${projectId}`, { headers: authHeaders }),
+          fetch(`/api/projects/${projectId}/financial-summary`, { headers: authHeaders }),
+          fetch(`/api/projects/${projectId}/documents`, { headers: authHeaders }),
         ]);
 
       // Process project data
@@ -286,9 +295,11 @@ const ProjectDetailPage = ({ params }) => {
           // Generate latest alerts then fetch for this project
           await fetch(`/api/project-alerts?projectId=${projectId}`, {
             method: "PUT",
+            headers: authHeaders,
           });
           const ar = await fetch(
             `/api/project-alerts?projectId=${projectId}&status=active`,
+            { headers: authHeaders }
           );
           const ad = await ar.json();
           if (ad.success) {
@@ -471,9 +482,11 @@ const ProjectDetailPage = ({ params }) => {
       showLoadingToast("Uploading project image...");
       const res = await fetch(`/api/projects/${projectId}/photo`, {
         method: "POST",
+        headers: getAuthHeaders(),
         body: formData,
       });
       const data = await res.json();
+      closeDialog();
       if (data.success) {
         showSuccessToast("Success", "Project image uploaded successfully!");
         setProject((prev) => ({
@@ -484,6 +497,7 @@ const ProjectDetailPage = ({ params }) => {
         showErrorToast("Upload Failed", data.error || "Failed to upload image");
       }
     } catch (err) {
+      closeDialog();
       console.error("Upload error:", err);
       showErrorToast("Error", "Error uploading image: " + err.message);
     } finally {
@@ -497,8 +511,10 @@ const ProjectDetailPage = ({ params }) => {
       showLoadingToast("Removing project image...");
       const res = await fetch(`/api/projects/${projectId}/photo`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
       const data = await res.json();
+      closeDialog();
       if (data.success) {
         showSuccessToast("Removed", "Project image removed");
         setProject((prev) => ({
@@ -509,6 +525,7 @@ const ProjectDetailPage = ({ params }) => {
         showErrorToast("Error", data.error || "Failed to remove image");
       }
     } catch (err) {
+      closeDialog();
       console.error("Remove image error:", err);
       showErrorToast("Error", "Error removing image");
     }
@@ -553,7 +570,10 @@ const ProjectDetailPage = ({ params }) => {
       showLoadingToast("Updating project...");
       const res = await fetch(`/api/projects/${projectId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify(editForm),
       });
       const data = await res.json();
@@ -564,16 +584,20 @@ const ProjectDetailPage = ({ params }) => {
           imgFormData.append("image", editImageFile);
           await fetch(`/api/projects/${projectId}/photo`, {
             method: "POST",
+            headers: getAuthHeaders(),
             body: imgFormData,
           });
         }
+        closeDialog();
         showSuccessToast("Success", "Project updated successfully!");
         setIsEditingProject(false);
         refreshData();
       } else {
+        closeDialog();
         showErrorToast("Update Failed", data.error || "Failed to update project");
       }
     } catch (err) {
+      closeDialog();
       console.error("Update error:", err);
       showErrorToast("Error", "Error updating project: " + err.message);
     } finally {
@@ -681,6 +705,7 @@ const ProjectDetailPage = ({ params }) => {
         method: method,
         headers: {
           "Content-Type": "application/json",
+          ...getAuthHeaders(),
         },
         body: JSON.stringify(budgetData),
       });

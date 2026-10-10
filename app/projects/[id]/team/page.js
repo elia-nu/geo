@@ -48,6 +48,12 @@ const statusStyles = {
   active: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
 };
 
+const getAuthHeaders = () => {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("authToken") || localStorage.getItem("employeeToken");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 const ProjectTeamPage = ({ params }) => {
   const { id: projectId } = use(params);
   const { hasPermission } = usePermissions();
@@ -80,15 +86,19 @@ const ProjectTeamPage = ({ params }) => {
   const fetchProjectData = async () => {
     try {
       setLoading(true);
+      const authHeaders = getAuthHeaders();
 
-      const projectResponse = await fetch(`/api/projects/${projectId}`);
+      const projectResponse = await fetch(`/api/projects/${projectId}`, {
+        headers: authHeaders,
+      });
       const projectData = await projectResponse.json();
 
       if (projectData.success) {
         setProject(projectData.project);
 
         const teamResponse = await fetch(
-          `/api/projects/${projectId}/assign-employees`
+          `/api/projects/${projectId}/assign-employees`,
+          { headers: authHeaders }
         );
         const teamData = await teamResponse.json();
 
@@ -110,7 +120,9 @@ const ProjectTeamPage = ({ params }) => {
 
   const fetchAvailableEmployees = async () => {
     try {
-      const response = await fetch("/api/employees");
+      const response = await fetch("/api/employees", {
+        headers: getAuthHeaders(),
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -160,6 +172,7 @@ const ProjectTeamPage = ({ params }) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify({ employeeIds }),
         }
@@ -200,6 +213,7 @@ const ProjectTeamPage = ({ params }) => {
         `/api/projects/${projectId}/assign-employees?employeeId=${employee._id}`,
         {
           method: "DELETE",
+          headers: getAuthHeaders(),
         }
       );
 

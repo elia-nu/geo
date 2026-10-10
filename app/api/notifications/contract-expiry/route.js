@@ -315,13 +315,19 @@ export async function GET(request) {
     const employees = await db
       .collection("employees")
       .find({
-        $or: [
-          { "personalDetails.employeeType": "Contractual" },
-          { employeeType: "Contractual" },
-        ],
-        $or: [
-          { "personalDetails.contractExpiryDate": { $exists: true, $ne: null } },
-          { contractExpiryDate: { $exists: true, $ne: null } },
+        $and: [
+          {
+            $or: [
+              { "personalDetails.employeeType": "Contractual" },
+              { employeeType: "Contractual" },
+            ],
+          },
+          {
+            $or: [
+              { "personalDetails.contractExpiryDate": { $exists: true, $ne: null } },
+              { contractExpiryDate: { $exists: true, $ne: null } },
+            ],
+          },
         ],
       })
       .toArray();

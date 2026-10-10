@@ -48,6 +48,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
     attendanceId: "",
   });
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Document types
@@ -124,15 +125,40 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
     }));
   };
 
+  const addValidFiles = (files) => {
+    const validFiles = [];
+    const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+    for (const f of files) {
+      if (f.size > maxSizeBytes) {
+        showMessage(`File "${f.name}" exceeds the 10MB limit.`, "error");
+        continue;
+      }
+      validFiles.push(f);
+    }
+    if (validFiles.length > 0) {
+      setSelectedFiles((prev) => {
+        const existingKeys = new Set(prev.map((d) => `${d.name}_${d.size}`));
+        const uniqueNew = validFiles.filter(
+          (d) => !existingKeys.has(`${d.name}_${d.size}`)
+        );
+        return [...prev, ...uniqueNew];
+      });
+    }
+  };
+
   // Handle file selection
   const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedFiles(files);
+    const files = Array.from(e.target.files || []);
+    addValidFiles(files);
   };
 
   // Remove selected file
   const removeFile = (index) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllFiles = () => {
+    setSelectedFiles([]);
   };
 
   // Submit document/request
@@ -752,10 +778,33 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
 
               {/* File Upload */}
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">
-                  Supporting Documents
-                </label>
-                <div className="border-2 border-dashed border-gray-300 hover:border-purple-400 rounded-xl p-4 sm:p-6 text-center transition-colors">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-700">
+                    Supporting Documents
+                  </label>
+                  <span className="text-[11px] text-gray-500">
+                    PDF, DOC, DOCX, JPG, PNG (Max 10MB each)
+                  </span>
+                </div>
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    if (e.dataTransfer.files?.length) {
+                      addValidFiles(Array.from(e.dataTransfer.files));
+                    }
+                  }}
+                  className={`border-2 border-dashed rounded-xl p-4 sm:p-6 text-center transition-all ${
+                    isDragging
+                      ? "border-purple-500 bg-purple-50/70 scale-[1.01]"
+                      : "border-gray-300 hover:border-purple-400 bg-slate-50/30"
+                  }`}
+                >
                   <input
                     type="file"
                     multiple
@@ -768,12 +817,14 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                     htmlFor="file-upload"
                     className="cursor-pointer flex flex-col items-center space-y-1.5"
                   >
-                    <Upload className="w-7 h-7 text-purple-600" />
+                    <div className="w-9 h-9 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                      <Upload className="w-5 h-5" />
+                    </div>
                     <span className="text-xs sm:text-sm font-semibold text-purple-700">
-                      Click to upload or drag and drop
+                      Click to upload or drag and drop files here
                     </span>
                     <span className="text-[11px] text-gray-500">
-                      PDF, DOC, DOCX, JPG, PNG up to 10MB each
+                      Medical slips, excuse notes, or relevant attachments
                     </span>
                   </label>
                 </div>
@@ -781,9 +832,16 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                 {/* Selected Files */}
                 {selectedFiles.length > 0 && (
                   <div className="mt-3 space-y-2">
-                    <h4 className="text-xs font-semibold text-slate-700">
-                      Selected Files:
-                    </h4>
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                      <span>Selected Files ({selectedFiles.length}):</span>
+                      <button
+                        type="button"
+                        onClick={clearAllFiles}
+                        className="text-rose-600 hover:text-rose-800 text-[11px] font-medium"
+                      >
+                        Clear All
+                      </button>
+                    </div>
                     {selectedFiles.map((file, index) => (
                       <div
                         key={index}
@@ -791,7 +849,7 @@ export default function AttendanceDocuments({ employeeId, employeeName }) {
                       >
                         <div className="flex items-center space-x-2 min-w-0 pr-2">
                           <Paperclip className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" />
-                          <span className="text-xs text-slate-800 font-medium truncate">
+                          <span className="text-xs text-slate-800 font-medium truncate" title={file.name}>
                             {file.name}
                           </span>
                           <span className="text-[10px] text-slate-400 flex-shrink-0">

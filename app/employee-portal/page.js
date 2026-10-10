@@ -123,15 +123,17 @@ export default function EmployeePortal() {
         return;
       }
 
-      // Set initial employee data
-      setEmployeeData(employee);
+      const normalizedEmployee = {
+        ...employee,
+        _id: employee._id || employee.id || employee.employeeId,
+        id: employee._id || employee.id || employee.employeeId,
+      };
 
-      // If employee already has workLocations from localStorage, use them initially
-      if (employee.workLocations && employee.workLocations.length > 0) {
-        // For now, just set the IDs - we'll fetch full location details
-        setWorkLocations([]);
-        await fetchWorkLocationsForEmployee(employee);
-      }
+      // Set initial employee data
+      setEmployeeData(normalizedEmployee);
+
+      // Immediately fetch work locations for employee
+      await fetchWorkLocationsForEmployee(normalizedEmployee);
 
       // Always fetch fresh data from database to ensure we have the latest
       await fetchLatestEmployeeData(employeeId);
@@ -157,12 +159,21 @@ export default function EmployeePortal() {
 
   const fetchLatestEmployeeData = async (employeeId) => {
     try {
+      const token =
+        localStorage.getItem("employeeToken") ||
+        localStorage.getItem("authToken");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
       // Fetch the latest employee data from the database
-      const response = await fetch(`/api/employee/${employeeId}`);
+      const response = await fetch(`/api/employee/${employeeId}`, { headers });
       const result = await response.json();
 
       if (result.success && result.employee) {
-        const latestEmployee = result.employee;
+        const latestEmployee = {
+          ...result.employee,
+          _id: result.employee._id || result.employee.id || employeeId,
+          id: result.employee._id || result.employee.id || employeeId,
+        };
         // Update employee data
         setEmployeeData(latestEmployee);
 
@@ -172,43 +183,30 @@ export default function EmployeePortal() {
         // Fetch work locations for the employee
         await fetchWorkLocationsForEmployee(latestEmployee);
       } else {
-        console.error("Failed to fetch employee data:", result.error);
-        setError("Failed to load employee data. Please login again.");
+        console.warn("Failed to fetch latest employee data from API:", result?.error);
+        if (employeeData) {
+          await fetchWorkLocationsForEmployee(employeeData);
+        }
       }
     } catch (error) {
       console.error("Error fetching latest employee data:", error);
-      setError("Failed to load employee data. Please login again.");
+      if (employeeData) {
+        await fetchWorkLocationsForEmployee(employeeData);
+      }
     }
   };
 
   const fetchWorkLocationsForEmployee = async (employee) => {
     try {
-      // Check for work locations in different possible formats
-      let locationIds = [];
+      if (!employee) return;
 
-      // New format: workLocations array
-      if (employee.workLocations && Array.isArray(employee.workLocations)) {
-        locationIds = employee.workLocations;
-      }
-      // Old format: single workLocation object
-      else if (employee.workLocation && employee.workLocation._id) {
-        locationIds = [employee.workLocation._id];
-      }
-      // Check in personalDetails
-      else if (
-        employee.personalDetails?.workLocation &&
-        employee.personalDetails.workLocation._id
-      ) {
-        locationIds = [employee.personalDetails.workLocation._id];
-      }
-
-      if (locationIds.length === 0) {
-        setWorkLocations([]);
-        return;
-      }
+      const token =
+        localStorage.getItem("employeeToken") ||
+        localStorage.getItem("authToken");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       // Fetch all work locations
-      const response = await fetch("/api/work-locations");
+      const response = await fetch("/api/work-locations", { headers });
       const result = await response.json();
 
       if (
@@ -216,14 +214,89 @@ export default function EmployeePortal() {
         result.locations &&
         Array.isArray(result.locations)
       ) {
-        // Filter locations that belong to this employee
-        // Convert both locationIds and location._id to strings for comparison
+        // Collect all possible identifier representations for the employee
+        const empIds = [
+          employee._id?.toString(),
+          employee.id?.toString(),
+          employee.employeeId,
+          employee.empId,
+          employee.personalDetails?.employeeId,
+        ]
+          .filter(Boolean)
+          .map((s) => s.toLowerCase());
+
+        // Collect all target location IDs or names assigned to this employee
+        const targetLocationIdentifiers = [];
+
+        // 1. workLocations array (could contain IDs, objects, or names)
+        if (Array.isArray(employee.workLocations)) {
+          employee.workLocations.forEach((loc) => {
+            if (!loc) return;
+            if (typeof loc === "string") {
+              targetLocationIdentifiers.push(loc.toLowerCase());
+            } else if (loc._id) {
+              targetLocationIdentifiers.push(loc._id.toString().toLowerCase());
+            } else if (loc.id) {
+              targetLocationIdentifiers.push(loc.id.toString().toLowerCase());
+            } else if (loc.name) {
+              targetLocationIdentifiers.push(loc.name.toLowerCase());
+            } else if (loc.siteName) {
+              targetLocationIdentifiers.push(loc.siteName.toLowerCase());
+            }
+          });
+        }
+
+        // 2. single workLocation (string name/ID or object)
+        const singleLoc =
+          employee.workLocation || employee.personalDetails?.workLocation;
+        if (singleLoc) {
+          if (typeof singleLoc === "string") {
+            targetLocationIdentifiers.push(singleLoc.toLowerCase());
+          } else if (singleLoc._id) {
+            targetLocationIdentifiers.push(
+              singleLoc._id.toString().toLowerCase()
+            );
+          } else if (singleLoc.id) {
+            targetLocationIdentifiers.push(
+              singleLoc.id.toString().toLowerCase()
+            );
+          } else if (singleLoc.name) {
+            targetLocationIdentifiers.push(singleLoc.name.toLowerCase());
+          } else if (singleLoc.siteName) {
+            targetLocationIdentifiers.push(singleLoc.siteName.toLowerCase());
+          }
+        }
+
+        // Filter locations that match this employee:
+        // A) location._id matches one of targetLocationIdentifiers
+        // B) location.name or location.siteName matches one of targetLocationIdentifiers
+        // C) employee is listed in location.assignedEmployees
         const employeeLocations = result.locations.filter((location) => {
-          const locationIdStr = location._id.toString();
-          const hasMatch = locationIds.some(
-            (id) => id.toString() === locationIdStr
-          );
-          return hasMatch;
+          const locId = location._id?.toString()?.toLowerCase();
+          const locName = (location.name || "").toLowerCase();
+          const locSiteName = (location.siteName || "").toLowerCase();
+
+          // Check target location identifiers
+          const idMatch = locId && targetLocationIdentifiers.includes(locId);
+          const nameMatch =
+            (locName && targetLocationIdentifiers.includes(locName)) ||
+            (locSiteName && targetLocationIdentifiers.includes(locSiteName));
+
+          // Check if employee is in location.assignedEmployees
+          const assignedList = Array.isArray(location.assignedEmployees)
+            ? location.assignedEmployees
+            : [];
+          const assignedMatch = assignedList.some((assignee) => {
+            if (!assignee) return false;
+            const assigneeStr = (
+              typeof assignee === "object" && assignee._id
+                ? assignee._id.toString()
+                : assignee.toString()
+            ).toLowerCase();
+            return empIds.includes(assigneeStr);
+          });
+
+          return idMatch || nameMatch || assignedMatch;
         });
 
         setWorkLocations(employeeLocations);
@@ -271,13 +344,15 @@ export default function EmployeePortal() {
   };
 
   const markAsRead = async (notificationIds) => {
-    if (!employeeData?._id) return;
+    const targetId =
+      employeeData?._id || employeeData?.id || employeeData?.employeeId;
+    if (!targetId) return;
     try {
       const response = await fetch("/api/notifications/employee", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          employeeId: employeeData._id,
+          employeeId: targetId,
           notificationIds: Array.isArray(notificationIds)
             ? notificationIds
             : [notificationIds],
@@ -286,7 +361,7 @@ export default function EmployeePortal() {
 
       const data = await response.json();
       if (data.success) {
-        await fetchNotifications(employeeData._id);
+        await fetchNotifications(targetId);
       }
     } catch (error) {
       console.error("Error marking notification as read:", error);
@@ -294,20 +369,22 @@ export default function EmployeePortal() {
   };
 
   const markAllAsRead = async () => {
-    if (!employeeData?._id) return;
+    const targetId =
+      employeeData?._id || employeeData?.id || employeeData?.employeeId;
+    if (!targetId) return;
     try {
       const response = await fetch("/api/notifications/employee", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          employeeId: employeeData._id,
+          employeeId: targetId,
           markAllAsRead: true,
         }),
       });
 
       const data = await response.json();
       if (data.success) {
-        await fetchNotifications(employeeData._id);
+        await fetchNotifications(targetId);
       }
     } catch (error) {
       console.error("Error marking all as read:", error);
@@ -344,21 +421,26 @@ export default function EmployeePortal() {
   const renderActiveSection = () => {
     if (!employeeData) return null;
 
+    const activeEmployeeId =
+      employeeData._id || employeeData.id || employeeData.employeeId;
+    const activeEmployeeName =
+      employeeData.name || employeeData.personalDetails?.name;
+
     switch (activeSection) {
       case "dashboard":
         return (
           <div className="space-y-6">
             <EmployeeDashboard
-              employeeId={employeeData._id}
-              employeeName={employeeData.name}
+              employeeId={activeEmployeeId}
+              employeeName={activeEmployeeName}
             />
           </div>
         );
       case "attendance":
         return (
           <EnhancedDailyAttendance
-            employeeId={employeeData._id}
-            employeeName={employeeData.name}
+            employeeId={activeEmployeeId}
+            employeeName={activeEmployeeName}
             employeeData={employeeData}
             workLocations={workLocations}
           />
@@ -366,44 +448,44 @@ export default function EmployeePortal() {
       case "attendance-history":
         return (
           <EmployeeAttendanceHistory
-            employeeId={employeeData._id}
-            employeeName={employeeData.name}
+            employeeId={activeEmployeeId}
+            employeeName={activeEmployeeName}
           />
         );
       case "overtime":
         return (
           <EmployeeOvertime
-            employeeId={employeeData._id || employeeData.id}
-            employeeName={employeeData.name}
+            employeeId={activeEmployeeId}
+            employeeName={activeEmployeeName}
             workLocations={workLocations}
           />
         );
       case "leave-requests":
         return (
           <EmployeeLeaveRequest
-            employeeId={employeeData._id}
-            employeeName={employeeData.name}
+            employeeId={activeEmployeeId}
+            employeeName={activeEmployeeName}
           />
         );
       case "leave-balance":
         return (
           <LeaveBalance
-            employeeId={employeeData._id}
-            employeeName={employeeData.name}
+            employeeId={activeEmployeeId}
+            employeeName={activeEmployeeName}
           />
         );
       case "documents":
         return (
           <AttendanceDocuments
-            employeeId={employeeData._id}
-            employeeName={employeeData.name}
+            employeeId={activeEmployeeId}
+            employeeName={activeEmployeeName}
           />
         );
       case "requests-status":
         return (
           <EmployeeRequestStatus
-            employeeId={employeeData._id}
-            employeeName={employeeData.name}
+            employeeId={activeEmployeeId}
+            employeeName={activeEmployeeName}
           />
         );
       case "profile":
@@ -414,11 +496,11 @@ export default function EmployeePortal() {
           />
         );
       case "projects":
-        return <EmployeeProjects employeeId={employeeData._id} />;
+        return <EmployeeProjects employeeId={activeEmployeeId} />;
       case "tasks":
-        return <EmployeeTasks employeeId={employeeData._id} />;
+        return <EmployeeTasks employeeId={activeEmployeeId} />;
       case "milestones":
-        return <EmployeeMilestones employeeId={employeeData._id} />;
+        return <EmployeeMilestones employeeId={activeEmployeeId} />;
       default:
         return (
           <div className="flex items-center justify-center h-64">
@@ -544,64 +626,72 @@ export default function EmployeePortal() {
 
                   {/* Notifications Dropdown */}
                   {showNotifications && (
-                    <div className="notification-dropdown absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 z-50 max-h-96 overflow-hidden flex flex-col">
-                      <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
-                        <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                          Notifications
-                        </h3>
-                        {unreadCount > 0 && (
-                          <button
-                            onClick={markAllAsRead}
-                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-                          >
-                            Mark all read
-                          </button>
-                        )}
-                      </div>
-                      <div className="overflow-y-auto max-h-80 divide-y divide-slate-100 dark:divide-slate-800">
-                        {notifications.length > 0 ? (
-                          notifications.map((notification) => (
-                            <div
-                              key={notification._id}
-                              className={`p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors ${
-                                !notification.isRead ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
-                              }`}
-                              onClick={() => {
-                                if (!notification.isRead) {
-                                  markAsRead(notification._id);
-                                }
-                                if (notification.actionUrl) {
-                                  window.location.href = notification.actionUrl;
-                                }
-                                setShowNotifications(false);
-                              }}
+                    <>
+                      {/* Mobile backdrop to dismiss notifications */}
+                      <div
+                        className="fixed inset-0 z-40 sm:hidden"
+                        onClick={() => setShowNotifications(false)}
+                        aria-hidden="true"
+                      />
+                      <div className="notification-dropdown fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-16 sm:top-auto sm:mt-2 sm:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 z-50 max-h-[80vh] sm:max-h-96 overflow-hidden flex flex-col">
+                        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+                          <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                            Notifications
+                          </h3>
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={markAllAsRead}
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
                             >
-                              <div className="flex items-start gap-2.5">
-                                <div
-                                  className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                                    !notification.isRead
-                                      ? "bg-blue-600"
-                                      : "bg-transparent"
-                                  }`}
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-semibold text-xs text-slate-900 dark:text-white truncate">
-                                    {notification.title}
-                                  </p>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
-                                    {notification.message}
-                                  </p>
+                              Mark all read
+                            </button>
+                          )}
+                        </div>
+                        <div className="overflow-y-auto max-h-[calc(80vh-4rem)] sm:max-h-80 divide-y divide-slate-100 dark:divide-slate-800">
+                          {notifications.length > 0 ? (
+                            notifications.map((notification) => (
+                              <div
+                                key={notification._id}
+                                className={`p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors ${
+                                  !notification.isRead ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                                }`}
+                                onClick={() => {
+                                  if (!notification.isRead) {
+                                    markAsRead(notification._id);
+                                  }
+                                  if (notification.actionUrl) {
+                                    window.location.href = notification.actionUrl;
+                                  }
+                                  setShowNotifications(false);
+                                }}
+                              >
+                                <div className="flex items-start gap-2.5">
+                                  <div
+                                    className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                                      !notification.isRead
+                                        ? "bg-blue-600"
+                                        : "bg-transparent"
+                                    }`}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-xs text-slate-900 dark:text-white truncate">
+                                      {notification.title}
+                                    </p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                                      {notification.message}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
+                            ))
+                          ) : (
+                            <div className="p-8 text-center text-slate-400 text-xs">
+                              No notifications
                             </div>
-                          ))
-                        ) : (
-                          <div className="p-8 text-center text-slate-400 text-xs">
-                            No notifications
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               )}

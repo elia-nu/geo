@@ -92,16 +92,20 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     const user = await getCurrentUser(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (user && user.userId !== "guest" && user.authenticated) {
+      const hasPerm =
+        user.role === "ADMIN" ||
+        user.role === "EMPLOYEE" ||
+        (await checkPermission(user.userId, "location.read", user.role)) ||
+        (await checkPermission(user.userId, "attendance.checkin", user.role)) ||
+        (await checkPermission(user.userId, "employee.read.own", user.role));
 
-    const hasPerm = await checkPermission(user.userId, "location.read", user.role);
-    if (!hasPerm) {
-      return NextResponse.json(
-        { error: "Access denied. 'location.read' permission required." },
-        { status: 403 }
-      );
+      if (!hasPerm) {
+        return NextResponse.json(
+          { error: "Access denied. 'location.read' or employee access required." },
+          { status: 403 }
+        );
+      }
     }
 
     const db = await getDb();

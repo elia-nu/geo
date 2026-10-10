@@ -13,6 +13,12 @@ import {
   X,
 } from "lucide-react";
 
+const getAuthHeaders = () => {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("authToken") || localStorage.getItem("employeeToken");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export default function EmployeeSetupPage() {
   const [activeSection, setActiveSection] = useState("employee-setup");
 
@@ -79,15 +85,13 @@ export default function EmployeeSetupPage() {
 
   const fetchEmployees = async () => {
     try {
-      console.log("Fetching employees...");
-      const response = await fetch("/api/employee");
+      const response = await fetch("/api/employee", {
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
-
-      console.log("Employee API response:", result);
 
       if (result.success) {
         setEmployees(result.employees || []);
-        console.log("Employees loaded:", result.employees?.length || 0);
       } else {
         console.error("API returned error:", result.error);
         showMessage(result.error || "Failed to load employees", "error");
@@ -100,7 +104,9 @@ export default function EmployeeSetupPage() {
 
   const fetchWorkLocations = async () => {
     try {
-      const response = await fetch("/api/work-locations");
+      const response = await fetch("/api/work-locations", {
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -116,7 +122,8 @@ export default function EmployeeSetupPage() {
 
     try {
       const response = await fetch(
-        `/api/employee/${selectedEmployee}/work-location`
+        `/api/employee/${selectedEmployee}/work-location`,
+        { headers: getAuthHeaders() }
       );
       const result = await response.json();
 
@@ -218,6 +225,7 @@ export default function EmployeeSetupPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify({ employeeIds: [selectedEmployee] }),
         })
@@ -265,6 +273,7 @@ export default function EmployeeSetupPage() {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify({ employeeIds: [selectedEmployee] }),
         }
