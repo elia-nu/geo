@@ -65,7 +65,7 @@ export default function EmployeePortal() {
       localStorage.removeItem("authToken");
       localStorage.removeItem("employeeData");
     } catch {}
-    window.location.href = "/login";
+    window.location.href = "/employee-login";
   };
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function EmployeePortal() {
       let storedData = localStorage.getItem("employeeData");
 
       if (!token) {
-        window.location.href = "/login";
+        window.location.href = "/employee-login";
         return;
       }
 
@@ -109,7 +109,7 @@ export default function EmployeePortal() {
       }
 
       if (!employee) {
-        window.location.href = "/login";
+        window.location.href = "/employee-login";
         return;
       }
 
