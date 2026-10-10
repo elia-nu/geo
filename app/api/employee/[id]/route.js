@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../utils/audit.js";
+import { linkEmployeeDepartment } from "../../../utils/departmentLink.js";
 import bcrypt from "bcryptjs";
 
 // Get a specific employee by ID
@@ -198,6 +199,17 @@ export async function PUT(request, { params }) {
         : {}),
       ...(bankNameVal !== undefined ? { bankName: bankNameVal } : {}),
     };
+
+    const departmentName =
+      body.personalDetails?.department ?? body.department;
+    if (departmentName !== undefined) {
+      const linkedDepartment = await linkEmployeeDepartment(db, departmentName);
+      updateData.department = linkedDepartment.department;
+      updateData.departmentId = linkedDepartment.departmentId;
+      if (updateData.personalDetails && typeof updateData.personalDetails === "object") {
+        updateData.personalDetails.department = linkedDepartment.department;
+      }
+    }
 
     const result = await db
       .collection("employees")

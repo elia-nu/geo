@@ -170,7 +170,7 @@ export default function EmployeeSetupModal({
     }
   };
 
-  const fetchEmployeeWorkLocations = async () => {
+  const fetchEmployeeWorkLocations = async ({ replaceSelection = false } = {}) => {
     try {
       const response = await fetch(
         `/api/employee/${employee._id}/work-location`,
@@ -180,17 +180,15 @@ export default function EmployeeSetupModal({
       if (data.success && data.workLocations) {
         const locations = data.workLocations || [];
         setEmployeeWorkLocations(locations);
-        setSelectedWorkLocations((prev) => {
-          if (prev.length === 0) {
-            return locations
-              .map((loc) => {
-                const id = loc._id || loc.id;
-                return id ? String(id) : null;
-              })
-              .filter(Boolean);
-          }
-          return prev;
-        });
+        const ids = locations
+          .map((loc) => {
+            const id = loc._id || loc.id;
+            return id ? String(id) : null;
+          })
+          .filter(Boolean);
+        setSelectedWorkLocations((prev) =>
+          replaceSelection || prev.length === 0 ? ids : prev
+        );
       } else {
         setEmployeeWorkLocations([]);
       }
@@ -259,7 +257,14 @@ export default function EmployeeSetupModal({
   };
 
   const handleLocationSubmit = async () => {
-    if (selectedWorkLocations.length === 0) {
+    const currentLocIds = (employeeWorkLocations || [])
+      .map((loc) => {
+        const id = loc._id || loc.id;
+        return id ? String(id) : null;
+      })
+      .filter(Boolean);
+
+    if (selectedWorkLocations.length === 0 && currentLocIds.length === 0) {
       onError("Please select at least one work location");
       return;
     }
@@ -267,13 +272,6 @@ export default function EmployeeSetupModal({
     setLoading(true);
     try {
       const authHeaders = getAuthHeaders();
-      const currentLocIds = (employeeWorkLocations || [])
-        .map((loc) => {
-          const id = loc._id || loc.id;
-          return id ? String(id) : null;
-        })
-        .filter(Boolean);
-
       const toAdd = selectedWorkLocations.filter((id) => !currentLocIds.includes(id));
       const toRemove = currentLocIds.filter((id) => !selectedWorkLocations.includes(id));
 
@@ -312,9 +310,11 @@ export default function EmployeeSetupModal({
       }
 
       onSuccess(
-        `${selectedWorkLocations.length} work location(s) updated successfully!`
+        selectedWorkLocations.length === 0
+          ? "All work locations removed"
+          : `${selectedWorkLocations.length} work location(s) updated successfully!`
       );
-      await fetchEmployeeWorkLocations();
+      await fetchEmployeeWorkLocations({ replaceSelection: true });
     } catch (error) {
       console.error("Error assigning work locations:", error);
       onError("Failed to assign work locations. Please try again.");
@@ -469,7 +469,7 @@ export default function EmployeeSetupModal({
       }
 
       onSuccess("Work location removed successfully!");
-      await fetchEmployeeWorkLocations();
+      await fetchEmployeeWorkLocations({ replaceSelection: true });
     } catch (error) {
       console.error("Error removing location:", error);
       onError("Failed to remove work location. Please try again.");
@@ -726,7 +726,7 @@ export default function EmployeeSetupModal({
                 <div className="pt-3 flex justify-end">
                   <button
                     type="button"
-                    disabled={loading || selectedWorkLocations.length === 0}
+                    disabled={loading}
                     onClick={handleLocationSubmit}
                     className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-2"
                   >

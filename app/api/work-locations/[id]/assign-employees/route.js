@@ -3,6 +3,7 @@ import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
 import { getCurrentUser, checkPermission } from "../../../middleware/auth.js";
+import { detachEmployeesFromLocation } from "../../../../utils/detachWorkLocation.js";
 
 // Sync / replace assigned employees for a work location (supports assigning, unassigning, and clearing all)
 export async function PUT(request, { params }) {
@@ -86,39 +87,9 @@ export async function PUT(request, { params }) {
       }
     );
 
-    // 2. Remove location from unassigned employees
+    // 2. Remove every stored copy of this location from unassigned employees
     if (toRemove.length > 0) {
-      await db.collection("employees").updateMany(
-        { _id: { $in: toRemove } },
-        {
-          $pull: {
-            workLocations: { $in: [locationObjectId, id] },
-            workLocationsDetails: { _id: { $in: [locationObjectId, id] } },
-          },
-          $set: { updatedAt: new Date() },
-        }
-      );
-
-      await db.collection("employees").updateMany(
-        {
-          _id: { $in: toRemove },
-          $or: [
-            { workLocation: id },
-            { workLocation: workLocation.name },
-            { workLocationName: workLocation.name },
-            { "personalDetails.workLocation": id },
-            { "personalDetails.workLocation": workLocation.name },
-          ],
-        },
-        {
-          $unset: {
-            workLocation: "",
-            workLocationName: "",
-            workLocationId: "",
-            "personalDetails.workLocation": "",
-          },
-        }
-      );
+      await detachEmployeesFromLocation(db, workLocation, toRemove);
     }
 
     // 3. Add location to newly assigned employees
@@ -324,39 +295,8 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Remove work location from employee records
     if (employeeObjectIds.length > 0) {
-      await db.collection("employees").updateMany(
-        { _id: { $in: employeeObjectIds } },
-        {
-          $pull: {
-            workLocations: { $in: [locationObjectId, id] },
-            workLocationsDetails: { _id: { $in: [locationObjectId, id] } },
-          },
-          $set: { updatedAt: new Date() },
-        }
-      );
-
-      await db.collection("employees").updateMany(
-        {
-          _id: { $in: employeeObjectIds },
-          $or: [
-            { workLocation: id },
-            { workLocation: workLocation.name },
-            { workLocationName: workLocation.name },
-            { "personalDetails.workLocation": id },
-            { "personalDetails.workLocation": workLocation.name },
-          ],
-        },
-        {
-          $unset: {
-            workLocation: "",
-            workLocationName: "",
-            workLocationId: "",
-            "personalDetails.workLocation": "",
-          },
-        }
-      );
+      await detachEmployeesFromLocation(db, workLocation, employeeObjectIds);
     }
 
     // Create audit log

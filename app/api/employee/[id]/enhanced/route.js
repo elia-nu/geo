@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
+import { linkEmployeeDepartment } from "../../../../utils/departmentLink.js";
 import bcrypt from "bcryptjs";
 
 // Update employee with enhanced data structure
@@ -64,10 +65,17 @@ export async function PUT(request, { params }) {
         );
       }
 
+      const linkedDepartment = await linkEmployeeDepartment(
+        db,
+        data.personalDetails?.department
+      );
+
       // 1. Update main employee record with personal details
       const employeeUpdateData = {
         ...data.personalDetails,
-        department: data.personalDetails.department,
+        department: linkedDepartment.department,
+        departmentId: linkedDepartment.departmentId,
+        "personalDetails.department": linkedDepartment.department,
         designation: data.personalDetails.designation,
         workLocation: data.personalDetails.workLocation,
         updatedAt: new Date(),

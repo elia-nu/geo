@@ -95,13 +95,28 @@ export async function DELETE(request, { params }) {
     if (!dept)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // Block deletion if employees are still assigned to this department
+    // Same rule as the department staff count: current department name wins.
+    // A leftover departmentId from a previous assignment does not count.
+    const escapedName = String(dept.name || "").replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
+    const nameRegex = new RegExp(`^\\s*${escapedName}\\s*$`, "i");
     const employeeCount = await db.collection("employees").countDocuments({
       $or: [
-        { departmentId: new ObjectId(id) },
-        { departmentId: id },
-        { "personalDetails.department": dept.name },
-        { department: dept.name },
+        { department: nameRegex },
+        {
+          $and: [
+            {
+              $or: [
+                { department: { $exists: false } },
+                { department: null },
+                { department: "" },
+              ],
+            },
+            { "personalDetails.department": nameRegex },
+          ],
+        },
       ],
     });
 

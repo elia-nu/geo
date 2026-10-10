@@ -16,49 +16,73 @@ export async function GET(request) {
       query.projectId = new ObjectId(projectId);
     }
 
-    // Always compute employeeCount. Match by departmentId OR by department name string
+    // Count by the department name shown on the employee record.
+    // A leftover departmentId from a previous assignment must not keep
+    // the employee in the old department after they are moved.
     const pipeline = [
       { $match: query },
       {
         $lookup: {
           from: "employees",
-          let: { deptId: "$_id", deptName: "$name" },
+          let: { deptName: "$name" },
           pipeline: [
             {
               $match: {
                 $expr: {
-                  $or: [
+                  $eq: [
                     {
-                      $and: [
-                        { $ne: ["$departmentId", null] },
-                        { $eq: ["$departmentId", "$$deptId"] },
-                      ],
+                      $toLower: {
+                        $trim: {
+                          input: {
+                            $convert: {
+                              input: {
+                                $cond: [
+                                  {
+                                    $gt: [
+                                      {
+                                        $strLenCP: {
+                                          $trim: {
+                                            input: {
+                                              $convert: {
+                                                input: "$department",
+                                                to: "string",
+                                                onError: "",
+                                                onNull: "",
+                                              },
+                                            },
+                                          },
+                                        },
+                                      },
+                                      0,
+                                    ],
+                                  },
+                                  "$department",
+                                  {
+                                    $ifNull: ["$personalDetails.department", ""],
+                                  },
+                                ],
+                              },
+                              to: "string",
+                              onError: "",
+                              onNull: "",
+                            },
+                          },
+                        },
+                      },
                     },
                     {
-                      $and: [
-                        {
-                          $ne: [
-                            {
-                              $ifNull: [
-                                "$personalDetails.department",
-                                "$department",
-                              ],
+                      $toLower: {
+                        $trim: {
+                          input: {
+                            $convert: {
+                              input: "$$deptName",
+                              to: "string",
+                              onError: "",
+                              onNull: "",
                             },
-                            null,
-                          ],
+                          },
                         },
-                        {
-                          $eq: [
-                            {
-                              $ifNull: [
-                                "$personalDetails.department",
-                                "$department",
-                              ],
-                            },
-                            "$$deptName",
-                          ],
-                        },
-                      ],
+                      },
                     },
                   ],
                 },

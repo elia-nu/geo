@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../mongo";
 import { ObjectId } from "mongodb";
 import { createAuditLog } from "../../../../utils/audit.js";
+import { linkEmployeeDepartment } from "../../../../utils/departmentLink.js";
 import bcrypt from "bcryptjs";
 
 // Update employee with enhanced data structure (no transactions)
@@ -42,6 +43,10 @@ export async function PUT(request, { params }) {
     const salaryVal = rawSalary !== undefined && rawSalary !== "" ? Number(rawSalary) : undefined;
     const bankAccountVal = data.personalDetails?.bankAccount ?? data.personalDetails?.bankAccountNumber ?? undefined;
     const bankNameVal = data.personalDetails?.bankName ?? undefined;
+    const linkedDepartment = await linkEmployeeDepartment(
+      db,
+      data.personalDetails?.department
+    );
 
     // 1. Update main employee record with personal details
     const employeeUpdateData = {
@@ -65,6 +70,7 @@ export async function PUT(request, { params }) {
             }
           : {}),
         ...(bankNameVal !== undefined ? { bankName: bankNameVal } : {}),
+        department: linkedDepartment.department,
       },
       payrollDetails: {
         ...(currentEmployee.payrollDetails || {}),
@@ -83,7 +89,8 @@ export async function PUT(request, { params }) {
           : {}),
         ...(bankNameVal !== undefined ? { bankName: bankNameVal } : {}),
       },
-      department: data.personalDetails.department,
+      department: linkedDepartment.department,
+      departmentId: linkedDepartment.departmentId,
       designation: data.personalDetails.designation,
       workLocation: data.personalDetails.workLocation,
       ...(salaryVal !== undefined && !Number.isNaN(salaryVal)
