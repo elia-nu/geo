@@ -30,10 +30,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci || npm install
+        run: npm install
 
       - name: Build Next.js
         run: npm run build
@@ -45,9 +44,22 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    env:
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
 
     steps:
+      - name: Check secrets configuration
+        id: check_secrets
+        run: |
+          if [ -z "${SERVER_HOST}" ]; then
+            echo "SERVER_HOST secret is not configured in repository secrets. Skipping deployment step."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Execute deployment on server
+        if: steps.check_secrets.outputs.skip != 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
