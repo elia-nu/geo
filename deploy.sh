@@ -3,7 +3,7 @@ set -e
 
 # Ensure standard binaries (node, npm, pm2, git) are in PATH for non-login SSH sessions
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
-export NODE_ENV=production
+export NEXT_TELEMETRY_DISABLED=1
 
 echo "=== [CI/CD Deploy] Starting Production Deployment for Geo HRMS ==="
 
@@ -13,8 +13,8 @@ echo "--> Fetching and resetting to latest code from origin/prod..."
 git fetch origin prod
 git reset --hard origin/prod
 
-echo "--> Installing dependencies..."
-npm install
+echo "--> Installing dependencies (including build devDependencies)..."
+npm install --include=dev
 
 echo "--> Building Next.js application..."
 npm run build
