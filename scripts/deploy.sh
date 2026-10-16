@@ -1,12 +1,17 @@
 #!/bin/bash
 set -e
 
+# Ensure standard binaries (node, npm, pm2, git) are in PATH for non-login SSH sessions
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+export NODE_ENV=production
+
 echo "=== [CI/CD Deploy] Starting Production Deployment for Geo HRMS ==="
 
 cd /root/geo
 
-echo "--> Pulling latest code..."
-git pull origin prod || git pull origin main || git pull origin master
+echo "--> Fetching and resetting to latest code from origin/prod..."
+git fetch origin prod
+git reset --hard origin/prod
 
 echo "--> Installing dependencies..."
 npm install

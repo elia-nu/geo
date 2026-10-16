@@ -43,23 +43,30 @@ jobs:
     name: Deploy to Production Server
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     env:
       SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
 
     steps:
-      - name: Check secrets configuration
-        id: check_secrets
+      - name: Verify Deployment Secrets
         run: |
-          if [ -z "${SERVER_HOST}" ]; then
-            echo "SERVER_HOST secret is not configured in repository secrets. Skipping deployment step."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
+          MISSING=()
+          [ -z "${SERVER_HOST}" ] && MISSING+=("SERVER_HOST")
+          [ -z "${SERVER_USER}" ] && MISSING+=("SERVER_USER")
+          [ -z "${SERVER_SSH_KEY}" ] && MISSING+=("SERVER_SSH_KEY")
+          
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            echo "::error::Deployment cannot proceed. The following required secrets are not configured in repository secrets: ${MISSING[*]}"
+            echo "Please go to https://github.com/${{ github.repository }}/settings/secrets/actions and add:"
+            for secret in "${MISSING[@]}"; do
+              echo "  - $secret"
+            done
+            exit 1
           fi
 
       - name: Execute deployment on server
-        if: steps.check_secrets.outputs.skip != 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
