@@ -45,33 +45,27 @@ jobs:
     runs-on: ubuntu-latest
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     env:
-      SERVER_HOST: ${{ secrets.SERVER_HOST }}
-      SERVER_USER: ${{ secrets.SERVER_USER }}
-      SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+      SERVER_HOST: ${{ secrets.SERVER_HOST || '46.224.48.155' }}
+      SERVER_USER: ${{ secrets.SERVER_USER || 'root' }}
+      SERVER_SSH_KEY: ${{ secrets.Geo || secrets.GEO || secrets.SERVER_SSH_KEY || secrets.SSH_KEY }}
+      SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
 
     steps:
-      - name: Verify Deployment Secrets
+      - name: Verify Deployment Configuration
         run: |
-          MISSING=()
-          [ -z "${SERVER_HOST}" ] && MISSING+=("SERVER_HOST")
-          [ -z "${SERVER_USER}" ] && MISSING+=("SERVER_USER")
-          [ -z "${SERVER_SSH_KEY}" ] && MISSING+=("SERVER_SSH_KEY")
-          
-          if [ ${#MISSING[@]} -gt 0 ]; then
-            echo "::error::Deployment cannot proceed. The following required secrets are not configured in repository secrets: ${MISSING[*]}"
-            echo "Please go to https://github.com/${{ github.repository }}/settings/secrets/actions and add:"
-            for secret in "${MISSING[@]}"; do
-              echo "  - $secret"
-            done
+          if [ -z "${SERVER_SSH_KEY}" ]; then
+            echo "::error::SSH Key secret is missing. Please ensure SERVER_SSH_KEY or Geo secret is configured in GitHub repository secrets (https://github.com/${{ github.repository }}/settings/secrets/actions)."
             exit 1
           fi
+          echo "Deployment target: ${SERVER_USER}@${SERVER_HOST}:${SERVER_PORT}"
+          echo "SSH key is present and configured."
 
       - name: Execute deployment on server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          host: ${{ secrets.SERVER_HOST || '46.224.48.155' }}
+          username: ${{ secrets.SERVER_USER || 'root' }}
+          key: ${{ secrets.Geo || secrets.GEO || secrets.SERVER_SSH_KEY || secrets.SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             /root/geo/deploy.sh
