@@ -9,11 +9,13 @@ const emailConfig = {
   secure: process.env.EMAIL_SECURE === "true" || false,
   auth: {
     user:
-      process.env.EMAIL_USER || process.env.SMTP_USER || "bezaaa85@gmail.com",
+      process.env.EMAIL_USER ||
+      process.env.SMTP_USER ||
+      "efarchitecturea26@gmail.com",
     pass:
       process.env.EMAIL_PASSWORD ||
       process.env.SMTP_PASSWORD ||
-      "tgkdfohrtchlqkym",
+      "utneigwbgtxvjvox",
   },
 };
 
@@ -26,7 +28,12 @@ const createTransporter = () => {
   }
 };
 
-const sendExpiryNotification = async ({ recipientName, recipientEmail, document, daysUntilExpiry }) => {
+const sendExpiryNotification = async ({
+  recipientName,
+  recipientEmail,
+  document,
+  daysUntilExpiry,
+}) => {
   const transporter = createTransporter();
   if (!transporter) return false;
 
@@ -50,8 +57,8 @@ const sendExpiryNotification = async ({ recipientName, recipientEmail, document,
         .alert-box { background: ${
           isExpired ? "#f8d7da" : "#fff3cd"
         }; border: 1px solid ${
-    isExpired ? "#f5c6cb" : "#ffeaa7"
-  }; padding: 15px; margin: 15px 0; border-radius: 5px; }
+          isExpired ? "#f5c6cb" : "#ffeaa7"
+        }; padding: 15px; margin: 15px 0; border-radius: 5px; }
         .document-details { background: white; padding: 15px; margin: 15px 0; border-radius: 5px; border-left: 4px solid #007bff; }
         .footer { text-align: center; margin-top: 20px; padding: 20px; color: #666; font-size: 12px; }
       </style>
@@ -78,7 +85,7 @@ const sendExpiryNotification = async ({ recipientName, recipientEmail, document,
               <li><strong>Title:</strong> ${document.title || document.originalName}</li>
               <li><strong>Type:</strong> ${document.documentType || "Document"}</li>
               <li><strong>Expiry Date:</strong> ${new Date(
-                document.expiryDate
+                document.expiryDate,
               ).toLocaleDateString()}</li>
               <li><strong>Description:</strong> ${
                 document.description || "N/A"
@@ -115,10 +122,7 @@ const sendExpiryNotification = async ({ recipientName, recipientEmail, document,
     await transporter.sendMail(mailOptions);
     return true;
   } catch (error) {
-    console.error(
-      `Failed to send email to ${recipientEmail}:`,
-      error
-    );
+    console.error(`Failed to send email to ${recipientEmail}:`, error);
     return false;
   }
 };
@@ -175,7 +179,9 @@ export async function POST(request) {
 
     for (const document of allExpiringCandidates) {
       // Determine recipient info: Employee or Client
-      const employee = document.employeeId ? employeeMap[document.employeeId] : null;
+      const employee = document.employeeId
+        ? employeeMap[document.employeeId]
+        : null;
       const recipientEmail =
         document.clientEmail ||
         document.email ||
@@ -190,7 +196,7 @@ export async function POST(request) {
 
       if (!recipientEmail) {
         console.warn(
-          `No recipient email found for document: ${document.title || document._id}`
+          `No recipient email found for document: ${document.title || document._id}`,
         );
         continue;
       }
@@ -199,12 +205,13 @@ export async function POST(request) {
       expiryDate.setHours(0, 0, 0, 0);
 
       const daysUntilExpiry = Math.ceil(
-        (expiryDate - today) / (1000 * 60 * 60 * 24)
+        (expiryDate - today) / (1000 * 60 * 60 * 24),
       );
 
       // Only notify if expiring within 30 days or expired (up to 60 days overdue)
       // or if force mode is enabled
-      const inNotificationRange = force || (daysUntilExpiry <= 30 && daysUntilExpiry >= -60);
+      const inNotificationRange =
+        force || (daysUntilExpiry <= 30 && daysUntilExpiry >= -60);
       if (!inNotificationRange) {
         continue;
       }
@@ -220,7 +227,7 @@ export async function POST(request) {
 
         if (lastNotif) {
           console.log(
-            `Document notification already sent within last 24h for: ${document.title}`
+            `Document notification already sent within last 24h for: ${document.title}`,
           );
           continue;
         }
@@ -239,7 +246,10 @@ export async function POST(request) {
           employeeId: document.employeeId || null,
           documentId: document._id,
           type: "document_expiry",
-          title: daysUntilExpiry <= 0 ? "Document Expired" : `Document Expiring in ${daysUntilExpiry} Days`,
+          title:
+            daysUntilExpiry <= 0
+              ? "Document Expired"
+              : `Document Expiring in ${daysUntilExpiry} Days`,
           message: `Document "${document.title || document.originalName}" ${
             daysUntilExpiry <= 0
               ? "has expired"
@@ -288,7 +298,7 @@ export async function POST(request) {
     console.error("Error sending expiry notifications:", error);
     return NextResponse.json(
       { error: "Failed to send expiry notifications", details: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -310,7 +320,7 @@ export async function GET() {
     console.error("Error fetching notifications:", error);
     return NextResponse.json(
       { error: "Failed to fetch notifications" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

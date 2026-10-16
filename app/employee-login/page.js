@@ -109,7 +109,10 @@ export default function EmployeeLoginPage() {
             <h1 className="text-3xl font-bold text-blue-900 my-2 ">
               EF Architects and Engineers Consulting plc
             </h1>
-            <p className="text-blue-900">
+            <h2 className="text-xl font-semibold text-blue-900">
+              Employee Login
+            </h2>
+            <p className="text-center text-blue-900 mt-1">
               Access your attendance and document submission
             </p>
           </div>

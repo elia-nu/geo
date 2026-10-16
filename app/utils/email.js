@@ -7,11 +7,13 @@ const emailConfig = {
   secure: process.env.EMAIL_SECURE === "true" || false,
   auth: {
     user:
-      process.env.EMAIL_USER || process.env.SMTP_USER || "bezaaa85@gmail.com",
+      process.env.EMAIL_USER ||
+      process.env.SMTP_USER ||
+      "efarchitecturea26@gmail.com",
     pass:
       process.env.EMAIL_PASSWORD ||
       process.env.SMTP_PASSWORD ||
-      "tgkdfohrtchlqkym",
+      "utneigwbgtxvjvox",
   },
 };
 
@@ -178,7 +180,7 @@ export const sendTaskAssignmentEmail = async (employee, task, project) => {
                 <span class="detail-label">Status:</span>
                 <span class="detail-value"><span class="status-badge">${task.status.replace(
                   "_",
-                  " "
+                  " ",
                 )}</span></span>
               </div>
               ${
@@ -187,7 +189,7 @@ export const sendTaskAssignmentEmail = async (employee, task, project) => {
               <div class="detail-row">
                 <span class="detail-label">Start Date:</span>
                 <span class="detail-value">${new Date(
-                  task.startDate
+                  task.startDate,
                 ).toLocaleDateString()}</span>
               </div>
               `
@@ -199,7 +201,7 @@ export const sendTaskAssignmentEmail = async (employee, task, project) => {
               <div class="detail-row">
                 <span class="detail-label">Due Date:</span>
                 <span class="detail-value">${new Date(
-                  task.dueDate
+                  task.dueDate,
                 ).toLocaleDateString()}</span>
               </div>
               `
@@ -245,7 +247,7 @@ export const sendTaskAssignmentEmail = async (employee, task, project) => {
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log(
-      `✅ Task assignment email sent successfully to ${employeeEmail}`
+      `✅ Task assignment email sent successfully to ${employeeEmail}`,
     );
     console.log("Email info:", {
       messageId: info.messageId,
@@ -373,7 +375,7 @@ export const sendProjectAssignmentEmail = async (employee, project) => {
   const transporter = createTransporter();
   if (!transporter) {
     console.error(
-      "❌ Email transporter not available - check environment variables"
+      "❌ Email transporter not available - check environment variables",
     );
     return false;
   }
@@ -443,7 +445,7 @@ export const sendProjectAssignmentEmail = async (employee, project) => {
               <div class="detail-row">
                 <span class="detail-label">Start Date:</span>
                 <span class="detail-value">${new Date(
-                  project.startDate
+                  project.startDate,
                 ).toLocaleDateString()}</span>
               </div>
               `
@@ -455,7 +457,7 @@ export const sendProjectAssignmentEmail = async (employee, project) => {
               <div class="detail-row">
                 <span class="detail-label">End Date:</span>
                 <span class="detail-value">${new Date(
-                  project.endDate
+                  project.endDate,
                 ).toLocaleDateString()}</span>
               </div>
               `
@@ -525,7 +527,7 @@ export const sendContractExpiryEmail = async (employee, daysUntilExpiry) => {
   const transporter = createTransporter();
   if (!transporter) {
     console.error(
-      "❌ Email transporter not available - check environment variables"
+      "❌ Email transporter not available - check environment variables",
     );
     return false;
   }
@@ -562,13 +564,13 @@ export const sendContractExpiryEmail = async (employee, daysUntilExpiry) => {
   const urgencyColor = isExpired
     ? "#dc3545"
     : daysUntilExpiry <= 7
-    ? "#fd7e14"
-    : "#ffc107";
+      ? "#fd7e14"
+      : "#ffc107";
   const urgencyText = isExpired
     ? "EXPIRED"
     : daysUntilExpiry <= 7
-    ? "URGENT"
-    : "WARNING";
+      ? "URGENT"
+      : "WARNING";
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -596,8 +598,8 @@ export const sendContractExpiryEmail = async (employee, daysUntilExpiry) => {
       <div class="container">
         <div class="header">
           <h1>${isExpired ? "⛔" : "⚠️"} Contract ${
-    isExpired ? "Expired" : "Expiring Soon"
-  }</h1>
+            isExpired ? "Expired" : "Expiring Soon"
+          }</h1>
           <p>${
             isExpired
               ? "Your contract has expired"
@@ -644,8 +646,8 @@ export const sendContractExpiryEmail = async (employee, daysUntilExpiry) => {
               : `
           <div class="warning-box">
             <strong>⚠️ Reminder:</strong> Your employment contract will expire in ${daysUntilExpiry} day${
-                  daysUntilExpiry !== 1 ? "s" : ""
-                }. Please contact HR to discuss contract renewal or extension options before the expiry date.
+              daysUntilExpiry !== 1 ? "s" : ""
+            }. Please contact HR to discuss contract renewal or extension options before the expiry date.
           </div>
           `
           }
@@ -693,7 +695,7 @@ export const sendContractExpiryEmail = async (employee, daysUntilExpiry) => {
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log(
-      `✅ Contract expiry email sent successfully to ${employeeEmail}`
+      `✅ Contract expiry email sent successfully to ${employeeEmail}`,
     );
     console.log("Email info:", {
       messageId: info.messageId,
